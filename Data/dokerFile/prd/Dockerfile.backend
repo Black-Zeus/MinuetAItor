@@ -1,0 +1,27 @@
+FROM python:3.12-slim
+
+ARG BACKEND_PORT_INTERNAL=8000
+
+WORKDIR /app
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+  && rm -rf /var/lib/apt/lists/*
+
+# usuario no-root
+RUN useradd -m appuser
+USER appuser
+
+# Copia e instala deps
+COPY --chown=appuser:appuser APP/volumes/backend/requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copia código (prd no monta volúmenes de app)
+COPY --chown=appuser:appuser APP/volumes/backend/ /app
+
+EXPOSE ${BACKEND_PORT_INTERNAL}
+
+CMD ["sh","-lc","uvicorn main:app --host 0.0.0.0 --port ${BACKEND_PORT_INTERNAL}"]

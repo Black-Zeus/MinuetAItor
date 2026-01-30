@@ -1,0 +1,12 @@
+
+FROM nginx:1.25-alpine
+
+# En PRD conviene “bakear” la config, no montarla.
+# Ajusta esta ruta a donde dejes tu conf real:
+# COPY APP/data/settings/nginx/conf.d/ /etc/nginx/conf.d/
+# COPY APP/data/settings/nginx/certs/ /etc/nginx/certs/
+
+RUN nginx -t
+
+EXPOSE 80
+# EXPOSE 443

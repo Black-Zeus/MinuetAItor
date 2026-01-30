@@ -1,0 +1,14 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Copia requirements desde la ruta real
+COPY APP/volumes/worker/requirements.txt /app/requirements.txt
+
+RUN pip install --no-cache-dir -r /app/requirements.txt
+
+# En DEV normalmente montarás /app con volumes, pero igual deja esto:
+COPY APP/volumes/worker/app/ /app/
+
+CMD ["python", "worker.py"]
+

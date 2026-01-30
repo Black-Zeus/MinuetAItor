@@ -1,0 +1,289 @@
+name: ${PROJECT_NAME}
+
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+x-resources-small: &resources-small
+  cpus: "0.50"
+  mem_limit: "256m"
+
+x-resources-medium: &resources-medium
+  cpus: "1.00"
+  mem_limit: "512m"
+
+x-resources-db: &resources-db
+  cpus: "1.00"
+  mem_limit: "1024m"
+
+services:
+  mariadb:
+    image: mariadb:11.4
+    container_name: ${PROJECT_NAME}-mariadb
+    labels:
+      - stack=${PROJECT_NAME}
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD}
+      MARIADB_DATABASE: ${MARIADB_DATABASE}
+      MARIADB_USER: ${MARIADB_USER}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD}
+    volumes:
+      - ./APP/data/mariadb_data:/var/lib/mysql
+      - ./APP/data/settings/mariadb/init:/docker-entrypoint-initdb.d:ro
+      - ./APP/logs/mariadb:/var/log/mysql
+    ports:
+      - "${MARIADB_PORT:-3306}:3306"
+    healthcheck:
+      test: ["CMD", "mariadb-admin", "ping", "-h", "127.0.0.1", "-p${MARIADB_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    networks:
+      - internal
+    restart: unless-stopped
+    logging: *default-logging
+    <<: *resources-db
+
+  redis:
+    image: redis:7-alpine
+    container_name: ${PROJECT_NAME}-redis
+    labels:
+      - stack=${PROJECT_NAME}
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    volumes:
+      - ./APP/data/redis_data:/data
+      - ./APP/data/settings/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+      - ./APP/logs/redis:/var/log/redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 30
+    networks:
+      - internal
+    restart: unless-stopped
+    logging: *default-logging
+    <<: *resources-small
+
+  minio:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    container_name: ${PROJECT_NAME}-minio
+    labels:
+      - stack=${PROJECT_NAME}
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    command: ["server", "/data", "--console-address", ":9001"]
+    volumes:
+      - ./APP/data/minio_data:/data
+      - ./APP/logs/minio:/var/log/minio
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    networks:
+      - internal
+    restart: unless-stopped
+    logging: *default-logging
+    <<: *resources-medium
+
+  frontend:
+    container_name: ${PROJECT_NAME}-frontend
+    labels:
+      - stack=${PROJECT_NAME}
+    build:
+      context: .
+      dockerfile: ./Data/dokerFile/dev_qa/Dockerfile.frontend
+    image: ${PROJECT_NAME}/frontend:dev
+    working_dir: /app
+    environment:
+      NODE_ENV: development
+    volumes:
+      - ./APP/volumes/frontend:/app
+      - frontend_node_modules:/app/node_modules
+      - ./APP/logs/frontend:/var/log/app
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
+    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:5173 >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    networks:
+      - internal
+    restart: unless-stopped
+    logging: *default-logging
+    <<: *resources-medium
+
+  backend:
+    container_name: ${PROJECT_NAME}-backend
+    labels:
+      - stack=${PROJECT_NAME}
+    build:
+      context: .
+      dockerfile: ./Data/dokerFile/dev_qa/Dockerfile.backend
+    image: ${PROJECT_NAME}/backend:dev
+    environment:
+      ENV_NAME: ${ENV_NAME:-dev}
+      MARIADB_HOST: ${MARIADB_HOST:-mariadb}
+      MARIADB_PORT: ${MARIADB_PORT:-3306}
+      MARIADB_DATABASE: ${MARIADB_DATABASE}
+      MARIADB_USER: ${MARIADB_USER}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      MINIO_HOST: ${MINIO_HOST:-minio}
+      MINIO_PORT: ${MINIO_PORT:-9000}
+      JWT_SECRET: ${JWT_SECRET}
+    volumes:
+      - ./APP/volumes/backend/app:/app
+      - ./APP/data/backend_data:/app/_data
+      - ./APP/logs/backend:/var/log/app
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    # Si tu backend NO tiene /health, comenta este healthcheck
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8000/health >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    networks:
+      - internal
+    restart: unless-stopped
+    logging: *default-logging
+    <<: *resources-medium
+
+  worker:
+    container_name: ${PROJECT_NAME}-worker
+    labels:
+      - stack=${PROJECT_NAME}
+    build:
+      context: .
+      dockerfile: ./Data/dokerFile/dev_qa/Dockerfile.worker
+    image: ${PROJECT_NAME}/worker:dev
+    environment:
+      ENV_NAME: ${ENV_NAME:-dev}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+    volumes:
+      - ./APP/volumes/worker/app:/app
+      - ./APP/logs/worker:/var/log/app
+    command: ["python", "-u", "worker.py"]
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - internal
+    restart: unless-stopped
+    logging: *default-logging
+    <<: *resources-small
+
+  nginx:
+    container_name: ${PROJECT_NAME}-nginx
+    labels:
+      - stack=${PROJECT_NAME}
+    build:
+      context: .
+      dockerfile: ./Data/dokerFile/dev_qa/Dockerfile.nginx
+    image: ${PROJECT_NAME}/nginx:dev
+    depends_on:
+      frontend:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    ports:
+      - "${NGINX_HTTP_PORT:-8080}:80"
+    volumes:
+      - ./APP/data/settings/nginx/conf.d/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./APP/data/settings/nginx/certs:/etc/nginx/certs:ro
+      - ./APP/logs/nginx:/var/log/nginx
+    networks:
+      - internal
+      - external
+    restart: unless-stopped
+    logging: *default-logging
+    <<: *resources-small
+
+  phpmyadmin:
+    image: phpmyadmin:5-apache
+    container_name: ${PROJECT_NAME}-phpmyadmin
+    labels:
+      - stack=${PROJECT_NAME}
+    profiles: ["tools"]
+    environment:
+      PMA_HOST: mariadb
+      PMA_PORT: 3306
+      PMA_ARBITRARY: 1
+    ports:
+      - "${PHPMYADMIN_PORT:-8082}:80"
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    networks:
+      - internal
+    restart: unless-stopped
+    logging: *default-logging
+    <<: *resources-small
+
+  redisinsight:
+    image: redis/redisinsight:latest
+    container_name: ${PROJECT_NAME}-redisinsight
+    labels:
+      - stack=${PROJECT_NAME}
+    profiles: ["tools"]
+    ports:
+      - "${REDISINSIGHT_PORT:-5540}:5540"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - internal
+    restart: unless-stopped
+    logging: *default-logging
+    <<: *resources-small
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: ${PROJECT_NAME}-mailpit
+    labels:
+      - stack=${PROJECT_NAME}
+    profiles: ["tools"]
+    ports:
+      - "${MAILPIT_UI_PORT:-8025}:8025"
+      - "${MAILPIT_SMTP_PORT:-1025}:1025"
+    networks:
+      - internal
+    restart: unless-stopped
+    logging: *default-logging
+    <<: *resources-small
+
+networks:
+  internal:
+    driver: bridge
+    name: ${PROJECT_NAME}_internal
+  external:
+    driver: bridge
+    name: ${PROJECT_NAME}_external
+
+volumes:
+  frontend_node_modules:
+    name: ${PROJECT_NAME}_frontend_node_modules
