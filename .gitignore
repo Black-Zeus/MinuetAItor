@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Node
+node_modules/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+
+# Env
+.env
+.env.dev
+.env.qa
+.env.prd
+*.pem
+*.key
+**/secrets.*
+
+# Data runtime
+APP/data/*_data/
+APP/data/mariadb_data/
+APP/data/minio_data/
+APP/data/redis_data/
+
+# Certs local
+APP/data/settings/nginx/certs/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

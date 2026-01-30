@@ -1,0 +1,22 @@
+# Data/dokerFile/dev_qa/Dockerfile.frontend
+FROM node:20-alpine
+
+ARG FRONTEND_PORT_INTERNAL=5173
+
+WORKDIR /app
+
+# Utils (opcional, pero útil para healthchecks/curl)
+RUN apk add --no-cache curl
+
+# Copiamos solo manifests para cachear deps.
+# OJO: Para que no falle si no existe package-lock.json, usamos el patrón *.json.
+# Esto copia package.json y (si existe) package-lock.json.
+COPY APP/volumes/frontend/package*.json ./
+
+# Instala deps (en dev preferimos npm install; npm ci requiere lock)
+RUN npm install --no-audit --no-fund
+
+EXPOSE ${FRONTEND_PORT_INTERNAL}
+
+# En dev el código se monta por volumen (compose)
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]

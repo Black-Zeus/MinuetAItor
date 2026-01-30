@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Content</title>
+  <link rel="stylesheet" href="./css/styles.css">
+  <style>
+    /* Estilos específicos para el contenido del dashboard */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: var(--spacing-xl);
+      margin-bottom: var(--spacing-xl);
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: var(--spacing-lg);
+      margin-bottom: var(--spacing-2xl);
+    }
+
+    .stat-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: var(--spacing-lg);
+      transition: all 200ms var(--transition-timing);
+    }
+
+    .stat-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-card-hover);
+    }
+
+    .stat-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--spacing-md);
+    }
+
+    .stat-card-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--radius-lg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: var(--font-size-xl);
+    }
+
+    .stat-card-icon.primary {
+      background: linear-gradient(135deg, var(--color-primary-100), var(--color-primary-50));
+      color: var(--color-primary-600);
+    }
+
+    .stat-card-icon.warm {
+      background: linear-gradient(135deg, var(--color-warm-100), var(--color-warm-50));
+      color: var(--color-warm-600);
+    }
+
+    .stat-card-icon.success {
+      background: linear-gradient(135deg, var(--color-success-100), var(--color-success-50));
+      color: var(--color-success-600);
+    }
+
+    .stat-card-icon.info {
+      background: linear-gradient(135deg, var(--color-info-100), var(--color-info-50));
+      color: var(--color-info-600);
+    }
+
+    .stat-card-value {
+      font-size: var(--font-size-3xl);
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: var(--spacing-xs);
+    }
+
+    .stat-card-label {
+      font-size: var(--font-size-sm);
+      color: var(--text-secondary);
+      margin-bottom: var(--spacing-sm);
+    }
+
+    .stat-card-trend {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--spacing-xs);
+      font-size: var(--font-size-sm);
+      font-weight: 600;
+      padding: 0.25rem 0.5rem;
+      border-radius: var(--radius-sm);
+    }
+
+    .stat-card-trend.up {
+      color: var(--color-success-700);
+      background-color: var(--color-success-50);
+    }
+
+    .stat-card-trend.down {
+      color: var(--color-danger-700);
+      background-color: var(--color-danger-50);
+    }
+
+    .content-section {
+      margin-bottom: var(--spacing-2xl);
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--spacing-lg);
+    }
+
+    .section-title {
+      font-size: var(--font-size-2xl);
+      font-weight: 600;
+      color: var(--text-primary);
+      margin: 0;
+    }
+
+    .table-container {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .table thead {
+      background-color: var(--bg-secondary);
+      border-bottom: 2px solid var(--border-color);
+    }
+
+    .table th {
+      padding: var(--spacing-md) var(--spacing-lg);
+      text-align: left;
+      font-size: var(--font-size-sm);
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .table td {
+      padding: var(--spacing-md) var(--spacing-lg);
+      border-bottom: 1px solid var(--border-color);
+      color: var(--text-primary);
+    }
+
+    .table tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    .table tbody tr:hover {
+      background-color: var(--bg-secondary);
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.25rem 0.625rem;
+      font-size: var(--font-size-xs);
+      font-weight: 600;
+      border-radius: var(--radius-full);
+      white-space: nowrap;
+    }
+
+    .status-badge.pending {
+      color: var(--color-warning-700);
+      background-color: var(--color-warning-50);
+    }
+
+    .status-badge.completed {
+      color: var(--color-success-700);
+      background-color: var(--color-success-50);
+    }
+
+    .status-badge.in-progress {
+      color: var(--color-primary-700);
+      background-color: var(--color-primary-50);
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: var(--spacing-2xl);
+      color: var(--text-muted);
+    }
+
+    .empty-state svg {
+      width: 64px;
+      height: 64px;
+      margin-bottom: var(--spacing-lg);
+      opacity: 0.3;
+    }
+
+    .chart-container {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: var(--spacing-xl);
+      height: 300px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+    }
+
+    @media (max-width: 1024px) {
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .dashboard-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Page Header -->
+  <div class="content-section">
+    <div class="section-header">
+      <div>
+        <h2 class="section-title">Bienvenido, John Doe</h2>
+        <p class="text-sm" style="color: var(--text-secondary); margin-top: 0.25rem;">
+          Resumen de tu actividad en MinuetAItor
+        </p>
+      </div>
+      <button class="btn btn-primary" id="btnNuevaMinuta">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 20px; height: 20px; margin-right: 8px;">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+        </svg>
+        Nueva Minuta
+      </button>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-card-header">
+          <div class="stat-card-icon primary">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          </div>
+        </div>
+        <div class="stat-card-value">24</div>
+        <div class="stat-card-label">Minutas este mes</div>
+        <span class="stat-card-trend up">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width: 16px; height: 16px;">
+            <path fill-rule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clip-rule="evenodd" />
+          </svg>
+          12% vs mes anterior
+        </span>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-card-header">
+          <div class="stat-card-icon warm">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          </div>
+        </div>
+        <div class="stat-card-value">87</div>
+        <div class="stat-card-label">Minutas generadas</div>
+        <span class="stat-card-trend up">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width: 16px; height: 16px;">
+            <path fill-rule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clip-rule="evenodd" />
+          </svg>
+          8% vs mes anterior
+        </span>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-card-header">
+          <div class="stat-card-icon success">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+            </svg>
+          </div>
+        </div>
+        <div class="stat-card-value">142</div>
+        <div class="stat-card-label">Compromisos activos</div>
+        <span class="stat-card-trend down">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width: 16px; height: 16px;">
+            <path fill-rule="evenodd" d="M12 13a1 1 0 100 2h5a1 1 0 001-1V9a1 1 0 10-2 0v2.586l-4.293-4.293a1 1 0 00-1.414 0L8 9.586 3.707 5.293a1 1 0 00-1.414 1.414l5 5a1 1 0 001.414 0L11 9.414 14.586 13H12z" clip-rule="evenodd" />
+          </svg>
+          5% vs mes anterior
+        </span>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-card-header">
+          <div class="stat-card-icon info">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+            </svg>
+          </div>
+        </div>
+        <div class="stat-card-value">8</div>
+        <div class="stat-card-label">Equipos activos</div>
+        <span class="stat-card-trend up">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width: 16px; height: 16px;">
+            <path fill-rule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clip-rule="evenodd" />
+          </svg>
+          2 nuevos este mes
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent Meetings -->
+  <div class="content-section">
+    <div class="section-header">
+      <h3 class="section-title">Minutas Recientes</h3>
+      <a href="#" class="btn btn-secondary btn-sm">Ver todas</a>
+    </div>
+
+    <div class="table-container">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Título</th>
+            <th>Fecha</th>
+            <th>Participantes</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <div style="font-weight: 600;">Revisión Sprint Q1 2024</div>
+              <div style="font-size: var(--font-size-sm); color: var(--text-muted);">Proyecto: MinuetAItor</div>
+            </td>
+            <td>30 Ene 2026, 10:00</td>
+            <td>
+              <div class="d-flex align-items-center gap-1">
+                <div class="avatar avatar-sm">JD</div>
+                <div class="avatar avatar-sm">MP</div>
+                <div class="avatar avatar-sm">+3</div>
+              </div>
+            </td>
+            <td><span class="status-badge completed">Completada</span></td>
+            <td>
+              <button class="btn btn-secondary btn-sm">Ver minuta</button>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <div style="font-weight: 600;">Planificación Arquitectura</div>
+              <div style="font-size: var(--font-size-sm); color: var(--text-muted);">Proyecto: Backend API</div>
+            </td>
+            <td>28 Ene 2026, 15:30</td>
+            <td>
+              <div class="d-flex align-items-center gap-1">
+                <div class="avatar avatar-sm">AM</div>
+                <div class="avatar avatar-sm">LS</div>
+              </div>
+            </td>
+            <td><span class="status-badge in-progress">En progreso</span></td>
+            <td>
+              <button class="btn btn-secondary btn-sm">Continuar</button>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <div style="font-weight: 600;">Reunión de Seguimiento</div>
+              <div style="font-size: var(--font-size-sm); color: var(--text-muted);">Proyecto: Frontend Redesign</div>
+            </td>
+            <td>25 Ene 2026, 09:00</td>
+            <td>
+              <div class="d-flex align-items-center gap-1">
+                <div class="avatar avatar-sm">KR</div>
+                <div class="avatar avatar-sm">TD</div>
+                <div class="avatar avatar-sm">+1</div>
+              </div>
+            </td>
+            <td><span class="status-badge completed">Completada</span></td>
+            <td>
+              <button class="btn btn-secondary btn-sm">Ver minuta</button>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <div style="font-weight: 600;">Demo Cliente - Fase 1</div>
+              <div style="font-size: var(--font-size-sm); color: var(--text-muted);">Proyecto: Cliente XYZ</div>
+            </td>
+            <td>22 Ene 2026, 14:00</td>
+            <td>
+              <div class="d-flex align-items-center gap-1">
+                <div class="avatar avatar-sm">JD</div>
+                <div class="avatar avatar-sm">+5</div>
+              </div>
+            </td>
+            <td><span class="status-badge completed">Completada</span></td>
+            <td>
+              <button class="btn btn-secondary btn-sm">Ver minuta</button>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <div style="font-weight: 600;">Kickoff Proyecto Nuevo</div>
+              <div style="font-size: var(--font-size-sm); color: var(--text-muted);">Proyecto: Mobile App</div>
+            </td>
+            <td>20 Ene 2026, 11:00</td>
+            <td>
+              <div class="d-flex align-items-center gap-1">
+                <div class="avatar avatar-sm">MP</div>
+                <div class="avatar avatar-sm">LS</div>
+                <div class="avatar avatar-sm">+2</div>
+              </div>
+            </td>
+            <td><span class="status-badge pending">Pendiente</span></td>
+            <td>
+              <button class="btn btn-primary btn-sm">Iniciar</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Charts Section -->
+  <div class="content-section">
+    <div class="section-header">
+      <h3 class="section-title">Analíticas</h3>
+    </div>
+
+    <div class="dashboard-grid">
+      <div class="chart-container">
+        <div class="empty-state">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+          <p>Gráfico de Minutas por mes</p>
+          <p style="font-size: var(--font-size-sm); opacity: 0.7;">Disponible próximamente</p>
+        </div>
+      </div>
+
+      <div class="chart-container">
+        <div class="empty-state">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
+          </svg>
+          <p>Distribución de compromisos</p>
+          <p style="font-size: var(--font-size-sm); opacity: 0.7;">Disponible próximamente</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

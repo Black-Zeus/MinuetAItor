@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - MinuetAItor</title>
+
+  <!-- NO MODIFICAR -->
+  <link rel="stylesheet" href="./css/styles.css">
+  <!-- Estilos específicos del login -->
+  <link rel="stylesheet" href="./css/login.css">
+</head>
+
+<body>
+<main class="login-wrapper" role="main">
+  <section class="login-shell" aria-label="Acceso a MinuetAItor">
+
+    <div class="login-card">
+      <!-- PANEL IZQUIERDO -->
+      <aside class="login-brand" aria-label="Descripción de la plataforma">
+        <div class="login-brand-inner">
+
+          <div class="login-brand-header">
+            <div class="login-brand-logo">
+              <img src="./content/img/chinchinAItor.jpg" alt="Logo MinuetAItor">
+            </div>
+            <div class="login-brand-title">
+              <h1>MinuetAItor</h1>
+              <p>Estandariza acuerdos y transforma reuniones en ejecución operativa</p>
+            </div>
+          </div>
+
+          <div class="login-brand-body">
+            <p class="login-brand-description">
+              MinuetAItor convierte reuniones en resultados operativos.
+              Centraliza decisiones, estructura acuerdos y automatiza la generación
+              de minutas, compromisos y requerimientos, asegurando responsables,
+              fechas comprometidas y trazabilidad continua.
+            </p>
+          </div>
+
+          <div class="login-brand-footer" aria-hidden="true">
+            <span class="brand-pill">
+              Entorno Corporativo · Acceso Autenticado y Auditado
+            </span>
+          </div>
+
+        </div>
+      </aside>
+
+      <!-- PANEL DERECHO -->
+      <section class="login-panel" aria-label="Formulario de acceso">
+        <div class="login-panel-inner">
+
+          <header class="login-form-header">
+            <h2 class="login-form-title">Acceso</h2>
+            <p class="login-form-description">
+              Ingresa tus credenciales corporativas para continuar.
+            </p>
+          </header>
+
+          <form class="login-form" id="loginForm" autocomplete="on" novalidate>
+
+            <div class="form-group">
+              <label for="email" class="form-label">Correo electrónico</label>
+              <input type="email" id="email" class="form-input"
+                     placeholder="usuario@dominio.cl" required>
+            </div>
+
+            <div class="form-group">
+              <label for="password" class="form-label">Contraseña</label>
+              <div class="input-with-action">
+                <input type="password" id="password" class="form-input" required>
+                <button type="button" class="input-action" id="togglePassword">👁</button>
+              </div>
+            </div>
+
+            <label class="remember-me">
+              <input type="checkbox">
+              <span>Recordarme</span>
+            </label>
+
+            <button type="submit" class="btn btn-primary login-submit">
+              Iniciar Sesión
+            </button>
+
+          </form>
+
+          <footer class="login-footer">
+            <div class="login-footer-grid">
+              <div>
+                <span>¿No tienes una cuenta?</span>
+                <a href="#" class="login-footer-link">Solicitar alta</a>
+              </div>
+              <div class="login-footer-right">
+                <a href="#" class="forgot-link">¿Olvidaste tu contraseña?</a>
+              </div>
+            </div>
+          </footer>
+
+        </div>
+      </section>
+    </div>
+
+
+  </section>
+</main>
+
+
+  <script>
+    document.getElementById('loginForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      if (email.value && password.value) {
+        setTimeout(() => {
+          window.location.href = './index-monolitico.html';
+        }, 300);
+      }
+    });
+
+    document.getElementById('togglePassword').onclick = () => {
+      password.type = password.type === 'password' ? 'text' : 'password';
+    };
+
+    if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      document.documentElement.classList.add('dark');
+    }
+  </script>
+</body>
+</html>

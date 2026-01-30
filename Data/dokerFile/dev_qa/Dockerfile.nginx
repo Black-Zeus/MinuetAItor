@@ -1,0 +1,8 @@
+
+FROM nginx:1.25-alpine
+
+# En dev/qa lo normal es montar conf.d por volumen desde el compose.
+# Esto deja el contenedor listo, sin hardcodear configs.
+RUN nginx -v
+
+EXPOSE 80

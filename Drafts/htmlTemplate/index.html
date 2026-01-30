@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MinuetAItor - Dashboard</title>
+  <link rel="stylesheet" href="./css/styles.css">
+  <link rel="stylesheet" href="./css/sidebar.css">
+  <link rel="stylesheet" href="./css/header.css">
+  <link rel="stylesheet" href="./css/modal.css">
+  <style>
+    /* Layout Master Styles */
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+
+    .layout-wrapper {
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .main-wrapper {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      margin-left: var(--sidebar-width);
+      transition: margin-left var(--transition-duration) var(--transition-timing);
+      overflow: hidden;
+    }
+
+    .sidebar.collapsed~.main-wrapper {
+      margin-left: var(--sidebar-collapsed-width);
+    }
+
+    .content-wrapper {
+      flex: 1;
+      margin-top: var(--header-height);
+      overflow-y: auto;
+      overflow-x: hidden;
+      background-color: var(--bg-secondary);
+    }
+
+    .content-container {
+      padding: var(--spacing-xl);
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+
+    /* Estilos del contenido del dashboard */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: var(--spacing-xl);
+      margin-bottom: var(--spacing-xl);
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: var(--spacing-lg);
+      margin-bottom: var(--spacing-2xl);
+    }
+
+    .stat-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: var(--spacing-lg);
+      transition: all 200ms var(--transition-timing);
+    }
+
+    .stat-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-card-hover);
+    }
+
+    .stat-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--spacing-md);
+    }
+
+    .stat-card-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--radius-lg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: var(--font-size-xl);
+    }
+
+    .stat-card-icon.primary {
+      background: linear-gradient(135deg, var(--color-primary-100), var(--color-primary-50));
+      color: var(--color-primary-600);
+    }
+
+    .stat-card-icon.warm {
+      background: linear-gradient(135deg, var(--color-warm-100), var(--color-warm-50));
+      color: var(--color-warm-600);
+    }
+
+    .stat-card-icon.success {
+      background: linear-gradient(135deg, var(--color-success-100), var(--color-success-50));
+      color: var(--color-success-600);
+    }
+
+    .stat-card-icon.info {
+      background: linear-gradient(135deg, var(--color-info-100), var(--color-info-50));
+      color: var(--color-info-600);
+    }
+
+    .stat-card-value {
+      font-size: var(--font-size-3xl);
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: var(--spacing-xs);
+    }
+
+    .stat-card-label {
+      font-size: var(--font-size-sm);
+      color: var(--text-secondary);
+      margin-bottom: var(--spacing-sm);
+    }
+
+    .stat-card-trend {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--spacing-xs);
+      font-size: var(--font-size-sm);
+      font-weight: 600;
+      padding: 0.25rem 0.5rem;
+      border-radius: var(--radius-sm);
+    }
+
+    .stat-card-trend.up {
+      color: var(--color-success-700);
+      background-color: var(--color-success-50);
+    }
+
+    .stat-card-trend.down {
+      color: var(--color-danger-700);
+      background-color: var(--color-danger-50);
+    }
+
+    .content-section {
+      margin-bottom: var(--spacing-2xl);
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--spacing-lg);
+    }
+
+    .section-title {
+      font-size: var(--font-size-2xl);
+      font-weight: 600;
+      color: var(--text-primary);
+      margin: 0;
+    }
+
+    .table-container {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .table thead {
+      background-color: var(--bg-secondary);
+      border-bottom: 2px solid var(--border-color);
+    }
+
+    .table th {
+      padding: var(--spacing-md) var(--spacing-lg);
+      text-align: left;
+      font-size: var(--font-size-sm);
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .table td {
+      padding: var(--spacing-md) var(--spacing-lg);
+      border-bottom: 1px solid var(--border-color);
+      color: var(--text-primary);
+    }
+
+    .table tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    .table tbody tr:hover {
+      background-color: var(--bg-secondary);
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.25rem 0.625rem;
+      font-size: var(--font-size-xs);
+      font-weight: 600;
+      border-radius: var(--radius-full);
+      white-space: nowrap;
+    }
+
+    .status-badge.pending {
+      color: var(--color-warning-700);
+      background-color: var(--color-warning-50);
+    }
+
+    .status-badge.completed {
+      color: var(--color-success-700);
+      background-color: var(--color-success-50);
+    }
+
+    .status-badge.in-progress {
+      color: var(--color-primary-700);
+      background-color: var(--color-primary-50);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="layout-wrapper">
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+      <!-- Toggle Button -->
+      <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle Sidebar">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+        </svg>
+      </button>
+
+      <!-- SECCIÓN A: BRANDING -->
+      <div class="sidebar-brand">
+        <div class="sidebar-brand-logo">
+          <img src="./content/img/chinchinAItor.jpg" alt="MinuetAItor">
+        </div>
+        <div class="sidebar-brand-text">
+          <h1 class="sidebar-brand-title">MinuetAItor</h1>
+          <p class="sidebar-brand-subtitle">Gestión de Minutas</p>
+        </div>
+      </div>
+
+      <!-- SECCIÓN B: NAVEGACIÓN -->
+      <nav class="sidebar-nav">
+        <div class="sidebar-menu-group">
+          <div class="sidebar-menu-title">Principal</div>
+
+          <a href="#" class="sidebar-menu-item active" data-tooltip="Dashboard">
+            <div class="sidebar-menu-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+            </div>
+            <span class="sidebar-menu-text">Dashboard</span>
+          </a>
+
+
+          <a href="#" class="sidebar-menu-item" data-tooltip="Minutas">
+            <div class="sidebar-menu-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <span class="sidebar-menu-text">Minutas</span>
+          </a>
+
+
+        </div>
+
+        <div class="sidebar-menu-group">
+          <div class="sidebar-menu-title">Gestión</div>
+
+          <a href="#" class="sidebar-menu-item" data-tooltip="Clientes">
+            <div class="sidebar-menu-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+              </svg>
+            </div>
+            <span class="sidebar-menu-text">Clientes</span>
+          </a>
+
+          <a href="#" class="sidebar-menu-item" data-tooltip="Equipos">
+            <div class="sidebar-menu-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+            </div>
+            <span class="sidebar-menu-text">Equipos</span>
+          </a>
+
+          <a href="#" class="sidebar-menu-item" data-tooltip="Reportes">
+            <div class="sidebar-menu-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+            </div>
+            <span class="sidebar-menu-text">Reportes</span>
+          </a>
+
+          <a href="#" class="sidebar-menu-item" data-tooltip="Analíticas">
+            <div class="sidebar-menu-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <span class="sidebar-menu-text">Analíticas</span>
+          </a>
+        </div>
+
+        <div class="sidebar-menu-group">
+          <div class="sidebar-menu-title">Sistema</div>
+
+          <a href="#" class="sidebar-menu-item" data-tooltip="Configuración">
+            <div class="sidebar-menu-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </div>
+            <span class="sidebar-menu-text">Configuración</span>
+          </a>
+
+
+        </div>
+      </nav>
+
+      <!-- SECCIÓN C: USER PROFILE -->
+      <div class="sidebar-footer">
+        <div class="sidebar-user" id="sidebarUser" data-tooltip="Perfil de Usuario">
+          <div class="sidebar-user-avatar">JD</div>
+          <div class="sidebar-user-info">
+            <p class="sidebar-user-name">John Doe</p>
+            <p class="sidebar-user-role">Administrador</p>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN WRAPPER -->
+    <div class="main-wrapper">
+      <!-- HEADER -->
+      <header class="header" id="header">
+        <div class="header-left">
+          <div>
+            <h1 class="header-title">Dashboard</h1>
+            <div class="header-breadcrumb">
+              <a href="#" class="header-breadcrumb-item">Inicio</a>
+              <span class="header-breadcrumb-separator">/</span>
+              <span class="header-breadcrumb-item active">Dashboard</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="header-right">
+          <div class="header-search">
+            <svg class="header-search-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+              stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input type="text" class="header-search-input" placeholder="Buscar Minutas..."
+              aria-label="Buscar">
+          </div>
+
+          <div class="header-actions">
+            <button class="header-action-btn" id="notificationsBtn" aria-label="Notificaciones">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              </svg>
+              <span class="header-action-badge"></span>
+            </button>
+
+            <button class="header-action-btn" id="messagesBtn" aria-label="Mensajes">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+              </svg>
+            </button>
+
+            <button class="theme-toggle" id="themeToggle" aria-label="Cambiar tema">
+              <svg class="sun-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+              <svg class="moon-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+              </svg>
+            </button>
+          </div>
+
+          <div class="header-divider"></div>
+
+          <div class="header-user" id="headerUser">
+            <div class="header-user-avatar">JD</div>
+            <div class="header-user-info">
+              <p class="header-user-name">John Doe</p>
+              <p class="header-user-role">Administrador</p>
+            </div>
+            <svg class="header-user-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+              stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+
+            <div class="header-user-dropdown" id="headerUserDropdown">
+              <div class="header-user-dropdown-header">
+                <p class="header-user-dropdown-name">John Doe</p>
+                <p class="header-user-dropdown-email"><a href="/cdn-cgi/l/email-protection" class="__cf_email__"
+                    data-cfemail="0a60656264246e656f4a6f726b677a666f24696567">[email&#160;protected]</a></p>
+              </div>
+
+              <div class="header-user-dropdown-body">
+                <a href="#" class="header-user-dropdown-item">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  Mi Perfil
+                </a>
+                <a href="#" class="header-user-dropdown-item">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  Configuración
+                </a>
+                <a href="#" class="header-user-dropdown-item">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Ayuda & Soporte
+                </a>
+              </div>
+
+              <div class="header-user-dropdown-divider"></div>
+
+              <div class="header-user-dropdown-footer">
+                <a href="./login.html" class="btn btn-danger btn-sm" style="width: 100%;">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                    style="width: 16px; height: 16px; margin-right: 8px;">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                  Cerrar Sesión
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- CONTENT -->
+      <div class="content-wrapper">
+        <div class="content-container">
+          <!-- Page Header -->
+          <div class="content-section">
+            <div class="section-header">
+              <div>
+                <h2 class="section-title">Bienvenido, John Doe</h2>
+                <p class="text-sm" style="color: var(--text-secondary); margin-top: 0.25rem;">
+                  Resumen de tu actividad en MinuetAItor
+                </p>
+              </div>
+              <button class="btn btn-primary" id="btnNuevaMinuta" onclick="abrirModalNuevaMinuta()">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                  style="width: 20px; height: 20px; margin-right: 8px;">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+                Nueva Minuta
+              </button>
+            </div>
+
+            <!-- Stats Cards -->
+            <div class="stats-grid">
+              <div class="stat-card">
+                <div class="stat-card-header">
+                  <div class="stat-card-icon primary">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                </div>
+                <div class="stat-card-value">24</div>
+                <div class="stat-card-label">Minutas este mes</div>
+                <span class="stat-card-trend up">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
+                    style="width: 16px; height: 16px;">
+                    <path fill-rule="evenodd"
+                      d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z"
+                      clip-rule="evenodd" />
+                  </svg>
+                  12% vs mes anterior
+                </span>
+              </div>
+
+              <div class="stat-card">
+                <div class="stat-card-header">
+                  <div class="stat-card-icon warm">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                </div>
+                <div class="stat-card-value">87</div>
+                <div class="stat-card-label">Minutas generadas</div>
+                <span class="stat-card-trend up">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
+                    style="width: 16px; height: 16px;">
+                    <path fill-rule="evenodd"
+                      d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z"
+                      clip-rule="evenodd" />
+                  </svg>
+                  8% vs mes anterior
+                </span>
+              </div>
+
+
+
+              <div class="stat-card">
+                <div class="stat-card-header">
+                  <div class="stat-card-icon info">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                  </div>
+                </div>
+                <div class="stat-card-value">8</div>
+                <div class="stat-card-label">Equipos activos</div>
+                <span class="stat-card-trend up">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
+                    style="width: 16px; height: 16px;">
+                    <path fill-rule="evenodd"
+                      d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z"
+                      clip-rule="evenodd" />
+                  </svg>
+                  2 nuevos este mes
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Recent Meetings -->
+          <div class="content-section">
+            <div class="section-header">
+              <h3 class="section-title">Minutas Recientes</h3>
+              <a href="#" class="btn btn-secondary btn-sm">Ver todas</a>
+            </div>
+
+            <div class="table-container">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Título</th>
+                    <th>Fecha</th>
+                    <th>Participantes</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>
+                      <div style="font-weight: 600;">Revisión Sprint Q1 2024</div>
+                      <div style="font-size: var(--font-size-sm); color: var(--text-muted);">Proyecto: MinuetAItor</div>
+                    </td>
+                    <td>30 Ene 2026, 10:00</td>
+                    <td>
+                      <div class="d-flex align-items-center gap-1">
+                        <div class="avatar avatar-sm">JD</div>
+                        <div class="avatar avatar-sm">MP</div>
+                        <div class="avatar avatar-sm">+3</div>
+                      </div>
+                    </td>
+                    <td><span class="status-badge completed">Completada</span></td>
+                    <td>
+                      <button class="btn btn-secondary btn-sm">Ver minuta</button>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <div style="font-weight: 600;">Planificación Arquitectura</div>
+                      <div style="font-size: var(--font-size-sm); color: var(--text-muted);">Proyecto: Backend API</div>
+                    </td>
+                    <td>28 Ene 2026, 15:30</td>
+                    <td>
+                      <div class="d-flex align-items-center gap-1">
+                        <div class="avatar avatar-sm">AM</div>
+                        <div class="avatar avatar-sm">LS</div>
+                      </div>
+                    </td>
+                    <td><span class="status-badge in-progress">En progreso</span></td>
+                    <td>
+                      <button class="btn btn-secondary btn-sm">Continuar</button>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <div style="font-weight: 600;">Reunión de Seguimiento</div>
+                      <div style="font-size: var(--font-size-sm); color: var(--text-muted);">Proyecto: Frontend Redesign
+                      </div>
+                    </td>
+                    <td>25 Ene 2026, 09:00</td>
+                    <td>
+                      <div class="d-flex align-items-center gap-1">
+                        <div class="avatar avatar-sm">KR</div>
+                        <div class="avatar avatar-sm">TD</div>
+                        <div class="avatar avatar-sm">+1</div>
+                      </div>
+                    </td>
+                    <td><span class="status-badge completed">Completada</span></td>
+                    <td>
+                      <button class="btn btn-secondary btn-sm">Ver minuta</button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="./js/master-layout.js"></script>
+    <script src="./js/modal-simple.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Modal System</title>
+  <link rel="stylesheet" href="./css/styles.css">
+  <link rel="stylesheet" href="./css/modal.css">
+</head>
+<body style="padding: 40px;">
+  <h1>Test del Sistema de Modales</h1>
+  
+  <button id="btnNuevaMinuta" class="btn btn-primary" style="margin: 20px 0;">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 20px; height: 20px; margin-right: 8px;">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+    </svg>
+    Nueva Minuta (Test)
+  </button>
+
+  <div id="log" style="margin-top: 20px; padding: 20px; background: #f5f5f5; border-radius: 8px;">
+    <h3>Console Log:</h3>
+    <pre id="logContent" style="white-space: pre-wrap;"></pre>
+  </div>
+
+  <script>
+    // Interceptar console.log
+    const logContent = document.getElementById('logContent');
+    const originalLog = console.log;
+    console.log = function(...args) {
+      originalLog.apply(console, args);
+      logContent.textContent += args.join(' ') + '\n';
+    };
+    
+    console.log('Página de test cargada');
+  </script>
+  
+  <script src="./js/modal-system.js"></script>
+</body>
+</html>
