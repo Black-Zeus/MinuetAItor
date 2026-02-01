@@ -4,7 +4,7 @@ import "./style.css";
 
 function App() {
   return (
-    <div className="min-h-screen bg-slate-100 p-6 font-sans">
+    <div className="min-h-screen bg-red-100 p-6 font-sans">
       <h1 className="text-3xl font-bold text-slate-900">
         MinuetAItor
       </h1>
