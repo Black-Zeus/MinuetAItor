@@ -97,8 +97,18 @@ import {
   FaArrowsRotate,
 
   // Compat / errores reportados
-  FaLockOpen,     // lock-open
-  FaArrowTrendUp, // trending-up
+  FaLockOpen,
+  FaArrowTrendUp,
+
+  // ====================================
+  // NUEVOS: NOTIFICACIONES Y TEMA
+  // ====================================
+  FaBell,
+  FaEnvelope,
+  FaComment,
+  FaComments,
+  FaSun,
+  FaMoon,
 } from "react-icons/fa6";
 
 const kebabToCamel = (str) =>
@@ -124,6 +134,7 @@ const ICON_REGISTRY = {
 
   FaUsers,
   usersEmpty: FaUsers,
+  users: FaUsers,
 
   // ====================================
   // ACCIONES GENÉRICAS
@@ -172,10 +183,8 @@ const ICON_REGISTRY = {
   FaCircleCheck,
   checkCircle: FaCircleCheck,
   success: FaCircleCheck,
-
-  // Compat FA5 -> FA6
-  FaCheckCircle: FaCircleCheck, // "FaCheckCircle" solicitado en logs
-  check_circle: FaCircleCheck,  // opcional
+  FaCheckCircle: FaCircleCheck,
+  check_circle: FaCircleCheck,
 
   FaCircleXmark,
   error: FaCircleXmark,
@@ -187,9 +196,7 @@ const ICON_REGISTRY = {
   FaXmark,
   cancel: FaXmark,
   close: FaXmark,
-
-  // Compat FA5 -> FA6
-  FaTimes: FaXmark, // "FaTimes" solicitado en logs
+  FaTimes: FaXmark,
   x: FaXmark,
 
   // ====================================
@@ -211,38 +218,41 @@ const ICON_REGISTRY = {
   shield: FaShieldHalved,
 
   // ====================================
-  // NAVEGACIÓN / BÚSQUEDA
+  // NAVEGACIÓN / BÚSQUEDA / CIERRE
   // ====================================
   FaChevronLeft,
+  "chevron-left": FaChevronLeft,
   chevronLeft: FaChevronLeft,
 
   FaChevronRight,
+  "chevron-right": FaChevronRight,
   chevronRight: FaChevronRight,
 
   FaChevronDown,
+  "chevron-down": FaChevronDown,
   chevronDown: FaChevronDown,
 
   FaChevronUp,
+  "chevron-up": FaChevronUp,
   chevronUp: FaChevronUp,
-  "chevron-up": FaChevronUp, // si lo usas en kebab-case explícito
 
   FaMagnifyingGlass,
   search: FaMagnifyingGlass,
 
   FaAngleUp,
-  expandLess: FaAngleUp,
+  angleUp: FaAngleUp,
 
   FaAngleDown,
-  expandMore: FaAngleDown,
+  angleDown: FaAngleDown,
 
   FaAnglesUp,
-  unfoldLess: FaAnglesUp,
+  anglesUp: FaAnglesUp,
 
   FaAnglesDown,
-  unfoldMore: FaAnglesDown,
+  anglesDown: FaAnglesDown,
 
   // ====================================
-  // VISIBILIDAD / CAMPOS DE CONTRASEÑA
+  // VISIBILIDAD / CONTRASEÑAS
   // ====================================
   FaEye,
   eye: FaEye,
@@ -254,24 +264,19 @@ const ICON_REGISTRY = {
   // FINANCIERO / DINERO
   // ====================================
   FaMoneyBill,
-  cash: FaMoneyBill,
   money: FaMoneyBill,
+
+  FaCreditCard,
+  creditCard: FaCreditCard,
 
   FaDollarSign,
   dollar: FaDollarSign,
-  dollarSign: FaDollarSign,
-  "dollar-sign": FaDollarSign, // solicitado en logs
-
-  FaCreditCard,
-  payments: FaCreditCard,
-  creditCard: FaCreditCard,
-  "credit-card": FaCreditCard,
-
-  FaMoneyBillWave,
-  moneyWave: FaMoneyBillWave,
 
   FaCashRegister,
   cashRegister: FaCashRegister,
+
+  FaMoneyBillWave,
+  cash: FaMoneyBillWave,
 
   // ====================================
   // DOCUMENTOS / ARCHIVOS
@@ -280,14 +285,7 @@ const ICON_REGISTRY = {
   folder: FaFolder,
 
   FaRegFileLines,
-  document: FaRegFileLines,
-
-  FaFileLines,
-  fileAlt: FaFileLines,
-  fileLines: FaFileLines,
-
-  "file-text": FaFileLines, // solicitado en logs (equivalente razonable)
-  fileText: FaFileLines,
+  file: FaRegFileLines,
 
   FaPrint,
   print: FaPrint,
@@ -295,14 +293,17 @@ const ICON_REGISTRY = {
   FaReceipt,
   receipt: FaReceipt,
 
+  FaFileLines,
+  fileLines: FaFileLines,
+
   // ====================================
   // GRÁFICOS / ESTADÍSTICAS
   // ====================================
-  FaChartSimple,
-  chart: FaChartSimple,
-
   FaChartLine,
-  activity: FaChartLine,
+  chartLine: FaChartLine,
+
+  FaChartSimple,
+  chartSimple: FaChartSimple,
 
   FaChartBar,
   chartBar: FaChartBar,
@@ -312,9 +313,7 @@ const ICON_REGISTRY = {
   // ====================================
   FaCircleInfo,
   info: FaCircleInfo,
-
-  // Compat FA5 -> FA6
-  FaInfoCircle: FaCircleInfo, // solicitado en logs
+  FaInfoCircle: FaCircleInfo,
 
   FaTriangleExclamation,
   warning: FaTriangleExclamation,
@@ -331,21 +330,23 @@ const ICON_REGISTRY = {
   FaClockRotateLeft,
   history: FaClockRotateLeft,
 
+  FaLockOpen,
+  lockOpen: FaLockOpen,
+  "lock-open": FaLockOpen,
+
   // ====================================
   // COMERCIO / VENTAS / CLIENTES
   // ====================================
   FaCartShopping,
   cart: FaCartShopping,
   shoppingCart: FaCartShopping,
-  FaShoppingCart: FaCartShopping, // compat
+  FaShoppingCart: FaCartShopping,
 
   FaPerson,
   person: FaPerson,
 
   FaBuilding,
   business: FaBuilding,
-
-  users: FaUsers,
 
   FaTag,
   tag: FaTag,
@@ -383,31 +384,58 @@ const ICON_REGISTRY = {
 
   FaArrowsRotate,
   exchange: FaArrowsRotate,
-  FaExchangeAlt: FaArrowsRotate, // compat
-
-  // ====================================
-  // NUEVOS - PARA WARNINGS (FA6)
-  // ====================================
-  FaLockOpen,
-  lockOpen: FaLockOpen,
-  "lock-open": FaLockOpen, // solicitado anteriormente
+  FaExchangeAlt: FaArrowsRotate,
 
   FaArrowTrendUp,
   trendingUp: FaArrowTrendUp,
-  "trending-up": FaArrowTrendUp, // solicitado anteriormente
+  "trending-up": FaArrowTrendUp,
+
+  // ====================================
+  // NOTIFICACIONES / MENSAJES
+  // ====================================
+  FaBell,
+  bell: FaBell,
+  notification: FaBell,
+  notifications: FaBell,
+
+  FaEnvelope,
+  envelope: FaEnvelope,
+  email: FaEnvelope,
+  mail: FaEnvelope,
+  message: FaEnvelope,
+  messages: FaEnvelope,
+
+  FaComment,
+  comment: FaComment,
+  chat: FaComment,
+
+  FaComments,
+  comments: FaComments,
+  chatBubbles: FaComments,
+
+  // ====================================
+  // TEMA (DARK/LIGHT MODE)
+  // ====================================
+  FaSun,
+  sun: FaSun,
+  lightMode: FaSun,
+  light: FaSun,
+
+  FaMoon,
+  moon: FaMoon,
+  darkMode: FaMoon,
+  dark: FaMoon,
 };
 
 /**
  * Icon genérico centralizado.
  *
  * Uso:
- *   <Icon name="edit" className="w-4 h-4" />
- *   <Icon name="FaUsers" className="text-2xl" />
- *   <Icon name="check-circle" />
- *   <Icon name="FaTimes" />
- *   <Icon name="FaInfoCircle" />
- *   <Icon name="dollar-sign" />
- *   <Icon name="file-text" />
+ *   <Icon name="bell" className="w-4 h-4" />
+ *   <Icon name="FaBell" className="text-2xl" />
+ *   <Icon name="sun" />
+ *   <Icon name="moon" />
+ *   <Icon name="envelope" />
  */
 export const Icon = ({ name, className = "", ...rest }) => {
   // 1) lookup directo
