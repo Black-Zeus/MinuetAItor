@@ -109,6 +109,13 @@ import {
   FaComments,
   FaSun,
   FaMoon,
+
+ // AGREGAR ESTOS (nombres correctos para FA6):
+  FaHouse,         // Para "Inicio" (en FA6 se llama FaHouse, no FaHome)
+  FaGear,          // Para "Sistema" (en FA6 se llama FaGear, no FaCog)
+  FaCircleUser,    // Para "Mi Cuenta" (en FA6 se llama FaCircleUser, no FaUserCircle)
+  FaFile,          // Para "Reportes"
+
 } from "react-icons/fa6";
 
 const kebabToCamel = (str) =>
@@ -425,6 +432,48 @@ const ICON_REGISTRY = {
   moon: FaMoon,
   darkMode: FaMoon,
   dark: FaMoon,
+
+  // ====================================
+  // NAVEGACIÓN PRINCIPAL
+  // ====================================
+  FaHouse,
+  house: FaHouse,
+  home: FaHouse,           // Alias para compatibilidad
+  FaHome: FaHouse,         // Alias para compatibilidad con FA5
+  inicio: FaHouse,
+  dashboard: FaHouse,
+
+  // ====================================
+  // DOCUMENTOS Y REPORTES
+  // ====================================
+  FaFile,
+  file: FaFile,
+  fileAlt: FaFile,         // Alias para compatibilidad con FA5
+  FaFileAlt: FaFile,       // Alias para compatibilidad con FA5
+  report: FaFile,
+  reports: FaFile,
+  reportes: FaFile,
+
+  // ====================================
+  // CONFIGURACIÓN Y SISTEMA
+  // ====================================
+  FaGear,
+  gear: FaGear,
+  cog: FaGear,             // Alias para compatibilidad
+  FaCog: FaGear,           // Alias para compatibilidad con FA5
+  settings: FaGear,
+  config: FaGear,
+  configuracion: FaGear,
+  sistema: FaGear,
+
+  FaCircleUser,
+  circleUser: FaCircleUser,
+  userCircle: FaCircleUser,  // Alias para compatibilidad
+  FaUserCircle: FaCircleUser, // Alias para compatibilidad con FA5
+  profile: FaCircleUser,
+  account: FaCircleUser,
+  miCuenta: FaCircleUser,
+  "mi-cuenta": FaCircleUser,
 };
 
 /**
