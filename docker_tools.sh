@@ -572,6 +572,9 @@ exec_stack() {
 #############################################################
 ###          Funciones - menu_limpieza
 #############################################################
+#############################################################
+###          Funciones - menu_limpieza
+#############################################################
 clean() {
   clear
   echo "======================================="
@@ -580,32 +583,7 @@ clean() {
   banner_menu_ambiente
   echo "======================================="
   echo ""
-  #docker compose -f "$COMPOSE_FILE" --env-file .env --env-file .env.$ENV down --rmi all --volumes --remove-orphans
   docker compose -f "$COMPOSE_FILE" --env-file .env --env-file .env.$ENV down --volumes --remove-orphans
-  pause
-  menu_limpieza
-}
-
-clean_images() {
-  clear
-  echo "======================================="
-  echo "Docker Tools - Limpieza"
-  echo "Limpiando imágenes no utilizadas"
-  banner_menu_ambiente
-  echo "======================================="
-  echo ""
-  
-  # Solicitar confirmación antes de proceder
-  read -p "¿Estás seguro de que deseas eliminar las imágenes no utilizadas? (s/n): " confirmacion
-
-  # Comprobar la respuesta
-  if [[ "$confirmacion" =~ ^[Ss]$ ]]; then
-    docker image prune -af
-    echo "Las imágenes no utilizadas han sido eliminadas."
-  else
-    echo "Operación cancelada. No se eliminaron las imágenes."
-  fi
-
   pause
   menu_limpieza
 }
@@ -623,6 +601,152 @@ clean_volumes() {
   menu_limpieza
 }
 
+clean_images() {
+  clear
+  echo "======================================="
+  echo "Docker Tools - Limpieza"
+  echo "Limpiando imágenes"
+  banner_menu_ambiente
+  echo "======================================="
+  echo ""
+  
+  # Definir colores
+  GREEN="\e[32m"
+  YELLOW="\e[33m"
+  RED="\e[31m"
+  CYAN="\e[36m"
+  BLUE="\e[34m"
+  NC="\e[0m"  # Reset color
+
+  echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+  echo -e "${CYAN}LIMPIEZA DE IMÁGENES DOCKER${NC}"
+  echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+  echo ""
+
+  # Contar imágenes de cada grupo
+  local dangling_images_count=$(docker images --filter "dangling=true" -q | wc -l)
+  mapfile -t base_images < <(docker images --format "{{.Repository}}:{{.Tag}}" | grep -v "^${PROJECT_NAME}/" | grep -v "<none>")
+  mapfile -t project_images < <(docker images --format "{{.Repository}}:{{.Tag}}" | grep "^${PROJECT_NAME}/")
+
+  echo "📊 Resumen actual de imágenes:"
+  echo "   🗑️  Imágenes huérfanas (<none>): $dangling_images_count"
+  echo "   📦 Imágenes Base (Grupo 1): ${#base_images[@]}"
+  echo "   🏗️  Imágenes del Proyecto (Grupo 2): ${#project_images[@]}"
+  echo ""
+  echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+  echo ""
+
+  # ====================================================================
+  # GRUPO 0: Imágenes huérfanas
+  # ====================================================================
+  if [[ $dangling_images_count -gt 0 ]]; then
+    echo -e "${YELLOW}🗑️  IMÁGENES HUÉRFANAS (<none>)${NC}"
+    echo "   Imágenes sin nombre ni tag, generalmente restos de builds"
+    echo ""
+    
+    # Mostrar imágenes huérfanas con detalles
+    docker images --filter "dangling=true" --format "   * {{.ID}} ({{.Size}}, creada: {{.CreatedSince}})"
+    
+    echo ""
+    read -p "¿Deseas eliminar las imágenes huérfanas? (s/n): " clean_dangling
+    if [[ "$clean_dangling" =~ ^[Ss]$ ]]; then
+      echo -e "${GREEN}Eliminando imágenes huérfanas...${NC}"
+      docker image prune -f
+      echo -e "${GREEN}✅ Imágenes huérfanas eliminadas${NC}"
+    else
+      echo -e "${BLUE}⏭️  Imágenes huérfanas conservadas${NC}"
+    fi
+    echo ""
+    echo -e "${CYAN}───────────────────────────────────────────────────────────${NC}"
+    echo ""
+  fi
+
+  # ====================================================================
+  # GRUPO 1: Imágenes Base (Externas)
+  # ====================================================================
+  if [[ ${#base_images[@]} -gt 0 ]]; then
+    echo -e "${YELLOW}📦 GRUPO 1: Imágenes Base (Externas)${NC}"
+    echo "   Imágenes oficiales descargadas de registros públicos"
+    echo "   Ejemplos: mariadb, minio, redis, nginx, node, etc."
+    echo ""
+    
+    # Mostrar lista de imágenes base
+    for image in "${base_images[@]}"; do
+      # Obtener tamaño de la imagen
+      local size=$(docker images --format "{{.Size}}" "$image" 2>/dev/null | head -1)
+      echo -e "   ${RED}*${NC} $image ${CYAN}(${size})${NC}"
+    done
+    
+    echo ""
+    read -p "¿Deseas eliminar las imágenes BASE (Grupo 1)? (s/n): " confirm_base
+    
+    if [[ "$confirm_base" =~ ^[Ss]$ ]]; then
+      echo -e "${YELLOW}Eliminando imágenes base...${NC}"
+      local deleted_count=0
+      for image in "${base_images[@]}"; do
+        echo "  Eliminando: $image"
+        if docker rmi -f "$image" 2>/dev/null; then
+          ((deleted_count++))
+        fi
+      done
+      echo -e "${GREEN}✅ Imágenes base eliminadas: $deleted_count de ${#base_images[@]}${NC}"
+    else
+      echo -e "${BLUE}⏭️  Imágenes base conservadas (${#base_images[@]} imágenes)${NC}"
+    fi
+    echo ""
+    echo -e "${CYAN}───────────────────────────────────────────────────────────${NC}"
+    echo ""
+  else
+    echo -e "${GREEN}✅ No hay imágenes base para eliminar${NC}"
+    echo ""
+  fi
+
+  # ====================================================================
+  # GRUPO 2: Imágenes del Proyecto (Construidas)
+  # ====================================================================
+  if [[ ${#project_images[@]} -gt 0 ]]; then
+    echo -e "${YELLOW}🏗️  GRUPO 2: Imágenes del Proyecto (Construidas)${NC}"
+    echo "   Imágenes construidas desde Dockerfiles locales"
+    echo "   Prefijo del proyecto: ${PROJECT_NAME}/"
+    echo ""
+    
+    # Mostrar lista de imágenes del proyecto
+    for image in "${project_images[@]}"; do
+      # Obtener tamaño de la imagen
+      local size=$(docker images --format "{{.Size}}" "$image" 2>/dev/null | head -1)
+      echo -e "   ${RED}*${NC} $image ${CYAN}(${size})${NC}"
+    done
+    
+    echo ""
+    read -p "¿Deseas eliminar las imágenes del PROYECTO (Grupo 2)? (s/n): " confirm_project
+    
+    if [[ "$confirm_project" =~ ^[Ss]$ ]]; then
+      echo -e "${YELLOW}Eliminando imágenes del proyecto...${NC}"
+      local deleted_count=0
+      for image in "${project_images[@]}"; do
+        echo "  Eliminando: $image"
+        if docker rmi -f "$image" 2>/dev/null; then
+          ((deleted_count++))
+        fi
+      done
+      echo -e "${GREEN}✅ Imágenes del proyecto eliminadas: $deleted_count de ${#project_images[@]}${NC}"
+    else
+      echo -e "${BLUE}⏭️  Imágenes del proyecto conservadas (${#project_images[@]} imágenes)${NC}"
+    fi
+    echo ""
+  else
+    echo -e "${GREEN}✅ No hay imágenes del proyecto para eliminar${NC}"
+    echo ""
+  fi
+
+  echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+  echo -e "${GREEN}✅ Proceso de limpieza de imágenes completado${NC}"
+  echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+
+  pause
+  menu_limpieza
+}
+
 clean_all() {
   clear
   echo "======================================="
@@ -632,11 +756,18 @@ clean_all() {
   echo "======================================="
   echo ""
 
-  # Limpiar contenedores, imágenes, redes y volúmenes relacionados con el stack
+  # Definir colores
+  GREEN="\e[32m"
+  YELLOW="\e[33m"
+  RED="\e[31m"
+  CYAN="\e[36m"
+  BLUE="\e[34m"
+  NC="\e[0m"  # Reset color
+
+  # Limpiar contenedores, redes y volúmenes relacionados con el stack
   echo "======================================="
   echo "Limpiando contenedores, redes y volúmenes del stack..."
   echo "======================================="
-  #docker compose -f "$COMPOSE_FILE" --env-file .env --env-file .env.$ENV down --rmi all --volumes --remove-orphans
   docker compose -f "$COMPOSE_FILE" --env-file .env --env-file .env.$ENV down --volumes --remove-orphans
 
   # Verificar y eliminar volúmenes huérfanos
@@ -659,23 +790,86 @@ clean_all() {
     echo "No se encontraron volúmenes huérfanos relacionados con el stack."
   fi
 
-  # Eliminar imágenes no utilizadas
+  # Limpieza de imágenes con grupos
+  echo ""
   echo "======================================="
-  echo "Limpiando imágenes no utilizadas..."
+  echo "Limpiando imágenes..."
   echo "======================================="
+  echo ""
+  
+  # Contar imágenes
+  local dangling_images_count=$(docker images --filter "dangling=true" -q | wc -l)
+  mapfile -t base_images < <(docker images --format "{{.Repository}}:{{.Tag}}" | grep -v "^${PROJECT_NAME}/" | grep -v "<none>")
+  mapfile -t project_images < <(docker images --format "{{.Repository}}:{{.Tag}}" | grep "^${PROJECT_NAME}/")
 
-  # Solicitar confirmación antes de proceder
-  read -p "¿Estás seguro de que deseas eliminar las imágenes no utilizadas? (s/n): " confirmacion
+  echo "📊 Resumen de imágenes:"
+  echo "   🗑️  Imágenes huérfanas: $dangling_images_count"
+  echo "   📦 Imágenes Base: ${#base_images[@]}"
+  echo "   🏗️  Imágenes del Proyecto: ${#project_images[@]}"
+  echo ""
 
-  # Comprobar la respuesta
-  if [[ "$confirmacion" =~ ^[Ss]$ ]]; then
-    docker image prune -af
-    echo "Las imágenes no utilizadas han sido eliminadas."
-  else
-    echo "Operación cancelada. No se eliminaron las imágenes."
+  # Limpiar huérfanas
+  if [[ $dangling_images_count -gt 0 ]]; then
+    echo -e "${YELLOW}🗑️  IMÁGENES HUÉRFANAS${NC}"
+    docker images --filter "dangling=true" --format "   * {{.ID}} ({{.Size}})"
+    echo ""
+    read -p "¿Eliminar imágenes huérfanas? (s/n): " clean_dangling
+    if [[ "$clean_dangling" =~ ^[Ss]$ ]]; then
+      docker image prune -f
+      echo -e "${GREEN}✅ Imágenes huérfanas eliminadas${NC}"
+    else
+      echo -e "${BLUE}⏭️  Imágenes huérfanas conservadas${NC}"
+    fi
+    echo ""
   fi
 
-  # Eliminar caché de builds generadas
+  # Limpiar Grupo 1
+  if [[ ${#base_images[@]} -gt 0 ]]; then
+    echo -e "${YELLOW}📦 GRUPO 1: Imágenes Base (Externas)${NC}"
+    echo "   Imágenes oficiales descargadas de registros públicos"
+    echo ""
+    for image in "${base_images[@]}"; do
+      local size=$(docker images --format "{{.Size}}" "$image" 2>/dev/null | head -1)
+      echo -e "   ${RED}*${NC} $image ${CYAN}(${size})${NC}"
+    done
+    echo ""
+    read -p "¿Eliminar imágenes BASE (Grupo 1)? (s/n): " confirm_base
+    if [[ "$confirm_base" =~ ^[Ss]$ ]]; then
+      echo -e "${YELLOW}Eliminando imágenes base...${NC}"
+      for image in "${base_images[@]}"; do
+        docker rmi -f "$image" 2>/dev/null
+      done
+      echo -e "${GREEN}✅ Imágenes base eliminadas${NC}"
+    else
+      echo -e "${BLUE}⏭️  Imágenes base conservadas${NC}"
+    fi
+    echo ""
+  fi
+
+  # Limpiar Grupo 2
+  if [[ ${#project_images[@]} -gt 0 ]]; then
+    echo -e "${YELLOW}🏗️  GRUPO 2: Imágenes del Proyecto${NC}"
+    echo "   Prefijo: ${PROJECT_NAME}/"
+    echo ""
+    for image in "${project_images[@]}"; do
+      local size=$(docker images --format "{{.Size}}" "$image" 2>/dev/null | head -1)
+      echo -e "   ${RED}*${NC} $image ${CYAN}(${size})${NC}"
+    done
+    echo ""
+    read -p "¿Eliminar imágenes del PROYECTO (Grupo 2)? (s/n): " confirm_project
+    if [[ "$confirm_project" =~ ^[Ss]$ ]]; then
+      echo -e "${YELLOW}Eliminando imágenes del proyecto...${NC}"
+      for image in "${project_images[@]}"; do
+        docker rmi -f "$image" 2>/dev/null
+      done
+      echo -e "${GREEN}✅ Imágenes del proyecto eliminadas${NC}"
+    else
+      echo -e "${BLUE}⏭️  Imágenes del proyecto conservadas${NC}"
+    fi
+    echo ""
+  fi
+
+  # Eliminar caché de builds
   echo "======================================="
   echo "Limpiando caché de builds generadas..."
   echo "======================================="
@@ -683,7 +877,7 @@ clean_all() {
 
   echo ""
   echo "======================================="
-  echo "Limpieza completada."
+  echo -e "${GREEN}✅ Limpieza completada.${NC}"
   echo "======================================="
   pause
   menu_limpieza
