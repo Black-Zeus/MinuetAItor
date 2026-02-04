@@ -1,29 +1,35 @@
 /**
  * App.jsx
- * Componente principal con integración de Zustand store para theme
+ * SOLUCIÓN DEFINITIVA - Usa useLayoutEffect para aplicar ANTES del render
  */
 
-import React, { useEffect } from 'react';
+import React, { useLayoutEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Layout from "@components/layout/Layout";
 import Demo from "@pages/Demo";
 import useBaseSiteStore from "@store/baseSiteStore";
 
 function App() {
-  // ====================================
-  // ZUSTAND STORE - THEME
-  // ====================================
   const { theme } = useBaseSiteStore();
 
-  // ====================================
-  // APLICAR DARK MODE AL <html>
-  // ====================================
-  useEffect(() => {
+  // ✅ useLayoutEffect se ejecuta ANTES del render (síncrono)
+  // Esto previene cualquier flash o conflicto de timing
+  useLayoutEffect(() => {
+    console.log('⚡ useLayoutEffect - Aplicando theme:', theme);
+    
+    const html = document.documentElement;
+    
     if (theme === 'dark') {
-      document.documentElement.classList.add('dark');
+      html.classList.add('dark');
+      console.log('✅ Dark mode ACTIVADO');
     } else {
-      document.documentElement.classList.remove('dark');
+      html.classList.remove('dark');
+      console.log('☀️ Light mode ACTIVADO');
     }
+    
+    // Verificar que se aplicó
+    console.log('📋 classList actual:', Array.from(html.classList));
+    
   }, [theme]);
 
   return (

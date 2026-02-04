@@ -4,6 +4,24 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MinuetAItor</title>
+    
+    <!-- ✅ Script anti-FOUC: Aplica tema ANTES de que React monte -->
+    <script>
+      // Aplicar tema inmediatamente para evitar flash de contenido sin estilo
+      (function() {
+        try {
+          const stored = localStorage.getItem('minuteAItor-base-site');
+          if (stored) {
+            const { state } = JSON.parse(stored);
+            if (state && state.theme === 'dark') {
+              document.documentElement.classList.add('dark');
+            }
+          }
+        } catch (e) {
+          console.warn('Error loading theme:', e);
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
