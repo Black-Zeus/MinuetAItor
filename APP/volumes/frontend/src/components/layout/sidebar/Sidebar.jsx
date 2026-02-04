@@ -73,6 +73,7 @@ const Sidebar = ({
         flex flex-col h-screen relative overflow-visible
         transition-all duration-300 ease-in-out
         bg-gradient-to-b from-slate-700 to-slate-800
+        dark:from-slate-900 dark:to-black
         text-white shadow-lg
         ${isSidebarCollapsed ? 'w-20' : 'w-[280px]'}
       `}
