@@ -1,7 +1,6 @@
 import React from 'react';
 import Sidebar from './sidebar/Sidebar';
 import Header from './header/Header';
-import TailwindDarkTest from '../TailwindDarkTest';
 
 const Layout = ({ children }) => {
   return (
@@ -19,9 +18,6 @@ const Layout = ({ children }) => {
           {children}
         </main>
       </div>
-
-      {/* 🔍 DEBUG COMPONENT - Remover en producción */}
-      <TailwindDarkTest />
     </div>
   );
 };
