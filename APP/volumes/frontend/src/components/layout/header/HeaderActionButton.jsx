@@ -1,36 +1,30 @@
 /**
  * HeaderActionButton.jsx
- * Botón de acción con icono (notificaciones, mensajes, etc.) - 100% Tailwind
+ * Botón de acción con badge dinámico
  */
 
 import React from 'react';
 import Icon from '@components/ui/icon/iconManager';
 
 const HeaderActionButton = ({ 
-  iconName,
-  onClick,
+  iconName, 
+  onClick, 
   ariaLabel,
   showBadge = false,
-  className = '' 
+  badgeCount = 0
 }) => {
   return (
     <button
-      className={`
-        relative p-2 rounded-lg
-        text-gray-600 dark:text-gray-400
-        hover:bg-gray-100 dark:hover:bg-gray-700
-        transition-colors
-        ${className}
-      `}
       onClick={onClick}
+      className="relative p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
       aria-label={ariaLabel}
     >
-      <Icon name={iconName} className="w-5 h-5" />
-      {showBadge && (
-        <span className="
-          absolute top-1 right-1
-          w-2 h-2 bg-red-500 rounded-full
-        "></span>
+      <Icon name={iconName} className="text-xl text-gray-600 dark:text-gray-300" />
+      
+      {showBadge && badgeCount > 0 && (
+        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-semibold">
+          {badgeCount > 9 ? '9+' : badgeCount}
+        </span>
       )}
     </button>
   );

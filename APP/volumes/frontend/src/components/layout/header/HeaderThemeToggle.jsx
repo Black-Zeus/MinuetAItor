@@ -1,36 +1,23 @@
 /**
  * HeaderThemeToggle.jsx
- * Botón para cambiar entre tema claro/oscuro - 100% Tailwind
+ * Toggle de theme con soporte para theme dinámico
  */
 
 import React from 'react';
-import Icon from '@components/ui/icon/iconManager';
+import { FaSun, FaMoon } from 'react-icons/fa';
 
-const HeaderThemeToggle = ({ 
-  onClick,
-  className = '' 
-}) => {
-  const handleToggle = () => {
-    document.documentElement.classList.toggle('dark');
-    if (onClick) {
-      onClick();
-    }
-  };
-
+const HeaderThemeToggle = ({ onClick, currentTheme = 'light' }) => {
   return (
     <button
-      className={`
-        p-2 rounded-lg
-        text-gray-600 dark:text-gray-400
-        hover:bg-gray-100 dark:hover:bg-gray-700
-        transition-colors
-        ${className}
-      `}
-      onClick={handleToggle}
+      onClick={onClick}
+      className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
       aria-label="Cambiar tema"
     >
-      <Icon name="FaSun" className="w-5 h-5 dark:hidden" />
-      <Icon name="FaMoon" className="w-5 h-5 hidden dark:block" />
+      {currentTheme === 'light' ? (
+        <FaMoon className="text-xl text-gray-600 dark:text-gray-300" />
+      ) : (
+        <FaSun className="text-xl text-gray-600 dark:text-gray-300" />
+      )}
     </button>
   );
 };
