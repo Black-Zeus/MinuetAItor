@@ -1,15 +1,15 @@
 /**
  * Sidebar.jsx
- * Componente principal del sidebar - 100% Tailwind CSS
- * Versión refactorizada: modular, componentizada y basada en configuración
+ * Componente principal del sidebar integrado con Zustand store
  */
 
-import React, { useState } from 'react';
+import React from 'react';
 import SidebarToggle from './SidebarToggle';
 import SidebarBrand from './SidebarBrand';
 import SidebarNav from './SidebarNav';
 import SidebarFooter from './SidebarFooter';
 import { SIDEBAR_MODULES, filterModulesByPermissions } from '@config/sidebarConfig';
+import useBaseSiteStore from '@store/baseSiteStore';
 
 const Sidebar = ({ 
   user = {
@@ -18,15 +18,23 @@ const Sidebar = ({
     role: 'Administrador',
     isAdmin: true
   },
-  onModuleChange = () => {},
-  defaultCollapsed = false,
-  defaultActiveModule = 'dashboard'
+  onModuleChange = () => {}
 }) => {
   // ====================================
-  // ESTADO
+  // ZUSTAND STORE
   // ====================================
-  const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
-  const [activeModuleId, setActiveModuleId] = useState(defaultActiveModule);
+  const { 
+    isSidebarCollapsed,
+    toggleSidebar,
+    addToNavigationHistory,
+    navigationHistory
+  } = useBaseSiteStore();
+
+  // ====================================
+  // ACTIVE MODULE desde navigationHistory
+  // ====================================
+  const currentSection = navigationHistory[0];
+  const activeModuleId = currentSection?.path?.split('/')[1] || 'dashboard';
 
   // ====================================
   // FILTRADO DE MÓDULOS SEGÚN PERMISOS
@@ -36,13 +44,15 @@ const Sidebar = ({
   // ====================================
   // HANDLERS
   // ====================================
-  const toggleSidebar = () => {
-    setIsCollapsed(!isCollapsed);
-  };
-
   const handleModuleClick = (module) => {
-    setActiveModuleId(module.id);
     console.log(`Módulo seleccionado: ${module.name} (${module.id})`);
+    
+    // ✅ Guardar en historial de navegación
+    addToNavigationHistory({
+      name: module.name,
+      path: module.path || `/${module.id}`,
+      icon: module.icon
+    });
     
     // Callback al componente padre
     if (onModuleChange) {
@@ -52,7 +62,6 @@ const Sidebar = ({
 
   const handleUserClick = () => {
     console.log('User profile clicked');
-    // Aquí puedes navegar al perfil o abrir un menú
   };
 
   // ====================================
@@ -65,19 +74,19 @@ const Sidebar = ({
         transition-all duration-300 ease-in-out
         bg-gradient-to-b from-slate-700 to-slate-800
         text-white shadow-lg
-        ${isCollapsed ? 'w-20' : 'w-[280px]'}
+        ${isSidebarCollapsed ? 'w-20' : 'w-[280px]'}
       `}
       id="sidebar"
     >
-      {/* Toggle Button */}
+      {/* Toggle Button - Conectado al store */}
       <SidebarToggle 
-        isCollapsed={isCollapsed} 
-        onClick={toggleSidebar} 
+        isCollapsed={isSidebarCollapsed}
+        onClick={toggleSidebar}
       />
 
       {/* Brand Section */}
       <SidebarBrand 
-        isCollapsed={isCollapsed}
+        isCollapsed={isSidebarCollapsed}
         logoSrc="/chinchinAItor.jpg"
         appName="MinuetAItor"
         tagline="Gestión de Minutas"
@@ -86,14 +95,14 @@ const Sidebar = ({
       {/* Navigation Section */}
       <SidebarNav 
         modules={visibleModules}
-        isCollapsed={isCollapsed}
-        activeModuleId={activeModuleId}
+        isCollapsed={isSidebarCollapsed}
+        activeModuleId={activeModuleId} // ✅ Dinámico desde store
         onModuleClick={handleModuleClick}
       />
 
       {/* Footer Section */}
       <SidebarFooter 
-        isCollapsed={isCollapsed}
+        isCollapsed={isSidebarCollapsed}
         user={user}
         onClick={handleUserClick}
       />

@@ -1,7 +1,6 @@
 /**
  * Header.jsx
- * Componente principal del header - Va en src/components/layout/Header.jsx
- * Importa desde la carpeta 
+ * Componente principal del header integrado con Zustand store
  */
 
 import React, { useState } from 'react';
@@ -12,25 +11,59 @@ import HeaderActionButton from './HeaderActionButton';
 import HeaderThemeToggle from './HeaderThemeToggle';
 import HeaderDivider from './HeaderDivider';
 import HeaderUserMenu from './HeaderUserMenu';
+import useBaseSiteStore from '@store/baseSiteStore';
 
 const Header = () => {
   const [searchQuery, setSearchQuery] = useState('');
 
+  // ====================================
+  // ZUSTAND STORE
+  // ====================================
+  const { 
+    theme,
+    toggleTheme,
+    navigationHistory,
+    unreadNotificationsCount,
+    resetUnreadNotifications
+  } = useBaseSiteStore();
+
+  // ====================================
+  // HANDLERS
+  // ====================================
   const handleSearch = (query) => {
     console.log('Searching:', query);
+  };
+
+  const handleNotificationsClick = () => {
+    console.log('Notifications clicked');
+    resetUnreadNotifications(); // Resetear contador al abrir notificaciones
+  };
+
+  // ====================================
+  // BREADCRUMB DINÁMICO DESDE STORE
+  // ====================================
+  const currentSection = navigationHistory[0] || { 
+    name: 'Dashboard',
+    path: '/'
   };
 
   const breadcrumbItems = [
     {
       label: 'Inicio',
-      href: '#',
-      onClick: (e) => { e.preventDefault(); console.log('Inicio clicked'); }
+      href: '/',
+      onClick: (e) => { 
+        e.preventDefault(); 
+        console.log('Inicio clicked'); 
+      }
     },
     {
-      label: 'Dashboard'
+      label: currentSection.name // Título dinámico desde store
     }
   ];
 
+  // ====================================
+  // USER MENU
+  // ====================================
   const userMenuItems = [
     {
       label: 'Mi Perfil',
@@ -53,7 +86,7 @@ const Header = () => {
     <HeaderContainer>
       {/* LEFT SECTION */}
       <HeaderBreadcrumb
-        title="Dashboard"
+        title={currentSection.name} // Título dinámico
         items={breadcrumbItems}
       />
 
@@ -71,9 +104,10 @@ const Header = () => {
         <div className="flex items-center space-x-2">
           <HeaderActionButton
             iconName="FaBell"
-            onClick={() => console.log('Notifications clicked')}
+            onClick={handleNotificationsClick}
             ariaLabel="Notificaciones"
-            showBadge={true}
+            showBadge={unreadNotificationsCount > 0} // Badge dinámico
+            badgeCount={unreadNotificationsCount} // Opcional: pasar el contador
           />
           
           <HeaderActionButton
@@ -83,7 +117,8 @@ const Header = () => {
           />
           
           <HeaderThemeToggle
-            onClick={() => console.log('Theme toggled')}
+            onClick={toggleTheme} // ✅ Conectado al store
+            currentTheme={theme} // ✅ Pasar theme actual
           />
         </div>
 
