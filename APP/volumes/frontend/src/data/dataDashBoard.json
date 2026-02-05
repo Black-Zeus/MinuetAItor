@@ -1,0 +1,241 @@
+{
+  "metrics": {
+    "totalMinutes": {
+      "value": 248,
+      "change": 12.5,
+      "trend": "up",
+      "period": "mes"
+    },
+    "activeProjects": {
+      "value": 34,
+      "change": 8.3,
+      "trend": "up",
+      "period": "mes"
+    },
+    "totalClients": {
+      "value": 12,
+      "change": -2.4,
+      "trend": "down",
+      "period": "mes"
+    },
+    "pendingReviews": {
+      "value": 7,
+      "change": 15.2,
+      "trend": "up",
+      "period": "semana"
+    }
+  },
+  "recentMinutes": [
+    {
+      "id": "MIN-2024-001",
+      "title": "Reunión de Planificación Sprint 12",
+      "client": "TechCorp Solutions",
+      "project": "Sistema ERP Cloud",
+      "date": "2024-02-03",
+      "status": "completed",
+      "participants": 8,
+      "duration": "90 min",
+      "tags": ["planificación", "sprint", "desarrollo"]
+    },
+    {
+      "id": "MIN-2024-002",
+      "title": "Revisión de Arquitectura Backend",
+      "client": "StartupX Inc",
+      "project": "Plataforma E-commerce",
+      "date": "2024-02-03",
+      "status": "pending_review",
+      "participants": 5,
+      "duration": "120 min",
+      "tags": ["arquitectura", "backend", "revisión"]
+    },
+    {
+      "id": "MIN-2024-003",
+      "title": "Kickoff Proyecto Mobile App",
+      "client": "Digital Agency Co",
+      "project": "App Delivery",
+      "date": "2024-02-02",
+      "status": "completed",
+      "participants": 12,
+      "duration": "60 min",
+      "tags": ["kickoff", "mobile", "inicio"]
+    },
+    {
+      "id": "MIN-2024-004",
+      "title": "Retrospectiva Sprint 11",
+      "client": "TechCorp Solutions",
+      "project": "Sistema ERP Cloud",
+      "date": "2024-02-02",
+      "status": "completed",
+      "participants": 8,
+      "duration": "45 min",
+      "tags": ["retrospectiva", "agile", "mejora continua"]
+    },
+    {
+      "id": "MIN-2024-005",
+      "title": "Presentación Demo Cliente",
+      "client": "Finance Group LLC",
+      "project": "Portal Financiero",
+      "date": "2024-02-01",
+      "status": "pending_review",
+      "participants": 6,
+      "duration": "75 min",
+      "tags": ["demo", "presentación", "cliente"]
+    }
+  ],
+  "projectsStatus": [
+    {
+      "id": "PRJ-001",
+      "name": "Sistema ERP Cloud",
+      "client": "TechCorp Solutions",
+      "progress": 75,
+      "status": "in_progress",
+      "minutes": 45,
+      "nextMeeting": "2024-02-10",
+      "team": 8
+    },
+    {
+      "id": "PRJ-002",
+      "name": "Plataforma E-commerce",
+      "client": "StartupX Inc",
+      "progress": 60,
+      "status": "in_progress",
+      "minutes": 32,
+      "nextMeeting": "2024-02-08",
+      "team": 5
+    },
+    {
+      "id": "PRJ-003",
+      "name": "App Delivery",
+      "client": "Digital Agency Co",
+      "progress": 15,
+      "status": "starting",
+      "minutes": 3,
+      "nextMeeting": "2024-02-07",
+      "team": 6
+    },
+    {
+      "id": "PRJ-004",
+      "name": "Portal Financiero",
+      "client": "Finance Group LLC",
+      "progress": 90,
+      "status": "finishing",
+      "minutes": 58,
+      "nextMeeting": "2024-02-12",
+      "team": 4
+    }
+  ],
+  "clientsActivity": [
+    {
+      "id": "CLI-001",
+      "name": "TechCorp Solutions",
+      "projects": 2,
+      "minutes": 89,
+      "lastActivity": "2024-02-03",
+      "status": "active",
+      "avatar": "TC"
+    },
+    {
+      "id": "CLI-002",
+      "name": "StartupX Inc",
+      "projects": 1,
+      "minutes": 32,
+      "lastActivity": "2024-02-03",
+      "status": "active",
+      "avatar": "SX"
+    },
+    {
+      "id": "CLI-003",
+      "name": "Digital Agency Co",
+      "projects": 1,
+      "minutes": 12,
+      "lastActivity": "2024-02-02",
+      "status": "active",
+      "avatar": "DA"
+    },
+    {
+      "id": "CLI-004",
+      "name": "Finance Group LLC",
+      "projects": 1,
+      "minutes": 58,
+      "lastActivity": "2024-02-01",
+      "status": "active",
+      "avatar": "FG"
+    },
+    {
+      "id": "CLI-005",
+      "name": "Retail Chain Inc",
+      "projects": 1,
+      "minutes": 24,
+      "lastActivity": "2024-01-28",
+      "status": "inactive",
+      "avatar": "RC"
+    }
+  ],
+  "upcomingMeetings": [
+    {
+      "id": "MEET-001",
+      "title": "Daily Standup",
+      "project": "Sistema ERP Cloud",
+      "date": "2024-02-04",
+      "time": "09:00",
+      "duration": "15 min",
+      "participants": ["Juan Pérez", "María García", "Carlos López"],
+      "type": "daily"
+    },
+    {
+      "id": "MEET-002",
+      "title": "Revisión de Diseño UI",
+      "project": "Plataforma E-commerce",
+      "date": "2024-02-04",
+      "time": "14:00",
+      "duration": "60 min",
+      "participants": ["Ana Martínez", "Pedro Sánchez", "Laura Torres"],
+      "type": "review"
+    },
+    {
+      "id": "MEET-003",
+      "title": "Planning Sprint 13",
+      "project": "Sistema ERP Cloud",
+      "date": "2024-02-05",
+      "time": "10:00",
+      "duration": "120 min",
+      "participants": ["Todo el equipo"],
+      "type": "planning"
+    },
+    {
+      "id": "MEET-004",
+      "title": "Demo App Mobile",
+      "project": "App Delivery",
+      "date": "2024-02-07",
+      "time": "16:00",
+      "duration": "45 min",
+      "participants": ["Cliente", "Product Owner", "Desarrolladores"],
+      "type": "demo"
+    }
+  ],
+  "activityChart": {
+    "labels": ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"],
+    "datasets": [
+      {
+        "label": "Minutas Creadas",
+        "data": [12, 15, 8, 18, 14, 3, 0],
+        "color": "#3b82f6"
+      },
+      {
+        "label": "Minutas Revisadas",
+        "data": [8, 12, 10, 14, 11, 5, 2],
+        "color": "#10b981"
+      }
+    ]
+  },
+  "tagsPopular": [
+    { "name": "planificación", "count": 45, "color": "blue" },
+    { "name": "desarrollo", "count": 38, "color": "green" },
+    { "name": "revisión", "count": 32, "color": "purple" },
+    { "name": "cliente", "count": 28, "color": "orange" },
+    { "name": "sprint", "count": 25, "color": "red" },
+    { "name": "demo", "count": 18, "color": "yellow" },
+    { "name": "arquitectura", "count": 15, "color": "indigo" },
+    { "name": "retrospectiva", "count": 12, "color": "pink" }
+  ]
+}
