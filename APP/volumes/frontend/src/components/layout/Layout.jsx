@@ -1,21 +1,23 @@
 import React from 'react';
+import { Outlet } from 'react-router-dom';
+
 import Sidebar from './sidebar/Sidebar';
 import Header from './header/Header';
 
-const Layout = ({ children }) => {
+const Layout = () => {
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
       {/* Sidebar */}
       <Sidebar />
-      
+
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
         <Header />
-        
+
         {/* Content */}
         <main className="flex-1 overflow-y-auto p-6 bg-white dark:bg-gray-800">
-          {children}
+          <Outlet />
         </main>
       </div>
     </div>
