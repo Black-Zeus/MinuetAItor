@@ -23,7 +23,7 @@ export const SIDEBAR_MODULES = [
     section: 'core',
     order: 2
   },
-  
+
   // ====================================
   // GESTIÓN - Administración de Entidades
   // ====================================
@@ -51,7 +51,7 @@ export const SIDEBAR_MODULES = [
     section: 'management',
     order: 5
   },
-  
+
   // ====================================
   // INTELIGENCIA - Análisis y Datos
   // ====================================
@@ -71,7 +71,7 @@ export const SIDEBAR_MODULES = [
     section: 'intelligence',
     order: 7
   },
-  
+
   // ====================================
   // CONFIGURACIÓN - Sistema y Usuario
   // ====================================
@@ -90,7 +90,57 @@ export const SIDEBAR_MODULES = [
     path: '/configuracion/sistema',
     section: 'config',
     order: 9,
-    requiresAdmin: true // Solo administradores
+    requiresAdmin: true
+  },
+
+  // ====================================
+  // DEMOS - Componentes / Ejemplos (AL FINAL)
+  // ====================================
+  {
+    id: 'demos',
+    name: 'Demos',
+    icon: 'FaCog',
+    section: 'demos',
+    order: 100,
+    children: [
+      {
+        id: 'demo-general',
+        name: 'General',
+        icon: 'FaFileAlt',
+        path: '/demo/general',
+        order: 1
+      },
+      {
+        id: 'demo-modal',
+        name: 'Modal',
+        icon: 'FaRegFileAlt',
+        path: '/demo/modal',
+        order: 2
+      },
+
+      // ✅ Demos de error pages
+      {
+        id: 'demo-403',
+        name: '403 Forbidden',
+        icon: 'FaBan',
+        path: '/demo/forbidden',
+        order: 3
+      },
+      {
+        id: 'demo-404',
+        name: '404 Not Found',
+        icon: 'FaQuestionCircle',
+        path: '/demo/not-found',
+        order: 4
+      },
+      {
+        id: 'demo-500',
+        name: '500 Server Error',
+        icon: 'FaBug',
+        path: '/demo/server-error',
+        order: 5
+      }
+    ]
   }
 ];
 
@@ -121,37 +171,39 @@ export const SIDEBAR_SECTIONS = {
     title: 'Configuración',
     order: 4,
     color: 'gray'
+  },
+  demos: {
+    id: 'demos',
+    title: 'Demos',
+    order: 999,
+    color: 'emerald'
   }
 };
 
 /**
- * Agrupa los módulos por sección
- * @param {Array} modules - Lista de módulos
- * @returns {Object} Módulos agrupados por sección
- */
-export const groupModulesBySection = (modules = SIDEBAR_MODULES) => {
-  return modules.reduce((acc, module) => {
-    const section = module.section || 'other';
-    if (!acc[section]) {
-      acc[section] = [];
-    }
-    acc[section].push(module);
-    return acc;
-  }, {});
-};
-
-/**
- * Filtra módulos según permisos del usuario
- * @param {Array} modules - Lista de módulos
- * @param {Object} user - Usuario actual
- * @returns {Array} Módulos filtrados
+ * Filtra módulos según permisos del usuario (soporta children)
  */
 export const filterModulesByPermissions = (modules = SIDEBAR_MODULES, user = {}) => {
-  return modules.filter(module => {
-    // Si requiere admin y el usuario no es admin, no mostrar
-    if (module.requiresAdmin && !user.isAdmin) {
-      return false;
-    }
-    return true;
-  });
+  const filterRecursively = (items = []) => {
+    return items
+      .filter((module) => {
+        if (module.requiresAdmin && !user.isAdmin) return false;
+        return true;
+      })
+      .map((module) => {
+        if (Array.isArray(module.children) && module.children.length > 0) {
+          const children = filterRecursively(module.children);
+          return { ...module, children };
+        }
+        return module;
+      })
+      // Si un padre queda sin hijos y no tiene path, no mostrar
+      .filter((module) => {
+        const hasChildren = Array.isArray(module.children) && module.children.length > 0;
+        if (!module.path && !hasChildren) return false;
+        return true;
+      });
+  };
+
+  return filterRecursively(modules);
 };
