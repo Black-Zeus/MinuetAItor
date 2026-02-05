@@ -1,45 +1,61 @@
 /**
  * App.jsx
- * SOLUCIÓN DEFINITIVA - Usa useLayoutEffect para aplicar ANTES del render
+ * React Router v6 - Layout anidado + redirecciones correctas
  */
 
-import React, { useLayoutEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import React, { useLayoutEffect } from "react";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+
 import Layout from "@components/layout/Layout";
-import Demo from "@pages/Demo";
+
+// Secciones
+import Dashboard from "./pages/dashboard/Dashboard";
+
+//Error Page
+import ForbiddenPage from "./pages/errorPages/ForbiddenPage";
+import NotFoundPage from "./pages/errorPages/NotFoundPage";
+import ServerErrorPage from "./pages/errorPages/ServerErrorPage";
+
+// Demos
+import General from "./pages/demo/General";
+import ModalDemo from "./pages/demo/ModalDemo";
+
 import useBaseSiteStore from "@store/baseSiteStore";
 
 function App() {
   const { theme } = useBaseSiteStore();
 
-  // ✅ useLayoutEffect se ejecuta ANTES del render (síncrono)
-  // Esto previene cualquier flash o conflicto de timing
   useLayoutEffect(() => {
-    console.log('⚡ useLayoutEffect - Aplicando theme:', theme);
-    
     const html = document.documentElement;
-    
-    if (theme === 'dark') {
-      html.classList.add('dark');
-      console.log('✅ Dark mode ACTIVADO');
-    } else {
-      html.classList.remove('dark');
-      console.log('☀️ Light mode ACTIVADO');
+    const isDark = theme === "dark";
+    if (html.classList.contains("dark") !== isDark) {
+      html.classList.toggle("dark", isDark);
     }
-    
-    // Verificar que se aplicó
-    console.log('📋 classList actual:', Array.from(html.classList));
-    
   }, [theme]);
 
   return (
     <Router>
-      <Layout>
-        <Routes>
-          <Route path="/demo" element={<Demo />} />
-          <Route path="/" element={<Demo />} />
-        </Routes>
-      </Layout>
+      <Routes>
+        <Route element={<Layout />}>
+          {/* Redirect base */}
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+
+          {/* Rutas base */}
+          <Route path="/dashboard" element={<Dashboard />} />
+
+          {/* Demos */}
+          <Route path="/demo/general" element={<General />} />
+          <Route path="/demo/modal" element={<ModalDemo />} />
+
+          {/* Demos: páginas de error (para test/preview UI) */}
+          <Route path="/demo/forbidden" element={<ForbiddenPage />} />
+          <Route path="/demo/not-found" element={<NotFoundPage />} />
+          <Route path="/demo/server-error" element={<ServerErrorPage />} />
+
+          {/* 404 global: cualquier cosa no encontrada */}
+          <Route path="*" element={<NotFoundPage />} />
+        </Route>
+      </Routes>
     </Router>
   );
 }
