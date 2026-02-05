@@ -14,6 +14,527 @@ const ModalDemo = () => {
   const [demoResults, setDemoResults] = useState([]);
 
   useDocumentTitle("Modal Demos | Inventory App");
+
+  // ====================================
+  // CODE SNIPPETS - Código de cada modal
+  // ====================================
+
+  const codeSnippets = {
+    info: `// Imports necesarios
+import ModalManager from '@/components/ui/modal';
+
+// Uso
+ModalManager.info({
+  title: 'Información del Sistema',
+  message: 'El sistema realizará una actualización programada el próximo martes a las 02:00 AM.',
+  onClose: () => console.log('Modal cerrado')
+});`,
+
+    confirm: `// Imports necesarios
+import ModalManager from '@/components/ui/modal';
+
+// Uso
+const confirmed = await ModalManager.confirm({
+  title: 'Confirmar Acción',
+  message: '¿Está seguro de que desea eliminar este elemento?',
+  confirmText: 'Eliminar',
+  cancelText: 'Cancelar'
+});
+console.log(confirmed ? 'Confirmado' : 'Cancelado');`,
+
+    success: `// Imports necesarios
+import ModalManager from '@/components/ui/modal';
+
+// Uso
+ModalManager.success({
+  title: 'Operación Completada',
+  message: 'La operación se ha completado correctamente.',
+  onClose: () => console.log('Éxito confirmado')
+});`,
+
+    warning: `// Imports necesarios
+import ModalManager from '@/components/ui/modal';
+
+// Uso
+ModalManager.warning({
+  title: 'Advertencia de Seguridad',
+  message: 'Se ha detectado un intento de acceso no autorizado.',
+  onClose: () => console.log('Advertencia vista')
+});`,
+
+    error: `// Imports necesarios
+import ModalManager from '@/components/ui/modal';
+
+// Uso
+ModalManager.error({
+  title: 'Error del Sistema',
+  message: 'Se ha producido un error al conectar',
+  details: [
+    'Error Code: ERR_500_INTERNAL',
+    'Connection timeout after 30s',
+    \`Timestamp: \${new Date().toISOString()}\`
+  ],
+  onClose: () => console.log('Error reconocido')
+});`,
+
+    danger: `// Imports necesarios
+import ModalManager from '@/components/ui/modal';
+
+// Uso
+ModalManager.danger({
+  title: 'Acción Peligrosa',
+  message: 'Esta acción eliminará permanentemente todos los datos del sistema.',
+  onClose: () => console.log('Advertencia vista')
+});`,
+
+    form: `// Imports necesarios
+import ModalManager from '@/components/ui/modal';
+
+// Uso
+const data = await ModalManager.form({
+  title: 'Configuración de Usuario',
+  fields: [
+    { 
+      name: 'fullName', 
+      label: 'Nombre completo', 
+      type: 'text', 
+      required: true 
+    },
+    { 
+      name: 'email', 
+      label: 'Correo electrónico', 
+      type: 'email', 
+      required: true 
+    },
+    {
+      name: 'department', 
+      label: 'Departamento', 
+      type: 'select', 
+      required: true, 
+      options: [
+        { value: 'desarrollo', label: 'Desarrollo' },
+        { value: 'marketing', label: 'Marketing' }
+      ]
+    }
+  ],
+  submitText: 'Guardar',
+  cancelText: 'Cancelar'
+});
+console.log('Datos del formulario:', data);`,
+
+    wizard: `// Imports necesarios
+import ModalManager from '@/components/ui/modal';
+
+// Uso
+const data = await ModalManager.wizard({
+  title: 'Asistente de Configuración',
+  steps: [
+    {
+      title: 'Información Básica',
+      description: 'Configure los datos básicos del proyecto',
+      fields: [
+        { 
+          name: 'projectName', 
+          label: 'Nombre del Proyecto', 
+          type: 'text', 
+          required: true 
+        }
+      ]
+    },
+    {
+      title: 'Configuración Técnica',
+      description: 'Seleccione las opciones técnicas',
+      fields: [
+        {
+          name: 'type', 
+          label: 'Tipo de Implementación', 
+          type: 'select', 
+          required: true,
+          options: [
+            { value: 'web', label: 'Aplicación Web' },
+            { value: 'api', label: 'API Backend' }
+          ]
+        }
+      ]
+    }
+  ]
+});
+console.log('Datos del wizard:', data);`,
+
+    login: `// Imports necesarios
+import ModalManager from '@/components/ui/modal';
+
+// Uso
+const credentials = await ModalManager.login({
+  title: 'Iniciar Sesión',
+  message: 'Ingrese sus credenciales para acceder al sistema',
+  showRegisterLink: true,
+  showForgotPassword: true,
+  onRegister: () => console.log('Registro'),
+  onForgotPassword: () => console.log('Recuperar contraseña')
+});
+console.log('Credenciales:', credentials);`,
+
+    search: `// Imports necesarios
+import ModalManager from '@/components/ui/modal';
+
+// Uso
+ModalManager.search({
+  title: 'Búsqueda Avanzada',
+  placeholder: 'Buscar productos, usuarios, documentos...',
+  filters: [
+    {
+      name: 'category',
+      label: 'Categoría',
+      type: 'select',
+      options: [
+        { value: 'products', label: 'Productos' },
+        { value: 'users', label: 'Usuarios' }
+      ]
+    }
+  ],
+  recentSearches: ['laptop', 'mouse wireless'],
+  results: [
+    { 
+      id: 1, 
+      title: 'Laptop Gaming Pro', 
+      description: 'Alto rendimiento', 
+      icon: '💻' 
+    }
+  ],
+  onSearch: (query) => console.log(\`Búsqueda: "\${query}"\`),
+  onResultSelect: (result) => console.log(\`Seleccionado: \${result.title}\`)
+});`,
+
+    datatable: `// Imports necesarios
+import ModalManager from '@/components/ui/modal';
+
+// Uso
+ModalManager.datatable({
+  title: 'Gestión de Usuarios',
+  data: [
+    { 
+      id: 1, 
+      name: 'Juan Pérez', 
+      email: 'juan@empresa.com', 
+      status: 'Activo' 
+    }
+  ],
+  columns: [
+    { key: 'id', label: 'ID', sortable: true },
+    { key: 'name', label: 'Nombre', sortable: true },
+    { key: 'email', label: 'Email', sortable: true }
+  ],
+  actions: [
+    { name: 'edit', label: 'Editar', icon: 'edit', color: 'blue' },
+    { name: 'delete', label: 'Eliminar', icon: 'delete', color: 'red' }
+  ],
+  pagination: true,
+  filtering: true,
+  selection: true,
+  onRowAction: (action, row) => console.log(\`\${action}: \${row.name}\`)
+});`,
+
+    calendar: `// Imports necesarios
+import ModalManager from '@/components/ui/modal';
+
+// Uso
+ModalManager.calendar({
+  title: 'Calendario de Eventos',
+  selectedDate: new Date(),
+  events: [
+    { 
+      id: 1, 
+      title: 'Reunión de equipo', 
+      date: '2024-02-15', 
+      type: 'meeting' 
+    }
+  ],
+  onDateSelect: (date) => console.log(\`Fecha: \${date.toDateString()}\`),
+  onEventSelect: (event) => console.log(\`Evento: \${event.title}\`)
+});`,
+
+    calendarSingle: `// Imports necesarios
+import ModalManager from '@/components/ui/modal';
+import { dataModalRenderers } from '@/components/ui/modal/types/DataModals';
+
+const CalendarModalContent = dataModalRenderers.calendar;
+
+// Uso
+ModalManager.custom({
+  title: 'Calendario (Día Único)',
+  size: 'large',
+  content: (
+    <CalendarModalContent
+      selectedDate={new Date()}
+      rangeSelection={false}
+      onDateSelect={(date) => console.log(date.toLocaleDateString())}
+    />
+  ),
+  buttons: [
+    {
+      text: 'Cerrar',
+      variant: 'secondary',
+      onClick: () => ModalManager.closeAll()
+    }
+  ]
+});`,
+
+    calendarRange: `// Imports necesarios
+import ModalManager from '@/components/ui/modal';
+import { dataModalRenderers } from '@/components/ui/modal/types/DataModals';
+
+const CalendarModalContent = dataModalRenderers.calendar;
+
+// Uso
+ModalManager.custom({
+  title: 'Calendario (Rango de Fechas)',
+  size: 'large',
+  content: (
+    <CalendarModalContent
+      selectedStartDate={null}
+      selectedEndDate={null}
+      rangeSelection={true}
+      onRangeSelect={(start, end) => {
+        if (start && end) {
+          console.log(\`Rango: \${start.toLocaleDateString()} → \${end.toLocaleDateString()}\`);
+        }
+      }}
+    />
+  ),
+  buttons: [
+    {
+      text: 'Cerrar',
+      variant: 'secondary',
+      onClick: () => ModalManager.closeAll()
+    }
+  ],
+  showFooter: false
+});`,
+
+    image: `// Imports necesarios
+import ModalManager from '@/components/ui/modal';
+
+// Uso
+ModalManager.image({
+  title: 'Vista Previa de Imagen',
+  images: [
+    { 
+      id: 1, 
+      url: 'https://picsum.photos/800/600', 
+      name: 'Imagen 1', 
+      alt: 'Demo' 
+    }
+  ],
+  currentIndex: 0,
+  showThumbnails: true,
+  allowDownload: true,
+  onDownload: (image) => console.log(\`Descargando: \${image.name}\`)
+});`,
+
+    video: `// Imports necesarios
+import ModalManager from '@/components/ui/modal';
+
+// Uso
+ModalManager.video({
+  title: 'Reproductor de Video',
+  video: {
+    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+    title: 'Big Buck Bunny'
+  },
+  autoplay: false,
+  controls: true,
+  onPlay: () => console.log('Reproduciendo')
+});`,
+
+    gallery: `// Imports necesarios
+import ModalManager from '@/components/ui/modal';
+
+// Uso
+ModalManager.gallery({
+  title: 'Galería de Medios',
+  items: [
+    { 
+      id: 1, 
+      type: 'image', 
+      name: 'Foto.jpg', 
+      url: 'https://picsum.photos/400/300',
+      size: '2.3 MB'
+    }
+  ],
+  viewMode: 'grid',
+  allowUpload: true,
+  selectable: true,
+  onItemSelect: (selection) => console.log(\`\${selection.length} seleccionados\`)
+});`,
+
+    fileManager: `// Imports necesarios
+import ModalManager from '@/components/ui/modal';
+
+// Uso
+ModalManager.fileManager({
+  title: 'Gestor de Archivos',
+  currentPath: '/documentos/proyectos',
+  files: [
+    { 
+      id: 1, 
+      name: 'Proyecto 2024', 
+      type: 'folder', 
+      modified: '2024-01-15T10:30:00Z' 
+    }
+  ],
+  allowUpload: true,
+  allowCreateFolder: true,
+  onNavigate: (path) => console.log(\`Navegando: \${path}\`)
+});`,
+
+    loading: `// Imports necesarios
+import ModalManager from '@/components/ui/modal';
+
+// Uso
+const loadingModal = ModalManager.loading({
+  title: 'Procesando Solicitud',
+  message: 'Iniciando proceso...',
+  progress: 0,
+  showProgress: true,
+  showCancel: true,
+  onCancel: () => console.log('Cancelado')
+});
+
+// Simular progreso
+let progress = 0;
+const interval = setInterval(() => {
+  progress += 10;
+  if (progress >= 100) {
+    clearInterval(interval);
+    ModalManager.close(loadingModal);
+  }
+}, 300);`,
+
+    progress: `// Imports necesarios
+import ModalManager from '@/components/ui/modal';
+
+// Uso
+const progressModal = ModalManager.progress({
+  title: 'Subiendo Archivos',
+  steps: [
+    'Preparando archivos...',
+    'Comprimiendo datos...',
+    'Subiendo al servidor...'
+  ],
+  currentStep: 0,
+  progress: 0,
+  allowCancel: true,
+  onCancel: () => console.log('Cancelado')
+});`,
+
+    settings: `// Imports necesarios
+import ModalManager from '@/components/ui/modal';
+
+// Uso
+ModalManager.settings({
+  title: 'Configuración del Sistema',
+  categories: [
+    {
+      id: 'general',
+      name: 'General',
+      settings: [
+        {
+          id: 'language',
+          label: 'Idioma',
+          type: 'select',
+          options: [
+            { value: 'es', label: 'Español' },
+            { value: 'en', label: 'English' }
+          ]
+        }
+      ]
+    }
+  ],
+  onSave: (settings) => console.log('Guardado', settings)
+});`,
+
+    help: `// Imports necesarios
+import ModalManager from '@/components/ui/modal';
+
+// Uso
+ModalManager.help({
+  title: 'Centro de Ayuda',
+  categories: [
+    { id: 'getting-started', name: 'Primeros Pasos', icon: '🚀' }
+  ],
+  popularArticles: [
+    'Cómo crear un nuevo proyecto',
+    'Gestión de usuarios y permisos'
+  ],
+  onSearch: (query) => console.log(\`Búsqueda: "\${query}"\`)
+});`,
+
+    custom: `// Imports necesarios
+import ModalManager from '@/components/ui/modal';
+
+// Uso
+ModalManager.custom({
+  title: 'Modal Personalizado',
+  size: 'large',
+  content: (
+    <div className="text-center py-6">
+      <h3 className="text-xl font-semibold mb-4">
+        ¡Contenido Personalizado!
+      </h3>
+      <p className="text-gray-600">
+        Puedes agregar cualquier JSX aquí
+      </p>
+    </div>
+  ),
+  buttons: [
+    { text: 'Cancelar', variant: 'secondary', onClick: () => {} },
+    { text: 'Confirmar', variant: 'primary', onClick: () => {} }
+  ]
+});`
+  };
+
+  // ====================================
+  // Función para mostrar el código
+  // ====================================
+
+  const showCode = (codeKey) => {
+    const code = codeSnippets[codeKey];
+
+    ModalManager.custom({
+      title: '📋 Código del Modal',
+      size: 'large',
+      content: (
+        <div className="relative">
+          <div className="absolute top-2 right-2 z-10">
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(code);
+                addResult('code', 'Código copiado al portapapeles');
+              }}
+              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md transition-colors flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+              Copiar
+            </button>
+          </div>
+          <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto text-sm">
+            <code>{code}</code>
+          </pre>
+        </div>
+      ),
+      buttons: [
+        {
+          text: 'Cerrar',
+          variant: 'secondary',
+          onClick: () => ModalManager.closeAll()
+        }
+      ]
+    });
+  };
+
   // ====================================
   // HELPERS
   // ====================================
@@ -74,7 +595,6 @@ const ModalDemo = () => {
     ModalManager.error({
       title: 'Error del Sistema',
       message: 'Se ha producido un error al conectar',
-      // Aquí van los detalles técnicos que estarán ocultos hasta expandir
       details: [
         'Error Code: ERR_500_INTERNAL',
         'Connection timeout after 30s',
@@ -84,7 +604,6 @@ const ModalDemo = () => {
     });
   };
 
-
   const showDangerModal = () => {
     ModalManager.danger({
       title: 'Acción Peligrosa',
@@ -93,15 +612,13 @@ const ModalDemo = () => {
     });
   };
 
-  
-
   const showNotificationInfo = () => {
     ModalManager.show({
       type: 'notification',
       variant: 'info',
       title: 'Info',
       message: 'Esto es una notificación de información.',
-      autoClose: 10*1000,
+      autoClose: 10 * 1000,
       position: 'bottom-right',
       onClose: () => addResult('notification', 'Info vista'),
     });
@@ -113,7 +630,7 @@ const ModalDemo = () => {
       variant: 'success',
       title: 'Éxito',
       message: 'Operación realizada correctamente.',
-      autoClose: 10*1000,
+      autoClose: 10 * 1000,
       position: 'bottom-right',
       onClose: () => addResult('notification', 'Éxito vista'),
     });
@@ -125,7 +642,7 @@ const ModalDemo = () => {
       variant: 'warning',
       title: 'Advertencia',
       message: 'Esta es una advertencia importante.',
-      autoClose: 10*1000,
+      autoClose: 10 * 1000,
       position: 'bottom-right',
       onClose: () => addResult('notification', 'Advertencia vista'),
     });
@@ -137,13 +654,12 @@ const ModalDemo = () => {
       variant: 'error',
       title: 'Error',
       message: 'Ha ocurrido un error inesperado.',
-      autoClose: 10*1000,
+      autoClose: 10 * 1000,
       position: 'bottom-right',
       onClose: () => addResult('notification', 'Error vista'),
     });
   };
 
-  // Esta función es el "dispatcher"
   const showNotificationModal = (variant = "info") => {
     switch (variant) {
       case "success":
@@ -398,7 +914,6 @@ const ModalDemo = () => {
     });
   };
 
-
   // ====================================
   // MODALES DE MEDIA
   // ====================================
@@ -525,7 +1040,6 @@ const ModalDemo = () => {
       }
     });
 
-    // Simular progreso
     let currentStep = 0;
     let progress = 0;
 
@@ -567,7 +1081,6 @@ const ModalDemo = () => {
       onCancel: () => addResult('progress', 'Subida cancelada')
     });
 
-    // Simular progreso de subida
     let step = 0;
     let progress = 0;
 
@@ -742,6 +1255,35 @@ const ModalDemo = () => {
   };
 
   // ====================================
+  // COMPONENTE DE BOTÓN CON CÓDIGO
+  // ====================================
+
+  const DemoButton = ({ onClick, onShowCode, icon, label, codeKey }) => (
+    <div className="relative group">
+      <button
+        onClick={onClick}
+        className="w-full flex items-center gap-2 p-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md text-gray-700 dark:text-gray-300 font-medium"
+      >
+        {typeof icon === 'string' ? (
+          <span className="text-lg">{icon}</span>
+        ) : (
+          icon
+        )}
+        {label}
+      </button>
+      <button
+        onClick={() => onShowCode(codeKey)}
+        className="absolute top-1 right-1 p-1.5 bg-gray-800 hover:bg-gray-900 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity"
+        title="Ver código"
+      >
+        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
+        </svg>
+      </button>
+    </div>
+  );
+
+  // ====================================
   // RENDER
   // ====================================
 
@@ -763,115 +1305,65 @@ const ModalDemo = () => {
             Modales Estándar
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <button
+            <DemoButton
               onClick={showInfoModal}
-              className="flex items-center gap-2 p-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md text-gray-700 dark:text-gray-300 font-medium"
-            >
-              <svg className="w-5 h-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+              onShowCode={showCode}
+              codeKey="info"
+              icon={<svg className="w-5 h-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-              </svg>
-              Información
-            </button>
+              </svg>}
+              label="Información"
+            />
 
-            <button
+            <DemoButton
               onClick={showConfirmModal}
-              className="flex items-center gap-2 p-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md text-gray-700 dark:text-gray-300 font-medium"
-            >
-              <svg className="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+              onShowCode={showCode}
+              codeKey="confirm"
+              icon={<svg className="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-              </svg>
-              Confirmación
-            </button>
+              </svg>}
+              label="Confirmación"
+            />
 
-            <button
+            <DemoButton
               onClick={showSuccessModal}
-              className="flex items-center gap-2 p-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md text-gray-700 dark:text-gray-300 font-medium"
-            >
-              <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+              onShowCode={showCode}
+              codeKey="success"
+              icon={<svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-              Éxito
-            </button>
+              </svg>}
+              label="Éxito"
+            />
 
-            <button
+            <DemoButton
               onClick={showWarningModal}
-              className="flex items-center gap-2 p-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md text-gray-700 dark:text-gray-300 font-medium"
-            >
-              <svg className="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+              onShowCode={showCode}
+              codeKey="warning"
+              icon={<svg className="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-              </svg>
-              Advertencia
-            </button>
+              </svg>}
+              label="Advertencia"
+            />
 
-            <button
+            <DemoButton
               onClick={showErrorModal}
-              className="flex items-center gap-2 p-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md text-gray-700 dark:text-gray-300 font-medium"
-            >
-              <svg className="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+              onShowCode={showCode}
+              codeKey="error"
+              icon={<svg className="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-              </svg>
-              Error
-            </button>
+              </svg>}
+              label="Error"
+            />
 
-            <button
+            <DemoButton
               onClick={showDangerModal}
-              className="flex items-center gap-2 p-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md text-gray-700 dark:text-gray-300 font-medium"
-            >
-              <svg className="w-5 h-5 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+              onShowCode={showCode}
+              codeKey="danger"
+              icon={<svg className="w-5 h-5 text-red-600" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-              </svg>
-              Peligro
-            </button>
-          </div>
-        </div>
-
-
-
-        {/* Modales Estándar */}
-        <div className="mb-10 hidden">
-          <h2 className="flex items-center gap-2 text-xl font-semibold text-gray-700 dark:text-gray-300 mb-4 pb-2 border-b-2 border-gray-200 dark:border-gray-600">
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-            </svg>
-            Modales Toaster
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <button
-              onClick={() => showNotificationModal({ variant: "info" })}
-              className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/30 rounded-md text-blue-800 dark:text-blue-200 font-medium"
-            >
-              <svg className="w-5 h-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
-                {/* ... */}
-              </svg>
-              Info
-            </button>
-            <button
-              onClick={() => showNotificationModal({ variant: "success" })}
-              className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/30 rounded-md text-green-800 dark:text-green-200 font-medium"
-            >
-              <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                {/* ... */}
-              </svg>
-              Éxito
-            </button>
-            <button
-              onClick={() => showNotificationModal({ variant: "warning" })}
-              className="flex items-center gap-2 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800/30 rounded-md text-yellow-800 dark:text-yellow-200 font-medium"
-            >
-              <svg className="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
-                {/* ... */}
-              </svg>
-              Advertencia
-            </button>
-            <button
-              onClick={() => showNotificationModal({ variant: "error" })}
-              className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30 rounded-md text-red-800 dark:text-red-200 font-medium"
-            >
-              <svg className="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
-                {/* ... */}
-              </svg>
-              Error
-            </button>
+              </svg>}
+              label="Peligro"
+            />
           </div>
         </div>
 
@@ -885,20 +1377,9 @@ const ModalDemo = () => {
             Modales Interactivos
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {[
-              { handler: showFormModal, icon: "📝", label: "Formulario" },
-              { handler: showWizardModal, icon: "🎯", label: "Asistente" },
-              { handler: showLoginModal, icon: "🔐", label: "Login" }
-            ].map((item, index) => (
-              <button
-                key={index}
-                onClick={item.handler}
-                className="flex items-center gap-2 p-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md text-gray-700 dark:text-gray-300 font-medium"
-              >
-                <span className="text-lg">{item.icon}</span>
-                {item.label}
-              </button>
-            ))}
+            <DemoButton onClick={showFormModal} onShowCode={showCode} codeKey="form" icon="📝" label="Formulario" />
+            <DemoButton onClick={showWizardModal} onShowCode={showCode} codeKey="wizard" icon="🎯" label="Asistente" />
+            <DemoButton onClick={showLoginModal} onShowCode={showCode} codeKey="login" icon="🔐" label="Login" />
           </div>
         </div>
 
@@ -911,24 +1392,12 @@ const ModalDemo = () => {
             Modales de Datos
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {[
-              { handler: showSearchModal, icon: "🔍", label: "Búsqueda" },
-              { handler: showDataTableModal, icon: "📊", label: "Tabla de Datos" }
-            ].map((item, index) => (
-              <button
-                key={index}
-                onClick={item.handler}
-                className="flex items-center gap-2 p-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md text-gray-700 dark:text-gray-300 font-medium"
-              >
-                <span className="text-lg">{item.icon}</span>
-                {item.label}
-              </button>
-            ))}
+            <DemoButton onClick={showSearchModal} onShowCode={showCode} codeKey="search" icon="🔍" label="Búsqueda" />
+            <DemoButton onClick={showDataTableModal} onShowCode={showCode} codeKey="datatable" icon="📊" label="Tabla de Datos" />
           </div>
         </div>
 
-
-        {/* Modales de Datos */}
+        {/* Modales de Calendarios */}
         <div className="mb-10">
           <h2 className="flex items-center gap-2 text-xl font-semibold text-gray-700 dark:text-gray-300 mb-4 pb-2 border-b-2 border-gray-200 dark:border-gray-600">
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -937,20 +1406,9 @@ const ModalDemo = () => {
             Modales de Calendarios
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {[
-              { handler: showCalendarModal, icon: "📅", label: "Calendario Eventos" },
-              { handler: showCalendarModalSingleDay, icon: "📅", label: "Calendario Día" },
-              { handler: showCalendarModalRange, icon: "📆", label: "Calendario Rango" }
-            ].map((item, index) => (
-              <button
-                key={index}
-                onClick={item.handler}
-                className="flex items-center gap-2 p-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md text-gray-700 dark:text-gray-300 font-medium"
-              >
-                <span className="text-lg">{item.icon}</span>
-                {item.label}
-              </button>
-            ))}
+            <DemoButton onClick={showCalendarModal} onShowCode={showCode} codeKey="calendar" icon="📅" label="Calendario Eventos" />
+            <DemoButton onClick={showCalendarModalSingleDay} onShowCode={showCode} codeKey="calendarSingle" icon="📅" label="Calendario Día" />
+            <DemoButton onClick={showCalendarModalRange} onShowCode={showCode} codeKey="calendarRange" icon="📆" label="Calendario Rango" />
           </div>
         </div>
 
@@ -963,21 +1421,10 @@ const ModalDemo = () => {
             Modales de Media
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {[
-              { handler: showImageModal, icon: "🖼️", label: "Vista Previa" },
-              { handler: showVideoModal, icon: "🎬", label: "Reproductor" },
-              { handler: showGalleryModal, icon: "🖼️", label: "Galería" },
-              { handler: showFileManagerModal, icon: "📁", label: "Gestor Archivos" }
-            ].map((item, index) => (
-              <button
-                key={index}
-                onClick={item.handler}
-                className="flex items-center gap-2 p-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md text-gray-700 dark:text-gray-300 font-medium"
-              >
-                <span className="text-lg">{item.icon}</span>
-                {item.label}
-              </button>
-            ))}
+            <DemoButton onClick={showImageModal} onShowCode={showCode} codeKey="image" icon="🖼️" label="Vista Previa" />
+            <DemoButton onClick={showVideoModal} onShowCode={showCode} codeKey="video" icon="🎬" label="Reproductor" />
+            <DemoButton onClick={showGalleryModal} onShowCode={showCode} codeKey="gallery" icon="🖼️" label="Galería" />
+            <DemoButton onClick={showFileManagerModal} onShowCode={showCode} codeKey="fileManager" icon="📁" label="Gestor Archivos" />
           </div>
         </div>
 
@@ -990,22 +1437,11 @@ const ModalDemo = () => {
             Modales de Sistema
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-            {[
-              { handler: showLoadingModal, icon: "⏳", label: "Loading" },
-              { handler: showProgressModal, icon: "📈", label: "Progreso" },
-              { handler: showSettingsModal, icon: "⚙️", label: "Configuración" },
-              { handler: showHelpModal, icon: "❓", label: "Ayuda" },
-              { handler: showCustomModal, icon: "🎨", label: "Personalizado" }
-            ].map((item, index) => (
-              <button
-                key={index}
-                onClick={item.handler}
-                className="flex items-center gap-2 p-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md text-gray-700 dark:text-gray-300 font-medium"
-              >
-                <span className="text-lg">{item.icon}</span>
-                {item.label}
-              </button>
-            ))}
+            <DemoButton onClick={showLoadingModal} onShowCode={showCode} codeKey="loading" icon="⏳" label="Loading" />
+            <DemoButton onClick={showProgressModal} onShowCode={showCode} codeKey="progress" icon="📈" label="Progreso" />
+            <DemoButton onClick={showSettingsModal} onShowCode={showCode} codeKey="settings" icon="⚙️" label="Configuración" />
+            <DemoButton onClick={showHelpModal} onShowCode={showCode} codeKey="help" icon="❓" label="Ayuda" />
+            <DemoButton onClick={showCustomModal} onShowCode={showCode} codeKey="custom" icon="🎨" label="Personalizado" />
           </div>
         </div>
 
@@ -1046,7 +1482,7 @@ const ModalDemo = () => {
           )}
         </div>
       </div>
-    </div >
+    </div>
   );
 };
 
