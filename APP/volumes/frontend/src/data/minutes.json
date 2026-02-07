@@ -1,0 +1,112 @@
+{
+  "minutes": [
+    {
+      "id": 1,
+      "title": "Reunión de Kick-off del Proyecto",
+      "date": "15 Ene 2025",
+      "time": "10:00 AM",
+      "status": "completed",
+      "client": "Acme Corporation",
+      "project": "Rediseño Web",
+      "participants": ["Juan Pérez", "María García", "+3 más"],
+      "summary": "Se discutieron los objetivos principales del proyecto, se definieron los entregables y se estableció el cronograma inicial de trabajo para las próximas semanas.",
+      "tags": [
+        { "label": "Planificación", "color": "blue" },
+        { "label": "Estrategia", "color": "green" }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Revisión de Avances - Sprint 1",
+      "date": "20 Ene 2025",
+      "time": "2:30 PM",
+      "status": "pending",
+      "client": "TechStart Inc",
+      "project": "App Mobile",
+      "participants": ["Carlos López", "Ana Martínez"],
+      "summary": "Revisión del progreso del primer sprint, identificación de blockers y ajuste de prioridades para la siguiente iteración del desarrollo.",
+      "tags": [
+        { "label": "Desarrollo", "color": "purple" },
+        { "label": "Sprint Review", "color": "orange" }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Análisis de Requerimientos",
+      "date": "22 Ene 2025",
+      "time": "11:00 AM",
+      "status": "in-progress",
+      "client": "Global Solutions",
+      "project": "Sistema CRM",
+      "participants": ["Juan Pérez", "María García", "Carlos López"],
+      "summary": "Sesión de análisis detallado de requerimientos funcionales y no funcionales del nuevo sistema CRM empresarial.",
+      "tags": [
+        { "label": "Análisis", "color": "blue" },
+        { "label": "Requerimientos", "color": "red" }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Presentación de Propuesta Comercial",
+      "date": "25 Ene 2025",
+      "time": "3:00 PM",
+      "status": "completed",
+      "client": "Innovation Labs",
+      "project": "Plataforma E-commerce",
+      "participants": ["Ana Martínez", "+2 más"],
+      "summary": "Presentación de la propuesta técnica y comercial para el desarrollo de la plataforma de comercio electrónico con todas las funcionalidades requeridas.",
+      "tags": [
+        { "label": "Propuesta", "color": "green" },
+        { "label": "Comercial", "color": "yellow" }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Sesión de Diseño UX/UI",
+      "date": "28 Ene 2025",
+      "time": "9:30 AM",
+      "status": "in-progress",
+      "client": "Acme Corporation",
+      "project": "Rediseño Web",
+      "participants": ["María García", "Juan Pérez"],
+      "summary": "Revisión de wireframes y mockups del nuevo diseño de la plataforma web, definición de componentes y flujos de usuario.",
+      "tags": [
+        { "label": "Diseño", "color": "purple" },
+        { "label": "UX/UI", "color": "blue" }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Daily Standup - Equipo Backend",
+      "date": "30 Ene 2025",
+      "time": "10:00 AM",
+      "status": "completed",
+      "client": "TechStart Inc",
+      "project": "App Mobile",
+      "participants": ["Carlos López", "+4 más"],
+      "summary": "Sincronización diaria del equipo de desarrollo backend, reporte de avances y coordinación de dependencias entre tareas.",
+      "tags": [
+        { "label": "Daily", "color": "orange" },
+        { "label": "Backend", "color": "purple" }
+      ]
+    }
+  ],
+  "clients": [
+    { "id": "1", "name": "Acme Corporation" },
+    { "id": "2", "name": "TechStart Inc" },
+    { "id": "3", "name": "Global Solutions" },
+    { "id": "4", "name": "Innovation Labs" }
+  ],
+  "projects": [
+    { "id": "1", "name": "Rediseño Web" },
+    { "id": "2", "name": "App Mobile" },
+    { "id": "3", "name": "Sistema CRM" },
+    { "id": "4", "name": "Plataforma E-commerce" }
+  ],
+  "participants": [
+    { "id": "1", "name": "Juan Pérez" },
+    { "id": "2", "name": "María García" },
+    { "id": "3", "name": "Carlos López" },
+    { "id": "4", "name": "Ana Martínez" }
+  ]
+}
