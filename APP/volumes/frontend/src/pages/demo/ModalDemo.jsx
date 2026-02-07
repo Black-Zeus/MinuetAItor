@@ -15,484 +15,790 @@ const ModalDemo = () => {
 
   useDocumentTitle("Modal Demos | Inventory App");
 
-  // ====================================
-  // CODE SNIPPETS - Código de cada modal
-  // ====================================
-
-  const codeSnippets = {
-    info: `// Imports necesarios
+// ==================================== 
+// CODE SNIPPETS - Código de cada modal
+// ==================================== 
+const codeSnippets = {
+  info: `// Imports necesarios
 import ModalManager from '@/components/ui/modal';
 
-// Uso
-ModalManager.info({
-  title: 'Información del Sistema',
-  message: 'El sistema realizará una actualización programada el próximo martes a las 02:00 AM.',
-  onClose: () => console.log('Modal cerrado')
-});`,
+// Función handler
+const showInfoModal = () => {
+  ModalManager.info({
+    title: 'Información del Sistema',
+    message: 'El sistema realizará una actualización programada el próximo martes a las 02:00 AM.',
+    onClose: () => console.log('Modal cerrado')
+  });
+};
 
-    confirm: `// Imports necesarios
+// Uso en componente
+<button onClick={showInfoModal}>
+  Mostrar Información
+</button>`,
+
+  confirm: `// Imports necesarios
 import ModalManager from '@/components/ui/modal';
 
-// Uso
-const confirmed = await ModalManager.confirm({
-  title: 'Confirmar Acción',
-  message: '¿Está seguro de que desea eliminar este elemento?',
-  confirmText: 'Eliminar',
-  cancelText: 'Cancelar'
-});
-console.log(confirmed ? 'Confirmado' : 'Cancelado');`,
-
-    success: `// Imports necesarios
-import ModalManager from '@/components/ui/modal';
-
-// Uso
-ModalManager.success({
-  title: 'Operación Completada',
-  message: 'La operación se ha completado correctamente.',
-  onClose: () => console.log('Éxito confirmado')
-});`,
-
-    warning: `// Imports necesarios
-import ModalManager from '@/components/ui/modal';
-
-// Uso
-ModalManager.warning({
-  title: 'Advertencia de Seguridad',
-  message: 'Se ha detectado un intento de acceso no autorizado.',
-  onClose: () => console.log('Advertencia vista')
-});`,
-
-    error: `// Imports necesarios
-import ModalManager from '@/components/ui/modal';
-
-// Uso
-ModalManager.error({
-  title: 'Error del Sistema',
-  message: 'Se ha producido un error al conectar',
-  details: [
-    'Error Code: ERR_500_INTERNAL',
-    'Connection timeout after 30s',
-    \`Timestamp: \${new Date().toISOString()}\`
-  ],
-  onClose: () => console.log('Error reconocido')
-});`,
-
-    danger: `// Imports necesarios
-import ModalManager from '@/components/ui/modal';
-
-// Uso
-ModalManager.danger({
-  title: 'Acción Peligrosa',
-  message: 'Esta acción eliminará permanentemente todos los datos del sistema.',
-  onClose: () => console.log('Advertencia vista')
-});`,
-
-    form: `// Imports necesarios
-import ModalManager from '@/components/ui/modal';
-
-// Uso
-const data = await ModalManager.form({
-  title: 'Configuración de Usuario',
-  fields: [
-    { 
-      name: 'fullName', 
-      label: 'Nombre completo', 
-      type: 'text', 
-      required: true 
-    },
-    { 
-      name: 'email', 
-      label: 'Correo electrónico', 
-      type: 'email', 
-      required: true 
-    },
-    {
-      name: 'department', 
-      label: 'Departamento', 
-      type: 'select', 
-      required: true, 
-      options: [
-        { value: 'desarrollo', label: 'Desarrollo' },
-        { value: 'marketing', label: 'Marketing' }
-      ]
+// Función handler (debe ser async)
+const showConfirmModal = async () => {
+  try {
+    const confirmed = await ModalManager.confirm({
+      title: 'Confirmar Acción',
+      message: '¿Está seguro de que desea eliminar este elemento?',
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar'
+    });
+    
+    if (confirmed) {
+      console.log('Usuario confirmó la acción');
+      // Ejecutar la acción aquí
+    } else {
+      console.log('Usuario canceló');
     }
-  ],
-  submitText: 'Guardar',
-  cancelText: 'Cancelar'
-});
-console.log('Datos del formulario:', data);`,
+  } catch (error) {
+    console.log('Modal cancelado');
+  }
+};
 
-    wizard: `// Imports necesarios
+// Uso en componente
+<button onClick={showConfirmModal}>
+  Confirmar Acción
+</button>`,
+
+  success: `// Imports necesarios
 import ModalManager from '@/components/ui/modal';
 
-// Uso
-const data = await ModalManager.wizard({
-  title: 'Asistente de Configuración',
-  steps: [
-    {
-      title: 'Información Básica',
-      description: 'Configure los datos básicos del proyecto',
-      fields: [
-        { 
-          name: 'projectName', 
-          label: 'Nombre del Proyecto', 
-          type: 'text', 
-          required: true 
-        }
-      ]
-    },
-    {
-      title: 'Configuración Técnica',
-      description: 'Seleccione las opciones técnicas',
+// Función handler
+const showSuccessModal = () => {
+  ModalManager.success({
+    title: 'Operación Completada',
+    message: 'La operación se ha completado correctamente.',
+    onClose: () => console.log('Éxito confirmado')
+  });
+};
+
+// Uso en componente
+<button onClick={showSuccessModal}>
+  Mostrar Éxito
+</button>`,
+
+  warning: `// Imports necesarios
+import ModalManager from '@/components/ui/modal';
+
+// Función handler
+const showWarningModal = () => {
+  ModalManager.warning({
+    title: 'Advertencia de Seguridad',
+    message: 'Se ha detectado un intento de acceso no autorizado.',
+    onClose: () => console.log('Advertencia vista')
+  });
+};
+
+// Uso en componente
+<button onClick={showWarningModal}>
+  Mostrar Advertencia
+</button>`,
+
+  error: `// Imports necesarios
+import ModalManager from '@/components/ui/modal';
+
+// Función handler
+const showErrorModal = () => {
+  ModalManager.error({
+    title: 'Error del Sistema',
+    message: 'Se ha producido un error al conectar con el servidor',
+    details: [
+      'Error Code: ERR_500_INTERNAL',
+      'Connection timeout after 30s',
+      \`Timestamp: \${new Date().toISOString()}\`
+    ],
+    onClose: () => console.log('Error reconocido')
+  });
+};
+
+// Uso en componente
+<button onClick={showErrorModal}>
+  Mostrar Error
+</button>`,
+
+  danger: `// Imports necesarios
+import ModalManager from '@/components/ui/modal';
+
+// Función handler
+const showDangerModal = () => {
+  ModalManager.danger({
+    title: 'Acción Peligrosa',
+    message: 'Esta acción eliminará permanentemente todos los datos del sistema.',
+    onClose: () => console.log('Advertencia vista')
+  });
+};
+
+// Uso en componente
+<button onClick={showDangerModal}>
+  Mostrar Peligro
+</button>`,
+
+  notification: `// Imports necesarios
+import ModalManager from '@/components/ui/modal';
+
+// Funciones handler para diferentes variantes
+const showNotificationInfo = () => {
+  ModalManager.show({
+    type: 'notification',
+    variant: 'info',
+    title: 'Información',
+    message: 'Esto es una notificación de información.',
+    autoClose: 10000, // 10 segundos
+    position: 'bottom-right',
+    onClose: () => console.log('Notificación cerrada')
+  });
+};
+
+const showNotificationSuccess = () => {
+  ModalManager.show({
+    type: 'notification',
+    variant: 'success',
+    title: 'Éxito',
+    message: 'Operación realizada correctamente.',
+    autoClose: 10000,
+    position: 'bottom-right'
+  });
+};
+
+const showNotificationWarning = () => {
+  ModalManager.show({
+    type: 'notification',
+    variant: 'warning',
+    title: 'Advertencia',
+    message: 'Esta es una advertencia importante.',
+    autoClose: 10000,
+    position: 'bottom-right'
+  });
+};
+
+const showNotificationError = () => {
+  ModalManager.show({
+    type: 'notification',
+    variant: 'error',
+    title: 'Error',
+    message: 'Ha ocurrido un error inesperado.',
+    autoClose: 10000,
+    position: 'bottom-right'
+  });
+};
+
+// Uso en componentes
+<div className="flex gap-2">
+  <button onClick={showNotificationInfo}>Info</button>
+  <button onClick={showNotificationSuccess}>Éxito</button>
+  <button onClick={showNotificationWarning}>Advertencia</button>
+  <button onClick={showNotificationError}>Error</button>
+</div>`,
+
+  form: `// Imports necesarios
+import ModalManager from '@/components/ui/modal';
+
+// Función handler (debe ser async)
+const showFormModal = async () => {
+  try {
+    const data = await ModalManager.form({
+      title: 'Configuración de Usuario',
       fields: [
         {
-          name: 'type', 
-          label: 'Tipo de Implementación', 
-          type: 'select', 
+          name: 'fullName',
+          label: 'Nombre completo',
+          type: 'text',
+          required: true,
+          placeholder: 'Ingrese su nombre completo'
+        },
+        {
+          name: 'email',
+          label: 'Correo electrónico',
+          type: 'email',
+          required: true,
+          placeholder: 'usuario@empresa.com'
+        },
+        {
+          name: 'department',
+          label: 'Departamento',
+          type: 'select',
           required: true,
           options: [
-            { value: 'web', label: 'Aplicación Web' },
-            { value: 'api', label: 'API Backend' }
+            { value: 'desarrollo', label: 'Desarrollo' },
+            { value: 'marketing', label: 'Marketing' },
+            { value: 'ventas', label: 'Ventas' }
           ]
         }
-      ]
-    }
-  ]
-});
-console.log('Datos del wizard:', data);`,
-
-    login: `// Imports necesarios
-import ModalManager from '@/components/ui/modal';
-
-// Uso
-const credentials = await ModalManager.login({
-  title: 'Iniciar Sesión',
-  message: 'Ingrese sus credenciales para acceder al sistema',
-  showRegisterLink: true,
-  showForgotPassword: true,
-  onRegister: () => console.log('Registro'),
-  onForgotPassword: () => console.log('Recuperar contraseña')
-});
-console.log('Credenciales:', credentials);`,
-
-    search: `// Imports necesarios
-import ModalManager from '@/components/ui/modal';
-
-// Uso
-ModalManager.search({
-  title: 'Búsqueda Avanzada',
-  placeholder: 'Buscar productos, usuarios, documentos...',
-  filters: [
-    {
-      name: 'category',
-      label: 'Categoría',
-      type: 'select',
-      options: [
-        { value: 'products', label: 'Productos' },
-        { value: 'users', label: 'Usuarios' }
-      ]
-    }
-  ],
-  recentSearches: ['laptop', 'mouse wireless'],
-  results: [
-    { 
-      id: 1, 
-      title: 'Laptop Gaming Pro', 
-      description: 'Alto rendimiento', 
-      icon: '💻' 
-    }
-  ],
-  onSearch: (query) => console.log(\`Búsqueda: "\${query}"\`),
-  onResultSelect: (result) => console.log(\`Seleccionado: \${result.title}\`)
-});`,
-
-    datatable: `// Imports necesarios
-import ModalManager from '@/components/ui/modal';
-
-// Uso
-ModalManager.datatable({
-  title: 'Gestión de Usuarios',
-  data: [
-    { 
-      id: 1, 
-      name: 'Juan Pérez', 
-      email: 'juan@empresa.com', 
-      status: 'Activo' 
-    }
-  ],
-  columns: [
-    { key: 'id', label: 'ID', sortable: true },
-    { key: 'name', label: 'Nombre', sortable: true },
-    { key: 'email', label: 'Email', sortable: true }
-  ],
-  actions: [
-    { name: 'edit', label: 'Editar', icon: 'edit', color: 'blue' },
-    { name: 'delete', label: 'Eliminar', icon: 'delete', color: 'red' }
-  ],
-  pagination: true,
-  filtering: true,
-  selection: true,
-  onRowAction: (action, row) => console.log(\`\${action}: \${row.name}\`)
-});`,
-
-    calendar: `// Imports necesarios
-import ModalManager from '@/components/ui/modal';
-
-// Uso
-ModalManager.calendar({
-  title: 'Calendario de Eventos',
-  selectedDate: new Date(),
-  events: [
-    { 
-      id: 1, 
-      title: 'Reunión de equipo', 
-      date: '2024-02-15', 
-      type: 'meeting' 
-    }
-  ],
-  onDateSelect: (date) => console.log(\`Fecha: \${date.toDateString()}\`),
-  onEventSelect: (event) => console.log(\`Evento: \${event.title}\`)
-});`,
-
-    calendarSingle: `// Imports necesarios
-import ModalManager from '@/components/ui/modal';
-import { dataModalRenderers } from '@/components/ui/modal/types/DataModals';
-
-const CalendarModalContent = dataModalRenderers.calendar;
-
-// Uso
-ModalManager.custom({
-  title: 'Calendario (Día Único)',
-  size: 'large',
-  content: (
-    <CalendarModalContent
-      selectedDate={new Date()}
-      rangeSelection={false}
-      onDateSelect={(date) => console.log(date.toLocaleDateString())}
-    />
-  ),
-  buttons: [
-    {
-      text: 'Cerrar',
-      variant: 'secondary',
-      onClick: () => ModalManager.closeAll()
-    }
-  ]
-});`,
-
-    calendarRange: `// Imports necesarios
-import ModalManager from '@/components/ui/modal';
-import { dataModalRenderers } from '@/components/ui/modal/types/DataModals';
-
-const CalendarModalContent = dataModalRenderers.calendar;
-
-// Uso
-ModalManager.custom({
-  title: 'Calendario (Rango de Fechas)',
-  size: 'large',
-  content: (
-    <CalendarModalContent
-      selectedStartDate={null}
-      selectedEndDate={null}
-      rangeSelection={true}
-      onRangeSelect={(start, end) => {
-        if (start && end) {
-          console.log(\`Rango: \${start.toLocaleDateString()} → \${end.toLocaleDateString()}\`);
-        }
-      }}
-    />
-  ),
-  buttons: [
-    {
-      text: 'Cerrar',
-      variant: 'secondary',
-      onClick: () => ModalManager.closeAll()
-    }
-  ],
-  showFooter: false
-});`,
-
-    image: `// Imports necesarios
-import ModalManager from '@/components/ui/modal';
-
-// Uso
-ModalManager.image({
-  title: 'Vista Previa de Imagen',
-  images: [
-    { 
-      id: 1, 
-      url: 'https://picsum.photos/800/600', 
-      name: 'Imagen 1', 
-      alt: 'Demo' 
-    }
-  ],
-  currentIndex: 0,
-  showThumbnails: true,
-  allowDownload: true,
-  onDownload: (image) => console.log(\`Descargando: \${image.name}\`)
-});`,
-
-    video: `// Imports necesarios
-import ModalManager from '@/components/ui/modal';
-
-// Uso
-ModalManager.video({
-  title: 'Reproductor de Video',
-  video: {
-    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-    title: 'Big Buck Bunny'
-  },
-  autoplay: false,
-  controls: true,
-  onPlay: () => console.log('Reproduciendo')
-});`,
-
-    gallery: `// Imports necesarios
-import ModalManager from '@/components/ui/modal';
-
-// Uso
-ModalManager.gallery({
-  title: 'Galería de Medios',
-  items: [
-    { 
-      id: 1, 
-      type: 'image', 
-      name: 'Foto.jpg', 
-      url: 'https://picsum.photos/400/300',
-      size: '2.3 MB'
-    }
-  ],
-  viewMode: 'grid',
-  allowUpload: true,
-  selectable: true,
-  onItemSelect: (selection) => console.log(\`\${selection.length} seleccionados\`)
-});`,
-
-    fileManager: `// Imports necesarios
-import ModalManager from '@/components/ui/modal';
-
-// Uso
-ModalManager.fileManager({
-  title: 'Gestor de Archivos',
-  currentPath: '/documentos/proyectos',
-  files: [
-    { 
-      id: 1, 
-      name: 'Proyecto 2024', 
-      type: 'folder', 
-      modified: '2024-01-15T10:30:00Z' 
-    }
-  ],
-  allowUpload: true,
-  allowCreateFolder: true,
-  onNavigate: (path) => console.log(\`Navegando: \${path}\`)
-});`,
-
-    loading: `// Imports necesarios
-import ModalManager from '@/components/ui/modal';
-
-// Uso
-const loadingModal = ModalManager.loading({
-  title: 'Procesando Solicitud',
-  message: 'Iniciando proceso...',
-  progress: 0,
-  showProgress: true,
-  showCancel: true,
-  onCancel: () => console.log('Cancelado')
-});
-
-// Simular progreso
-let progress = 0;
-const interval = setInterval(() => {
-  progress += 10;
-  if (progress >= 100) {
-    clearInterval(interval);
-    ModalManager.close(loadingModal);
+      ],
+      submitText: 'Guardar',
+      cancelText: 'Cancelar'
+    });
+    
+    console.log('Datos del formulario:', data);
+    // Procesar los datos aquí
+  } catch (error) {
+    console.log('Formulario cancelado');
   }
-}, 300);`,
+};
 
-    progress: `// Imports necesarios
+// Uso en componente
+<button onClick={showFormModal}>
+  Abrir Formulario
+</button>`,
+
+  wizard: `// Imports necesarios
 import ModalManager from '@/components/ui/modal';
 
-// Uso
-const progressModal = ModalManager.progress({
-  title: 'Subiendo Archivos',
-  steps: [
-    'Preparando archivos...',
-    'Comprimiendo datos...',
-    'Subiendo al servidor...'
-  ],
-  currentStep: 0,
-  progress: 0,
-  allowCancel: true,
-  onCancel: () => console.log('Cancelado')
-});`,
-
-    settings: `// Imports necesarios
-import ModalManager from '@/components/ui/modal';
-
-// Uso
-ModalManager.settings({
-  title: 'Configuración del Sistema',
-  categories: [
-    {
-      id: 'general',
-      name: 'General',
-      settings: [
+// Función handler (debe ser async)
+const showWizardModal = async () => {
+  try {
+    const data = await ModalManager.wizard({
+      title: 'Asistente de Configuración',
+      steps: [
         {
-          id: 'language',
-          label: 'Idioma',
-          type: 'select',
-          options: [
-            { value: 'es', label: 'Español' },
-            { value: 'en', label: 'English' }
+          title: 'Información Básica',
+          description: 'Configure los datos básicos del proyecto',
+          fields: [
+            {
+              name: 'projectName',
+              label: 'Nombre del Proyecto',
+              type: 'text',
+              required: true,
+              placeholder: 'Ingrese el nombre del proyecto'
+            }
+          ]
+        },
+        {
+          title: 'Configuración Técnica',
+          description: 'Seleccione las opciones técnicas',
+          fields: [
+            {
+              name: 'type',
+              label: 'Tipo de Implementación',
+              type: 'select',
+              required: true,
+              options: [
+                { value: 'web', label: 'Aplicación Web' },
+                { value: 'api', label: 'API Backend' }
+              ]
+            }
           ]
         }
       ]
+    });
+    
+    console.log('Configuración completada:', data);
+    // Procesar los datos del wizard
+  } catch (error) {
+    console.log('Wizard cancelado');
+  }
+};
+
+// Uso en componente
+<button onClick={showWizardModal}>
+  Iniciar Asistente
+</button>`,
+
+  login: `// Imports necesarios
+import ModalManager from '@/components/ui/modal';
+
+// Función handler (debe ser async)
+const showLoginModal = async () => {
+  try {
+    const credentials = await ModalManager.login({
+      title: 'Iniciar Sesión',
+      message: 'Ingrese sus credenciales para acceder al sistema',
+      showRegisterLink: true,
+      showForgotPassword: true,
+      onRegister: () => {
+        console.log('Redirigir a registro');
+      },
+      onForgotPassword: () => {
+        console.log('Redirigir a recuperar contraseña');
+      }
+    });
+    
+    console.log('Credenciales:', credentials);
+    // Procesar login con credentials.username y credentials.password
+  } catch (error) {
+    console.log('Login cancelado');
+  }
+};
+
+// Uso en componente
+<button onClick={showLoginModal}>
+  Iniciar Sesión
+</button>`,
+
+  search: `// Imports necesarios
+import ModalManager from '@/components/ui/modal';
+
+// Función handler
+const showSearchModal = () => {
+  ModalManager.search({
+    title: 'Búsqueda Avanzada',
+    placeholder: 'Buscar productos, usuarios, documentos...',
+    filters: [
+      {
+        name: 'category',
+        label: 'Categoría',
+        type: 'select',
+        options: [
+          { value: 'products', label: 'Productos' },
+          { value: 'users', label: 'Usuarios' }
+        ]
+      }
+    ],
+    recentSearches: ['laptop', 'mouse wireless'],
+    results: [
+      {
+        id: 1,
+        title: 'Laptop Gaming Pro',
+        description: 'Alto rendimiento',
+        icon: '💻'
+      }
+    ],
+    onSearch: (query) => {
+      console.log(\`Búsqueda: "\${query}"\`);
+      // Realizar búsqueda aquí
+    },
+    onResultSelect: (result) => {
+      console.log(\`Seleccionado: \${result.title}\`);
+      // Manejar selección
     }
-  ],
-  onSave: (settings) => console.log('Guardado', settings)
-});`,
+  });
+};
 
-    help: `// Imports necesarios
+// Uso en componente
+<button onClick={showSearchModal}>
+  Búsqueda Avanzada
+</button>`,
+
+  datatable: `// Imports necesarios
 import ModalManager from '@/components/ui/modal';
 
-// Uso
-ModalManager.help({
-  title: 'Centro de Ayuda',
-  categories: [
-    { id: 'getting-started', name: 'Primeros Pasos', icon: '🚀' }
-  ],
-  popularArticles: [
-    'Cómo crear un nuevo proyecto',
-    'Gestión de usuarios y permisos'
-  ],
-  onSearch: (query) => console.log(\`Búsqueda: "\${query}"\`)
-});`,
+// Función handler
+const showDataTableModal = () => {
+  ModalManager.datatable({
+    title: 'Gestión de Usuarios',
+    data: [
+      {
+        id: 1,
+        name: 'Juan Pérez',
+        email: 'juan@empresa.com',
+        status: 'Activo'
+      }
+    ],
+    columns: [
+      { key: 'id', label: 'ID', sortable: true },
+      { key: 'name', label: 'Nombre', sortable: true },
+      { key: 'email', label: 'Email', sortable: true }
+    ],
+    actions: [
+      { name: 'edit', label: 'Editar', icon: 'edit', color: 'blue' },
+      { name: 'delete', label: 'Eliminar', icon: 'delete', color: 'red' }
+    ],
+    pagination: true,
+    filtering: true,
+    selection: true,
+    onRowAction: (action, row) => {
+      console.log(\`\${action} en: \${row.name}\`);
+    }
+  });
+};
 
-    custom: `// Imports necesarios
+// Uso en componente
+<button onClick={showDataTableModal}>
+  Ver Tabla de Datos
+</button>`,
+
+  calendar: `// Imports necesarios
 import ModalManager from '@/components/ui/modal';
 
-// Uso
-ModalManager.custom({
-  title: 'Modal Personalizado',
-  size: 'large',
-  content: (
-    <div className="text-center py-6">
-      <h3 className="text-xl font-semibold mb-4">
-        ¡Contenido Personalizado!
-      </h3>
-      <p className="text-gray-600">
-        Puedes agregar cualquier JSX aquí
-      </p>
-    </div>
-  ),
-  buttons: [
-    { text: 'Cancelar', variant: 'secondary', onClick: () => {} },
-    { text: 'Confirmar', variant: 'primary', onClick: () => {} }
-  ]
-});`
-  };
+// Función handler
+const showCalendarModal = () => {
+  ModalManager.calendar({
+    title: 'Calendario de Eventos',
+    selectedDate: new Date(),
+    events: [
+      {
+        id: 1,
+        title: 'Reunión de equipo',
+        date: '2024-02-15',
+        type: 'meeting'
+      }
+    ],
+    onDateSelect: (date) => {
+      console.log(\`Fecha: \${date.toDateString()}\`);
+    },
+    onEventSelect: (event) => {
+      console.log(\`Evento: \${event.title}\`);
+    }
+  });
+};
+
+// Uso en componente
+<button onClick={showCalendarModal}>
+  Abrir Calendario
+</button>`,
+
+  calendarSingle: `// Imports necesarios
+import ModalManager from '@/components/ui/modal';
+import { dataModalRenderers } from '@/components/ui/modal/types/DataModals';
+
+const CalendarModalContent = dataModalRenderers.calendar;
+
+// Función handler
+const showCalendarSingleDay = () => {
+  ModalManager.custom({
+    title: 'Calendario (Día Único)',
+    size: 'large',
+    content: (
+      <CalendarModalContent
+        mode="single"
+        onDateSelect={(date) => {
+          console.log('Fecha seleccionada:', date.toLocaleDateString());
+        }}
+      />
+    ),
+    buttons: [
+      {
+        text: 'Cerrar',
+        variant: 'secondary',
+        onClick: () => ModalManager.closeAll()
+      }
+    ]
+  });
+};
+
+// Uso en componente
+<button onClick={showCalendarSingleDay}>
+  Seleccionar Fecha
+</button>`,
+
+  calendarRange: `// Imports necesarios
+import ModalManager from '@/components/ui/modal';
+import { dataModalRenderers } from '@/components/ui/modal/types/DataModals';
+
+const CalendarModalContent = dataModalRenderers.calendar;
+
+// Función handler
+const showCalendarRange = () => {
+  ModalManager.custom({
+    title: 'Calendario (Rango de Fechas)',
+    size: 'large',
+    content: (
+      <CalendarModalContent
+        mode="range"
+        onRangeSelect={(start, end) => {
+          if (start && end) {
+            console.log(\`Rango: \${start.toLocaleDateString()} → \${end.toLocaleDateString()}\`);
+          }
+        }}
+      />
+    ),
+    buttons: [
+      {
+        text: 'Cerrar',
+        variant: 'secondary',
+        onClick: () => ModalManager.closeAll()
+      }
+    ],
+    showFooter: false
+  });
+};
+
+// Uso en componente
+<button onClick={showCalendarRange}>
+  Seleccionar Rango
+</button>`,
+
+  image: `// Imports necesarios
+import ModalManager from '@/components/ui/modal';
+
+// Función handler
+const showImageModal = () => {
+  ModalManager.image({
+    title: 'Vista Previa de Imagen',
+    images: [
+      {
+        id: 1,
+        url: 'https://picsum.photos/800/600',
+        name: 'Imagen 1',
+        alt: 'Descripción'
+      }
+    ],
+    currentIndex: 0,
+    showThumbnails: true,
+    allowDownload: true,
+    onDownload: (image) => {
+      console.log(\`Descargando: \${image.name}\`);
+    }
+  });
+};
+
+// Uso en componente
+<button onClick={showImageModal}>
+  Ver Imagen
+</button>`,
+
+  video: `// Imports necesarios
+import ModalManager from '@/components/ui/modal';
+
+// Función handler
+const showVideoModal = () => {
+  ModalManager.video({
+    title: 'Reproductor de Video',
+    video: {
+      url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+      title: 'Big Buck Bunny'
+    },
+    autoplay: false,
+    controls: true,
+    onPlay: () => console.log('Reproduciendo'),
+    onPause: () => console.log('Pausado')
+  });
+};
+
+// Uso en componente
+<button onClick={showVideoModal}>
+  Ver Video
+</button>`,
+
+  gallery: `// Imports necesarios
+import ModalManager from '@/components/ui/modal';
+
+// Función handler
+const showGalleryModal = () => {
+  ModalManager.gallery({
+    title: 'Galería de Medios',
+    items: [
+      {
+        id: 1,
+        type: 'image',
+        name: 'Foto.jpg',
+        url: 'https://picsum.photos/400/300',
+        size: '2.3 MB'
+      }
+    ],
+    viewMode: 'grid',
+    allowUpload: true,
+    selectable: true,
+    onItemSelect: (selection) => {
+      console.log(\`\${selection.length} seleccionados\`);
+    }
+  });
+};
+
+// Uso en componente
+<button onClick={showGalleryModal}>
+  Abrir Galería
+</button>`,
+
+  fileManager: `// Imports necesarios
+import ModalManager from '@/components/ui/modal';
+
+// Función handler
+const showFileManagerModal = () => {
+  ModalManager.fileManager({
+    title: 'Gestor de Archivos',
+    currentPath: '/documentos/proyectos',
+    files: [
+      {
+        id: 1,
+        name: 'Proyecto 2024',
+        type: 'folder',
+        modified: '2024-01-15T10:30:00Z'
+      }
+    ],
+    allowUpload: true,
+    allowCreateFolder: true,
+    onNavigate: (path) => {
+      console.log(\`Navegando: \${path}\`);
+    }
+  });
+};
+
+// Uso en componente
+<button onClick={showFileManagerModal}>
+  Gestor de Archivos
+</button>`,
+
+  loading: `// Imports necesarios
+import ModalManager from '@/components/ui/modal';
+
+// Función handler
+const showLoadingModal = () => {
+  const loadingModal = ModalManager.loading({
+    title: 'Procesando Solicitud',
+    message: 'Iniciando proceso...',
+    progress: 0,
+    showProgress: true,
+    showCancel: true,
+    onCancel: () => {
+      console.log('Proceso cancelado');
+    }
+  });
+
+  // Simular progreso
+  let progress = 0;
+  const interval = setInterval(() => {
+    progress += 10;
+    
+    if (progress >= 100) {
+      clearInterval(interval);
+      ModalManager.close(loadingModal);
+      console.log('Proceso completado');
+    }
+  }, 300);
+};
+
+// Uso en componente
+<button onClick={showLoadingModal}>
+  Iniciar Proceso
+</button>`,
+
+  progress: `// Imports necesarios
+import ModalManager from '@/components/ui/modal';
+
+// Función handler
+const showProgressModal = () => {
+  const progressModal = ModalManager.progress({
+    title: 'Subiendo Archivos',
+    steps: [
+      'Preparando archivos...',
+      'Comprimiendo datos...',
+      'Subiendo al servidor...'
+    ],
+    currentStep: 0,
+    progress: 0,
+    allowCancel: true,
+    onCancel: () => console.log('Cancelado')
+  });
+
+  // Simular progreso por pasos
+  let step = 0;
+  let progress = 0;
+  const interval = setInterval(() => {
+    progress += 10;
+    step = Math.floor((progress / 100) * 3);
+    
+    if (progress >= 100) {
+      clearInterval(interval);
+      ModalManager.close(progressModal);
+    }
+  }, 400);
+};
+
+// Uso en componente
+<button onClick={showProgressModal}>
+  Subir Archivos
+</button>`,
+
+  settings: `// Imports necesarios
+import ModalManager from '@/components/ui/modal';
+
+// Función handler
+const showSettingsModal = () => {
+  ModalManager.settings({
+    title: 'Configuración del Sistema',
+    categories: [
+      {
+        id: 'general',
+        name: 'General',
+        settings: [
+          {
+            id: 'language',
+            label: 'Idioma',
+            type: 'select',
+            options: [
+              { value: 'es', label: 'Español' },
+              { value: 'en', label: 'English' }
+            ]
+          }
+        ]
+      }
+    ],
+    onSave: (settings) => {
+      console.log('Configuración guardada:', settings);
+    }
+  });
+};
+
+// Uso en componente
+<button onClick={showSettingsModal}>
+  Configuración
+</button>`,
+
+  help: `// Imports necesarios
+import ModalManager from '@/components/ui/modal';
+
+// Función handler
+const showHelpModal = () => {
+  ModalManager.help({
+    title: 'Centro de Ayuda',
+    categories: [
+      {
+        id: 'getting-started',
+        name: 'Primeros Pasos',
+        icon: '🚀'
+      }
+    ],
+    popularArticles: [
+      'Cómo crear un nuevo proyecto',
+      'Gestión de usuarios y permisos'
+    ],
+    onSearch: (query) => {
+      console.log(\`Búsqueda: "\${query}"\`);
+    }
+  });
+};
+
+// Uso en componente
+<button onClick={showHelpModal}>
+  Ayuda
+</button>`,
+
+  custom: `// Imports necesarios
+import ModalManager from '@/components/ui/modal';
+
+// Función handler
+const showCustomModal = () => {
+  ModalManager.custom({
+    title: 'Modal Personalizado',
+    size: 'large',
+    content: (
+      <div className="p-6">
+        <h3 className="text-xl font-bold mb-4">
+          ¡Contenido Personalizado!
+        </h3>
+        <p>Puedes agregar cualquier JSX aquí</p>
+      </div>
+    ),
+    buttons: [
+      {
+        text: 'Cancelar',
+        variant: 'secondary',
+        onClick: () => {
+          console.log('Cancelado');
+        }
+      },
+      {
+        text: 'Confirmar',
+        variant: 'primary',
+        onClick: () => {
+          console.log('Confirmado');
+        }
+      }
+    ]
+  });
+};
+
+// Uso en componente
+<button onClick={showCustomModal}>
+  Modal Custom
+</button>`
+};
 
   // ====================================
   // Función para mostrar el código
