@@ -1,7 +1,7 @@
 import React from "react";
 import { FaPlus } from "react-icons/fa";
 import { TXT_BODY, TXT_TITLE } from "./Dashboard";
-import ActionButton from "@/components/ui/button/ActionButton";
+import NewMinute from "@/components/ui/button/newMinute";
 
 const DashboardHeader = ({ userName, subtitle, onNewMinute }) => {
     return (
@@ -13,12 +13,8 @@ const DashboardHeader = ({ userName, subtitle, onNewMinute }) => {
                 <p className={`mt-1 text-sm ${TXT_BODY} transition-theme`}>{subtitle}</p>
             </div>
 
-            <ActionButton
-                label="Nueva Minuta"
-                onClick={onNewMinute}
-                variant="primary"
-                icon={<FaPlus />}
-            />
+            <NewMinute />
+            
         </div>
     );
 };
