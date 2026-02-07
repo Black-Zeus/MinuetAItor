@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minutas - MinuetAItor</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="./css/styles.css">
+    <link rel="stylesheet" href="./css/minutes.css">
+</head>
+<body>
+    <div class="container" style="max-width: 100%; padding: var(--spacing-xl);">
+        
+        <!-- Page Header -->
+        <div class="minutes-page-header">
+            <div class="minutes-header-content">
+                <div class="minutes-header-left">
+                    <h1 class="minutes-page-title">
+                        <i class="fa-solid fa-file-lines"></i>
+                        Minutas
+                    </h1>
+                    <p class="minutes-page-subtitle">Gestiona y organiza todas tus minutas de reuniones</p>
+                </div>
+                <div>
+                    <button class="btn btn-primary btn-lg">
+                        <i class="fa-solid fa-plus"></i>
+                        Nueva Minuta
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters Section -->
+        <div class="minutes-filters-section">
+            <div class="minutes-filters-header">
+                <div class="minutes-filters-title">
+                    <i class="fa-solid fa-filter"></i>
+                    Filtros Activos
+                </div>
+                <div style="position: relative;">
+                    <button class="btn-manage-filters" id="manageFiltersBtn">
+                        <i class="fa-solid fa-sliders"></i>
+                        Gestionar Filtros
+                    </button>
+                    
+                    <!-- Dropdown de gestión de filtros -->
+                    <div class="filters-dropdown" id="filtersDropdown">
+                        <div class="filter-option">
+                            <input type="checkbox" id="toggleClient" checked>
+                            <label for="toggleClient">Cliente</label>
+                        </div>
+                        <div class="filter-option">
+                            <input type="checkbox" id="toggleProject" checked>
+                            <label for="toggleProject">Proyecto</label>
+                        </div>
+                        <div class="filter-option">
+                            <input type="checkbox" id="toggleDateFrom">
+                            <label for="toggleDateFrom">Fecha Desde</label>
+                        </div>
+                        <div class="filter-option">
+                            <input type="checkbox" id="toggleDateTo">
+                            <label for="toggleDateTo">Fecha Hasta</label>
+                        </div>
+                        <div class="filter-option">
+                            <input type="checkbox" id="toggleParticipant">
+                            <label for="toggleParticipant">Participante</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="minutes-filters-container">
+                <!-- Cliente Filter -->
+                <div class="minutes-filter-group" id="filterClient">
+                    <label class="minutes-filter-label">
+                        <i class="fa-solid fa-building"></i>
+                        Cliente
+                    </label>
+                    <select class="minutes-filter-select" id="clientFilter">
+                        <option value="">Todos los clientes</option>
+                        <option value="1">Acme Corporation</option>
+                        <option value="2">TechStart Inc</option>
+                        <option value="3">Global Solutions</option>
+                        <option value="4">Innovation Labs</option>
+                    </select>
+                </div>
+
+                <!-- Proyecto Filter -->
+                <div class="minutes-filter-group" id="filterProject">
+                    <label class="minutes-filter-label">
+                        <i class="fa-solid fa-folder"></i>
+                        Proyecto
+                    </label>
+                    <select class="minutes-filter-select" id="projectFilter">
+                        <option value="">Todos los proyectos</option>
+                        <option value="1">Rediseño Web</option>
+                        <option value="2">App Mobile</option>
+                        <option value="3">Sistema CRM</option>
+                        <option value="4">Plataforma E-commerce</option>
+                    </select>
+                </div>
+
+                <!-- Fecha Desde -->
+                <div class="minutes-filter-group hidden" id="filterDateFrom">
+                    <label class="minutes-filter-label">
+                        <i class="fa-solid fa-calendar-days"></i>
+                        Desde
+                    </label>
+                    <input type="date" class="minutes-filter-input" id="dateFrom">
+                </div>
+
+                <!-- Fecha Hasta -->
+                <div class="minutes-filter-group hidden" id="filterDateTo">
+                    <label class="minutes-filter-label">
+                        <i class="fa-solid fa-calendar-check"></i>
+                        Hasta
+                    </label>
+                    <input type="date" class="minutes-filter-input" id="dateTo">
+                </div>
+
+                <!-- Participante Filter -->
+                <div class="minutes-filter-group hidden" id="filterParticipant">
+                    <label class="minutes-filter-label">
+                        <i class="fa-solid fa-users"></i>
+                        Participante
+                    </label>
+                    <select class="minutes-filter-select" id="participantFilter">
+                        <option value="">Todos los participantes</option>
+                        <option value="1">Juan Pérez</option>
+                        <option value="2">María García</option>
+                        <option value="3">Carlos López</option>
+                        <option value="4">Ana Martínez</option>
+                    </select>
+                </div>
+
+                <!-- Filter Actions -->
+                <div class="minutes-filter-actions">
+                    <button class="btn btn-secondary" id="btnClearFilters">
+                        <i class="fa-solid fa-filter-circle-xmark"></i>
+                        Limpiar
+                    </button>
+                    <button class="btn btn-primary">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        Filtrar
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Info -->
+        <div class="minutes-results-info">
+            <div class="minutes-results-text">
+                <i class="fa-solid fa-list-check"></i>
+                Mostrando <strong>12 minutas</strong>
+            </div>
+        </div>
+
+        <!-- Minutes Grid -->
+        <div class="minutes-grid" id="minutesGrid">
+            
+            <!-- Minute Card 1 -->
+            <div class="minute-card">
+                <div class="minute-header">
+                    <div class="minute-title-section">
+                        <h3 class="minute-title">Reunión de Kick-off del Proyecto</h3>
+                        <div class="minute-meta">
+                            <span class="minute-date">
+                                <i class="fa-solid fa-calendar"></i>
+                                15 Ene 2025
+                            </span>
+                            <span class="minute-time">
+                                <i class="fa-solid fa-clock"></i>
+                                10:00 AM
+                            </span>
+                        </div>
+                    </div>
+                    <div class="minute-status status-completed">
+                        <i class="fa-solid fa-circle-check"></i>
+                        Completada
+                    </div>
+                </div>
+
+                <div class="minute-body">
+                    <div class="minute-info-row">
+                        <div class="minute-info-item">
+                            <i class="fa-solid fa-building"></i>
+                            <span>Acme Corporation</span>
+                        </div>
+                        <div class="minute-info-item">
+                            <i class="fa-solid fa-folder"></i>
+                            <span>Rediseño Web</span>
+                        </div>
+                    </div>
+
+                    <div class="minute-participants">
+                        <i class="fa-solid fa-users"></i>
+                        <div class="minute-participants-list">
+                            <span class="minute-participant-badge">Juan Pérez</span>
+                            <span class="minute-participant-badge">María García</span>
+                            <span class="minute-participant-badge">+3 más</span>
+                        </div>
+                    </div>
+
+                    <div class="minute-summary">
+                        Se discutieron los objetivos principales del proyecto, se definieron los entregables y se estableció el cronograma inicial de trabajo para las próximas semanas.
+                    </div>
+
+                    <div class="minute-tags">
+                        <span class="minute-tag minute-tag-blue">Planificación</span>
+                        <span class="minute-tag minute-tag-green">Estrategia</span>
+                    </div>
+                </div>
+
+                <div class="minute-footer">
+                    <button class="minute-action-btn btn-timeline">
+                        <i class="fa-solid fa-clock-rotate-left"></i>
+                        Ver Línea de Tiempo
+                    </button>
+                    
+                    <div class="minute-footer-row">
+                        <button class="minute-action-btn">
+                            <i class="fa-solid fa-eye"></i>
+                            Ver
+                        </button>
+                        <button class="minute-action-btn">
+                            <i class="fa-solid fa-pen"></i>
+                            Editar
+                        </button>
+                        <button class="minute-action-btn">
+                            <i class="fa-solid fa-download"></i>
+                            Descargar
+                        </button>
+                        <button class="minute-action-btn btn-delete">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Minute Card 2 -->
+            <div class="minute-card">
+                <div class="minute-header">
+                    <div class="minute-title-section">
+                        <h3 class="minute-title">Revisión de Avances - Sprint 1</h3>
+                        <div class="minute-meta">
+                            <span class="minute-date">
+                                <i class="fa-solid fa-calendar"></i>
+                                20 Ene 2025
+                            </span>
+                            <span class="minute-time">
+                                <i class="fa-solid fa-clock"></i>
+                                2:30 PM
+                            </span>
+                        </div>
+                    </div>
+                    <div class="minute-status status-pending">
+                        <i class="fa-solid fa-clock"></i>
+                        Pendiente
+                    </div>
+                </div>
+
+                <div class="minute-body">
+                    <div class="minute-info-row">
+                        <div class="minute-info-item">
+                            <i class="fa-solid fa-building"></i>
+                            <span>TechStart Inc</span>
+                        </div>
+                        <div class="minute-info-item">
+                            <i class="fa-solid fa-folder"></i>
+                            <span>App Mobile</span>
+                        </div>
+                    </div>
+
+                    <div class="minute-participants">
+                        <i class="fa-solid fa-users"></i>
+                        <div class="minute-participants-list">
+                            <span class="minute-participant-badge">Carlos López</span>
+                            <span class="minute-participant-badge">Ana Martínez</span>
+                        </div>
+                    </div>
+
+                    <div class="minute-summary">
+                        Revisión del progreso del primer sprint, identificación de blockers y ajuste de prioridades para la siguiente iteración del desarrollo.
+                    </div>
+
+                    <div class="minute-tags">
+                        <span class="minute-tag minute-tag-purple">Desarrollo</span>
+                        <span class="minute-tag minute-tag-orange">Sprint Review</span>
+                    </div>
+                </div>
+
+                <div class="minute-footer">
+                    <button class="minute-action-btn btn-timeline">
+                        <i class="fa-solid fa-clock-rotate-left"></i>
+                        Ver Línea de Tiempo
+                    </button>
+                    
+                    <div class="minute-footer-row">
+                        <button class="minute-action-btn">
+                            <i class="fa-solid fa-eye"></i>
+                            Ver
+                        </button>
+                        <button class="minute-action-btn">
+                            <i class="fa-solid fa-pen"></i>
+                            Editar
+                        </button>
+                        <button class="minute-action-btn">
+                            <i class="fa-solid fa-download"></i>
+                            Descargar
+                        </button>
+                        <button class="minute-action-btn btn-delete">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Minute Card 3 -->
+            <div class="minute-card">
+                <div class="minute-header">
+                    <div class="minute-title-section">
+                        <h3 class="minute-title">Análisis de Requerimientos</h3>
+                        <div class="minute-meta">
+                            <span class="minute-date">
+                                <i class="fa-solid fa-calendar"></i>
+                                22 Ene 2025
+                            </span>
+                            <span class="minute-time">
+                                <i class="fa-solid fa-clock"></i>
+                                11:00 AM
+                            </span>
+                        </div>
+                    </div>
+                    <div class="minute-status status-in-progress">
+                        <i class="fa-solid fa-spinner"></i>
+                        En Progreso
+                    </div>
+                </div>
+
+                <div class="minute-body">
+                    <div class="minute-info-row">
+                        <div class="minute-info-item">
+                            <i class="fa-solid fa-building"></i>
+                            <span>Global Solutions</span>
+                        </div>
+                        <div class="minute-info-item">
+                            <i class="fa-solid fa-folder"></i>
+                            <span>Sistema CRM</span>
+                        </div>
+                    </div>
+
+                    <div class="minute-participants">
+                        <i class="fa-solid fa-users"></i>
+                        <div class="minute-participants-list">
+                            <span class="minute-participant-badge">Juan Pérez</span>
+                            <span class="minute-participant-badge">María García</span>
+                            <span class="minute-participant-badge">Carlos López</span>
+                        </div>
+                    </div>
+
+                    <div class="minute-summary">
+                        Sesión de análisis detallado de requerimientos funcionales y no funcionales del nuevo sistema CRM empresarial.
+                    </div>
+
+                    <div class="minute-tags">
+                        <span class="minute-tag minute-tag-blue">Análisis</span>
+                        <span class="minute-tag minute-tag-red">Requerimientos</span>
+                    </div>
+                </div>
+
+                <div class="minute-footer">
+                    <button class="minute-action-btn btn-timeline">
+                        <i class="fa-solid fa-clock-rotate-left"></i>
+                        Ver Línea de Tiempo
+                    </button>
+                    
+                    <div class="minute-footer-row">
+                        <button class="minute-action-btn">
+                            <i class="fa-solid fa-eye"></i>
+                            Ver
+                        </button>
+                        <button class="minute-action-btn">
+                            <i class="fa-solid fa-pen"></i>
+                            Editar
+                        </button>
+                        <button class="minute-action-btn">
+                            <i class="fa-solid fa-download"></i>
+                            Descargar
+                        </button>
+                        <button class="minute-action-btn btn-delete">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Minute Card 4 -->
+            <div class="minute-card">
+                <div class="minute-header">
+                    <div class="minute-title-section">
+                        <h3 class="minute-title">Presentación de Propuesta Comercial</h3>
+                        <div class="minute-meta">
+                            <span class="minute-date">
+                                <i class="fa-solid fa-calendar"></i>
+                                25 Ene 2025
+                            </span>
+                            <span class="minute-time">
+                                <i class="fa-solid fa-clock"></i>
+                                3:00 PM
+                            </span>
+                        </div>
+                    </div>
+                    <div class="minute-status status-completed">
+                        <i class="fa-solid fa-circle-check"></i>
+                        Completada
+                    </div>
+                </div>
+
+                <div class="minute-body">
+                    <div class="minute-info-row">
+                        <div class="minute-info-item">
+                            <i class="fa-solid fa-building"></i>
+                            <span>Innovation Labs</span>
+                        </div>
+                        <div class="minute-info-item">
+                            <i class="fa-solid fa-folder"></i>
+                            <span>Plataforma E-commerce</span>
+                        </div>
+                    </div>
+
+                    <div class="minute-participants">
+                        <i class="fa-solid fa-users"></i>
+                        <div class="minute-participants-list">
+                            <span class="minute-participant-badge">Ana Martínez</span>
+                            <span class="minute-participant-badge">+2 más</span>
+                        </div>
+                    </div>
+
+                    <div class="minute-summary">
+                        Presentación de la propuesta técnica y comercial para el desarrollo de la plataforma de comercio electrónico con todas las funcionalidades requeridas.
+                    </div>
+
+                    <div class="minute-tags">
+                        <span class="minute-tag minute-tag-green">Propuesta</span>
+                        <span class="minute-tag minute-tag-yellow">Comercial</span>
+                    </div>
+                </div>
+
+                <div class="minute-footer">
+                    <button class="minute-action-btn btn-timeline">
+                        <i class="fa-solid fa-clock-rotate-left"></i>
+                        Ver Línea de Tiempo
+                    </button>
+                    
+                    <div class="minute-footer-row">
+                        <button class="minute-action-btn">
+                            <i class="fa-solid fa-eye"></i>
+                            Ver
+                        </button>
+                        <button class="minute-action-btn">
+                            <i class="fa-solid fa-pen"></i>
+                            Editar
+                        </button>
+                        <button class="minute-action-btn">
+                            <i class="fa-solid fa-download"></i>
+                            Descargar
+                        </button>
+                        <button class="minute-action-btn btn-delete">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Minute Card 5 -->
+            <div class="minute-card">
+                <div class="minute-header">
+                    <div class="minute-title-section">
+                        <h3 class="minute-title">Sesión de Diseño UX/UI</h3>
+                        <div class="minute-meta">
+                            <span class="minute-date">
+                                <i class="fa-solid fa-calendar"></i>
+                                28 Ene 2025
+                            </span>
+                            <span class="minute-time">
+                                <i class="fa-solid fa-clock"></i>
+                                9:30 AM
+                            </span>
+                        </div>
+                    </div>
+                    <div class="minute-status status-in-progress">
+                        <i class="fa-solid fa-spinner"></i>
+                        En Progreso
+                    </div>
+                </div>
+
+                <div class="minute-body">
+                    <div class="minute-info-row">
+                        <div class="minute-info-item">
+                            <i class="fa-solid fa-building"></i>
+                            <span>Acme Corporation</span>
+                        </div>
+                        <div class="minute-info-item">
+                            <i class="fa-solid fa-folder"></i>
+                            <span>Rediseño Web</span>
+                        </div>
+                    </div>
+
+                    <div class="minute-participants">
+                        <i class="fa-solid fa-users"></i>
+                        <div class="minute-participants-list">
+                            <span class="minute-participant-badge">María García</span>
+                            <span class="minute-participant-badge">Juan Pérez</span>
+                        </div>
+                    </div>
+
+                    <div class="minute-summary">
+                        Revisión de wireframes y mockups del nuevo diseño de la plataforma web, definición de componentes y flujos de usuario.
+                    </div>
+
+                    <div class="minute-tags">
+                        <span class="minute-tag minute-tag-purple">Diseño</span>
+                        <span class="minute-tag minute-tag-blue">UX/UI</span>
+                    </div>
+                </div>
+
+                <div class="minute-footer">
+                    <button class="minute-action-btn btn-timeline">
+                        <i class="fa-solid fa-clock-rotate-left"></i>
+                        Ver Línea de Tiempo
+                    </button>
+                    
+                    <div class="minute-footer-row">
+                        <button class="minute-action-btn">
+                            <i class="fa-solid fa-eye"></i>
+                            Ver
+                        </button>
+                        <button class="minute-action-btn">
+                            <i class="fa-solid fa-pen"></i>
+                            Editar
+                        </button>
+                        <button class="minute-action-btn">
+                            <i class="fa-solid fa-download"></i>
+                            Descargar
+                        </button>
+                        <button class="minute-action-btn btn-delete">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Minute Card 6 -->
+            <div class="minute-card">
+                <div class="minute-header">
+                    <div class="minute-title-section">
+                        <h3 class="minute-title">Daily Standup - Equipo Backend</h3>
+                        <div class="minute-meta">
+                            <span class="minute-date">
+                                <i class="fa-solid fa-calendar"></i>
+                                30 Ene 2025
+                            </span>
+                            <span class="minute-time">
+                                <i class="fa-solid fa-clock"></i>
+                                10:00 AM
+                            </span>
+                        </div>
+                    </div>
+                    <div class="minute-status status-completed">
+                        <i class="fa-solid fa-circle-check"></i>
+                        Completada
+                    </div>
+                </div>
+
+                <div class="minute-body">
+                    <div class="minute-info-row">
+                        <div class="minute-info-item">
+                            <i class="fa-solid fa-building"></i>
+                            <span>TechStart Inc</span>
+                        </div>
+                        <div class="minute-info-item">
+                            <i class="fa-solid fa-folder"></i>
+                            <span>App Mobile</span>
+                        </div>
+                    </div>
+
+                    <div class="minute-participants">
+                        <i class="fa-solid fa-users"></i>
+                        <div class="minute-participants-list">
+                            <span class="minute-participant-badge">Carlos López</span>
+                            <span class="minute-participant-badge">+4 más</span>
+                        </div>
+                    </div>
+
+                    <div class="minute-summary">
+                        Sincronización diaria del equipo de desarrollo backend, reporte de avances y coordinación de dependencias entre tareas.
+                    </div>
+
+                    <div class="minute-tags">
+                        <span class="minute-tag minute-tag-orange">Daily</span>
+                        <span class="minute-tag minute-tag-purple">Backend</span>
+                    </div>
+                </div>
+
+                <div class="minute-footer">
+                    <button class="minute-action-btn btn-timeline">
+                        <i class="fa-solid fa-clock-rotate-left"></i>
+                        Ver Línea de Tiempo
+                    </button>
+                    
+                    <div class="minute-footer-row">
+                        <button class="minute-action-btn">
+                            <i class="fa-solid fa-eye"></i>
+                            Ver
+                        </button>
+                        <button class="minute-action-btn">
+                            <i class="fa-solid fa-pen"></i>
+                            Editar
+                        </button>
+                        <button class="minute-action-btn">
+                            <i class="fa-solid fa-download"></i>
+                            Descargar
+                        </button>
+                        <button class="minute-action-btn btn-delete">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Pagination -->
+        <div class="minutes-pagination">
+            <button class="minutes-pagination-btn" disabled>
+                <i class="fa-solid fa-chevron-left"></i>
+            </button>
+            <button class="minutes-pagination-btn active">1</button>
+            <button class="minutes-pagination-btn">2</button>
+            <button class="minutes-pagination-btn">3</button>
+            <button class="minutes-pagination-btn">
+                <i class="fa-solid fa-chevron-right"></i>
+            </button>
+        </div>
+
+    </div>
+
+    <script>
+        // ===== GESTIÓN DE FILTROS =====
+        const manageFiltersBtn = document.getElementById('manageFiltersBtn');
+        const filtersDropdown = document.getElementById('filtersDropdown');
+        
+        // Toggle dropdown
+        manageFiltersBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            filtersDropdown.classList.toggle('show');
+        });
+        
+        // Cerrar dropdown al hacer click fuera
+        document.addEventListener('click', (e) => {
+            if (!filtersDropdown.contains(e.target) && e.target !== manageFiltersBtn) {
+                filtersDropdown.classList.remove('show');
+            }
+        });
+        
+        // Mostrar/Ocultar filtros individuales
+        const filterToggles = {
+            'toggleClient': 'filterClient',
+            'toggleProject': 'filterProject',
+            'toggleDateFrom': 'filterDateFrom',
+            'toggleDateTo': 'filterDateTo',
+            'toggleParticipant': 'filterParticipant'
+        };
+        
+        Object.keys(filterToggles).forEach(toggleId => {
+            const checkbox = document.getElementById(toggleId);
+            const filterGroup = document.getElementById(filterToggles[toggleId]);
+            
+            checkbox.addEventListener('change', () => {
+                if (checkbox.checked) {
+                    filterGroup.classList.remove('hidden');
+                } else {
+                    filterGroup.classList.add('hidden');
+                }
+            });
+        });
+        
+        // ===== LIMPIAR FILTROS =====
+        document.getElementById('btnClearFilters').addEventListener('click', () => {
+            document.getElementById('clientFilter').value = '';
+            document.getElementById('projectFilter').value = '';
+            document.getElementById('dateFrom').value = '';
+            document.getElementById('dateTo').value = '';
+            document.getElementById('participantFilter').value = '';
+        });
+        
+        // ===== TOGGLE DARK MODE (TESTING) =====
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'd' && e.ctrlKey) {
+                e.preventDefault();
+                document.documentElement.classList.toggle('dark');
+            }
+        });
+    </script>
+</body>
+</html>
