@@ -10,6 +10,7 @@ import Layout from "@components/layout/Layout";
 
 // Secciones
 import Dashboard from "./pages/dashboard/Dashboard";
+import Minute from "./pages/minutes/Minute";
 
 //Error Page
 import ForbiddenPage from "./pages/errorPages/ForbiddenPage";
@@ -42,6 +43,9 @@ function App() {
 
           {/* Rutas base */}
           <Route path="/dashboard" element={<Dashboard />} />
+
+          {/* Minutas */}
+          <Route path="/minute" element={<Minute />} />
 
           {/* Demos */}
           <Route path="/demo/general" element={<General />} />

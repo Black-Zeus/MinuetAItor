@@ -19,7 +19,7 @@ export const SIDEBAR_MODULES = [
     id: 'minutes',
     name: 'Minutas',
     icon: 'FaRegFileLines',
-    path: '/minutas',
+    path: '/minute',
     section: 'core',
     order: 2
   },
