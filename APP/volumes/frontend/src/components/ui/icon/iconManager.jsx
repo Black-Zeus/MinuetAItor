@@ -1,4 +1,4 @@
-// src/components/icons/iconManager.jsx
+// src/components/ui/icon/iconManager.jsx
 import React from "react";
 import {
   // Estados vacíos / listados
@@ -100,9 +100,7 @@ import {
   FaLockOpen,
   FaArrowTrendUp,
 
-  // ====================================
-  // NUEVOS: NOTIFICACIONES Y TEMA
-  // ====================================
+  // Notificaciones y Tema
   FaBell,
   FaEnvelope,
   FaComment,
@@ -110,11 +108,24 @@ import {
   FaSun,
   FaMoon,
 
- // AGREGAR ESTOS (nombres correctos para FA6):
-  FaHouse,         // Para "Inicio" (en FA6 se llama FaHouse, no FaHome)
-  FaGear,          // Para "Sistema" (en FA6 se llama FaGear, no FaCog)
-  FaCircleUser,    // Para "Mi Cuenta" (en FA6 se llama FaCircleUser, no FaUserCircle)
-  FaFile,          // Para "Reportes"
+  // Navegación Principal
+  FaHouse,
+  FaGear,
+  FaCircleUser,
+  FaFile,
+
+  // ====================================
+  // NUEVOS ICONOS PARA MINUTAS (FA6)
+  // ====================================
+  FaCalendar,
+  FaCalendarDays,
+  FaCalendarCheck,
+  FaClock,
+  FaSpinner,
+  FaDownload,
+  FaFilterCircleXmark,
+  FaSliders,
+  FaListCheck,
 
 } from "react-icons/fa6";
 
@@ -156,9 +167,11 @@ const ICON_REGISTRY = {
 
   FaPenToSquare,
   edit: FaPenToSquare,
+  pen: FaPenToSquare,
 
   FaTrash,
   delete: FaTrash,
+  trash: FaTrash,
 
   FaKey,
   password: FaKey,
@@ -190,7 +203,7 @@ const ICON_REGISTRY = {
   FaCircleCheck,
   checkCircle: FaCircleCheck,
   success: FaCircleCheck,
-  FaCheckCircle: FaCircleCheck,
+  FaCheckCircle: FaCircleCheck, // Alias FA5
   check_circle: FaCircleCheck,
 
   FaCircleXmark,
@@ -203,7 +216,7 @@ const ICON_REGISTRY = {
   FaXmark,
   cancel: FaXmark,
   close: FaXmark,
-  FaTimes: FaXmark,
+  FaTimes: FaXmark, // Alias FA5
   x: FaXmark,
 
   // ====================================
@@ -320,7 +333,7 @@ const ICON_REGISTRY = {
   // ====================================
   FaCircleInfo,
   info: FaCircleInfo,
-  FaInfoCircle: FaCircleInfo,
+  FaInfoCircle: FaCircleInfo, // Alias FA5
 
   FaTriangleExclamation,
   warning: FaTriangleExclamation,
@@ -347,19 +360,21 @@ const ICON_REGISTRY = {
   FaCartShopping,
   cart: FaCartShopping,
   shoppingCart: FaCartShopping,
-  FaShoppingCart: FaCartShopping,
+  FaShoppingCart: FaCartShopping, // Alias FA5
 
   FaPerson,
   person: FaPerson,
 
   FaBuilding,
   business: FaBuilding,
+  building: FaBuilding,
 
   FaTag,
   tag: FaTag,
 
   FaTags,
   discount: FaTags,
+  tags: FaTags,
 
   // ====================================
   // FLECHAS DIRECCIONALES
@@ -391,7 +406,7 @@ const ICON_REGISTRY = {
 
   FaArrowsRotate,
   exchange: FaArrowsRotate,
-  FaExchangeAlt: FaArrowsRotate,
+  FaExchangeAlt: FaArrowsRotate, // Alias FA5
 
   FaArrowTrendUp,
   trendingUp: FaArrowTrendUp,
@@ -447,7 +462,7 @@ const ICON_REGISTRY = {
   // DOCUMENTOS Y REPORTES
   // ====================================
   FaFile,
-  file: FaFile,
+  // file: FaFile, // Ya está asignado arriba a FaRegFileLines
   fileAlt: FaFile,         // Alias para compatibilidad con FA5
   FaFileAlt: FaFile,       // Alias para compatibilidad con FA5
   report: FaFile,
@@ -474,6 +489,38 @@ const ICON_REGISTRY = {
   account: FaCircleUser,
   miCuenta: FaCircleUser,
   "mi-cuenta": FaCircleUser,
+
+  // ====================================
+  // ICONOS PARA MINUTAS (FA6)
+  // ====================================
+  FaCalendar,
+  calendar: FaCalendar,
+
+  FaCalendarDays,
+  calendarDays: FaCalendarDays,
+
+  FaCalendarCheck,
+  calendarCheck: FaCalendarCheck,
+
+  FaClock,
+  clock: FaClock,
+
+  FaSpinner,
+  spinner: FaSpinner,
+  loading: FaSpinner,
+
+  FaDownload,
+  download: FaDownload,
+
+  FaFilterCircleXmark,
+  filterClear: FaFilterCircleXmark,
+  clearFilter: FaFilterCircleXmark,
+
+  FaSliders,
+  sliders: FaSliders,
+
+  FaListCheck,
+  listCheck: FaListCheck,
 };
 
 /**
@@ -485,6 +532,9 @@ const ICON_REGISTRY = {
  *   <Icon name="sun" />
  *   <Icon name="moon" />
  *   <Icon name="envelope" />
+ *   <Icon name="calendar" />
+ *   <Icon name="clock" />
+ *   <Icon name="spinner" />
  */
 export const Icon = ({ name, className = "", ...rest }) => {
   // 1) lookup directo
