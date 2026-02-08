@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Proyectos - MinuetAItor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            200: '#bfdbfe',
+                            300: '#93c5fd',
+                            400: '#60a5fa',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            800: '#1e40af',
+                            900: '#1e3a8a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .transition-theme {
+            transition: background-color 0.2s, border-color 0.2s, color 0.2s;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 dark:bg-gray-900 transition-theme min-h-screen">
+
+    <!-- Main Container -->
+    <div class="container mx-auto px-4 py-8 max-w-7xl">
+
+        <!-- Header Section -->
+        <div class="mb-8">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900 dark:text-white transition-theme">
+                        <i class="fas fa-folder-open text-primary-600 dark:text-primary-400 mr-3"></i>
+                        Proyectos
+                    </h1>
+                    <p class="text-gray-600 dark:text-gray-300 mt-2 transition-theme">
+                        Gestiona todos tus proyectos y sus minutas asociadas
+                    </p>
+                </div>
+                <button onclick="alert('Abrir modal Crear Proyecto')"
+                    class="bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-lg flex items-center gap-2 transition-all shadow-lg hover:shadow-xl">
+                    <i class="fas fa-plus"></i>
+                    <span class="font-semibold">Nuevo Proyecto</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-4 gap-6 mb-8">
+            <!-- Total Proyectos -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 transition-theme">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 dark:text-gray-400 text-sm font-medium transition-theme">
+                            Total Proyectos
+                        </p>
+                        <p class="text-3xl font-bold text-gray-900 dark:text-white mt-2 transition-theme">
+                            24
+                        </p>
+                    </div>
+                    <div class="bg-primary-100 dark:bg-primary-900/30 p-4 rounded-lg transition-theme">
+                        <i class="fas fa-folder text-primary-600 dark:text-primary-400 text-2xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Proyectos Activos -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 transition-theme">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 dark:text-gray-400 text-sm font-medium transition-theme">
+                            Activos
+                        </p>
+                        <p class="text-3xl font-bold text-green-600 dark:text-green-400 mt-2 transition-theme">
+                            20
+                        </p>
+                    </div>
+                    <div class="bg-green-100 dark:bg-green-900/30 p-4 rounded-lg transition-theme">
+                        <i class="fas fa-check-circle text-green-600 dark:text-green-400 text-2xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Proyectos Inactivos -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 transition-theme">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 dark:text-gray-400 text-sm font-medium transition-theme">
+                            Inactivos
+                        </p>
+                        <p class="text-3xl font-bold text-gray-600 dark:text-gray-400 mt-2 transition-theme">
+                            4
+                        </p>
+                    </div>
+                    <div class="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg transition-theme">
+                        <i class="fas fa-times-circle text-gray-600 dark:text-gray-400 text-2xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Total Minutas -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 transition-theme">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 dark:text-gray-400 text-sm font-medium transition-theme">
+                            Total Minutas
+                        </p>
+                        <p class="text-3xl font-bold text-purple-600 dark:text-purple-400 mt-2 transition-theme">
+                            142
+                        </p>
+                    </div>
+                    <div class="bg-purple-100 dark:bg-purple-900/30 p-4 rounded-lg transition-theme">
+                        <i class="fas fa-file-alt text-purple-600 dark:text-purple-400 text-2xl"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters and Search -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-6 transition-theme">
+            <div class="grid grid-cols-4 gap-4">
+                <!-- Search -->
+                <div class="col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-theme">
+                        <i class="fas fa-search mr-2"></i>Buscar proyecto
+                    </label>
+                    <input type="text" placeholder="Buscar por nombre, cliente o descripción..."
+                        class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-theme" />
+                </div>
+
+                <!-- Filter by Cliente -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-theme">
+                        <i class="fas fa-building mr-2"></i>Cliente
+                    </label>
+                    <select
+                        class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-theme">
+                        <option value="">Todos los clientes</option>
+                        <option value="acme">ACME Corporation</option>
+                        <option value="techstart">TechStart Solutions</option>
+                        <option value="globex">Globex Industries</option>
+                    </select>
+                </div>
+
+                <!-- Filter by Status -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-theme">
+                        <i class="fas fa-filter mr-2"></i>Estado
+                    </label>
+                    <select
+                        class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-theme">
+                        <option value="">Todos los estados</option>
+                        <option value="activo">Activo</option>
+                        <option value="inactivo">Inactivo</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Filter Actions Row -->
+            <div class="flex justify-end gap-3 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <button onclick="alert('Limpiar filtros')"
+                    class="px-6 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all font-medium">
+                    <i class="fas fa-times mr-2"></i>Limpiar
+                </button>
+                <button onclick="alert('Aplicar filtros')"
+                    class="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-all font-medium shadow-md">
+                    <i class="fas fa-filter mr-2"></i>Filtrar
+                </button>
+            </div>
+        </div>
+
+        <!-- Cards View -->
+        <div class="grid grid-cols-3 gap-6 mb-8">
+
+            <!-- Project Card 1 -->
+            <div
+                class="bg-white dark:bg-gray-800 rounded-xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-200 dark:border-gray-700">
+                <!-- Card Header -->
+                <div class="bg-gradient-to-r from-primary-600 to-primary-700 p-4">
+                    <div class="flex items-start justify-between">
+                        <div class="flex-1">
+                            <h3 class="text-xl font-bold text-white mb-1">
+                                Desarrollo Web Corporativo
+                            </h3>
+                            <p class="text-primary-100 text-sm flex items-center gap-2">
+                                <i class="fas fa-building"></i>
+                                ACME Corporation
+                            </p>
+                        </div>
+                        <span class="bg-green-500 text-white text-xs px-3 py-1 rounded-full font-semibold">
+                            Activo
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Card Body -->
+                <div class="p-5 space-y-4">
+
+                    <!-- Description -->
+                    <div>
+                        <p class="text-gray-600 dark:text-gray-300 text-sm transition-theme">
+                            Desarrollo de sitio web corporativo con sistema de gestión de contenidos y panel
+                            administrativo.
+                        </p>
+                    </div>
+
+                    <!-- Project Info -->
+                    <div class="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4 transition-theme">
+                        <div class="flex items-center gap-3 mb-2">
+                            <i class="fas fa-file-alt text-purple-600 dark:text-purple-400 text-lg"></i>
+                            <span class="text-sm font-medium text-gray-600 dark:text-gray-400 transition-theme">Minutas
+                                asociadas</span>
+                        </div>
+                        <p class="text-3xl font-bold text-purple-600 dark:text-purple-400 transition-theme">12</p>
+                    </div>
+
+                    <!-- Tags -->
+                    <div class="flex flex-wrap gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
+                        <span
+                            class="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded text-xs transition-theme">
+                            Web
+                        </span>
+                        <span
+                            class="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded text-xs transition-theme">
+                            CMS
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Card Footer -->
+                <div
+                    class="bg-gray-50 dark:bg-gray-700/50 px-5 py-4 flex items-center justify-between border-t border-gray-200 dark:border-gray-700 transition-theme">
+                    <button onclick="alert('Ver proyecto')"
+                        class="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium text-sm flex items-center gap-2 transition-colors">
+                        <i class="fas fa-eye"></i>
+                        Ver detalles
+                    </button>
+                    <div class="flex items-center gap-2">
+                        <button onclick="alert('Editar proyecto')"
+                            class="text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors p-2">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button onclick="alert('Eliminar proyecto')"
+                            class="text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors p-2">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Project Card 2 -->
+            <div
+                class="bg-white dark:bg-gray-800 rounded-xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-200 dark:border-gray-700">
+                <div class="bg-gradient-to-r from-primary-600 to-primary-700 p-4">
+                    <div class="flex items-start justify-between">
+                        <div class="flex-1">
+                            <h3 class="text-xl font-bold text-white mb-1">
+                                App Móvil E-commerce
+                            </h3>
+                            <p class="text-primary-100 text-sm flex items-center gap-2">
+                                <i class="fas fa-building"></i>
+                                TechStart Solutions
+                            </p>
+                        </div>
+                        <span class="bg-gray-500 text-white text-xs px-3 py-1 rounded-full font-semibold">
+                            Inactivo
+                        </span>
+                    </div>
+                </div>
+
+                <div class="p-5 space-y-4">
+                    <div>
+                        <p class="text-gray-600 dark:text-gray-300 text-sm transition-theme">
+                            Aplicación móvil multiplataforma para comercio electrónico con pasarela de pagos integrada.
+                        </p>
+                    </div>
+
+                    <div class="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4 transition-theme">
+                        <div class="flex items-center gap-3 mb-2">
+                            <i class="fas fa-file-alt text-purple-600 dark:text-purple-400 text-lg"></i>
+                            <span class="text-sm font-medium text-gray-600 dark:text-gray-400 transition-theme">Minutas
+                                asociadas</span>
+                        </div>
+                        <p class="text-3xl font-bold text-purple-600 dark:text-purple-400 transition-theme">8</p>
+                    </div>
+
+                    <div class="flex flex-wrap gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
+                        <span
+                            class="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded text-xs transition-theme">
+                            Mobile
+                        </span>
+                        <span
+                            class="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 rounded text-xs transition-theme">
+                            E-commerce
+                        </span>
+                    </div>
+                </div>
+
+                <div
+                    class="bg-gray-50 dark:bg-gray-700/50 px-5 py-4 flex items-center justify-between border-t border-gray-200 dark:border-gray-700 transition-theme">
+                    <button onclick="alert('Ver proyecto')"
+                        class="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium text-sm flex items-center gap-2 transition-colors">
+                        <i class="fas fa-eye"></i>
+                        Ver detalles
+                    </button>
+                    <div class="flex items-center gap-2">
+                        <button onclick="alert('Editar proyecto')"
+                            class="text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors p-2">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button onclick="alert('Eliminar proyecto')"
+                            class="text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors p-2">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Project Card 3 -->
+            <div
+                class="bg-white dark:bg-gray-800 rounded-xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-200 dark:border-gray-700">
+                <div class="bg-gradient-to-r from-primary-600 to-primary-700 p-4">
+                    <div class="flex items-start justify-between">
+                        <div class="flex-1">
+                            <h3 class="text-xl font-bold text-white mb-1">
+                                Sistema ERP Empresarial
+                            </h3>
+                            <p class="text-primary-100 text-sm flex items-center gap-2">
+                                <i class="fas fa-building"></i>
+                                Globex Industries
+                            </p>
+                        </div>
+                        <span class="bg-green-500 text-white text-xs px-3 py-1 rounded-full font-semibold">
+                            Activo
+                        </span>
+                    </div>
+                </div>
+
+                <div class="p-5 space-y-4">
+                    <div>
+                        <p class="text-gray-600 dark:text-gray-300 text-sm transition-theme">
+                            Sistema de planificación de recursos empresariales con módulos de inventario, ventas y
+                            finanzas.
+                        </p>
+                    </div>
+
+                    <div class="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4 transition-theme">
+                        <div class="flex items-center gap-3 mb-2">
+                            <i class="fas fa-file-alt text-purple-600 dark:text-purple-400 text-lg"></i>
+                            <span class="text-sm font-medium text-gray-600 dark:text-gray-400 transition-theme">Minutas
+                                asociadas</span>
+                        </div>
+                        <p class="text-3xl font-bold text-purple-600 dark:text-purple-400 transition-theme">25</p>
+                    </div>
+
+                    <div class="flex flex-wrap gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
+                        <span
+                            class="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded text-xs transition-theme">
+                            ERP
+                        </span>
+                        <span
+                            class="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded text-xs transition-theme">
+                            Enterprise
+                        </span>
+                    </div>
+                </div>
+
+                <div
+                    class="bg-gray-50 dark:bg-gray-700/50 px-5 py-4 flex items-center justify-between border-t border-gray-200 dark:border-gray-700 transition-theme">
+                    <button onclick="alert('Ver proyecto')"
+                        class="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium text-sm flex items-center gap-2 transition-colors">
+                        <i class="fas fa-eye"></i>
+                        Ver detalles
+                    </button>
+                    <div class="flex items-center gap-2">
+                        <button onclick="alert('Editar proyecto')"
+                            class="text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors p-2">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button onclick="alert('Eliminar proyecto')"
+                            class="text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors p-2">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Toggle Theme Button (Demo) -->
+    <button onclick="toggleTheme()"
+        class="fixed bottom-8 right-8 bg-primary-600 hover:bg-primary-700 text-white p-4 rounded-full shadow-lg hover:shadow-xl transition-all z-50">
+        <i class="fas fa-moon text-xl"></i>
+    </button>
+
+    <script>
+        // Theme Toggle
+        function toggleTheme() {
+            const html = document.documentElement;
+            html.classList.toggle('dark');
+        }
+    </script>
+
+</body>
+
+</html>
