@@ -1,8 +1,24 @@
 import ActionButton from "./ActionButton"
 import { FaPlus } from "react-icons/fa";
+import clientsData from '@/data/dataClientes.json';
 
 // Imports necesarios
 import ModalManager from '@/components/ui/modal';
+
+// Preparar opciones de clientes
+const clientOptions = clientsData.clients.map(client => ({
+  value: client.id.toString(),
+  label: `${client.name} - ${client.company}`
+}));
+
+// Opciones de proyectos (hardcoded por ahora)
+const projectOptions = [
+  { value: '1', label: 'Proyecto Alpha - Implementación CRM' },
+  { value: '2', label: 'Proyecto Beta - Migración Cloud' },
+  { value: '3', label: 'Proyecto Gamma - Sistema de Gestión' },
+  { value: '4', label: 'Proyecto Delta - Automatización de Procesos' },
+  { value: '5', label: 'Proyecto Epsilon - Plataforma E-learning' }
+];
 
 // Función handler (debe ser async)
 const showWizardModal = async () => {
@@ -11,9 +27,25 @@ const showWizardModal = async () => {
       title: 'Asistente de Preparación de Minutas',
       steps: [
         {
-          title: 'Archivos a Procesar',
-          description: 'Suba los archivos necesarios para procesar la minuta',
+          title: 'Información General',
+          description: 'Seleccione el cliente y proyecto, y suba los archivos necesarios',
           fields: [
+            {
+              name: 'client',
+              label: 'Cliente',
+              type: 'select',
+              required: true,
+              options: clientOptions,
+              placeholder: 'Seleccione un cliente'
+            },
+            {
+              name: 'project',
+              label: 'Proyecto',
+              type: 'select',
+              required: true,
+              options: projectOptions,
+              placeholder: 'Seleccione un proyecto'
+            },
             {
               name: 'transcription',
               label: 'Transcripción',
