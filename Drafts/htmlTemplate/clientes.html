@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Clientes - MinuetAItor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            200: '#bae6fd',
+                            300: '#7dd3fc',
+                            400: '#38bdf8',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            800: '#075985',
+                            900: '#0c4a6e',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 min-h-screen">
+    
+    <!-- Header -->
+    <header class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Gestión de Clientes</h1>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Administra y organiza tu cartera de clientes</p>
+                </div>
+                <button onclick="openCreateClientModal()" class="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors">
+                    <i class="fas fa-plus"></i>
+                    <span>Nuevo Cliente</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Filters Section -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <!-- Search -->
+                <div class="md:col-span-2">
+                    <div class="relative">
+                        <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                        <input type="text" 
+                               id="searchInput"
+                               placeholder="Buscar por nombre, email o empresa..." 
+                               class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                               oninput="filterClients()">
+                    </div>
+                </div>
+
+                <!-- Status Filter -->
+                <div>
+                    <select id="statusFilter" 
+                            onchange="filterClients()"
+                            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        <option value="">Todos los estados</option>
+                        <option value="activo">Activo</option>
+                        <option value="inactivo">Inactivo</option>
+                        <option value="prospecto">Prospecto</option>
+                    </select>
+                </div>
+
+                <!-- Sort -->
+                <div>
+                    <select id="sortFilter" 
+                            onchange="sortClients()"
+                            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        <option value="recent">Más recientes</option>
+                        <option value="name">Nombre A-Z</option>
+                        <option value="company">Empresa A-Z</option>
+                        <option value="projects">Más proyectos</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Total Clientes</p>
+                        <p class="text-2xl font-bold text-gray-900 dark:text-white mt-1">24</p>
+                    </div>
+                    <div class="bg-primary-100 dark:bg-primary-900/30 p-3 rounded-lg">
+                        <i class="fas fa-users text-primary-600 dark:text-primary-400 text-xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Activos</p>
+                        <p class="text-2xl font-bold text-green-600 dark:text-green-400 mt-1">18</p>
+                    </div>
+                    <div class="bg-green-100 dark:bg-green-900/30 p-3 rounded-lg">
+                        <i class="fas fa-check-circle text-green-600 dark:text-green-400 text-xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Prospectos</p>
+                        <p class="text-2xl font-bold text-yellow-600 dark:text-yellow-400 mt-1">4</p>
+                    </div>
+                    <div class="bg-yellow-100 dark:bg-yellow-900/30 p-3 rounded-lg">
+                        <i class="fas fa-star text-yellow-600 dark:text-yellow-400 text-xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Inactivos</p>
+                        <p class="text-2xl font-bold text-gray-600 dark:text-gray-400 mt-1">2</p>
+                    </div>
+                    <div class="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg">
+                        <i class="fas fa-pause-circle text-gray-600 dark:text-gray-400 text-xl"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Clients Grid -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
+        <div id="clientsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Client Cards will be inserted here by JavaScript -->
+        </div>
+
+        <!-- Empty State -->
+        <div id="emptyState" class="hidden text-center py-12">
+            <div class="inline-flex items-center justify-center w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full mb-4">
+                <i class="fas fa-users text-gray-400 text-2xl"></i>
+            </div>
+            <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">No se encontraron clientes</h3>
+            <p class="text-gray-500 dark:text-gray-400">Intenta ajustar los filtros o crea un nuevo cliente</p>
+        </div>
+    </div>
+
+    <!-- Create/Edit Client Modal -->
+    <div id="clientModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between sticky top-0 bg-white dark:bg-gray-800">
+                <h2 id="modalTitle" class="text-xl font-bold text-gray-900 dark:text-white">Nuevo Cliente</h2>
+                <button onclick="closeClientModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+
+            <form id="clientForm" class="p-6 space-y-6">
+                <!-- Client Info Section -->
+                <div>
+                    <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4 flex items-center gap-2">
+                        <i class="fas fa-user"></i>
+                        Información del Cliente
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Nombre Completo *
+                            </label>
+                            <input type="text" 
+                                   name="name" 
+                                   required
+                                   class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Email *
+                            </label>
+                            <input type="email" 
+                                   name="email" 
+                                   required
+                                   class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Teléfono
+                            </label>
+                            <input type="tel" 
+                                   name="phone"
+                                   class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Cargo
+                            </label>
+                            <input type="text" 
+                                   name="position"
+                                   class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Company Info Section -->
+                <div>
+                    <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4 flex items-center gap-2">
+                        <i class="fas fa-building"></i>
+                        Información de la Empresa
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Empresa *
+                            </label>
+                            <input type="text" 
+                                   name="company" 
+                                   required
+                                   class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Industria
+                            </label>
+                            <select name="industry"
+                                    class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                                <option value="">Seleccionar...</option>
+                                <option value="tecnologia">Tecnología</option>
+                                <option value="finanzas">Finanzas</option>
+                                <option value="salud">Salud</option>
+                                <option value="educacion">Educación</option>
+                                <option value="retail">Retail</option>
+                                <option value="manufactura">Manufactura</option>
+                                <option value="servicios">Servicios</option>
+                                <option value="otra">Otra</option>
+                            </select>
+                        </div>
+
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Dirección
+                            </label>
+                            <input type="text" 
+                                   name="address"
+                                   class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Status Section -->
+                <div>
+                    <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4 flex items-center gap-2">
+                        <i class="fas fa-info-circle"></i>
+                        Estado y Notas
+                    </h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Estado *
+                            </label>
+                            <select name="status" 
+                                    required
+                                    class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                                <option value="activo">Activo</option>
+                                <option value="inactivo">Inactivo</option>
+                                <option value="prospecto">Prospecto</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Notas
+                            </label>
+                            <textarea name="notes" 
+                                      rows="3"
+                                      class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                                      placeholder="Información adicional sobre el cliente..."></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form Actions -->
+                <div class="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <button type="button" 
+                            onclick="closeClientModal()"
+                            class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        Cancelar
+                    </button>
+                    <button type="submit"
+                            class="flex-1 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors">
+                        Guardar Cliente
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- View Client Modal -->
+    <div id="viewClientModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between sticky top-0 bg-white dark:bg-gray-800">
+                <h2 class="text-xl font-bold text-gray-900 dark:text-white">Detalles del Cliente</h2>
+                <button onclick="closeViewClientModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+
+            <div id="viewClientContent" class="p-6">
+                <!-- Client details will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Dark Mode Toggle (for demo) -->
+    <button onclick="toggleDarkMode()" 
+            class="fixed bottom-6 right-6 bg-gray-800 dark:bg-gray-700 text-white p-4 rounded-full shadow-lg hover:bg-gray-700 dark:hover:bg-gray-600 transition-colors z-40">
+        <i class="fas fa-moon dark:hidden"></i>
+        <i class="fas fa-sun hidden dark:block"></i>
+    </button>
+
+    <script>
+        // Sample client data
+        let clients = [
+            {
+                id: 1,
+                name: "Carlos Rodríguez",
+                email: "carlos.rodriguez@techcorp.com",
+                phone: "+56 9 8765 4321",
+                position: "CTO",
+                company: "TechCorp Chile",
+                industry: "tecnologia",
+                address: "Av. Apoquindo 4501, Las Condes, Santiago",
+                status: "activo",
+                projects: 5,
+                notes: "Cliente prioritario, interesado en soluciones de IA",
+                createdAt: "2024-01-15"
+            },
+            {
+                id: 2,
+                name: "María González",
+                email: "mgonzalez@finanzas.cl",
+                phone: "+56 9 7654 3210",
+                position: "Gerente de Innovación",
+                company: "Finanzas & Co",
+                industry: "finanzas",
+                address: "Av. Vitacura 2939, Vitacura, Santiago",
+                status: "activo",
+                projects: 3,
+                notes: "Interesada en automatización de procesos",
+                createdAt: "2024-01-20"
+            },
+            {
+                id: 3,
+                name: "Roberto Silva",
+                email: "rsilva@healthplus.cl",
+                phone: "+56 9 6543 2109",
+                position: "Director de TI",
+                company: "HealthPlus",
+                industry: "salud",
+                address: "Av. Providencia 1650, Providencia, Santiago",
+                status: "prospecto",
+                projects: 0,
+                notes: "Primer contacto en evento de tecnología",
+                createdAt: "2024-02-01"
+            },
+            {
+                id: 4,
+                name: "Ana Martínez",
+                email: "amartinez@edutech.cl",
+                phone: "+56 9 5432 1098",
+                position: "CEO",
+                company: "EduTech Solutions",
+                industry: "educacion",
+                address: "Av. Libertador Bernardo O'Higgins 1449, Santiago",
+                status: "activo",
+                projects: 7,
+                notes: "Cliente desde 2023, muy satisfecho con el servicio",
+                createdAt: "2023-06-10"
+            },
+            {
+                id: 5,
+                name: "Jorge Fernández",
+                email: "jfernandez@retail.cl",
+                phone: "+56 9 4321 0987",
+                position: "Jefe de Proyectos",
+                company: "Retail Express",
+                industry: "retail",
+                address: "Av. Kennedy 5600, Las Condes, Santiago",
+                status: "inactivo",
+                projects: 2,
+                notes: "Pausado temporalmente por reestructuración",
+                createdAt: "2023-11-05"
+            },
+            {
+                id: 6,
+                name: "Patricia Díaz",
+                email: "pdiaz@manufacturing.cl",
+                phone: "+56 9 3210 9876",
+                position: "Gerente General",
+                company: "Manufacturing Pro",
+                industry: "manufactura",
+                address: "Av. Quilín 5100, Peñalolén, Santiago",
+                status: "activo",
+                projects: 4,
+                notes: "Interesado en integración con sistemas legacy",
+                createdAt: "2024-01-08"
+            }
+        ];
+
+        let filteredClients = [...clients];
+        let editingClientId = null;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            renderClients();
+        });
+
+        // Render clients grid
+        function renderClients() {
+            const grid = document.getElementById('clientsGrid');
+            const emptyState = document.getElementById('emptyState');
+
+            if (filteredClients.length === 0) {
+                grid.classList.add('hidden');
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            grid.classList.remove('hidden');
+            emptyState.classList.add('hidden');
+
+            grid.innerHTML = filteredClients.map(client => `
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow">
+                    <div class="p-6">
+                        <!-- Header -->
+                        <div class="flex items-start justify-between mb-4">
+                            <div class="flex items-center gap-3 flex-1">
+                                <div class="w-12 h-12 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center flex-shrink-0">
+                                    <i class="fas fa-user text-primary-600 dark:text-primary-400 text-lg"></i>
+                                </div>
+                                <div class="min-w-0">
+                                    <h3 class="font-semibold text-gray-900 dark:text-white truncate">${client.name}</h3>
+                                    <p class="text-sm text-gray-500 dark:text-gray-400 truncate">${client.position || 'Sin cargo'}</p>
+                                </div>
+                            </div>
+                            <span class="px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(client.status)}">
+                                ${getStatusText(client.status)}
+                            </span>
+                        </div>
+
+                        <!-- Company Info -->
+                        <div class="space-y-2 mb-4">
+                            <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                                <i class="fas fa-building text-gray-400 w-4"></i>
+                                <span class="truncate">${client.company}</span>
+                            </div>
+                            <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                                <i class="fas fa-envelope text-gray-400 w-4"></i>
+                                <span class="truncate">${client.email}</span>
+                            </div>
+                            ${client.phone ? `
+                                <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                                    <i class="fas fa-phone text-gray-400 w-4"></i>
+                                    <span>${client.phone}</span>
+                                </div>
+                            ` : ''}
+                        </div>
+
+                        <!-- Stats -->
+                        <div class="flex items-center gap-4 mb-4 pb-4 border-b border-gray-200 dark:border-gray-700">
+                            <div class="flex items-center gap-2">
+                                <i class="fas fa-folder text-primary-500 text-sm"></i>
+                                <span class="text-sm text-gray-600 dark:text-gray-300">
+                                    <span class="font-semibold text-gray-900 dark:text-white">${client.projects}</span>
+                                    ${client.projects === 1 ? 'proyecto' : 'proyectos'}
+                                </span>
+                            </div>
+                            ${client.industry ? `
+                                <div class="flex items-center gap-2">
+                                    <i class="fas fa-industry text-gray-400 text-sm"></i>
+                                    <span class="text-sm text-gray-600 dark:text-gray-300 capitalize">${client.industry}</span>
+                                </div>
+                            ` : ''}
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="flex gap-2">
+                            <button onclick="viewClient(${client.id})" 
+                                    class="flex-1 px-3 py-2 bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 rounded-lg hover:bg-primary-100 dark:hover:bg-primary-900/30 transition-colors text-sm font-medium">
+                                <i class="fas fa-eye mr-1"></i>
+                                Ver Detalles
+                            </button>
+                            <button onclick="editClient(${client.id})" 
+                                    class="px-3 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button onclick="deleteClient(${client.id})" 
+                                    class="px-3 py-2 border border-red-300 dark:border-red-600 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Filter clients
+        function filterClients() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const statusFilter = document.getElementById('statusFilter').value;
+
+            filteredClients = clients.filter(client => {
+                const matchesSearch = !searchTerm || 
+                    client.name.toLowerCase().includes(searchTerm) ||
+                    client.email.toLowerCase().includes(searchTerm) ||
+                    client.company.toLowerCase().includes(searchTerm);
+
+                const matchesStatus = !statusFilter || client.status === statusFilter;
+
+                return matchesSearch && matchesStatus;
+            });
+
+            renderClients();
+        }
+
+        // Sort clients
+        function sortClients() {
+            const sortBy = document.getElementById('sortFilter').value;
+
+            switch(sortBy) {
+                case 'name':
+                    filteredClients.sort((a, b) => a.name.localeCompare(b.name));
+                    break;
+                case 'company':
+                    filteredClients.sort((a, b) => a.company.localeCompare(b.company));
+                    break;
+                case 'projects':
+                    filteredClients.sort((a, b) => b.projects - a.projects);
+                    break;
+                case 'recent':
+                default:
+                    filteredClients.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            }
+
+            renderClients();
+        }
+
+        // Status helpers
+        function getStatusColor(status) {
+            const colors = {
+                'activo': 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400',
+                'inactivo': 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-400',
+                'prospecto': 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400'
+            };
+            return colors[status] || colors.activo;
+        }
+
+        function getStatusText(status) {
+            const texts = {
+                'activo': 'Activo',
+                'inactivo': 'Inactivo',
+                'prospecto': 'Prospecto'
+            };
+            return texts[status] || status;
+        }
+
+        // Modal functions
+        function openCreateClientModal() {
+            editingClientId = null;
+            document.getElementById('modalTitle').textContent = 'Nuevo Cliente';
+            document.getElementById('clientForm').reset();
+            document.getElementById('clientModal').classList.remove('hidden');
+        }
+
+        function closeClientModal() {
+            document.getElementById('clientModal').classList.add('hidden');
+            editingClientId = null;
+        }
+
+        function editClient(id) {
+            const client = clients.find(c => c.id === id);
+            if (!client) return;
+
+            editingClientId = id;
+            document.getElementById('modalTitle').textContent = 'Editar Cliente';
+            
+            const form = document.getElementById('clientForm');
+            form.elements.name.value = client.name;
+            form.elements.email.value = client.email;
+            form.elements.phone.value = client.phone || '';
+            form.elements.position.value = client.position || '';
+            form.elements.company.value = client.company;
+            form.elements.industry.value = client.industry || '';
+            form.elements.address.value = client.address || '';
+            form.elements.status.value = client.status;
+            form.elements.notes.value = client.notes || '';
+
+            document.getElementById('clientModal').classList.remove('hidden');
+        }
+
+        function viewClient(id) {
+            const client = clients.find(c => c.id === id);
+            if (!client) return;
+
+            const content = document.getElementById('viewClientContent');
+            content.innerHTML = `
+                <div class="space-y-6">
+                    <!-- Client Header -->
+                    <div class="flex items-start gap-4">
+                        <div class="w-16 h-16 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-user text-primary-600 dark:text-primary-400 text-2xl"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="flex items-center gap-3 mb-2">
+                                <h3 class="text-2xl font-bold text-gray-900 dark:text-white">${client.name}</h3>
+                                <span class="px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(client.status)}">
+                                    ${getStatusText(client.status)}
+                                </span>
+                            </div>
+                            <p class="text-gray-600 dark:text-gray-300">${client.position || 'Sin cargo'} en ${client.company}</p>
+                        </div>
+                    </div>
+
+                    <!-- Contact Info -->
+                    <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                        <h4 class="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                            <i class="fas fa-address-card text-primary-500"></i>
+                            Información de Contacto
+                        </h4>
+                        <div class="space-y-2">
+                            <div class="flex items-center gap-3">
+                                <i class="fas fa-envelope text-gray-400 w-5"></i>
+                                <a href="mailto:${client.email}" class="text-primary-600 dark:text-primary-400 hover:underline">${client.email}</a>
+                            </div>
+                            ${client.phone ? `
+                                <div class="flex items-center gap-3">
+                                    <i class="fas fa-phone text-gray-400 w-5"></i>
+                                    <a href="tel:${client.phone}" class="text-primary-600 dark:text-primary-400 hover:underline">${client.phone}</a>
+                                </div>
+                            ` : ''}
+                            ${client.address ? `
+                                <div class="flex items-start gap-3">
+                                    <i class="fas fa-map-marker-alt text-gray-400 w-5 mt-1"></i>
+                                    <span class="text-gray-600 dark:text-gray-300">${client.address}</span>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+
+                    <!-- Company Info -->
+                    <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                        <h4 class="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                            <i class="fas fa-building text-primary-500"></i>
+                            Información de la Empresa
+                        </h4>
+                        <div class="space-y-2">
+                            <div class="flex items-center gap-3">
+                                <span class="text-sm font-medium text-gray-500 dark:text-gray-400 w-24">Empresa:</span>
+                                <span class="text-gray-900 dark:text-white">${client.company}</span>
+                            </div>
+                            ${client.industry ? `
+                                <div class="flex items-center gap-3">
+                                    <span class="text-sm font-medium text-gray-500 dark:text-gray-400 w-24">Industria:</span>
+                                    <span class="text-gray-900 dark:text-white capitalize">${client.industry}</span>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+
+                    <!-- Projects -->
+                    <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                        <h4 class="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                            <i class="fas fa-folder text-primary-500"></i>
+                            Proyectos
+                        </h4>
+                        <div class="flex items-center gap-2">
+                            <span class="text-3xl font-bold text-primary-600 dark:text-primary-400">${client.projects}</span>
+                            <span class="text-gray-600 dark:text-gray-300">${client.projects === 1 ? 'proyecto activo' : 'proyectos activos'}</span>
+                        </div>
+                    </div>
+
+                    <!-- Notes -->
+                    ${client.notes ? `
+                        <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                            <h4 class="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                                <i class="fas fa-sticky-note text-primary-500"></i>
+                                Notas
+                            </h4>
+                            <p class="text-gray-600 dark:text-gray-300">${client.notes}</p>
+                        </div>
+                    ` : ''}
+
+                    <!-- Actions -->
+                    <div class="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                        <button onclick="editClient(${client.id}); closeViewClientModal();" 
+                                class="flex-1 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors">
+                            <i class="fas fa-edit mr-2"></i>
+                            Editar Cliente
+                        </button>
+                        <button onclick="closeViewClientModal()" 
+                                class="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                            Cerrar
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('viewClientModal').classList.remove('hidden');
+        }
+
+        function closeViewClientModal() {
+            document.getElementById('viewClientModal').classList.add('hidden');
+        }
+
+        function deleteClient(id) {
+            if (confirm('¿Estás seguro de que deseas eliminar este cliente?')) {
+                clients = clients.filter(c => c.id !== id);
+                filterClients();
+            }
+        }
+
+        // Form submit
+        document.getElementById('clientForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const clientData = Object.fromEntries(formData.entries());
+
+            if (editingClientId) {
+                // Edit existing
+                const index = clients.findIndex(c => c.id === editingClientId);
+                if (index !== -1) {
+                    clients[index] = { ...clients[index], ...clientData };
+                }
+            } else {
+                // Create new
+                const newClient = {
+                    id: Math.max(...clients.map(c => c.id), 0) + 1,
+                    ...clientData,
+                    projects: 0,
+                    createdAt: new Date().toISOString().split('T')[0]
+                };
+                clients.push(newClient);
+            }
+
+            closeClientModal();
+            filterClients();
+        });
+
+        // Dark mode toggle
+        function toggleDarkMode() {
+            document.documentElement.classList.toggle('dark');
+        }
+    </script>
+</body>
+</html>
