@@ -11,6 +11,7 @@ import Layout from "@components/layout/Layout";
 // Secciones
 import Dashboard from "./pages/dashboard/Dashboard";
 import Minute from "./pages/minutes/Minute";
+import Client from "./pages/clientes/Client";
 
 //Error Page
 import ForbiddenPage from "./pages/errorPages/ForbiddenPage";
@@ -46,6 +47,9 @@ function App() {
 
           {/* Minutas */}
           <Route path="/minute" element={<Minute />} />
+
+          {/* Clientes */}
+          <Route path="/client" element={<Client />} />
 
           {/* Demos */}
           <Route path="/demo/general" element={<General />} />
