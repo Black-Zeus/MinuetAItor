@@ -5,6 +5,8 @@ import DashboardHeader from "./DashboardHeader";
 import DashboardLoading from "./DashboardLoading";
 import DashboardError from "./DashboardError";
 
+import LoadingSpinner from "@/components/ui/modal/types/system/LoadingSpinner";
+
 import MetricCard from "./MetricCard";
 import RecentMinutesList from "./RecentMinutesList";
 import ClientsActivityList from "./ClientsActivityList";
@@ -54,7 +56,20 @@ const Dashboard = () => {
     console.log("[Dashboard] Selección de minuta:", minute?.id);
   };
 
-  if (isLoading) return <DashboardLoading />;
+  if (isLoading) {
+    return (
+      <LoadingSpinner
+        message="Cargando..."
+        variant="default"
+        size="medium"
+        spinnerType="default"
+        showProgress={false}
+        indeterminate={true}
+      />
+    );
+  }
+
+
   if (!data) return <DashboardError message="Error al cargar los datos del dashboard" />;
 
   return (
