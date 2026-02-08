@@ -115,7 +115,7 @@ import {
   FaFile,
 
   // ====================================
-  // NUEVOS ICONOS PARA MINUTAS (FA6)
+  // ICONOS PARA MINUTAS (FA6)
   // ====================================
   FaCalendar,
   FaCalendarDays,
@@ -127,6 +127,16 @@ import {
   FaSliders,
   FaListCheck,
 
+  // ====================================
+  // COMPAT / ICONOS FALTANTES (FA6)
+  // ====================================
+  FaUser,
+  FaPhone,
+  FaIndustry,
+  FaStar,
+  FaAddressCard,
+  FaNoteSticky,
+  FaCirclePause,
 } from "react-icons/fa6";
 
 const kebabToCamel = (str) =>
@@ -453,8 +463,8 @@ const ICON_REGISTRY = {
   // ====================================
   FaHouse,
   house: FaHouse,
-  home: FaHouse,           // Alias para compatibilidad
-  FaHome: FaHouse,         // Alias para compatibilidad con FA5
+  home: FaHouse, // Alias para compatibilidad
+  FaHome: FaHouse, // Alias para compatibilidad con FA5
   inicio: FaHouse,
   dashboard: FaHouse,
 
@@ -462,9 +472,8 @@ const ICON_REGISTRY = {
   // DOCUMENTOS Y REPORTES
   // ====================================
   FaFile,
-  // file: FaFile, // Ya está asignado arriba a FaRegFileLines
-  fileAlt: FaFile,         // Alias para compatibilidad con FA5
-  FaFileAlt: FaFile,       // Alias para compatibilidad con FA5
+  fileAlt: FaFile, // Alias para compatibilidad con FA5
+  FaFileAlt: FaFile, // Alias para compatibilidad con FA5
   report: FaFile,
   reports: FaFile,
   reportes: FaFile,
@@ -474,8 +483,8 @@ const ICON_REGISTRY = {
   // ====================================
   FaGear,
   gear: FaGear,
-  cog: FaGear,             // Alias para compatibilidad
-  FaCog: FaGear,           // Alias para compatibilidad con FA5
+  cog: FaGear, // Alias para compatibilidad
+  FaCog: FaGear, // Alias para compatibilidad con FA5
   settings: FaGear,
   config: FaGear,
   configuracion: FaGear,
@@ -483,7 +492,7 @@ const ICON_REGISTRY = {
 
   FaCircleUser,
   circleUser: FaCircleUser,
-  userCircle: FaCircleUser,  // Alias para compatibilidad
+  userCircle: FaCircleUser, // Alias para compatibilidad
   FaUserCircle: FaCircleUser, // Alias para compatibilidad con FA5
   profile: FaCircleUser,
   account: FaCircleUser,
@@ -521,20 +530,59 @@ const ICON_REGISTRY = {
 
   FaListCheck,
   listCheck: FaListCheck,
+
+  // ====================================
+  // COMPATIBILIDAD (FA5 -> FA6)
+  // (aliases literales que te estaban generando warnings)
+  // ====================================
+  FaUser,
+  user: FaUser,
+
+  FaPhone,
+  phone: FaPhone,
+
+  FaIndustry,
+  industry: FaIndustry,
+
+  FaStar,
+  star: FaStar,
+  favorite: FaStar,
+
+  FaAddressCard,
+  addressCard: FaAddressCard,
+
+  // FA5: FaMapMarkerAlt -> FA6: usar FaLocationDot (porque FaMapMarkerAlt NO existe en fa6)
+  FaMapMarkerAlt: FaLocationDot,
+  mapMarkerAlt: FaLocationDot,
+  marker: FaLocationDot,
+
+  // FA5: FaStickyNote -> FA6: FaNoteSticky
+  FaNoteSticky,
+  noteSticky: FaNoteSticky,
+  stickyNote: FaNoteSticky,
+  FaStickyNote: FaNoteSticky,
+
+  // FA5: FaSearch -> FA6: FaMagnifyingGlass
+  FaSearch: FaMagnifyingGlass,
+  searchIcon: FaMagnifyingGlass,
+
+  // FA5: FaEdit -> FA6: FaPenToSquare
+  FaEdit: FaPenToSquare,
+
+  // FA5: FaPauseCircle -> FA6: FaCirclePause
+  FaCirclePause,
+  pauseCircle: FaCirclePause,
+  FaPauseCircle: FaCirclePause,
+
+    // FA5/uso externo: FaEraser -> FA6: usamos un equivalente semántico existente
+    FaEraser: FaXmark,
+  eraser: FaXmark,
+
+
 };
 
 /**
  * Icon genérico centralizado.
- *
- * Uso:
- *   <Icon name="bell" className="w-4 h-4" />
- *   <Icon name="FaBell" className="text-2xl" />
- *   <Icon name="sun" />
- *   <Icon name="moon" />
- *   <Icon name="envelope" />
- *   <Icon name="calendar" />
- *   <Icon name="clock" />
- *   <Icon name="spinner" />
  */
 export const Icon = ({ name, className = "", ...rest }) => {
   // 1) lookup directo
