@@ -107,6 +107,11 @@ export const MODAL_SIZES = {
     width: 'max-w-4xl',
     padding: 'p-8'
   },
+ modalLarge: {
+  width: 'max-w-5xl',
+  padding: 'p-8',
+  maxHeight: 'max-h-[90vh]'
+},
   fullscreen: {
     width: 'max-w-7xl min-h-screen',
     padding: 'p-8',
