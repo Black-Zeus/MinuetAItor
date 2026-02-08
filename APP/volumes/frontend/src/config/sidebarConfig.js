@@ -39,7 +39,7 @@ export const SIDEBAR_MODULES = [
     id: 'projects',
     name: 'Proyectos',
     icon: 'FaLayerGroup',
-    path: '/proyectos',
+    path: '/project',
     section: 'management',
     order: 4
   },
