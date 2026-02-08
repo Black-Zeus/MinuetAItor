@@ -137,6 +137,13 @@ import {
   FaAddressCard,
   FaNoteSticky,
   FaCirclePause,
+
+  // ====================================
+  // ADICIÓN: ICONOS FALTANTES (LOGS)
+  // ====================================
+  FaFolderOpen,
+  FaToggleOn,
+  FaAlignLeft,
 } from "react-icons/fa6";
 
 const kebabToCamel = (str) =>
@@ -463,8 +470,8 @@ const ICON_REGISTRY = {
   // ====================================
   FaHouse,
   house: FaHouse,
-  home: FaHouse, // Alias para compatibilidad
-  FaHome: FaHouse, // Alias para compatibilidad con FA5
+  home: FaHouse,
+  FaHome: FaHouse,
   inicio: FaHouse,
   dashboard: FaHouse,
 
@@ -472,8 +479,8 @@ const ICON_REGISTRY = {
   // DOCUMENTOS Y REPORTES
   // ====================================
   FaFile,
-  fileAlt: FaFile, // Alias para compatibilidad con FA5
-  FaFileAlt: FaFile, // Alias para compatibilidad con FA5
+  fileAlt: FaFile,
+  FaFileAlt: FaFile,
   report: FaFile,
   reports: FaFile,
   reportes: FaFile,
@@ -483,8 +490,8 @@ const ICON_REGISTRY = {
   // ====================================
   FaGear,
   gear: FaGear,
-  cog: FaGear, // Alias para compatibilidad
-  FaCog: FaGear, // Alias para compatibilidad con FA5
+  cog: FaGear,
+  FaCog: FaGear,
   settings: FaGear,
   config: FaGear,
   configuracion: FaGear,
@@ -492,8 +499,8 @@ const ICON_REGISTRY = {
 
   FaCircleUser,
   circleUser: FaCircleUser,
-  userCircle: FaCircleUser, // Alias para compatibilidad
-  FaUserCircle: FaCircleUser, // Alias para compatibilidad con FA5
+  userCircle: FaCircleUser,
+  FaUserCircle: FaCircleUser,
   profile: FaCircleUser,
   account: FaCircleUser,
   miCuenta: FaCircleUser,
@@ -532,8 +539,26 @@ const ICON_REGISTRY = {
   listCheck: FaListCheck,
 
   // ====================================
+  // ADICIÓN: ICONOS FALTANTES (LOGS)
+  // ====================================
+  FaFolderOpen,
+  folderOpen: FaFolderOpen,
+  "folder-open": FaFolderOpen,
+
+  FaToggleOn,
+  toggleOn: FaToggleOn,
+  "toggle-on": FaToggleOn,
+
+  FaAlignLeft,
+  alignLeft: FaAlignLeft,
+  "align-left": FaAlignLeft,
+
+  // Alias literal solicitado por tu app (FA5 legacy):
+  // En FA6 el equivalente real es FaCircleXmark.
+  FaTimesCircle: FaCircleXmark,
+
+  // ====================================
   // COMPATIBILIDAD (FA5 -> FA6)
-  // (aliases literales que te estaban generando warnings)
   // ====================================
   FaUser,
   user: FaUser,
@@ -551,7 +576,7 @@ const ICON_REGISTRY = {
   FaAddressCard,
   addressCard: FaAddressCard,
 
-  // FA5: FaMapMarkerAlt -> FA6: usar FaLocationDot (porque FaMapMarkerAlt NO existe en fa6)
+  // FA5: FaMapMarkerAlt -> FA6: usar FaLocationDot
   FaMapMarkerAlt: FaLocationDot,
   mapMarkerAlt: FaLocationDot,
   marker: FaLocationDot,
@@ -574,11 +599,9 @@ const ICON_REGISTRY = {
   pauseCircle: FaCirclePause,
   FaPauseCircle: FaCirclePause,
 
-    // FA5/uso externo: FaEraser -> FA6: usamos un equivalente semántico existente
-    FaEraser: FaXmark,
+  // FA5/uso externo: FaEraser -> FA6: equivalente semántico
+  FaEraser: FaXmark,
   eraser: FaXmark,
-
-
 };
 
 /**
