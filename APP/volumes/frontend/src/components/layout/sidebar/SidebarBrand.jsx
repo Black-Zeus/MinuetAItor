@@ -1,40 +1,36 @@
 /**
  * SidebarBrand.jsx
- * Componente para la sección de branding/logo del sidebar - 100% Tailwind
+ * Branding/logo del sidebar - Tailwind
  */
 
-import React from 'react';
+import React from "react";
+import AboutModal from "@/components/common/aboutModal/AboutModal";
 
-const SidebarBrand = ({ 
+const SidebarBrand = ({
   isCollapsed = false,
-  logoSrc = '/chinchinAItor.jpg',
-  appName = 'MinuetAItor',
-  tagline = 'Gestión de Minutas'
+  logoSrc = "/chinchinAItor.jpg",
+  appName = "MinuetAItor",
+  tagline = "Gestión de Minutas",
 }) => {
   return (
-    <div className={`
-      flex flex-col items-center justify-center p-6 border-b border-white/10
-      ${isCollapsed ? 'py-4' : 'py-6'}
-    `}>
-      {/* Logo centrado */}
-      <div className="flex-shrink-0">
-        <img 
-          src={logoSrc} 
-          alt={appName}
-          className={`
-            rounded-lg transition-all 
-            ${isCollapsed ? 'w-10 h-10' : 'w-16 h-16'}
-          `}
-        />
-      </div>
-      
-      {/* Texto debajo del logo - solo visible si no está colapsado */}
-      {!isCollapsed && (
-        <div className="mt-3 text-center">
-          <h1 className="text-lg font-semibold">{appName}</h1>
-          <p className="text-xs text-white/70 mt-1">{tagline}</p>
-        </div>
-      )}
+    <div
+      className={`
+        flex flex-col items-center justify-center p-6 border-b border-white/10
+        ${isCollapsed ? "py-4" : "py-6"}
+      `}
+    >
+      <AboutModal
+        isCollapsed={isCollapsed}
+        logoSrc={logoSrc}
+        appName={appName}
+        tagline={tagline}
+        version="1.0.0"
+        imageSrc={logoSrc}
+        developerName="Zeus"
+        developerEmail="zeus@tudominio.cl"
+        size="modalLarge"
+      />
+
     </div>
   );
 };
