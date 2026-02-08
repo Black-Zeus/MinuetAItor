@@ -31,7 +31,7 @@ export const SIDEBAR_MODULES = [
     id: 'clients',
     name: 'Clientes',
     icon: 'FaBuilding',
-    path: '/clientes',
+    path: '/client',
     section: 'management',
     order: 3
   },
