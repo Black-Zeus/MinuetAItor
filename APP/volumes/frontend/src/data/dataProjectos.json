@@ -1,0 +1,124 @@
+{
+  "projects": [
+    {
+      "id": "proj_001",
+      "name": "Desarrollo Web Corporativo",
+      "client": "ACME Corporation",
+      "description": "Desarrollo de sitio web corporativo con sistema de gestión de contenidos y panel administrativo.",
+      "status": "activo",
+      "minutas": 12,
+      "tags": "Web, CMS",
+      "createdAt": "2024-01-15T10:00:00Z"
+    },
+    {
+      "id": "proj_002",
+      "name": "App Móvil E-commerce",
+      "client": "TechStart Solutions",
+      "description": "Aplicación móvil multiplataforma para comercio electrónico con pasarela de pagos integrada.",
+      "status": "inactivo",
+      "minutas": 8,
+      "tags": "Mobile, E-commerce",
+      "createdAt": "2024-02-01T14:30:00Z"
+    },
+    {
+      "id": "proj_003",
+      "name": "Sistema ERP Empresarial",
+      "client": "Globex Industries",
+      "description": "Sistema de planificación de recursos empresariales con módulos de inventario, ventas y finanzas.",
+      "status": "activo",
+      "minutas": 25,
+      "tags": "ERP, Enterprise",
+      "createdAt": "2023-12-10T09:15:00Z"
+    },
+    {
+      "id": "proj_004",
+      "name": "Portal de Clientes",
+      "client": "Initech",
+      "description": "Plataforma web para gestión de clientes con autenticación y módulos de reportería.",
+      "status": "activo",
+      "minutas": 6,
+      "tags": "Web, Portal",
+      "createdAt": "2024-01-20T11:00:00Z"
+    },
+    {
+      "id": "proj_005",
+      "name": "Migración a la Nube",
+      "client": "Umbrella Corporation",
+      "description": "Migración de infraestructura on-premise a servicios cloud con AWS.",
+      "status": "activo",
+      "minutas": 18,
+      "tags": "Cloud, AWS, Migration",
+      "createdAt": "2023-11-05T13:45:00Z"
+    },
+    {
+      "id": "proj_006",
+      "name": "Dashboard Analytics",
+      "client": "ACME Corporation",
+      "description": "Dashboard ejecutivo con visualizaciones en tiempo real de KPIs de negocio.",
+      "status": "activo",
+      "minutas": 9,
+      "tags": "Analytics, Dashboard, BI",
+      "createdAt": "2024-02-15T08:20:00Z"
+    },
+    {
+      "id": "proj_007",
+      "name": "API Gateway",
+      "client": "TechStart Solutions",
+      "description": "Desarrollo de API Gateway para integración de microservicios internos.",
+      "status": "inactivo",
+      "minutas": 4,
+      "tags": "API, Microservices",
+      "createdAt": "2024-01-10T16:00:00Z"
+    },
+    {
+      "id": "proj_008",
+      "name": "Automatización RPA",
+      "client": "Globex Industries",
+      "description": "Implementación de procesos automatizados para tareas repetitivas del departamento financiero.",
+      "status": "activo",
+      "minutas": 14,
+      "tags": "RPA, Automation",
+      "createdAt": "2024-01-25T10:30:00Z"
+    },
+    {
+      "id": "proj_009",
+      "name": "Sistema de Tickets",
+      "client": "Initech",
+      "description": "Plataforma de gestión de tickets y soporte técnico para usuarios internos.",
+      "status": "activo",
+      "minutas": 7,
+      "tags": "Support, Helpdesk",
+      "createdAt": "2024-02-05T15:10:00Z"
+    },
+    {
+      "id": "proj_010",
+      "name": "Rediseño UX/UI",
+      "client": "Umbrella Corporation",
+      "description": "Renovación completa de la experiencia de usuario y diseño de interfaz del portal principal.",
+      "status": "inactivo",
+      "minutas": 3,
+      "tags": "UX, UI, Design",
+      "createdAt": "2023-12-20T12:00:00Z"
+    },
+    {
+      "id": "proj_011",
+      "name": "Integración CRM",
+      "client": "ACME Corporation",
+      "description": "Integración bidireccional entre sistema interno y Salesforce CRM.",
+      "status": "activo",
+      "minutas": 11,
+      "tags": "CRM, Salesforce, Integration",
+      "createdAt": "2024-01-08T09:45:00Z"
+    },
+    {
+      "id": "proj_012",
+      "name": "App de Gestión de Inventario",
+      "client": "TechStart Solutions",
+      "description": "Aplicación móvil para control y gestión de inventario en tiempo real desde dispositivos móviles.",
+      "status": "activo",
+      "minutas": 10,
+      "tags": "Mobile, Inventory, Android, iOS",
+      "createdAt": "2024-02-12T14:20:00Z"
+    }
+  ]
+}

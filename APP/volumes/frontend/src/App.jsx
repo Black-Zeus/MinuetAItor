@@ -12,6 +12,7 @@ import Layout from "@components/layout/Layout";
 import Dashboard from "./pages/dashboard/Dashboard";
 import Minute from "./pages/minutes/Minute";
 import Client from "./pages/clientes/Client";
+import Project from "./pages/project/Project";
 
 //Error Page
 import ForbiddenPage from "./pages/errorPages/ForbiddenPage";
@@ -50,6 +51,11 @@ function App() {
 
           {/* Clientes */}
           <Route path="/client" element={<Client />} />
+
+          {/* Clientes */}
+          <Route path="/project" element={<Project />} />
+
+
 
           {/* Demos */}
           <Route path="/demo/general" element={<General />} />
