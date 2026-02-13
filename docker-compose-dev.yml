@@ -95,6 +95,7 @@ services:
     logging: *default-logging
     <<: *resources-medium
 
+
   frontend:
     container_name: ${PROJECT_NAME}-frontend
     labels:
@@ -106,21 +107,23 @@ services:
     working_dir: /app
     environment:
       NODE_ENV: development
+      CHOKIDAR_USEPOLLING: "true"
+      WATCHPACK_POLLING: "true"
     volumes:
       - ./APP/volumes/frontend:/app
       - frontend_node_modules:/app/node_modules
       - ./APP/logs/frontend:/var/log/app
     ports:
       - "${FRONTEND_PORT:-5173}:5173"
-    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:5173 >/dev/null 2>&1 || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:5173/ >/dev/null || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 30
     networks:
       - internal
-    restart: unless-stopped
+    #restart: unless-stopped
+    restart: no
     logging: *default-logging
     <<: *resources-medium
 
@@ -287,3 +290,5 @@ networks:
 volumes:
   frontend_node_modules:
     name: ${PROJECT_NAME}_frontend_node_modules
+  frontend_npm_cache:
+    name: ${PROJECT_NAME}_frontend_npm_cache

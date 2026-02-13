@@ -1,22 +1,37 @@
 # Data/dokerFile/dev_qa/Dockerfile.frontend
-FROM node:20-alpine
+FROM node:20-bookworm-slim
 
 ARG FRONTEND_PORT_INTERNAL=5173
-
 WORKDIR /app
 
-# Utils (opcional, pero útil para healthchecks/curl)
-RUN apk add --no-cache curl
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends curl ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
 
-# Copiamos solo manifests para cachear deps.
-# OJO: Para que no falle si no existe package-lock.json, usamos el patrón *.json.
-# Esto copia package.json y (si existe) package-lock.json.
-COPY APP/volumes/frontend/package*.json ./
+# Actualiza npm para mitigar bugs con optional deps
+RUN npm install -g npm@11.10.0 --no-audit --no-fund
 
-# Instala deps (en dev preferimos npm install; npm ci requiere lock)
-RUN npm install --no-audit --no-fund
-
+ENV CI=true
 EXPOSE ${FRONTEND_PORT_INTERNAL}
 
-# En dev el código se monta por volumen (compose)
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]
+CMD ["sh","-lc", "\
+  set -e; \
+  test -f package.json || (echo 'ERROR: falta /app/package.json (bind mount no aplicado?)' >&2; exit 1); \
+  echo \"[frontend] node=$(node -v) npm=$(npm -v)\"; \
+  NEED_INSTALL=0; \
+  if [ ! -x /app/node_modules/.bin/vite ]; then NEED_INSTALL=1; fi; \
+  node -e \"require('@rollup/rollup-linux-x64-gnu')\" >/dev/null 2>&1 || NEED_INSTALL=1; \
+  if [ \"$NEED_INSTALL\" = \"1\" ]; then \
+    echo '[frontend] node_modules incompleto => limpiando contenido del volumen e instalando...'; \
+    # OJO: /app/node_modules es un VOLUME -> no borrar el directorio, borrar su contenido \
+    rm -rf /app/node_modules/* /app/node_modules/.[!.]* /app/node_modules/..?* 2>/dev/null || true; \
+    if [ -f package-lock.json ]; then \
+      npm ci --no-audit --no-fund; \
+    else \
+      npm install --no-audit --no-fund; \
+    fi; \
+  else \
+    echo '[frontend] node_modules OK'; \
+  fi; \
+  exec npm run dev -- --host 0.0.0.0 --port 5173 \
+"]
