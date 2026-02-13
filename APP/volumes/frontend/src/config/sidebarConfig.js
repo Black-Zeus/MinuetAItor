@@ -10,7 +10,7 @@ export const SIDEBAR_MODULES = [
   {
     id: 'dashboard',
     name: 'Inicio',
-    icon: 'FaHome',
+    icon: 'FaHouse',
     path: '/dashboard',
     section: 'core',
     order: 1
@@ -19,7 +19,7 @@ export const SIDEBAR_MODULES = [
     id: 'minutes',
     name: 'Minutas',
     icon: 'FaRegFileLines',
-    path: '/minute',
+    path: '/minutes',
     section: 'core',
     order: 2
   },
@@ -31,7 +31,7 @@ export const SIDEBAR_MODULES = [
     id: 'clients',
     name: 'Clientes',
     icon: 'FaBuilding',
-    path: '/client',
+    path: '/clients',
     section: 'management',
     order: 3
   },
@@ -39,7 +39,7 @@ export const SIDEBAR_MODULES = [
     id: 'projects',
     name: 'Proyectos',
     icon: 'FaLayerGroup',
-    path: '/project',
+    path: '/projects',
     section: 'management',
     order: 4
   },
@@ -47,7 +47,7 @@ export const SIDEBAR_MODULES = [
     id: 'team',
     name: 'Equipo',
     icon: 'FaUsers',
-    path: '/equipo',
+    path: '/teams',
     section: 'management',
     order: 5
   },
@@ -59,17 +59,107 @@ export const SIDEBAR_MODULES = [
     id: 'metrics',
     name: 'Métricas',
     icon: 'FaChartLine',
-    path: '/metricas',
+    path: '/analytics/metrics',
     section: 'intelligence',
     order: 6
   },
+
+  /**
+   * ✅ Auditoría (nuevo)
+   * - reportes básicos de auditoría / compliance / seguridad
+   */
+  {
+    id: 'audit',
+    name: 'Auditoría',
+    icon: 'FaClipboardCheck',
+    section: 'intelligence',
+    order: 7,
+    children: [
+      {
+        id: 'audit-overview',
+        name: 'Resumen',
+        icon: 'FaGaugeHigh',
+        path: '/analytics/audit/overview',
+        order: 1
+      },
+      {
+        id: 'audit-access',
+        name: 'Accesos',
+        icon: 'FaUserShield',
+        path: '/analytics/audit/access',
+        order: 2
+      },
+      {
+        id: 'audit-changes',
+        name: 'Cambios',
+        icon: 'FaCodeBranch',
+        path: '/analytics/audit/changes',
+        order: 3
+      },
+      {
+        id: 'audit-sessions',
+        name: 'Sesiones',
+        icon: 'FaClockRotateLeft',
+        path: '/analytics/audit/sessions',
+        order: 4
+      },
+      {
+        id: 'audit-exceptions',
+        name: 'Excepciones',
+        icon: 'FaTriangleExclamation',
+        path: '/analytics/audit/exceptions',
+        order: 5
+      }
+    ]
+  },
+
+  // ====================================
+  // REPORTES - Entregables / Exportables
+  // ====================================
   {
     id: 'reports',
     name: 'Reportes',
-    icon: 'FaFileAlt',
-    path: '/reportes',
+    icon: 'FaRegFile',
     section: 'intelligence',
-    order: 7
+    order: 8,
+    children: [
+      // Reportes típicos (operacionales / gestión)
+      {
+        id: 'reports-projects',
+        name: 'Proyectos',
+        icon: 'FaDiagramProject',
+        path: '/reports/projects',
+        order: 1
+      },
+      {
+        id: 'reports-minutes',
+        name: 'Minutas',
+        icon: 'FaFileLines',
+        path: '/reports/minutes',
+        order: 2
+      },
+      {
+        id: 'reports-actions',
+        name: 'Acciones',
+        icon: 'FaListCheck',
+        path: '/reports/actions',
+        order: 3
+      },
+      {
+        id: 'reports-kpis',
+        name: 'KPIs',
+        icon: 'FaChartPie',
+        path: '/reports/kpis',
+        order: 4
+      },
+      {
+        id: 'reports-export',
+        name: 'Exportación',
+        icon: 'FaFileExport',
+        path: '/reports/export',
+        order: 5
+      }
+    ]
   },
 
   // ====================================
@@ -79,17 +169,17 @@ export const SIDEBAR_MODULES = [
     id: 'tags',
     name: 'Etiquetas',
     icon: 'FaTags',
-    path: '/etiquetas',
+    path: '/settings/tags',
     section: 'config',
-    order: 8
+    order: 9
   },
   {
     id: 'system',
     name: 'Sistema',
-    icon: 'FaCog',
-    path: '/configuracion/sistema',
+    icon: 'FaGears',
+    path: '/settings/system',
     section: 'config',
-    order: 9,
+    order: 10,
     requiresAdmin: true
   },
 
@@ -99,21 +189,21 @@ export const SIDEBAR_MODULES = [
   {
     id: 'demos',
     name: 'Demos',
-    icon: 'FaCog',
+    icon: 'FaFlask',
     section: 'demos',
     order: 100,
     children: [
       {
         id: 'demo-general',
         name: 'General',
-        icon: 'FaFileAlt',
+        icon: 'FaRegFile',
         path: '/demo/general',
         order: 1
       },
       {
         id: 'demo-modal',
         name: 'Modal',
-        icon: 'FaRegFileAlt',
+        icon: 'FaRegWindowRestore',
         path: '/demo/modal',
         order: 2
       },
@@ -129,7 +219,7 @@ export const SIDEBAR_MODULES = [
       {
         id: 'demo-404',
         name: '404 Not Found',
-        icon: 'FaQuestionCircle',
+        icon: 'FaCircleQuestion',
         path: '/demo/not-found',
         order: 4
       },

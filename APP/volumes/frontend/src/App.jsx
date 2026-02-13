@@ -13,6 +13,7 @@ import Dashboard from "./pages/dashboard/Dashboard";
 import Minute from "./pages/minutes/Minute";
 import Client from "./pages/clientes/Client";
 import Project from "./pages/project/Project";
+import Teams from "./pages/teams/Teams";
 
 //Error Page
 import ForbiddenPage from "./pages/errorPages/ForbiddenPage";
@@ -40,33 +41,36 @@ function App() {
     <Router>
       <Routes>
         <Route element={<Layout />}>
-          {/* Redirect base */}
+          {/* Base */}
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
-          {/* Rutas base */}
+          {/* Core */}
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/minutes" element={<Minute />} />
 
-          {/* Minutas */}
-          <Route path="/minute" element={<Minute />} />
+          {/* Management */}
+          <Route path="/clients" element={<Client />} />
+          <Route path="/projects" element={<Project />} />
+          <Route path="/teams" element={<Teams />} /> 
 
-          {/* Clientes */}
-          <Route path="/client" element={<Client />} />
+          {/* Intelligence */}
+          <Route path="/metrics" element={<Dashboard />} /> {/* placeholder */}
+          <Route path="/reports" element={<Dashboard />} /> {/* placeholder */}
 
-          {/* Clientes */}
-          <Route path="/project" element={<Project />} />
-
-
+          {/* Config */}
+          <Route path="/tags" element={<Dashboard />} /> {/* placeholder */}
+          <Route path="/settings/system" element={<Dashboard />} /> {/* placeholder */}
 
           {/* Demos */}
           <Route path="/demo/general" element={<General />} />
           <Route path="/demo/modal" element={<ModalDemo />} />
 
-          {/* Demos: páginas de error (para test/preview UI) */}
+          {/* Demos: error pages */}
           <Route path="/demo/forbidden" element={<ForbiddenPage />} />
           <Route path="/demo/not-found" element={<NotFoundPage />} />
           <Route path="/demo/server-error" element={<ServerErrorPage />} />
 
-          {/* 404 global: cualquier cosa no encontrada */}
+          {/* 404 global */}
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>
