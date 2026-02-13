@@ -1,35 +1,47 @@
 // src/components/ui/icon/iconManager.jsx
 import React from "react";
 import {
-  // Estados vacíos / listados
+  // ====================================
+  // ESTADOS VACÍOS / LISTADOS
+  // ====================================
   FaInbox,
   FaUsers,
 
-  // Acciones genéricas
+  // ====================================
+  // ACCIONES GENÉRICAS
+  // ====================================
   FaPlus,
   FaUserPlus,
   FaPenToSquare,
+  FaPen,
   FaTrash,
   FaKey,
   FaFloppyDisk,
   FaFilter,
   FaLayerGroup,
 
-  // Estado / toggles
+  // ====================================
+  // ESTADO / TOGGLES
+  // ====================================
   FaBan,
   FaCircleCheck,
   FaCircleXmark,
   FaCheck,
   FaXmark,
 
-  // Conectividad / seguridad / infraestructura
+  // ====================================
+  // CONECTIVIDAD / SEGURIDAD / INFRAESTRUCTURA
+  // ====================================
   FaWifi,
   FaUserShield,
   FaWarehouse,
   FaLocationDot,
   FaShieldHalved,
+  FaGlobe,
 
-  // Navegación / búsqueda / cierre
+  // ====================================
+  // NAVEGACIÓN / BÚSQUEDA / CIERRE
+  // ====================================
   FaChevronLeft,
   FaChevronRight,
   FaChevronDown,
@@ -41,66 +53,98 @@ import {
   FaAnglesDown,
   FaArrowRotateLeft,
   FaArrowRotateRight,
+  FaArrowLeft,
+  FaArrowRight,
+  FaEllipsisVertical,
 
-  // Visibilidad / campos de contraseña
+  // ====================================
+  // VISIBILIDAD / CAMPOS DE CONTRASEÑA
+  // ====================================
   FaEye,
   FaEyeSlash,
 
-  // Financiero / Dinero
+  // ====================================
+  // FINANCIERO / DINERO
+  // ====================================
   FaMoneyBill,
   FaCreditCard,
   FaDollarSign,
+  FaCashRegister,
+  FaMoneyBillWave,
 
-  // Documentos / Archivos
+  // ====================================
+  // DOCUMENTOS / ARCHIVOS
+  // ====================================
   FaFolder,
+  FaFolderOpen,
   FaRegFileLines,
+  FaRegFile, // ✅ NUEVO
+  FaFileLines,
+  FaFile,
   FaPrint,
   FaReceipt,
-  FaFileLines,
+  FaUpload,
+  FaFileExport, // ✅ NUEVO
 
-  // Gráficos / Estadísticas
+  // ====================================
+  // GRÁFICOS / ESTADÍSTICAS
+  // ====================================
   FaChartLine,
   FaChartSimple,
   FaChartBar,
+  FaChartPie, // ✅ NUEVO
+  FaGaugeHigh, // ✅ NUEVO
 
-  // Información / Alertas
+  // ====================================
+  // INFORMACIÓN / ALERTAS
+  // ====================================
   FaCircleInfo,
+  FaCircleQuestion, // ✅ NUEVO
   FaTriangleExclamation,
+  FaBug, // ✅ NUEVO
 
-  // Sistema / Seguridad
+  // ====================================
+  // SISTEMA / SEGURIDAD
+  // ====================================
   FaList,
   FaLock,
+  FaLockOpen,
   FaClockRotateLeft,
+  FaGears, // ✅ NUEVO (equivalente “settings” estilo múltiple)
 
-  // Comercio / Ventas
+  // ====================================
+  // COMERCIO / VENTAS
+  // ====================================
   FaCartShopping,
   FaPerson,
   FaBuilding,
   FaTag,
   FaTags,
+  FaBriefcase, // ✅ YA AGREGADO
 
-  // Caja / Finanzas adicionales
-  FaCashRegister,
-  FaMoneyBillWave,
-
-  // Flechas direccionales
+  // ====================================
+  // FLECHAS DIRECCIONALES
+  // ====================================
   FaArrowUp,
   FaArrowDown,
 
-  // Símbolos matemáticos
+  // ====================================
+  // SÍMBOLOS MATEMÁTICOS
+  // ====================================
   FaMinus,
   FaEquals,
 
-  // Movimientos / Comercio
+  // ====================================
+  // MOVIMIENTOS / COMERCIO
+  // ====================================
   FaCalculator,
   FaDoorOpen,
   FaArrowsRotate,
-
-  // Compat / errores reportados
-  FaLockOpen,
   FaArrowTrendUp,
 
-  // Notificaciones y Tema
+  // ====================================
+  // NOTIFICACIONES Y TEMA
+  // ====================================
   FaBell,
   FaEnvelope,
   FaComment,
@@ -108,16 +152,18 @@ import {
   FaSun,
   FaMoon,
 
-  // Navegación Principal
+  // ====================================
+  // NAVEGACIÓN PRINCIPAL
+  // ====================================
   FaHouse,
   FaGear,
   FaCircleUser,
-  FaFile,
 
   // ====================================
   // ICONOS PARA MINUTAS (FA6)
   // ====================================
   FaCalendar,
+  FaCalendarPlus,
   FaCalendarDays,
   FaCalendarCheck,
   FaClock,
@@ -131,19 +177,29 @@ import {
   // COMPAT / ICONOS FALTANTES (FA6)
   // ====================================
   FaUser,
+  FaUserSlash,
   FaPhone,
   FaIndustry,
   FaStar,
   FaAddressCard,
   FaNoteSticky,
   FaCirclePause,
+  FaClipboardCheck,
+  FaUserCheck,
 
   // ====================================
-  // ADICIÓN: ICONOS FALTANTES (LOGS)
+  // ADICIÓN: ICONOS FALTANTES (LOGS/UI)
   // ====================================
-  FaFolderOpen,
   FaToggleOn,
   FaAlignLeft,
+
+  // ====================================
+  // NUEVOS (UI / VENTANAS / PROYECTOS / DEV)
+  // ====================================
+  FaRegWindowRestore, // ✅ NUEVO
+  FaDiagramProject, // ✅ NUEVO
+  FaCodeBranch, // ✅ NUEVO
+  FaFlask, // ✅ NUEVO
 } from "react-icons/fa6";
 
 const kebabToCamel = (str) =>
@@ -181,10 +237,17 @@ const ICON_REGISTRY = {
   FaUserPlus,
   addUser: FaUserPlus,
   addUsers: FaUserPlus,
+  userPlus: FaUserPlus,
 
   FaPenToSquare,
   edit: FaPenToSquare,
-  pen: FaPenToSquare,
+  penToSquare: FaPenToSquare,
+
+  // ✅ NUEVO: FaPen
+  FaPen,
+  pen: FaPen,
+  pencil: FaPen,
+  write: FaPen,
 
   FaTrash,
   delete: FaTrash,
@@ -254,6 +317,9 @@ const ICON_REGISTRY = {
   FaShieldHalved,
   shield: FaShieldHalved,
 
+  FaGlobe,
+  globe: FaGlobe,
+
   // ====================================
   // NAVEGACIÓN / BÚSQUEDA / CIERRE
   // ====================================
@@ -275,6 +341,8 @@ const ICON_REGISTRY = {
 
   FaMagnifyingGlass,
   search: FaMagnifyingGlass,
+  FaSearch: FaMagnifyingGlass, // Alias FA5
+  searchIcon: FaMagnifyingGlass,
 
   FaAngleUp,
   angleUp: FaAngleUp,
@@ -287,6 +355,20 @@ const ICON_REGISTRY = {
 
   FaAnglesDown,
   anglesDown: FaAnglesDown,
+
+  FaArrowLeft,
+  arrowLeft: FaArrowLeft,
+  "arrow-left": FaArrowLeft,
+
+  FaArrowRight,
+  arrowRight: FaArrowRight,
+  "arrow-right": FaArrowRight,
+
+  FaEllipsisVertical,
+  ellipsisVertical: FaEllipsisVertical,
+  "ellipsis-vertical": FaEllipsisVertical,
+  menu: FaEllipsisVertical,
+  more: FaEllipsisVertical,
 
   // ====================================
   // VISIBILIDAD / CONTRASEÑAS
@@ -321,8 +403,29 @@ const ICON_REGISTRY = {
   FaFolder,
   folder: FaFolder,
 
+  FaFolderOpen,
+  folderOpen: FaFolderOpen,
+  "folder-open": FaFolderOpen,
+
   FaRegFileLines,
   file: FaRegFileLines,
+
+  // ✅ NUEVO: FaRegFile (alias típico “file” legacy)
+  FaRegFile,
+  regFile: FaRegFile,
+  FaFileRegular: FaRegFile, // alias semántico si se usara externamente
+  "reg-file": FaRegFile,
+
+  FaFileLines,
+  fileLines: FaFileLines,
+
+  FaFile,
+  fileSolid: FaFile,
+
+  FaFileExport,
+  fileExport: FaFileExport,
+  exportFile: FaFileExport,
+  "file-export": FaFileExport,
 
   FaPrint,
   print: FaPrint,
@@ -330,8 +433,8 @@ const ICON_REGISTRY = {
   FaReceipt,
   receipt: FaReceipt,
 
-  FaFileLines,
-  fileLines: FaFileLines,
+  FaUpload,
+  upload: FaUpload,
 
   // ====================================
   // GRÁFICOS / ESTADÍSTICAS
@@ -345,15 +448,41 @@ const ICON_REGISTRY = {
   FaChartBar,
   chartBar: FaChartBar,
 
+  FaChartPie,
+  chartPie: FaChartPie,
+  "chart-pie": FaChartPie,
+  pie: FaChartPie,
+
+  FaGaugeHigh,
+  gaugeHigh: FaGaugeHigh,
+  "gauge-high": FaGaugeHigh,
+  speed: FaGaugeHigh,
+  performance: FaGaugeHigh,
+
   // ====================================
   // INFORMACIÓN / ALERTAS
   // ====================================
   FaCircleInfo,
   info: FaCircleInfo,
   FaInfoCircle: FaCircleInfo, // Alias FA5
+  infoCircle: FaCircleInfo,
+  "info-circle": FaCircleInfo,
+
+  FaCircleQuestion,
+  circleQuestion: FaCircleQuestion,
+  question: FaCircleQuestion,
+  help: FaCircleQuestion,
+  FaQuestionCircle: FaCircleQuestion, // Alias FA5
+  "question-circle": FaCircleQuestion,
 
   FaTriangleExclamation,
   warning: FaTriangleExclamation,
+  exclamationTriangle: FaTriangleExclamation,
+  "exclamation-triangle": FaTriangleExclamation,
+
+  FaBug,
+  bug: FaBug,
+  issue: FaBug,
 
   // ====================================
   // SISTEMA / SEGURIDAD
@@ -370,6 +499,11 @@ const ICON_REGISTRY = {
   FaLockOpen,
   lockOpen: FaLockOpen,
   "lock-open": FaLockOpen,
+
+  // ✅ NUEVO: FaGears
+  FaGears,
+  gears: FaGears,
+  settingsAlt: FaGears,
 
   // ====================================
   // COMERCIO / VENTAS / CLIENTES
@@ -392,6 +526,11 @@ const ICON_REGISTRY = {
   FaTags,
   discount: FaTags,
   tags: FaTags,
+
+  FaBriefcase,
+  briefcase: FaBriefcase,
+  work: FaBriefcase,
+  job: FaBriefcase,
 
   // ====================================
   // FLECHAS DIRECCIONALES
@@ -475,19 +614,6 @@ const ICON_REGISTRY = {
   inicio: FaHouse,
   dashboard: FaHouse,
 
-  // ====================================
-  // DOCUMENTOS Y REPORTES
-  // ====================================
-  FaFile,
-  fileAlt: FaFile,
-  FaFileAlt: FaFile,
-  report: FaFile,
-  reports: FaFile,
-  reportes: FaFile,
-
-  // ====================================
-  // CONFIGURACIÓN Y SISTEMA
-  // ====================================
   FaGear,
   gear: FaGear,
   cog: FaGear,
@@ -511,6 +637,10 @@ const ICON_REGISTRY = {
   // ====================================
   FaCalendar,
   calendar: FaCalendar,
+
+  FaCalendarPlus,
+  calendarPlus: FaCalendarPlus,
+  "calendar-plus": FaCalendarPlus,
 
   FaCalendarDays,
   calendarDays: FaCalendarDays,
@@ -539,12 +669,8 @@ const ICON_REGISTRY = {
   listCheck: FaListCheck,
 
   // ====================================
-  // ADICIÓN: ICONOS FALTANTES (LOGS)
+  // ADICIÓN: ICONOS FALTANTES (LOGS/UI)
   // ====================================
-  FaFolderOpen,
-  folderOpen: FaFolderOpen,
-  "folder-open": FaFolderOpen,
-
   FaToggleOn,
   toggleOn: FaToggleOn,
   "toggle-on": FaToggleOn,
@@ -553,8 +679,7 @@ const ICON_REGISTRY = {
   alignLeft: FaAlignLeft,
   "align-left": FaAlignLeft,
 
-  // Alias literal solicitado por tu app (FA5 legacy):
-  // En FA6 el equivalente real es FaCircleXmark.
+  // Alias literal solicitado por tu app (FA5 legacy)
   FaTimesCircle: FaCircleXmark,
 
   // ====================================
@@ -562,6 +687,10 @@ const ICON_REGISTRY = {
   // ====================================
   FaUser,
   user: FaUser,
+
+  FaUserSlash,
+  userSlash: FaUserSlash,
+  "user-slash": FaUserSlash,
 
   FaPhone,
   phone: FaPhone,
@@ -587,10 +716,6 @@ const ICON_REGISTRY = {
   stickyNote: FaNoteSticky,
   FaStickyNote: FaNoteSticky,
 
-  // FA5: FaSearch -> FA6: FaMagnifyingGlass
-  FaSearch: FaMagnifyingGlass,
-  searchIcon: FaMagnifyingGlass,
-
   // FA5: FaEdit -> FA6: FaPenToSquare
   FaEdit: FaPenToSquare,
 
@@ -599,9 +724,41 @@ const ICON_REGISTRY = {
   pauseCircle: FaCirclePause,
   FaPauseCircle: FaCirclePause,
 
+  // Checklist/validación
+  FaClipboardCheck,
+  clipboardCheck: FaClipboardCheck,
+  "clipboard-check": FaClipboardCheck,
+
+  FaUserCheck,
+  userCheck: FaUserCheck,
+  "user-check": FaUserCheck,
+
   // FA5/uso externo: FaEraser -> FA6: equivalente semántico
   FaEraser: FaXmark,
   eraser: FaXmark,
+
+  // ====================================
+  // NUEVOS: UI / VENTANAS / PROYECTOS / DEV
+  // ====================================
+  FaRegWindowRestore,
+  regWindowRestore: FaRegWindowRestore,
+  windowRestore: FaRegWindowRestore,
+  FaWindowRestore: FaRegWindowRestore, // alias FA5
+
+  FaDiagramProject,
+  diagramProject: FaDiagramProject,
+  projectDiagram: FaDiagramProject,
+  "diagram-project": FaDiagramProject,
+
+  FaCodeBranch,
+  codeBranch: FaCodeBranch,
+  "code-branch": FaCodeBranch,
+  branch: FaCodeBranch,
+
+  FaFlask,
+  flask: FaFlask,
+  lab: FaFlask,
+  "test-lab": FaFlask,
 };
 
 /**
