@@ -1,194 +1,338 @@
 [
-    {
-        "name": "Infraestructura",
-        "description": "Arquitectura y componentes base de TI (cómputo, red, almacenamiento) involucrados en el proyecto."
-    },
-    {
-        "name": "Servidores",
-        "description": "Provisionamiento, configuración, mantenimiento y ciclo de vida de servidores físicos o virtuales."
-    },
-    {
-        "name": "Virtualización",
-        "description": "Plataformas y prácticas de virtualización (hipervisores, clústeres, recursos, migraciones)."
-    },
-    {
-        "name": "Contenedores",
-        "description": "Ecosistema Docker/Kubernetes: imágenes, despliegues, redes, volúmenes y operación."
-    },
-    {
-        "name": "Kubernetes",
-        "description": "Orquestación de contenedores: clúster, namespaces, deployments, services e ingress."
-    },
-    {
-        "name": "Redes",
-        "description": "Topología, switching/routing, segmentación y conectividad entre ambientes."
-    },
-    {
-        "name": "Firewall",
-        "description": "Reglas de seguridad perimetral e interna, políticas de acceso y apertura de puertos."
-    },
-    {
-        "name": "VPN",
-        "description": "Acceso remoto seguro, túneles site-to-site y conectividad de usuarios."
-    },
-    {
-        "name": "DNS",
-        "description": "Resolución de nombres, zonas, registros y troubleshooting asociado."
-    },
-    {
-        "name": "Active Directory",
-        "description": "Gestión de identidad en dominio: OU, grupos, políticas y controladores."
-    },
-    {
-        "name": "GPO",
-        "description": "Políticas de grupo: configuración de equipos/usuarios, restricciones y despliegue."
-    },
-    {
-        "name": "IAM",
-        "description": "Gestión de identidades y accesos: roles, permisos, MFA y auditoría."
-    },
-    {
-        "name": "Seguridad",
-        "description": "Controles y medidas de protección: hardening, baselines y buenas prácticas."
-    },
-    {
-        "name": "Gestión de Vulnerabilidades",
-        "description": "Escaneo, priorización, remediación y seguimiento de vulnerabilidades."
-    },
-    {
-        "name": "Parches y Actualizaciones",
-        "description": "Planificación y ejecución de updates, hotfixes y ventanas de mantenimiento."
-    },
-    {
-        "name": "Backups",
-        "description": "Respaldo y restauración: políticas, retención, pruebas de recuperación."
-    },
-    {
-        "name": "DRP / Continuidad",
-        "description": "Plan de recuperación ante desastres y continuidad operacional (RTO/RPO)."
-    },
-    {
-        "name": "Monitoreo",
-        "description": "Observabilidad: métricas, alertas, umbrales y dashboards."
-    },
-    {
-        "name": "Logs / SIEM",
-        "description": "Centralización y análisis de logs, correlación de eventos y seguridad."
-    },
-    {
-        "name": "Incidentes",
-        "description": "Gestión de incidentes: impacto, priorización, mitigación y post-mortem."
-    },
-    {
-        "name": "Cambios (Change Management)",
-        "description": "Gestión de cambios: RFC, aprobación, plan, rollback y comunicación."
-    },
-    {
-        "name": "Problemas (Problem Management)",
-        "description": "Análisis causa raíz, acciones correctivas y prevención de recurrencia."
-    },
-    {
-        "name": "Capacidad",
-        "description": "Planificación de recursos: CPU/RAM/IO, crecimiento y performance."
-    },
-    {
-        "name": "Rendimiento",
-        "description": "Optimización y diagnóstico de performance en aplicaciones e infraestructura."
-    },
-    {
-        "name": "Bases de Datos",
-        "description": "Diseño, operación y mantenimiento de motores de BD, respaldos y tuning."
-    },
-    {
-        "name": "Almacenamiento",
-        "description": "SAN/NAS/objetos: volúmenes, snapshots, IOPS y políticas de capacidad."
-    },
-    {
-        "name": "Aplicaciones",
-        "description": "Estado y evolución de aplicaciones: releases, dependencias y operación."
-    },
-    {
-        "name": "Integraciones",
-        "description": "Interoperabilidad entre sistemas: APIs, ETL, middleware y mensajería."
-    },
-    {
-        "name": "APIs",
-        "description": "Diseño, versionado, seguridad y consumo de APIs internas/externas."
-    },
-    {
-        "name": "DevOps",
-        "description": "Automatización y colaboración dev/ops: pipelines, IaC, despliegues."
-    },
-    {
-        "name": "CI/CD",
-        "description": "Pipelines de build/test/deploy, gates, artefactos y releases."
-    },
-    {
-        "name": "Automatización",
-        "description": "Scripts y orquestación de tareas repetitivas para mejorar eficiencia."
-    },
-    {
-        "name": "Documentación",
-        "description": "Registro formal: diagramas, procedimientos, runbooks y manuales."
-    },
-    {
-        "name": "Cumplimiento",
-        "description": "Requisitos normativos y auditoría (ISO, políticas internas, controles)."
-    },
-    {
-        "name": "Riesgos",
-        "description": "Identificación y tratamiento de riesgos: probabilidad, impacto y mitigación."
-    },
-    {
-        "name": "Cronograma",
-        "description": "Planificación temporal: hitos, fechas, dependencias y seguimiento."
-    },
-    {
-        "name": "Presupuesto",
-        "description": "Costos, licencias, CAPEX/OPEX y control financiero del proyecto."
-    },
-    {
-        "name": "Compras",
-        "description": "Adquisiciones: cotizaciones, órdenes de compra, proveedores y plazos."
-    },
-    {
-        "name": "Proveedores",
-        "description": "Gestión de terceros: SLA, soporte, contratos y coordinación."
-    },
-    {
-        "name": "SLA / Soporte",
-        "description": "Niveles de servicio, tiempos de respuesta y escalamiento de soporte."
-    },
-    {
-        "name": "Recursos Humanos",
-        "description": "Dotación, roles, contrataciones, onboarding y gestión de desempeño."
-    },
-    {
-        "name": "Capacitación",
-        "description": "Entrenamiento técnico/funcional, sesiones de transferencia y adopción."
-    },
-    {
-        "name": "Gestión de Stakeholders",
-        "description": "Comunicación y coordinación con interesados: acuerdos, expectativas y reporting."
-    },
-    {
-        "name": "Gobernanza",
-        "description": "Estructura de decisiones: comités, responsables, aprobaciones y políticas."
-    },
-    {
-        "name": "Requerimientos",
-        "description": "Levantamiento y validación de necesidades funcionales y no funcionales."
-    },
-    {
-        "name": "Alcance",
-        "description": "Definición y control del alcance: inclusiones, exclusiones y cambios."
-    },
-    {
-        "name": "Entregables",
-        "description": "Resultados acordados: artefactos, componentes y criterios de aceptación."
-    },
-    {
-        "name": "Pruebas / QA",
-        "description": "Plan de pruebas, validación, evidencias y control de calidad."
-    }
+  {
+    "id": 1,
+    "name": "Infraestructura",
+    "description": "Arquitectura y componentes base de TI (cómputo, red, almacenamiento) involucrados en el proyecto.",
+    "status": "activo",
+    "category": "Infraestructura"
+  },
+  {
+    "id": 2,
+    "name": "Servidores",
+    "description": "Provisionamiento, configuración, mantenimiento y ciclo de vida de servidores físicos o virtuales.",
+    "status": "activo",
+    "category": "Infraestructura"
+  },
+  {
+    "id": 3,
+    "name": "Virtualización",
+    "description": "Plataformas y prácticas de virtualización (hipervisores, clústeres, recursos, migraciones).",
+    "status": "activo",
+    "category": "Infraestructura"
+  },
+  {
+    "id": 4,
+    "name": "Contenedores",
+    "description": "Ecosistema Docker/Kubernetes: imágenes, despliegues, redes, volúmenes y operación.",
+    "status": "activo",
+    "category": "Plataformas"
+  },
+  {
+    "id": 5,
+    "name": "Kubernetes",
+    "description": "Orquestación de contenedores: clúster, namespaces, deployments, services e ingress.",
+    "status": "activo",
+    "category": "Plataformas"
+  },
+  {
+    "id": 6,
+    "name": "Redes",
+    "description": "Topología, switching/routing, segmentación y conectividad entre ambientes.",
+    "status": "activo",
+    "category": "Redes"
+  },
+  {
+    "id": 7,
+    "name": "Firewall",
+    "description": "Reglas de seguridad perimetral e interna, políticas de acceso y apertura de puertos.",
+    "status": "activo",
+    "category": "Seguridad"
+  },
+  {
+    "id": 8,
+    "name": "VPN",
+    "description": "Acceso remoto seguro, túneles site-to-site y conectividad de usuarios.",
+    "status": "activo",
+    "category": "Seguridad"
+  },
+  {
+    "id": 9,
+    "name": "DNS",
+    "description": "Resolución de nombres, zonas, registros y troubleshooting asociado.",
+    "status": "activo",
+    "category": "Redes"
+  },
+  {
+    "id": 10,
+    "name": "Active Directory",
+    "description": "Gestión de identidad en dominio: OU, grupos, políticas y controladores.",
+    "status": "activo",
+    "category": "Identidad y Acceso"
+  },
+  {
+    "id": 11,
+    "name": "GPO",
+    "description": "Políticas de grupo: configuración de equipos/usuarios, restricciones y despliegue.",
+    "status": "activo",
+    "category": "Identidad y Acceso"
+  },
+  {
+    "id": 12,
+    "name": "IAM",
+    "description": "Gestión de identidades y accesos: roles, permisos, MFA y auditoría.",
+    "status": "activo",
+    "category": "Identidad y Acceso"
+  },
+  {
+    "id": 13,
+    "name": "Seguridad",
+    "description": "Controles y medidas de protección: hardening, baselines y buenas prácticas.",
+    "status": "activo",
+    "category": "Seguridad"
+  },
+  {
+    "id": 14,
+    "name": "Gestión de Vulnerabilidades",
+    "description": "Escaneo, priorización, remediación y seguimiento de vulnerabilidades.",
+    "status": "activo",
+    "category": "Seguridad"
+  },
+  {
+    "id": 15,
+    "name": "Parches y Actualizaciones",
+    "description": "Planificación y ejecución de updates, hotfixes y ventanas de mantenimiento.",
+    "status": "activo",
+    "category": "Operaciones"
+  },
+  {
+    "id": 16,
+    "name": "Backups",
+    "description": "Respaldo y restauración: políticas, retención, pruebas de recuperación.",
+    "status": "activo",
+    "category": "Continuidad"
+  },
+  {
+    "id": 17,
+    "name": "DRP / Continuidad",
+    "description": "Plan de recuperación ante desastres y continuidad operacional (RTO/RPO).",
+    "status": "activo",
+    "category": "Continuidad"
+  },
+  {
+    "id": 18,
+    "name": "Monitoreo",
+    "description": "Observabilidad: métricas, alertas, umbrales y dashboards.",
+    "status": "activo",
+    "category": "Observabilidad"
+  },
+  {
+    "id": 19,
+    "name": "Logs / SIEM",
+    "description": "Centralización y análisis de logs, correlación de eventos y seguridad.",
+    "status": "activo",
+    "category": "Observabilidad"
+  },
+  {
+    "id": 20,
+    "name": "Incidentes",
+    "description": "Gestión de incidentes: impacto, priorización, mitigación y post-mortem.",
+    "status": "activo",
+    "category": "ITSM"
+  },
+  {
+    "id": 21,
+    "name": "Cambios (Change Management)",
+    "description": "Gestión de cambios: RFC, aprobación, plan, rollback y comunicación.",
+    "status": "activo",
+    "category": "ITSM"
+  },
+  {
+    "id": 22,
+    "name": "Problemas (Problem Management)",
+    "description": "Análisis causa raíz, acciones correctivas y prevención de recurrencia.",
+    "status": "activo",
+    "category": "ITSM"
+  },
+  {
+    "id": 23,
+    "name": "Capacidad",
+    "description": "Planificación de recursos: CPU/RAM/IO, crecimiento y performance.",
+    "status": "activo",
+    "category": "Operaciones"
+  },
+  {
+    "id": 24,
+    "name": "Rendimiento",
+    "description": "Optimización y diagnóstico de performance en aplicaciones e infraestructura.",
+    "status": "activo",
+    "category": "Operaciones"
+  },
+  {
+    "id": 25,
+    "name": "Bases de Datos",
+    "description": "Diseño, operación y mantenimiento de motores de BD, respaldos y tuning.",
+    "status": "activo",
+    "category": "Datos"
+  },
+  {
+    "id": 26,
+    "name": "Almacenamiento",
+    "description": "SAN/NAS/objetos: volúmenes, snapshots, IOPS y políticas de capacidad.",
+    "status": "activo",
+    "category": "Infraestructura"
+  },
+  {
+    "id": 27,
+    "name": "Aplicaciones",
+    "description": "Estado y evolución de aplicaciones: releases, dependencias y operación.",
+    "status": "activo",
+    "category": "Aplicaciones"
+  },
+  {
+    "id": 28,
+    "name": "Integraciones",
+    "description": "Interoperabilidad entre sistemas: APIs, ETL, middleware y mensajería.",
+    "status": "activo",
+    "category": "Aplicaciones"
+  },
+  {
+    "id": 29,
+    "name": "APIs",
+    "description": "Diseño, versionado, seguridad y consumo de APIs internas/externas.",
+    "status": "activo",
+    "category": "Aplicaciones"
+  },
+  {
+    "id": 30,
+    "name": "DevOps",
+    "description": "Automatización y colaboración dev/ops: pipelines, IaC, despliegues.",
+    "status": "activo",
+    "category": "DevOps"
+  },
+  {
+    "id": 31,
+    "name": "CI/CD",
+    "description": "Pipelines de build/test/deploy, gates, artefactos y releases.",
+    "status": "activo",
+    "category": "DevOps"
+  },
+  {
+    "id": 32,
+    "name": "Automatización",
+    "description": "Scripts y orquestación de tareas repetitivas para mejorar eficiencia.",
+    "status": "activo",
+    "category": "DevOps"
+  },
+  {
+    "id": 33,
+    "name": "Documentación",
+    "description": "Registro formal: diagramas, procedimientos, runbooks y manuales.",
+    "status": "activo",
+    "category": "Gobernanza"
+  },
+  {
+    "id": 34,
+    "name": "Cumplimiento",
+    "description": "Requisitos normativos y auditoría (ISO, políticas internas, controles).",
+    "status": "activo",
+    "category": "Gobernanza"
+  },
+  {
+    "id": 35,
+    "name": "Riesgos",
+    "description": "Identificación y tratamiento de riesgos: probabilidad, impacto y mitigación.",
+    "status": "activo",
+    "category": "Gobernanza"
+  },
+  {
+    "id": 36,
+    "name": "Cronograma",
+    "description": "Planificación temporal: hitos, fechas, dependencias y seguimiento.",
+    "status": "activo",
+    "category": "Gestión de Proyecto"
+  },
+  {
+    "id": 37,
+    "name": "Presupuesto",
+    "description": "Costos, licencias, CAPEX/OPEX y control financiero del proyecto.",
+    "status": "activo",
+    "category": "Gestión de Proyecto"
+  },
+  {
+    "id": 38,
+    "name": "Compras",
+    "description": "Adquisiciones: cotizaciones, órdenes de compra, proveedores y plazos.",
+    "status": "activo",
+    "category": "Gestión de Proyecto"
+  },
+  {
+    "id": 39,
+    "name": "Proveedores",
+    "description": "Gestión de terceros: SLA, soporte, contratos y coordinación.",
+    "status": "activo",
+    "category": "Gestión de Proveedores"
+  },
+  {
+    "id": 40,
+    "name": "SLA / Soporte",
+    "description": "Niveles de servicio, tiempos de respuesta y escalamiento de soporte.",
+    "status": "activo",
+    "category": "Gestión de Proveedores"
+  },
+  {
+    "id": 41,
+    "name": "Recursos Humanos",
+    "description": "Dotación, roles, contrataciones, onboarding y gestión de desempeño.",
+    "status": "activo",
+    "category": "Gestión de Proyecto"
+  },
+  {
+    "id": 42,
+    "name": "Capacitación",
+    "description": "Entrenamiento técnico/funcional, sesiones de transferencia y adopción.",
+    "status": "activo",
+    "category": "Gestión de Proyecto"
+  },
+  {
+    "id": 43,
+    "name": "Gestión de Stakeholders",
+    "description": "Comunicación y coordinación con interesados: acuerdos, expectativas y reporting.",
+    "status": "activo",
+    "category": "Gestión de Proyecto"
+  },
+  {
+    "id": 44,
+    "name": "Gobernanza",
+    "description": "Estructura de decisiones: comités, responsables, aprobaciones y políticas.",
+    "status": "activo",
+    "category": "Gobernanza"
+  },
+  {
+    "id": 45,
+    "name": "Requerimientos",
+    "description": "Levantamiento y validación de necesidades funcionales y no funcionales.",
+    "status": "activo",
+    "category": "Gestión de Proyecto"
+  },
+  {
+    "id": 46,
+    "name": "Alcance",
+    "description": "Definición y control del alcance: inclusiones, exclusiones y cambios.",
+    "status": "activo",
+    "category": "Gestión de Proyecto"
+  },
+  {
+    "id": 47,
+    "name": "Entregables",
+    "description": "Resultados acordados: artefactos, componentes y criterios de aceptación.",
+    "status": "activo",
+    "category": "Gestión de Proyecto"
+  },
+  {
+    "id": 48,
+    "name": "Pruebas / QA",
+    "description": "Plan de pruebas, validación, evidencias y control de calidad.",
+    "status": "activo",
+    "category": "Calidad"
+  }
 ]
