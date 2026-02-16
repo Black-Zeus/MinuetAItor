@@ -1,7 +1,7 @@
 import React from "react";
 import { FaPlus } from "react-icons/fa";
 import { TXT_BODY, TXT_TITLE } from "./Dashboard";
-import NewMinute from "@/components/ui/button/newMinute";
+import NewMinute from "@/components/ui/button/NewMinute";
 
 const DashboardHeader = ({ userName, subtitle, onNewMinute }) => {
     return (
