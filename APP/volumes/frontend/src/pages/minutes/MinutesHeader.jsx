@@ -1,7 +1,7 @@
 // src/pages/minutes/components/MinutesHeader.jsx
 import React from "react";
 import Icon from "@/components/ui/icon/iconManager";
-import NewMinute from "@/components/ui/button/newMinute";
+import NewMinute from "@/components/ui/button/NewMinute";
 
 const TXT_TITLE = "text-gray-900 dark:text-gray-50";
 const TXT_META = "text-gray-500 dark:text-gray-400";
