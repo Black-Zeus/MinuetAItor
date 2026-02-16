@@ -7,6 +7,7 @@ import MinutesFilters from "./MinutesFilters";
 import MinutesResults from "./MinutesResults";
 import MinuteCard from "./MinuteCard";
 import MinutesPagination from "./MinutesPagination";
+import PageLoadingSpinner from "@/components/ui/modal/types/system/PageLoadingSpinner";
 
 const Minutes = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -42,20 +43,7 @@ const Minutes = () => {
   };
 
   if (isLoading) {
-    return (
-      <div className="w-full p-6 md:p-8">
-        <div className="bg-surface shadow-card rounded-2xl p-8 border border-secondary-200 dark:border-secondary-700/60 dark:ring-1 dark:ring-white/5 transition-theme">
-          <LoadingSpinner
-            message="Cargando..."
-            variant="default"
-            size="medium"
-            spinnerType="default"
-            showProgress={false}
-            indeterminate={true}
-          />
-        </div>
-      </div>
-    );
+    return <PageLoadingSpinner message="Cargando Minutas..." />;
   }
 
   return (

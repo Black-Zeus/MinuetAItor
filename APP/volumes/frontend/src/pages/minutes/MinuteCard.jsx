@@ -34,31 +34,45 @@ const TAG_COLORS = {
   yellow: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-200",
 };
 
-// Subcomponente: CardHeader
-const CardHeader = ({ minute, statusConfig }) => (
-  <div className="p-6 border-b border-secondary-200 dark:border-secondary-700/60 flex justify-between items-start gap-4 transition-theme">
-    <div className="flex-1 min-w-0">
-      <h3 className={`text-lg font-semibold ${TXT_TITLE} mb-2 leading-snug transition-theme`}>
-        {minute.title}
-      </h3>
-      <div className={`flex flex-wrap gap-4 text-xs ${TXT_META} transition-theme`}>
-        <span className="flex items-center gap-1.5">
-          <Icon name="calendar" className="text-xs" />
-          {minute.date}
-        </span>
-        <span className="flex items-center gap-1.5">
-          <Icon name="clock" className="text-xs" />
-          {minute.time}
-        </span>
+// Subcomponente: CardHeader (ajustado)
+const CardHeader = ({ minute, statusConfig }) => {
+  const title = String(minute?.title ?? "");
+  const numberIndex = 25;
+  const titleUi = title.length > numberIndex ? `${title.slice(0, (numberIndex + 3))}...` : title;
+
+  return (
+    <div className="p-6 border-b border-secondary-200 dark:border-secondary-700/60 transition-theme min-h-[120px]">
+      <div className="grid grid-cols-2 gap-3 items-start">
+        <h3
+          className={`col-span-2 text-lg font-semibold ${TXT_TITLE} leading-snug transition-theme text-center`}
+          title={title} // tooltip con el título completo
+        >
+          {titleUi}
+        </h3>
+
+        <div className={`flex flex-col gap-2 text-xs ${TXT_META} transition-theme`}>
+          <span className="flex items-center gap-1.5">
+            <Icon name="calendar" className="text-xs" />
+            {minute.date}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <Icon name="clock" className="text-xs" />
+            {minute.time}
+          </span>
+        </div>
+
+        <div className="flex justify-end">
+          <div
+            className={`px-4 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-theme ${statusConfig.className}`}
+          >
+            <Icon name={statusConfig.icon} />
+            {statusConfig.label}
+          </div>
+        </div>
       </div>
     </div>
-
-    <div className={`px-4 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-theme ${statusConfig.className}`}>
-      <Icon name={statusConfig.icon} />
-      {statusConfig.label}
-    </div>
-  </div>
-);
+  );
+};
 
 // Subcomponente: CardBody
 const CardBody = ({ minute }) => (
@@ -105,9 +119,9 @@ const CardBody = ({ minute }) => (
   </div>
 );
 
-// Subcomponente: CardFooter
+// Subcomponente: CardFooter (ajustado)
 const CardFooter = ({ minuteId }) => (
-  <div className="p-4 border-t border-secondary-200 dark:border-secondary-700/60 grid grid-cols-1 gap-2 transition-theme">
+  <div className="p-4 border-t border-secondary-200 dark:border-secondary-700/60 transition-theme min-h-[132px] flex flex-col gap-2">
     <ActionButton
       label="Ver Línea de Tiempo"
       variant="info"
@@ -115,51 +129,58 @@ const CardFooter = ({ minuteId }) => (
       icon={<Icon name="history" />}
       onClick={() => console.log("Ver timeline", minuteId)}
       className="w-full"
+      tooltip="Revisar Línea de Tiempo"
     />
 
-    <div className="grid grid-cols-4 gap-2">
+    <div className="grid grid-cols-4 gap-2 mt-auto">
       <ActionButton
-        label="Ver"
         variant="soft"
         size="xs"
         icon={<Icon name="eye" />}
+        tooltip="Ver minuta"
         onClick={() => console.log("Ver", minuteId)}
         className="w-full"
       />
       <ActionButton
-        label="Editar"
         variant="soft"
         size="xs"
         icon={<Icon name="edit" />}
+        tooltip="Editar minuta"
         onClick={() => console.log("Editar", minuteId)}
         className="w-full"
       />
       <ActionButton
-        label="Descargar"
         variant="soft"
         size="xs"
         icon={<Icon name="download" />}
+        tooltip="Descargar minuta"
         onClick={() => console.log("Descargar", minuteId)}
         className="w-full"
       />
-      <button
+      <ActionButton
+        variant="soft"
+        size="xs"
+        icon={<Icon name="delete" />}
+        tooltip="Eliminar minuta"
         onClick={() => console.log("Eliminar", minuteId)}
-        className={`px-2 py-2 bg-surface-light dark:bg-surface-dark border border-secondary-200 dark:border-secondary-700 ${TXT_META} rounded-xl text-sm hover:bg-danger-50 dark:hover:bg-danger-900/20 hover:border-danger-500 dark:hover:border-danger-400 hover:text-danger-700 dark:hover:text-danger-200 transition-all flex items-center justify-center shadow-button hover:shadow-button-hover`}
-      >
-        <Icon name="delete" />
-      </button>
+        className="w-full"
+      />
     </div>
   </div>
 );
 
 // Componente principal
 const MinuteCard = ({ minute }) => {
-  const statusConfig = STATUS_CONFIG[minute.status];
+  const statusConfig = STATUS_CONFIG[minute.status] ?? STATUS_CONFIG.pending;
 
   return (
-    <div className="bg-surface rounded-2xl border border-secondary-200 dark:border-secondary-700/60 dark:ring-1 dark:ring-white/5 overflow-hidden transition-all duration-200 shadow-card hover:shadow-card-hover hover:-translate-y-0.5 hover:border-primary-500 dark:hover:border-primary-400">
+    <div className="bg-surface rounded-2xl border border-secondary-200 dark:border-secondary-700/60 dark:ring-1 dark:ring-white/5 overflow-hidden transition-all duration-200 shadow-card hover:shadow-card-hover hover:-translate-y-0.5 hover:border-primary-500 dark:hover:border-primary-400 h-full flex flex-col">
       <CardHeader minute={minute} statusConfig={statusConfig} />
-      <CardBody minute={minute} />
+      {/* Body flexible */}
+      <div className="flex-1">
+        <CardBody minute={minute} />
+      </div>
+      {/* Footer fijo */}
       <CardFooter minuteId={minute.id} />
     </div>
   );
