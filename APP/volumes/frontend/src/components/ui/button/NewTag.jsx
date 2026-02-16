@@ -11,8 +11,6 @@ import ModalManager from "@/components/ui/modal";
 // Import del componente único
 import TagsModal, { TAGS_MODAL_MODES } from "@/pages/tags/TagsModal";
 
-// (DEV) Catálogo de tags. En PROD: reemplazar por service (GET /tags)
-import tagsData from "@/data/dataTags.json";
 
 // Botón que abre el modal
 const showTagWizard = () => {
