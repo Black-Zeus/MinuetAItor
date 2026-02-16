@@ -27,7 +27,7 @@ const EmptyState = ({ hasFilters }) => {
   );
 };
 
-const ClientGrid = ({ clients, onEdit, onDelete, hasFilters }) => {
+const ClientGrid = ({ clients, onUpdate, onDelete, hasFilters }) => {
   if (clients.length === 0) {
     return <EmptyState hasFilters={hasFilters} />;
   }
@@ -38,7 +38,7 @@ const ClientGrid = ({ clients, onEdit, onDelete, hasFilters }) => {
         <ClientCard
           key={client.id}
           client={client}
-          onEdit={onEdit}
+          onUpdate={onUpdate}
           onDelete={onDelete}
         />
       ))}
