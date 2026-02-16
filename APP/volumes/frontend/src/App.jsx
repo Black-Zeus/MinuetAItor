@@ -14,6 +14,7 @@ import Minute from "./pages/minutes/Minute";
 import Client from "./pages/clientes/Client";
 import Project from "./pages/project/Project";
 import Teams from "./pages/teams/Teams";
+import Tags from "./pages/tags/Tags";
 
 //Error Page
 import ForbiddenPage from "./pages/errorPages/ForbiddenPage";
@@ -58,7 +59,7 @@ function App() {
           <Route path="/reports" element={<Dashboard />} /> {/* placeholder */}
 
           {/* Config */}
-          <Route path="/tags" element={<Dashboard />} /> {/* placeholder */}
+          <Route path="/settings/tags" element={<Tags />} /> {/* placeholder */}
           <Route path="/settings/system" element={<Dashboard />} /> {/* placeholder */}
 
           {/* Demos */}
