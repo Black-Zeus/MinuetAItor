@@ -13,6 +13,7 @@ import ClientsActivityList from "./ClientsActivityList";
 import PopularTags from "./PopularTags";
 
 import { FaCalendarAlt, FaFileAlt, FaUsers } from "react-icons/fa";
+import PageLoadingSpinner from "@/components/ui/modal/types/system/PageLoadingSpinner";
 
 // Tipografía (mismo enfoque que tu base)
 export const TXT_TITLE = "text-gray-900 dark:text-white";
@@ -57,16 +58,7 @@ const Dashboard = () => {
   };
 
   if (isLoading) {
-    return (
-      <LoadingSpinner
-        message="Cargando..."
-        variant="default"
-        size="medium"
-        spinnerType="default"
-        showProgress={false}
-        indeterminate={true}
-      />
-    );
+    return <PageLoadingSpinner message="Cargando dashboard..." />;
   }
 
 
