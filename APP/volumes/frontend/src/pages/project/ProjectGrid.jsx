@@ -1,7 +1,6 @@
 /**
  * ProjectGrid.jsx
  * Grid de proyectos con estado vacío
- * Renderiza múltiples ProjectCard o muestra EmptyState
  */
 
 import React from 'react';
@@ -27,7 +26,7 @@ const EmptyState = ({ hasFilters }) => {
   );
 };
 
-const ProjectGrid = ({ projects, onEdit, onDelete, hasFilters }) => {
+const ProjectGrid = ({ projects, clients, onEdit, onDelete, hasFilters }) => {
   if (projects.length === 0) {
     return <EmptyState hasFilters={hasFilters} />;
   }
@@ -38,6 +37,7 @@ const ProjectGrid = ({ projects, onEdit, onDelete, hasFilters }) => {
         <ProjectCard
           key={project.id}
           project={project}
+          clients={clients}      // ✅ NUEVO
           onEdit={onEdit}
           onDelete={onDelete}
         />
