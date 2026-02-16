@@ -436,6 +436,12 @@ const ICON_REGISTRY = {
   FaUpload,
   upload: FaUpload,
 
+    // ✅ Alias legacy: FA5 -> FA6
+  FaFileAlt: FaFileLines,
+  fileAlt: FaFileLines,
+  "file-alt": FaFileLines,
+  fileText: FaFileLines,
+
   // ====================================
   // GRÁFICOS / ESTADÍSTICAS
   // ====================================
