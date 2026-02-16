@@ -1,21 +1,30 @@
-import Icon from '@/components/ui/icon/iconManager';
+/**
+ * TeamsHeader.jsx
+ * Header del módulo de equipo con título y botón de creación
+ */
 
-const TeamsHeader = ({ onNewUser }) => {
+import React from "react";
+import Icon from "@/components/ui/icon/iconManager";
+import NewTeams from "@/components/ui/button/NewTeams";
+
+const TXT_TITLE = "text-gray-900 dark:text-white";
+const TXT_META  = "text-gray-600 dark:text-gray-300";
+
+const TeamsHeader = () => {
   return (
-    <div className="mb-8">
-      <div className="flex items-center justify-between mb-2">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Equipo</h1>
-          <p className="text-sm text-gray-500 mt-1">Gestión de usuarios y permisos del sistema</p>
-        </div>
-        <button 
-          onClick={onNewUser}
-          className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
-        >
-          <Icon name="FaUserPlus" className="text-sm" />
-          Nuevo Usuario
-        </button>
+    <div className="flex items-center justify-between">
+      <div>
+        <h1 className={`text-3xl font-bold ${TXT_TITLE} flex items-center gap-3 transition-theme`}>
+          <Icon name="FaUsers" className="text-primary-600 dark:text-primary-400 w-8 h-8" />
+          Equipo
+        </h1>
+
+        <p className={`${TXT_META} mt-2 transition-theme`}>
+          Gestión de usuarios y permisos del sistema
+        </p>
       </div>
+
+      <NewTeams />
     </div>
   );
 };

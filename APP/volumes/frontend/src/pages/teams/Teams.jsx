@@ -1,176 +1,219 @@
-import { useState, useMemo } from 'react';
-import TeamsHeader from './TeamsHeader';
-import TeamsStats from './TeamsStats';
-import TeamsFilters from './TeamsFilters';
-import TeamsGrid from './TeamsGrid';
-import TeamsModal from './TeamsModal';
-import teamsData from '@/data/dataTeams.json';
+/**
+ * Teams.jsx
+ * Componente monolítico para gestión de equipo - alineado a Project.jsx
+ */
+
+import React, { useState, useEffect, useMemo } from "react";
+import teamsData from "@/data/dataTeams.json";
+
+import TeamsHeader from "./TeamsHeader";
+import TeamsFilters from "./TeamsFilters";
+import TeamsStats from "./TeamsStats";
+import TeamsGrid from "./TeamsGrid";
+
+import PageLoadingSpinner from "@/components/ui/modal/types/system/PageLoadingSpinner";
 
 const Teams = () => {
+  const [users, setUsers] = useState([]);
+  const [filteredUsers, setFilteredUsers] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Filters (misma filosofía que Project.jsx)
   const [filters, setFilters] = useState({
-    search: '',
-    status: '',
-    systemRole: '',
-    client: ''
+    search: "",
+    status: "",
+    systemRole: "",
+    client: "",
   });
-  const [sortBy, setSortBy] = useState('name-asc');
 
-  // Cargar usuarios del JSON
-  const allUsers = teamsData.teams;
+  // Sort
+  const [sortBy, setSortBy] = useState("name-asc");
 
-  // Calcular estadísticas
-  const stats = useMemo(() => {
-    const activeUsers = allUsers.filter(u => u.status === 'active').length;
-    const inactiveUsers = allUsers.filter(u => u.status === 'inactive').length;
-    const admins = allUsers.filter(u => u.systemRole === 'admin').length;
-
-    return {
-      total: allUsers.length,
-      active: activeUsers,
-      inactive: inactiveUsers,
-      admins: admins
+  // Load data
+  useEffect(() => {
+    const loadTeams = async () => {
+      try {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        const list = teamsData?.teams || [];
+        setUsers(list);
+        setFilteredUsers(list);
+      } catch (error) {
+        console.error("[Teams] Error loading teams:", error);
+        setUsers([]);
+        setFilteredUsers([]);
+      } finally {
+        setIsLoading(false);
+      }
     };
-  }, [allUsers]);
+    loadTeams();
+  }, []);
 
-  // Formatear usuarios para el display
+  // Helpers: formateo (equivalente a tu formattedUsers, pero estable para sort/filters)
   const formattedUsers = useMemo(() => {
-    return allUsers.map(user => {
-      // Calcular clientes y proyectos
-      let clientsText = 'Todos';
-      let projectsText = 'Todos';
+    return users.map((user) => {
+      // Asignaciones: para UI (texto)
+      let clientsText = "Todos";
+      let projectsText = "Todos";
 
-      if (user.assignmentMode === 'specific') {
-        const clientCount = user.clients.length;
-        const projectCount = user.projects.length;
-        clientsText = clientCount > 0 ? `${clientCount}` : 'Ninguno';
-        projectsText = projectCount > 0 ? `${projectCount}` : 'Ninguno';
+      if (user.assignmentMode === "specific") {
+        const clientCount = user.clients?.length || 0;
+        const projectCount = user.projects?.length || 0;
+        clientsText = clientCount > 0 ? String(clientCount) : "Ninguno";
+        projectsText = projectCount > 0 ? String(projectCount) : "Ninguno";
       }
 
-      // Formatear fecha
-      const createdDate = new Date(user.createdAt);
-      const formattedDate = createdDate.toLocaleDateString('es-ES', { 
-        day: 'numeric', 
-        month: 'short', 
-        year: 'numeric' 
-      });
+      // Fechas: mantener ISO para ordenar + string formateado para mostrar
+      const createdAtISO = user.createdAt ? new Date(user.createdAt).toISOString() : null;
+      const createdAtLabel = user.createdAt
+        ? new Date(user.createdAt).toLocaleDateString("es-ES", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+          })
+        : "—";
 
       return {
         ...user,
-        clients: clientsText,
-        projects: projectsText,
-        createdAt: formattedDate
+        clientsLabel: clientsText,
+        projectsLabel: projectsText,
+        createdAtISO,
+        createdAtLabel,
       };
     });
-  }, [allUsers]);
+  }, [users]);
 
-  // Aplicar filtros
-  const filteredUsers = useMemo(() => {
-    return formattedUsers.filter(user => {
-      // Filtro de búsqueda
-      if (filters.search) {
-        const searchLower = filters.search.toLowerCase();
-        const matchesSearch = 
-          user.name.toLowerCase().includes(searchLower) ||
-          user.email.toLowerCase().includes(searchLower) ||
-          user.position.toLowerCase().includes(searchLower);
-        if (!matchesSearch) return false;
-      }
+  // Stats (mismo patrón que ProjectStats)
+  const stats = useMemo(() => {
+    return {
+      total: users.length,
+      active: users.filter((u) => u.status === "active").length,
+      inactive: users.filter((u) => u.status === "inactive").length,
+      admins: users.filter((u) => u.systemRole === "admin").length,
+    };
+  }, [users]);
 
-      // Filtro de estado
-      if (filters.status && user.status !== filters.status) {
-        return false;
-      }
+  // Filter users (misma filosofía que Project.jsx con useEffect)
+  useEffect(() => {
+    let filtered = [...formattedUsers];
 
-      // Filtro de rol del sistema
-      if (filters.systemRole && user.systemRole !== filters.systemRole) {
-        return false;
-      }
+    // search
+    if (filters.search) {
+      const term = filters.search.toLowerCase();
+      filtered = filtered.filter((u) => {
+        return (
+          String(u.name || "").toLowerCase().includes(term) ||
+          String(u.email || "").toLowerCase().includes(term) ||
+          String(u.position || "").toLowerCase().includes(term)
+        );
+      });
+    }
 
-      // Filtro de cliente (solo para usuarios con asignación específica)
-      if (filters.client) {
-        if (user.assignmentMode === 'all') {
-          return true; // Usuarios con "todos" pasan el filtro
-        }
-        if (!user.clients.includes(filters.client)) {
-          return false;
-        }
-      }
+    // status
+    if (filters.status) {
+      filtered = filtered.filter((u) => u.status === filters.status);
+    }
 
-      return true;
-    });
-  }, [formattedUsers, filters]);
+    // systemRole
+    if (filters.systemRole) {
+      filtered = filtered.filter((u) => u.systemRole === filters.systemRole);
+    }
 
-  // Aplicar ordenamiento
-  const sortedUsers = useMemo(() => {
-    const sorted = [...filteredUsers];
+    // client (si assignmentMode=all => pasa)
+    if (filters.client) {
+      filtered = filtered.filter((u) => {
+        if (u.assignmentMode === "all") return true;
+        const userClients = Array.isArray(u.clients) ? u.clients : [];
+        return userClients.includes(filters.client);
+      });
+    }
 
+    // sort (después de filtrar, para mantener consistencia)
+    const sorted = [...filtered];
     switch (sortBy) {
-      case 'name-asc':
-        sorted.sort((a, b) => a.name.localeCompare(b.name));
+      case "name-asc":
+        sorted.sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
         break;
-      case 'name-desc':
-        sorted.sort((a, b) => b.name.localeCompare(a.name));
+      case "name-desc":
+        sorted.sort((a, b) => String(b.name || "").localeCompare(String(a.name || "")));
         break;
-      case 'date-created':
-        sorted.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      case "date-created":
+        sorted.sort((a, b) => {
+          const da = a.createdAtISO ? new Date(a.createdAtISO).getTime() : 0;
+          const db = b.createdAtISO ? new Date(b.createdAtISO).getTime() : 0;
+          return db - da;
+        });
         break;
-      case 'last-activity':
-        sorted.sort((a, b) => new Date(b.lastActivity) - new Date(a.lastActivity));
+      case "last-activity":
+        sorted.sort((a, b) => {
+          const da = a.lastActivity ? new Date(a.lastActivity).getTime() : 0;
+          const db = b.lastActivity ? new Date(b.lastActivity).getTime() : 0;
+          return db - da;
+        });
         break;
       default:
         break;
     }
 
-    return sorted;
-  }, [filteredUsers, sortBy]);
+    setFilteredUsers(sorted);
+  }, [filters, formattedUsers, sortBy]);
 
-  const handleOpenModal = () => {
-    setIsModalOpen(true);
-  };
+  // Modal handlers
+  const handleOpenModal = () => setIsModalOpen(true);
+  const handleCloseModal = () => setIsModalOpen(false);
 
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-  };
-
-  const handleFilterChange = (newFilters) => {
-    setFilters({ ...filters, ...newFilters });
+  // Filters handlers (alineado a Project.jsx; TeamsFilters usa onFilterChange({key:value}))
+  const handleFilterChange = (patch) => {
+    setFilters((prev) => ({ ...prev, ...patch }));
   };
 
   const handleClearFilters = () => {
     setFilters({
-      search: '',
-      status: '',
-      systemRole: '',
-      client: ''
+      search: "",
+      status: "",
+      systemRole: "",
+      client: "",
     });
   };
 
-  const handleSortChange = (value) => {
-    setSortBy(value);
+  const handleApplyFilters = () => {
+    console.log("[Teams] Filtros aplicados:", filters);
   };
 
+  const handleSortChange = (value) => setSortBy(value);
+
+  if (isLoading) {
+    return <PageLoadingSpinner message="Cargando equipos..." />;
+  }
+
+  const hasFilters = !!(filters.search || filters.status || filters.systemRole || filters.client);
+
   return (
-    <div className="max-w-[1400px] mx-auto p-6">
-      <TeamsHeader onNewUser={handleOpenModal} />
-      
-      <TeamsStats stats={stats} />
-      
-      <TeamsFilters 
+    <div className="space-y-6">
+      <TeamsHeader />
+
+      <TeamsFilters
         filters={filters}
         onFilterChange={handleFilterChange}
         onClearFilters={handleClearFilters}
-      />
-      
-      <TeamsGrid 
-        users={sortedUsers}
-        sortBy={sortBy}
-        onSortChange={handleSortChange}
+        onApplyFilters={handleApplyFilters}
+        data={users}
       />
 
-      <TeamsModal 
-        isOpen={isModalOpen}
-        onClose={handleCloseModal}
+      <TeamsStats stats={stats} />
+
+      <TeamsGrid
+        users={filteredUsers.map((u) => ({
+          ...u,
+          // Adaptación mínima para tu TeamsCards: espera clients/projects/createdAt “display”
+          clients: u.clientsLabel,
+          projects: u.projectsLabel,
+          createdAt: u.createdAtLabel,
+        }))}
+        sortBy={sortBy}
+        onSortChange={handleSortChange}
+        hasFilters={hasFilters}
       />
     </div>
   );
