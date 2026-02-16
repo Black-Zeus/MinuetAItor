@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tags - MinuetAItor</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            primary: {
+              50: '#eff6ff',
+              100: '#dbeafe',
+              200: '#bfdbfe',
+              300: '#93c5fd',
+              400: '#60a5fa',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+              800: '#1e40af',
+              900: '#1e3a8a',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .transition-theme { transition: background-color .2s, border-color .2s, color .2s; }
+    .hidden-soft { display: none; }
+  </style>
+</head>
+
+<body class="bg-gray-50 dark:bg-gray-900 transition-theme min-h-screen">
+
+  <div class="container mx-auto px-4 py-8 max-w-7xl">
+
+    <!-- Header -->
+    <div class="mb-8">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h1 class="text-3xl font-bold text-gray-900 dark:text-white transition-theme">
+            <i class="fas fa-tags text-primary-600 dark:text-primary-400 mr-3"></i>
+            Tags
+          </h1>
+          <p class="text-gray-600 dark:text-gray-300 mt-2 transition-theme">
+            Catálogo de tags (name + description) para clasificación y análisis.
+          </p>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <button id="btnReset"
+            class="px-5 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-all font-semibold">
+            <i class="fas fa-rotate mr-2"></i>Restaurar catálogo
+          </button>
+
+          <button id="btnCreate"
+            class="bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-lg flex items-center gap-2 transition-all shadow-lg hover:shadow-xl">
+            <i class="fas fa-plus"></i>
+            <span class="font-semibold">Nuevo Tag</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stats Cards (solo tags) -->
+    <div class="grid grid-cols-3 gap-6 mb-8">
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 transition-theme">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-gray-500 dark:text-gray-400 text-sm font-medium transition-theme">Total Tags</p>
+            <p id="statTotal" class="text-3xl font-bold text-gray-900 dark:text-white mt-2 transition-theme">0</p>
+          </div>
+          <div class="bg-primary-100 dark:bg-primary-900/30 p-4 rounded-lg transition-theme">
+            <i class="fas fa-tags text-primary-600 dark:text-primary-400 text-2xl"></i>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 transition-theme">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-gray-500 dark:text-gray-400 text-sm font-medium transition-theme">Activos</p>
+            <p id="statActive" class="text-3xl font-bold text-green-600 dark:text-green-400 mt-2 transition-theme">0</p>
+          </div>
+          <div class="bg-green-100 dark:bg-green-900/30 p-4 rounded-lg transition-theme">
+            <i class="fas fa-check-circle text-green-600 dark:text-green-400 text-2xl"></i>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 transition-theme">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-gray-500 dark:text-gray-400 text-sm font-medium transition-theme">Inactivos</p>
+            <p id="statInactive" class="text-3xl font-bold text-gray-600 dark:text-gray-400 mt-2 transition-theme">0</p>
+          </div>
+          <div class="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg transition-theme">
+            <i class="fas fa-times-circle text-gray-600 dark:text-gray-400 text-2xl"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filters (solo tags) -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-6 transition-theme">
+      <div class="grid grid-cols-4 gap-4">
+        <!-- Search -->
+        <div class="col-span-3">
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-theme">
+            <i class="fas fa-search mr-2"></i>Buscar tag
+          </label>
+          <input id="q"
+            type="text"
+            placeholder="Buscar por nombre o descripción..."
+            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-theme" />
+        </div>
+
+        <!-- Status -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-theme">
+            <i class="fas fa-filter mr-2"></i>Estado
+          </label>
+          <select id="status"
+            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-theme">
+            <option value="">Todos</option>
+            <option value="active">Activo</option>
+            <option value="inactive">Inactivo</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-3 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+        <button id="btnClear"
+          class="px-6 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all font-medium">
+          <i class="fas fa-times mr-2"></i>Limpiar
+        </button>
+        <button id="btnFilter"
+          class="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-all font-medium shadow-md">
+          <i class="fas fa-filter mr-2"></i>Filtrar
+        </button>
+      </div>
+    </div>
+
+    <!-- List -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden border border-gray-200 dark:border-gray-700 transition-theme">
+      <div class="px-6 py-5 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="bg-primary-100 dark:bg-primary-900/30 p-3 rounded-lg transition-theme">
+            <i class="fas fa-list text-primary-600 dark:text-primary-400"></i>
+          </div>
+          <div>
+            <h2 class="text-lg font-bold text-gray-900 dark:text-white transition-theme">Listado de Tags</h2>
+            <p id="listHint" class="text-sm text-gray-500 dark:text-gray-400 transition-theme">0 resultados</p>
+          </div>
+        </div>
+
+        <button id="btnExport"
+          class="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-all font-semibold">
+          <i class="fas fa-file-code mr-2"></i>Exportar JSON
+        </button>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="min-w-full">
+          <thead class="bg-gray-50 dark:bg-gray-900/40 transition-theme">
+            <tr>
+              <th class="text-left px-6 py-4 text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-300 transition-theme">Nombre</th>
+              <th class="text-left px-6 py-4 text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-300 transition-theme">Descripción</th>
+              <th class="text-left px-6 py-4 text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-300 transition-theme">Estado</th>
+              <th class="text-right px-6 py-4 text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-300 transition-theme">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tbody" class="divide-y divide-gray-200 dark:divide-gray-700"></tbody>
+        </table>
+      </div>
+
+      <div id="emptyState" class="hidden-soft p-10 text-center">
+        <div class="mx-auto w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center mb-4 transition-theme">
+          <i class="fas fa-inbox text-gray-500 dark:text-gray-300 text-2xl"></i>
+        </div>
+        <p class="text-gray-700 dark:text-gray-200 font-semibold transition-theme">Sin resultados</p>
+        <p class="text-gray-500 dark:text-gray-400 text-sm mt-1 transition-theme">Ajusta filtros o crea un nuevo tag.</p>
+      </div>
+
+      <div class="px-6 py-4 bg-gray-50 dark:bg-gray-700/50 border-t border-gray-200 dark:border-gray-700 transition-theme flex items-center justify-between">
+        <p id="footerInfo" class="text-sm text-gray-500 dark:text-gray-300 transition-theme">Mostrando 0</p>
+        <div class="flex items-center gap-2">
+          <button id="btnPrev"
+            class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all">
+            <i class="fas fa-chevron-left"></i>
+          </button>
+          <span id="pageInfo" class="text-sm text-gray-600 dark:text-gray-300 transition-theme">1 / 1</span>
+          <button id="btnNext"
+            class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all">
+            <i class="fas fa-chevron-right"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Modal Backdrop -->
+  <div id="modalBackdrop" class="hidden-soft fixed inset-0 bg-black/50 z-50"></div>
+
+  <!-- Modal -->
+  <div id="modal" class="hidden-soft fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="w-full max-w-2xl bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 transition-theme overflow-hidden">
+      <div class="px-6 py-5 bg-gradient-to-r from-primary-600 to-primary-700">
+        <div class="flex items-start justify-between">
+          <div>
+            <h3 id="modalTitle" class="text-xl font-bold text-white">Nuevo Tag</h3>
+            <p id="modalSub" class="text-primary-100 text-sm mt-1">Defina name + description.</p>
+          </div>
+          <button id="btnCloseModal" class="text-white/90 hover:text-white transition-colors">
+            <i class="fas fa-xmark text-xl"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="p-6 space-y-5">
+        <div id="modalAlert" class="hidden-soft px-4 py-3 rounded-lg border border-red-200 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-200 transition-theme">
+          <i class="fas fa-triangle-exclamation mr-2"></i>
+          <span id="modalAlertText">Error</span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div class="col-span-2">
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 transition-theme">
+              Nombre
+            </label>
+            <input id="fName" type="text"
+              class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-theme"
+              placeholder="Ej: Firewall" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 transition-theme">
+            Descripción (glosa)
+          </label>
+          <textarea id="fDesc" rows="4"
+            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-theme"
+            placeholder="Breve descripción del alcance del tag..."></textarea>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-2 transition-theme">
+            Recomendado: 80–140 caracteres, descriptivo y operativo.
+          </p>
+        </div>
+
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 transition-theme">
+            Estado
+          </label>
+          <select id="fStatus"
+            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-theme">
+            <option value="active">Activo</option>
+            <option value="inactive">Inactivo</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="px-6 py-4 bg-gray-50 dark:bg-gray-700/50 border-t border-gray-200 dark:border-gray-700 transition-theme flex items-center justify-between">
+        <button id="btnDelete" class="hidden-soft px-5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all font-semibold">
+          <i class="fas fa-trash mr-2"></i>Eliminar
+        </button>
+
+        <div class="flex items-center gap-3">
+          <button id="btnCancel"
+            class="px-6 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-all font-semibold">
+            Cancelar
+          </button>
+          <button id="btnSave"
+            class="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-all font-semibold shadow-md">
+            <i class="fas fa-floppy-disk mr-2"></i>Guardar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toggle Theme Button (Demo) -->
+  <button onclick="toggleTheme()"
+    class="fixed bottom-8 right-8 bg-primary-600 hover:bg-primary-700 text-white p-4 rounded-full shadow-lg hover:shadow-xl transition-all z-40">
+    <i class="fas fa-moon text-xl"></i>
+  </button>
+
+  <script>
+    // ====== THEME ======
+    function toggleTheme() {
+      document.documentElement.classList.toggle('dark');
+    }
+
+    // ====== DATA: catálogo base (solo tags) ======
+    // Nota: el CRUD gestiona name + description. Se agrega status para control del catálogo (interno).
+    const seedTags = () => ([
+      { name: "Infraestructura", description: "Arquitectura y componentes base de TI (cómputo, red, almacenamiento) involucrados en el trabajo.", status: "active" },
+      { name: "Servidores", description: "Provisionamiento, configuración, mantenimiento y ciclo de vida de servidores físicos o virtuales.", status: "active" },
+      { name: "Virtualización", description: "Plataformas y prácticas de virtualización: hipervisores, clústeres, recursos y migraciones.", status: "active" },
+      { name: "Contenedores", description: "Ecosistema de contenedores: imágenes, despliegues, redes, volúmenes y operación.", status: "active" },
+      { name: "Kubernetes", description: "Orquestación de contenedores: clúster, namespaces, deployments, services e ingress.", status: "active" },
+      { name: "Redes", description: "Topología, switching/routing, segmentación y conectividad entre ambientes.", status: "active" },
+      { name: "Firewall", description: "Reglas de seguridad perimetral e interna, políticas de acceso y apertura de puertos.", status: "active" },
+      { name: "VPN", description: "Acceso remoto seguro, túneles site-to-site y conectividad de usuarios.", status: "active" },
+      { name: "DNS", description: "Resolución de nombres, zonas, registros y troubleshooting asociado.", status: "active" },
+      { name: "Active Directory", description: "Gestión de identidad en dominio: OU, grupos, políticas y controladores.", status: "active" },
+      { name: "GPO", description: "Políticas de grupo: configuración de equipos/usuarios, restricciones y despliegue.", status: "active" },
+      { name: "IAM", description: "Gestión de identidades y accesos: roles, permisos, MFA y auditoría.", status: "active" },
+      { name: "Seguridad", description: "Controles y medidas de protección: hardening, baselines y buenas prácticas.", status: "active" },
+      { name: "Gestión de Vulnerabilidades", description: "Escaneo, priorización, remediación y seguimiento de vulnerabilidades.", status: "active" },
+      { name: "Parches y Actualizaciones", description: "Planificación y ejecución de updates, hotfixes y ventanas de mantenimiento.", status: "active" },
+      { name: "Backups", description: "Respaldo y restauración: políticas, retención y pruebas de recuperación.", status: "active" },
+      { name: "DRP / Continuidad", description: "Plan de recuperación ante desastres y continuidad operacional (RTO/RPO).", status: "active" },
+      { name: "Monitoreo", description: "Observabilidad: métricas, alertas, umbrales y dashboards.", status: "active" },
+      { name: "Logs / SIEM", description: "Centralización y análisis de logs, correlación de eventos y seguridad.", status: "active" },
+      { name: "Incidentes", description: "Gestión de incidentes: impacto, priorización, mitigación y post-mortem.", status: "active" },
+      { name: "Cambios (Change Management)", description: "Gestión de cambios: RFC, aprobación, plan, rollback y comunicación.", status: "active" },
+      { name: "Problemas (Problem Management)", description: "Análisis causa raíz, acciones correctivas y prevención de recurrencia.", status: "active" },
+      { name: "Capacidad", description: "Planificación de recursos: CPU/RAM/IO, crecimiento y performance.", status: "active" },
+      { name: "Rendimiento", description: "Optimización y diagnóstico de performance en aplicaciones e infraestructura.", status: "active" },
+      { name: "Bases de Datos", description: "Diseño, operación y mantenimiento de motores de BD, respaldos y tuning.", status: "active" },
+      { name: "Almacenamiento", description: "SAN/NAS/objetos: volúmenes, snapshots, IOPS y políticas de capacidad.", status: "active" },
+      { name: "Aplicaciones", description: "Estado y evolución de aplicaciones: releases, dependencias y operación.", status: "active" },
+      { name: "Integraciones", description: "Interoperabilidad entre sistemas: APIs, ETL, middleware y mensajería.", status: "active" },
+      { name: "APIs", description: "Diseño, versionado, seguridad y consumo de APIs internas/externas.", status: "active" },
+      { name: "DevOps", description: "Automatización y colaboración dev/ops: pipelines, IaC y despliegues.", status: "active" },
+      { name: "CI/CD", description: "Pipelines de build/test/deploy, gates, artefactos y releases.", status: "active" },
+      { name: "Automatización", description: "Scripts y orquestación de tareas repetitivas para mejorar eficiencia.", status: "active" },
+      { name: "Documentación", description: "Registro formal: diagramas, procedimientos, runbooks y manuales.", status: "active" },
+      { name: "Cumplimiento", description: "Requisitos normativos y auditoría (ISO, políticas internas, controles).", status: "active" },
+      { name: "Riesgos", description: "Identificación y tratamiento de riesgos: probabilidad, impacto y mitigación.", status: "active" },
+      { name: "Cronograma", description: "Planificación temporal: hitos, fechas, dependencias y seguimiento.", status: "active" },
+      { name: "Presupuesto", description: "Costos, licencias, CAPEX/OPEX y control financiero del trabajo.", status: "active" },
+      { name: "Compras", description: "Adquisiciones: cotizaciones, órdenes de compra, proveedores y plazos.", status: "active" },
+      { name: "Proveedores", description: "Gestión de terceros: SLA, soporte, contratos y coordinación.", status: "active" },
+      { name: "SLA / Soporte", description: "Niveles de servicio, tiempos de respuesta y escalamiento de soporte.", status: "active" },
+      { name: "Recursos Humanos", description: "Dotación, roles, contrataciones, onboarding y gestión de desempeño.", status: "active" },
+      { name: "Capacitación", description: "Entrenamiento técnico/funcional, sesiones de transferencia y adopción.", status: "active" },
+      { name: "Gestión de Stakeholders", description: "Comunicación y coordinación con interesados: acuerdos y reporting.", status: "active" },
+      { name: "Gobernanza", description: "Estructura de decisiones: responsables, aprobaciones y políticas.", status: "active" },
+      { name: "Requerimientos", description: "Levantamiento y validación de necesidades funcionales y no funcionales.", status: "active" },
+      { name: "Alcance", description: "Definición y control del alcance: inclusiones, exclusiones y cambios.", status: "active" },
+      { name: "Entregables", description: "Resultados acordados: artefactos, componentes y criterios de aceptación.", status: "active" },
+      { name: "Pruebas / QA", description: "Plan de pruebas, validación, evidencias y control de calidad.", status: "active" }
+    ]);
+
+    // ====== STORAGE ======
+    const STORAGE_KEY = "minuetaitor_tag_catalog_v1";
+    let TAGS = [];
+
+    // ====== UI STATE ======
+    let filtered = [];
+    let page = 1;
+    const pageSize = 10;
+
+    // modal state
+    let modalMode = "create"; // create | edit | view
+    let currentKey = null; // usamos name como key lógico para demo
+
+    // ====== HELPERS ======
+    function esc(s) {
+      return String(s ?? "").replace(/[&<>"']/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
+    }
+    function show(el) { el.classList.remove("hidden-soft"); }
+    function hide(el) { el.classList.add("hidden-soft"); }
+
+    function load() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) {
+        TAGS = seedTags();
+        save();
+        return;
+      }
+      try { TAGS = JSON.parse(raw) || []; }
+      catch { TAGS = seedTags(); save(); }
+    }
+
+    function save() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(TAGS));
+    }
+
+    // ====== FILTERING / PAGINATION ======
+    function applyFilters() {
+      const q = document.getElementById("q").value.trim().toLowerCase();
+      const st = document.getElementById("status").value;
+
+      filtered = TAGS.filter(t => {
+        const matchQ = !q || (t.name || "").toLowerCase().includes(q) || (t.description || "").toLowerCase().includes(q);
+        const matchSt = !st || t.status === st;
+        return matchQ && matchSt;
+      });
+
+      page = 1;
+      render();
+    }
+
+    function pageCount() { return Math.max(1, Math.ceil(filtered.length / pageSize)); }
+    function slicePage() {
+      const start = (page - 1) * pageSize;
+      return filtered.slice(start, start + pageSize);
+    }
+
+    // ====== RENDER ======
+    function renderStats() {
+      const total = TAGS.length;
+      const active = TAGS.filter(t => t.status === "active").length;
+      const inactive = total - active;
+      document.getElementById("statTotal").textContent = total;
+      document.getElementById("statActive").textContent = active;
+      document.getElementById("statInactive").textContent = inactive;
+    }
+
+    function badgeStatus(st) {
+      const base = "px-3 py-1 rounded-full text-xs font-semibold";
+      return (st === "active") ? `${base} bg-green-500 text-white` : `${base} bg-gray-500 text-white`;
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById("tbody");
+      tbody.innerHTML = "";
+
+      const items = slicePage();
+      document.getElementById("listHint").textContent = `${filtered.length} resultados`;
+      document.getElementById("footerInfo").textContent = `Mostrando ${items.length} de ${filtered.length}`;
+      document.getElementById("pageInfo").textContent = `${page} / ${pageCount()}`;
+
+      const empty = document.getElementById("emptyState");
+      if (!items.length) { show(empty); return; }
+      hide(empty);
+
+      for (const t of items) {
+        const tr = document.createElement("tr");
+        tr.className = "hover:bg-gray-50 dark:hover:bg-gray-900/30 transition-theme";
+        tr.innerHTML = `
+          <td class="px-6 py-4 align-top">
+            <div class="flex items-start gap-3">
+              <div class="mt-1 w-8 h-8 rounded-lg bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center transition-theme">
+                <i class="fas fa-tag text-primary-600 dark:text-primary-400"></i>
+              </div>
+              <div>
+                <p class="font-bold text-gray-900 dark:text-white transition-theme">${esc(t.name)}</p>
+              </div>
+            </div>
+          </td>
+
+          <td class="px-6 py-4 align-top">
+            <p class="text-sm text-gray-700 dark:text-gray-300 transition-theme">${esc(t.description)}</p>
+          </td>
+
+          <td class="px-6 py-4 align-top">
+            <div class="flex items-center gap-3">
+              <span class="${badgeStatus(t.status)}">${t.status === "active" ? "Activo" : "Inactivo"}</span>
+              <button data-action="toggle" data-key="${esc(t.name)}"
+                class="text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
+                title="Cambiar estado">
+                <i class="fas fa-arrow-rotate-right"></i>
+              </button>
+            </div>
+          </td>
+
+          <td class="px-6 py-4 align-top text-right">
+            <div class="flex items-center justify-end gap-2">
+              <button data-action="view" data-key="${esc(t.name)}"
+                class="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors p-2"
+                title="Ver">
+                <i class="fas fa-eye"></i>
+              </button>
+              <button data-action="edit" data-key="${esc(t.name)}"
+                class="text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors p-2"
+                title="Editar">
+                <i class="fas fa-pen-to-square"></i>
+              </button>
+              <button data-action="delete" data-key="${esc(t.name)}"
+                class="text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 transition-colors p-2"
+                title="Eliminar">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      }
+    }
+
+    function updatePaginationButtons() {
+      const prev = document.getElementById("btnPrev");
+      const next = document.getElementById("btnNext");
+      prev.disabled = page <= 1;
+      next.disabled = page >= pageCount();
+      prev.classList.toggle("opacity-50", prev.disabled);
+      next.classList.toggle("opacity-50", next.disabled);
+    }
+
+    function render() {
+      renderStats();
+      renderTable();
+      updatePaginationButtons();
+    }
+
+    // ====== CRUD ======
+    function findByName(name) {
+      return TAGS.find(t => (t.name || "") === name);
+    }
+
+    function toggleStatus(name) {
+      const t = findByName(name);
+      if (!t) return;
+      t.status = (t.status === "active") ? "inactive" : "active";
+      save();
+      applyFilters();
+    }
+
+    function deleteTag(name) {
+      const t = findByName(name);
+      if (!t) return;
+      const ok = confirm(`Eliminar tag "${t.name}"? Esta acción no se puede deshacer.`);
+      if (!ok) return;
+      TAGS = TAGS.filter(x => x.name !== name);
+      save();
+      applyFilters();
+    }
+
+    // ====== MODAL ======
+    const modal = document.getElementById("modal");
+    const backdrop = document.getElementById("modalBackdrop");
+
+    function showAlert(msg) {
+      document.getElementById("modalAlertText").textContent = msg;
+      show(document.getElementById("modalAlert"));
+    }
+    function hideAlert() { hide(document.getElementById("modalAlert")); }
+
+    function setFormReadonly(isReadonly) {
+      ["fName", "fDesc", "fStatus"].forEach(id => {
+        const el = document.getElementById(id);
+        el.disabled = isReadonly;
+        el.classList.toggle("opacity-80", isReadonly);
+      });
+    }
+
+    function openModal(mode, tag) {
+      modalMode = mode;
+      currentKey = tag?.name ?? null;
+
+      const title = document.getElementById("modalTitle");
+      const sub = document.getElementById("modalSub");
+      const btnSave = document.getElementById("btnSave");
+      const btnDelete = document.getElementById("btnDelete");
+
+      if (mode === "create") {
+        title.textContent = "Nuevo Tag";
+        sub.textContent = "Defina name + description.";
+        btnSave.innerHTML = `<i class="fas fa-floppy-disk mr-2"></i>Guardar`;
+        hide(btnDelete);
+      }
+      if (mode === "edit") {
+        title.textContent = "Editar Tag";
+        sub.textContent = "Actualice la glosa y guarde cambios.";
+        btnSave.innerHTML = `<i class="fas fa-floppy-disk mr-2"></i>Guardar`;
+        show(btnDelete);
+      }
+      if (mode === "view") {
+        title.textContent = "Ver Tag";
+        sub.textContent = "Detalle en modo lectura.";
+        btnSave.innerHTML = `<i class="fas fa-pen-to-square mr-2"></i>Editar`;
+        show(btnDelete);
+      }
+
+      document.getElementById("fName").value = tag?.name ?? "";
+      document.getElementById("fDesc").value = tag?.description ?? "";
+      document.getElementById("fStatus").value = tag?.status ?? "active";
+
+      setFormReadonly(mode === "view");
+      hideAlert();
+
+      show(backdrop);
+      show(modal);
+    }
+
+    function closeModal() {
+      hide(modal);
+      hide(backdrop);
+      currentKey = null;
+      modalMode = "create";
+      hideAlert();
+    }
+
+    function validate(payload) {
+      if (!payload.name) return "El nombre es obligatorio.";
+      if (payload.name.length < 2) return "El nombre debe tener al menos 2 caracteres.";
+      if (!payload.description) return "La descripción es obligatoria.";
+      if (payload.description.length < 20) return "La descripción debe tener al menos 20 caracteres (glosa útil).";
+
+      // unicidad name (case-insensitive)
+      const exists = TAGS.some(t =>
+        (t.name || "").toLowerCase() === payload.name.toLowerCase() &&
+        t.name !== currentKey
+      );
+      if (exists) return "Ya existe un tag con ese nombre (debe ser único).";
+      return null;
+    }
+
+    function submitModal() {
+      // Modo view: botón principal actúa como "Editar"
+      if (modalMode === "view" && currentKey) {
+        const t = findByName(currentKey);
+        if (t) openModal("edit", t);
+        return;
+      }
+
+      const payload = {
+        name: String(document.getElementById("fName").value || "").trim(),
+        description: String(document.getElementById("fDesc").value || "").trim(),
+        status: document.getElementById("fStatus").value
+      };
+
+      const err = validate(payload);
+      if (err) return showAlert(err);
+
+      if (modalMode === "create") {
+        TAGS.unshift(payload);
+      } else if (modalMode === "edit") {
+        const idx = TAGS.findIndex(t => t.name === currentKey);
+        if (idx >= 0) TAGS[idx] = payload;
+      }
+
+      save();
+      closeModal();
+      applyFilters();
+    }
+
+    // ====== EXPORT ======
+    function exportJSON() {
+      // Export estricto según lo solicitado: SOLO name + description
+      const exported = TAGS.map(t => ({ name: t.name, description: t.description }));
+      const blob = new Blob([JSON.stringify(exported, null, 2)], { type: "application/json;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "tags.json";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    // ====== EVENTS ======
+    document.getElementById("btnCreate").onclick = () => openModal("create", null);
+    document.getElementById("btnCloseModal").onclick = closeModal;
+    document.getElementById("btnCancel").onclick = closeModal;
+    document.getElementById("btnSave").onclick = submitModal;
+
+    document.getElementById("btnDelete").onclick = () => {
+      if (!currentKey) return;
+      deleteTag(currentKey);
+      closeModal();
+    };
+
+    backdrop.onclick = closeModal;
+
+    document.getElementById("btnFilter").onclick = applyFilters;
+    document.getElementById("btnClear").onclick = () => {
+      document.getElementById("q").value = "";
+      document.getElementById("status").value = "";
+      applyFilters();
+    };
+
+    document.getElementById("q").addEventListener("input", applyFilters);
+
+    document.getElementById("btnPrev").onclick = () => { if (page > 1) { page--; render(); } };
+    document.getElementById("btnNext").onclick = () => { if (page < pageCount()) { page++; render(); } };
+
+    document.getElementById("btnExport").onclick = exportJSON;
+
+    document.getElementById("btnReset").onclick = () => {
+      const ok = confirm("Restaurar catálogo base reemplazará el contenido actual en este navegador. ¿Continuar?");
+      if (!ok) return;
+      TAGS = seedTags();
+      save();
+      applyFilters();
+    };
+
+    // Delegación acciones tabla
+    document.getElementById("tbody").onclick = (ev) => {
+      const btn = ev.target.closest("button[data-action]");
+      if (!btn) return;
+
+      const action = btn.getAttribute("data-action");
+      const key = btn.getAttribute("data-key");
+      const t = findByName(key);
+      if (!t) return;
+
+      if (action === "toggle") return toggleStatus(key);
+      if (action === "view") return openModal("view", t);
+      if (action === "edit") return openModal("edit", t);
+      if (action === "delete") return deleteTag(key);
+    };
+
+    // ====== INIT ======
+    load();
+    filtered = [...TAGS];
+    applyFilters();
+  </script>
+
+</body>
+
+</html>
