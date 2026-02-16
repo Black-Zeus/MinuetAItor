@@ -16,7 +16,8 @@
       "projects": 5,
       "notes": "Cliente prioritario, interesado en soluciones de IA",
       "tags": "VIP, Tecnología, Innovación",
-      "createdAt": "2024-01-15"
+      "createdAt": "2024-01-15",
+      "isconfidential": false
     },
     {
       "id": 2,
@@ -34,7 +35,8 @@
       "projects": 3,
       "notes": "Interesada en automatización de procesos",
       "tags": "Finanzas, Automatización",
-      "createdAt": "2024-01-20"
+      "createdAt": "2024-01-20",
+      "isconfidential": false
     },
     {
       "id": 3,
@@ -47,12 +49,13 @@
       "address": "Av. Providencia 1650, Providencia, Santiago",
       "website": "https://www.healthplus.cl",
       "status": "prospecto",
-      "priority": "",
+      "priority": "media",
       "source": "web",
       "projects": 0,
       "notes": "Primer contacto en evento de tecnología",
       "tags": "Prospecto, Salud Digital",
-      "createdAt": "2024-02-01"
+      "createdAt": "2024-02-01",
+      "isconfidential": false
     },
     {
       "id": 4,
@@ -70,7 +73,8 @@
       "projects": 7,
       "notes": "Cliente desde 2023, muy satisfecho con el servicio",
       "tags": "VIP, Educación, Largo plazo",
-      "createdAt": "2023-06-10"
+      "createdAt": "2023-06-10",
+      "isconfidential": false
     },
     {
       "id": 5,
@@ -88,7 +92,8 @@
       "projects": 2,
       "notes": "Pausado temporalmente por reestructuración",
       "tags": "Retail",
-      "createdAt": "2023-11-05"
+      "createdAt": "2023-11-05",
+      "isconfidential": false
     },
     {
       "id": 6,
@@ -106,7 +111,8 @@
       "projects": 4,
       "notes": "Interesado en integración con sistemas legacy",
       "tags": "Manufactura, Integración",
-      "createdAt": "2024-01-08"
+      "createdAt": "2024-01-08",
+      "isconfidential": false
     },
     {
       "id": 7,
@@ -124,7 +130,8 @@
       "projects": 6,
       "notes": "Excelente relación comercial, puntual en pagos",
       "tags": "Consultoria, Confiable",
-      "createdAt": "2023-08-22"
+      "createdAt": "2023-08-22",
+      "isconfidential": true
     },
     {
       "id": 8,
@@ -142,7 +149,8 @@
       "projects": 0,
       "notes": "Startup emergente, alto potencial de crecimiento",
       "tags": "Startup, Alto potencial",
-      "createdAt": "2024-02-05"
+      "createdAt": "2024-02-05",
+      "isconfidential": false
     },
     {
       "id": 9,
@@ -160,7 +168,8 @@
       "projects": 8,
       "notes": "Cliente corporativo de alto valor",
       "tags": "VIP, Banca, Corporativo",
-      "createdAt": "2023-03-15"
+      "createdAt": "2023-03-15",
+      "isconfidential": false
     },
     {
       "id": 10,
@@ -178,7 +187,8 @@
       "projects": 3,
       "notes": "Implementación de sistema de gestión hospitalaria",
       "tags": "Salud, Hospital",
-      "createdAt": "2024-01-10"
+      "createdAt": "2024-01-10",
+      "isconfidential": false
     },
     {
       "id": 11,
@@ -196,7 +206,8 @@
       "projects": 1,
       "notes": "Interesado en plataforma educativa online",
       "tags": "Universidad, E-learning",
-      "createdAt": "2024-02-10"
+      "createdAt": "2024-02-10",
+      "isconfidential": false
     },
     {
       "id": 12,
@@ -214,7 +225,8 @@
       "projects": 2,
       "notes": "Expansión de canal digital",
       "tags": "E-commerce, Retail",
-      "createdAt": "2023-12-01"
+      "createdAt": "2023-12-01",
+      "isconfidential": false
     }
   ]
 }

@@ -14,7 +14,6 @@
       "assignmentMode": "all",
       "clients": [],
       "projects": [],
-      "confidentialProjects": [],
       "notes": "Usuario administrador principal del sistema",
       "createdAt": "2024-01-15",
       "lastActivity": "2026-02-08"
@@ -31,7 +30,10 @@
       "initials": "CM",
       "color": "blue",
       "assignmentMode": "specific",
-      "clients": ["client_001", "client_002"],
+      "clients": [
+        "client_001",
+        "client_002"
+      ],
       "projects": [
         {
           "clientId": "client_001",
@@ -47,13 +49,6 @@
           "clientId": "client_002",
           "projectId": "project_006",
           "permission": "read"
-        }
-      ],
-      "confidentialProjects": [
-        {
-          "clientId": "client_002",
-          "projectId": "project_conf_002",
-          "permission": "edit"
         }
       ],
       "notes": "Líder técnico del equipo de desarrollo",
@@ -72,7 +67,10 @@
       "initials": "AS",
       "color": "green",
       "assignmentMode": "specific",
-      "clients": ["client_001", "client_003"],
+      "clients": [
+        "client_001",
+        "client_003"
+      ],
       "projects": [
         {
           "clientId": "client_001",
@@ -85,7 +83,6 @@
           "permission": "edit"
         }
       ],
-      "confidentialProjects": [],
       "notes": "",
       "createdAt": "2024-02-10",
       "lastActivity": "2026-02-07"
@@ -102,7 +99,9 @@
       "initials": "RC",
       "color": "orange",
       "assignmentMode": "specific",
-      "clients": ["client_001"],
+      "clients": [
+        "client_001"
+      ],
       "projects": [
         {
           "clientId": "client_001",
@@ -120,7 +119,6 @@
           "permission": "edit"
         }
       ],
-      "confidentialProjects": [],
       "notes": "Desarrollador senior especializado en backend",
       "createdAt": "2024-03-05",
       "lastActivity": "2026-02-08"
@@ -137,7 +135,10 @@
       "initials": "LF",
       "color": "pink",
       "assignmentMode": "specific",
-      "clients": ["client_001", "client_003"],
+      "clients": [
+        "client_001",
+        "client_003"
+      ],
       "projects": [
         {
           "clientId": "client_001",
@@ -150,7 +151,6 @@
           "permission": "edit"
         }
       ],
-      "confidentialProjects": [],
       "notes": "",
       "createdAt": "2024-03-15",
       "lastActivity": "2026-02-06"
@@ -169,7 +169,6 @@
       "assignmentMode": "all",
       "clients": [],
       "projects": [],
-      "confidentialProjects": [],
       "notes": "Administrador de infraestructura y sistemas",
       "createdAt": "2024-04-01",
       "lastActivity": "2026-02-09"
@@ -186,7 +185,10 @@
       "initials": "VM",
       "color": "blue",
       "assignmentMode": "specific",
-      "clients": ["client_001", "client_002"],
+      "clients": [
+        "client_001",
+        "client_002"
+      ],
       "projects": [
         {
           "clientId": "client_001",
@@ -204,7 +206,6 @@
           "permission": "read"
         }
       ],
-      "confidentialProjects": [],
       "notes": "Especialista en testing y control de calidad",
       "createdAt": "2024-04-20",
       "lastActivity": "2026-02-05"
@@ -221,7 +222,10 @@
       "initials": "JR",
       "color": "green",
       "assignmentMode": "specific",
-      "clients": ["client_002", "client_003"],
+      "clients": [
+        "client_002",
+        "client_003"
+      ],
       "projects": [
         {
           "clientId": "client_002",
@@ -232,13 +236,6 @@
           "clientId": "client_003",
           "projectId": "project_007",
           "permission": "edit"
-        }
-      ],
-      "confidentialProjects": [
-        {
-          "clientId": "client_001",
-          "projectId": "project_conf_001",
-          "permission": "read"
         }
       ],
       "notes": "Responsable de ventas y relación con clientes",
@@ -257,7 +254,9 @@
       "initials": "SV",
       "color": "orange",
       "assignmentMode": "specific",
-      "clients": ["client_003"],
+      "clients": [
+        "client_003"
+      ],
       "projects": [
         {
           "clientId": "client_003",
@@ -265,7 +264,6 @@
           "permission": "edit"
         }
       ],
-      "confidentialProjects": [],
       "notes": "",
       "createdAt": "2024-06-01",
       "lastActivity": "2026-02-07"
@@ -282,18 +280,13 @@
       "initials": "AP",
       "color": "pink",
       "assignmentMode": "specific",
-      "clients": ["client_002"],
+      "clients": [
+        "client_002"
+      ],
       "projects": [
         {
           "clientId": "client_002",
           "projectId": "project_006",
-          "permission": "read"
-        }
-      ],
-      "confidentialProjects": [
-        {
-          "clientId": "client_002",
-          "projectId": "project_conf_002",
           "permission": "read"
         }
       ],
@@ -315,7 +308,6 @@
       "assignmentMode": "all",
       "clients": [],
       "projects": [],
-      "confidentialProjects": [],
       "notes": "Administradora de recursos humanos",
       "createdAt": "2024-01-20",
       "lastActivity": "2026-02-09"
@@ -332,7 +324,10 @@
       "initials": "FC",
       "color": "blue",
       "assignmentMode": "specific",
-      "clients": ["client_001", "client_003"],
+      "clients": [
+        "client_001",
+        "client_003"
+      ],
       "projects": [
         {
           "clientId": "client_001",
@@ -345,7 +340,6 @@
           "permission": "edit"
         }
       ],
-      "confidentialProjects": [],
       "notes": "Especialista en React y Vue.js",
       "createdAt": "2024-07-01",
       "lastActivity": "2026-02-08"
@@ -362,7 +356,11 @@
       "initials": "CH",
       "color": "green",
       "assignmentMode": "specific",
-      "clients": ["client_001", "client_002", "client_003"],
+      "clients": [
+        "client_001",
+        "client_002",
+        "client_003"
+      ],
       "projects": [
         {
           "clientId": "client_001",
@@ -385,7 +383,6 @@
           "permission": "read"
         }
       ],
-      "confidentialProjects": [],
       "notes": "Analista de datos y reportería",
       "createdAt": "2024-08-01",
       "lastActivity": "2026-02-06"
@@ -402,7 +399,9 @@
       "initials": "SM",
       "color": "orange",
       "assignmentMode": "specific",
-      "clients": ["client_001"],
+      "clients": [
+        "client_001"
+      ],
       "projects": [
         {
           "clientId": "client_001",
@@ -410,7 +409,6 @@
           "permission": "read"
         }
       ],
-      "confidentialProjects": [],
       "notes": "Practicante - finalizó práctica en diciembre 2025",
       "createdAt": "2024-09-01",
       "lastActivity": "2025-12-15"
@@ -427,7 +425,10 @@
       "initials": "DO",
       "color": "pink",
       "assignmentMode": "specific",
-      "clients": ["client_001", "client_002"],
+      "clients": [
+        "client_001",
+        "client_002"
+      ],
       "projects": [
         {
           "clientId": "client_001",
@@ -445,7 +446,6 @@
           "permission": "edit"
         }
       ],
-      "confidentialProjects": [],
       "notes": "Facilita ceremonias ágiles y coordina sprints",
       "createdAt": "2024-10-01",
       "lastActivity": "2026-02-09"
@@ -464,7 +464,6 @@
       "assignmentMode": "all",
       "clients": [],
       "projects": [],
-      "confidentialProjects": [],
       "notes": "Usuario suspendido temporalmente por auditoría interna",
       "createdAt": "2024-05-15",
       "lastActivity": "2026-01-10"
@@ -481,7 +480,9 @@
       "initials": "NS",
       "color": "blue",
       "assignmentMode": "specific",
-      "clients": ["client_003"],
+      "clients": [
+        "client_003"
+      ],
       "projects": [
         {
           "clientId": "client_003",
@@ -489,7 +490,6 @@
           "permission": "edit"
         }
       ],
-      "confidentialProjects": [],
       "notes": "",
       "createdAt": "2024-11-01",
       "lastActivity": "2026-02-08"
@@ -506,7 +506,10 @@
       "initials": "RP",
       "color": "green",
       "assignmentMode": "specific",
-      "clients": ["client_001", "client_002"],
+      "clients": [
+        "client_001",
+        "client_002"
+      ],
       "projects": [
         {
           "clientId": "client_001",
@@ -521,13 +524,6 @@
         {
           "clientId": "client_002",
           "projectId": "project_006",
-          "permission": "edit"
-        }
-      ],
-      "confidentialProjects": [
-        {
-          "clientId": "client_001",
-          "projectId": "project_conf_001",
           "permission": "edit"
         }
       ],
