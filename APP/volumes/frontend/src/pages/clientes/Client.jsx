@@ -5,14 +5,12 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import Icon from '@components/ui/icon/iconManager';
 import clientsData from '@/data/dataClientes.json';
-import NewClient from '@/components/ui/button/NewClient';
-import { ModalManager } from '@/components/ui/modal';
 import ClientHeader from './ClientHeader';
 import ClientFilters from './ClientFilters';
 import ClientStats from './ClientStats';
 import ClientGrid from './ClientGrid';
+import PageLoadingSpinner from '@/components/ui/modal/types/system/PageLoadingSpinner';
 
 const Client = () => {
   const [clients, setClients] = useState([]);
@@ -114,10 +112,9 @@ const Client = () => {
     setFilteredClients(filtered);
   }, [filters, sortBy, clients]);
 
-  // Status helpers (ya no necesarios aquí, están en ClientCard)
-
   // Client handlers
-  const handleEditClient = (updatedClient) => {
+  // Nota: este handler representa una *actualización* del registro (no solo "editar")
+  const handleUpdateClient = (updatedClient) => {
     const updatedClients = clients.map(c =>
       c.id === updatedClient.id ? updatedClient : c
     );
@@ -151,14 +148,7 @@ const Client = () => {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-primary-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Cargando clientes...</p>
-        </div>
-      </div>
-    );
+    return <PageLoadingSpinner message="Cargando Clientes..." />;
   }
 
   return (
@@ -181,7 +171,7 @@ const Client = () => {
       {/* Clients Grid */}
       <ClientGrid
         clients={filteredClients}
-        onEdit={handleEditClient}
+        onUpdate={handleUpdateClient}
         onDelete={handleDeleteClient}
         hasFilters={!!(filters.search || filters.status || filters.industry || filters.priority)}
       />
