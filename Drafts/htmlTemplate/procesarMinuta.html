@@ -1,0 +1,1558 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Editor de Minuta - Previo a PDF</title>
+
+  <!-- Tailwind (CDN) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- FontAwesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            primary: {
+              50:  '#eff6ff',
+              100: '#dbeafe',
+              200: '#bfdbfe',
+              300: '#93c5fd',
+              400: '#60a5fa',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+              800: '#1e40af',
+              900: '#1e3a8a',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    .transition-theme { transition: background-color .2s, border-color .2s, color .2s; }
+
+    /* Inputs/textarea consistentes */
+    .input-base { outline: none; }
+    .input-base:focus { box-shadow: 0 0 0 3px rgba(59, 130, 246, .35); border-color: transparent !important; }
+
+    /* Panel / cards */
+    .panel { border: 1px solid rgba(148, 163, 184, .18); }
+    .soft-divider { border-top: 1px solid rgba(148, 163, 184, .18); }
+
+    /* Tabs */
+    .tab-btn { opacity: .9; }
+    .tab-btn.active { opacity: 1; }
+    .tab-btn.active .tab-pill { background: rgba(37,99,235,.18); border-color: rgba(37,99,235,.45); color: rgb(147,197,253); }
+
+    /* Badge */
+    .badge { border: 1px solid rgba(148, 163, 184, .25); }
+
+    /* Table */
+    .tbl th, .tbl td { border-bottom: 1px solid rgba(148, 163, 184, .16); }
+    .tbl tr:last-child td { border-bottom: none; }
+
+    /* Readonly blocks (no modificable) */
+    .readonly {
+      background: rgba(148, 163, 184, .06);
+      border: 1px dashed rgba(148, 163, 184, .28);
+    }
+
+    /* Small monospace values */
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+  </style>
+</head>
+
+<body class="bg-gray-50 dark:bg-gray-900 transition-theme min-h-screen">
+
+  <!-- Top bar -->
+  <header class="sticky top-0 z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur border-b border-gray-200 dark:border-gray-800 transition-theme">
+    <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-primary-600/15 dark:bg-primary-500/15 flex items-center justify-center border border-primary-600/20">
+          <i class="fas fa-file-lines text-primary-700 dark:text-primary-300"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-3 flex-wrap">
+            <h1 class="text-lg md:text-xl font-bold text-gray-900 dark:text-white transition-theme">
+              SCOPE-001 <span class="text-gray-500 dark:text-gray-400 font-semibold">|</span> Editor de minuta
+            </h1>
+            <span class="badge px-2.5 py-1 rounded-lg text-xs font-semibold bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 transition-theme">
+              <i class="fas fa-circle-info mr-1"></i>Previo a PDF
+            </span>
+            <span class="badge px-2.5 py-1 rounded-lg text-xs font-semibold bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 transition-theme">
+              <i class="fas fa-wand-magic-sparkles mr-1"></i>IA aplicada
+            </span>
+          </div>
+          <p class="text-sm text-gray-600 dark:text-gray-300 transition-theme">
+            Modifica contenido editable. Bloques “no modificables” quedan protegidos.
+          </p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button
+          class="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-theme"
+          onclick="toggleTheme()"
+          type="button"
+        >
+          <i class="fas fa-moon mr-2"></i>Tema
+        </button>
+
+        <button
+          class="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-theme"
+          onclick="resetAll()"
+          type="button"
+          title="Revierte a estado inicial (demo)"
+        >
+          <i class="fas fa-rotate-left mr-2"></i>Revertir
+        </button>
+
+        <button
+          class="px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white transition-theme shadow-md"
+          onclick="printPDF()"
+          type="button"
+          title="Simula generación de PDF"
+        >
+          <i class="fas fa-print mr-2"></i>Imprimir PDF
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Content -->
+  <main class="max-w-7xl mx-auto px-4 py-6">
+
+    <!-- Find/replace toolbar (opcional visual) -->
+    <section class="panel bg-white dark:bg-gray-800 rounded-xl p-4 transition-theme shadow-md mb-6">
+      <div class="flex flex-col md:flex-row md:items-center gap-3">
+        <div class="flex-1 flex flex-col sm:flex-row gap-2">
+          <div class="flex-1">
+            <input id="findInput" class="input-base w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 transition-theme"
+              placeholder="Buscar en el documento..." />
+          </div>
+          <button class="px-4 py-2 rounded-lg bg-gray-900/5 dark:bg-white/5 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-theme"
+            onclick="doFind()"
+            type="button">
+            <i class="fas fa-magnifying-glass mr-2"></i>Buscar
+          </button>
+        </div>
+
+        <div class="flex-1 flex flex-col sm:flex-row gap-2">
+          <div class="flex-1">
+            <input id="replaceInput" class="input-base w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 transition-theme"
+              placeholder="Reemplazar con..." />
+          </div>
+          <button class="px-4 py-2 rounded-lg bg-gray-900/5 dark:bg-white/5 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-theme"
+            onclick="doReplace(false)"
+            type="button">
+            Reemplazar
+          </button>
+          <button class="px-4 py-2 rounded-lg bg-gray-900/5 dark:bg-white/5 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-theme"
+            onclick="doReplace(true)"
+            type="button">
+            Reemplazar Todo
+          </button>
+        </div>
+
+        <div class="text-sm text-gray-500 dark:text-gray-400 transition-theme">
+          <span id="findStatus" class="mono">0</span> coincidencias
+        </div>
+      </div>
+    </section>
+
+    <!-- Tabs -->
+    <section class="panel bg-white dark:bg-gray-800 rounded-xl p-3 transition-theme shadow-md mb-6">
+      <div class="flex flex-wrap gap-2">
+        <button class="tab-btn active px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-theme text-gray-800 dark:text-gray-200"
+                data-tab="tab-info" type="button" onclick="setTab('tab-info', this)">
+          <span class="tab-pill inline-flex items-center gap-2 px-3 py-1 rounded-lg border border-transparent transition-theme">
+            <i class="fas fa-clipboard-list"></i>
+            <span class="font-semibold">Información General</span>
+          </span>
+        </button>
+
+        <button class="tab-btn px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-theme text-gray-800 dark:text-gray-200"
+                data-tab="tab-participants" type="button" onclick="setTab('tab-participants', this)">
+          <span class="tab-pill inline-flex items-center gap-2 px-3 py-1 rounded-lg border border-transparent transition-theme">
+            <i class="fas fa-users"></i>
+            <span class="font-semibold">Participantes</span>
+            <span id="pillParticipants" class="badge text-xs px-2 py-0.5 rounded-lg bg-gray-100 dark:bg-gray-900 text-gray-700 dark:text-gray-300 transition-theme">0</span>
+          </span>
+        </button>
+
+        <button class="tab-btn px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-theme text-gray-800 dark:text-gray-200"
+                data-tab="tab-scope" type="button" onclick="setTab('tab-scope', this)">
+          <span class="tab-pill inline-flex items-center gap-2 px-3 py-1 rounded-lg border border-transparent transition-theme">
+            <i class="fas fa-diagram-project"></i>
+            <span class="font-semibold">Alcance y Contenido</span>
+            <span class="badge text-xs px-2 py-0.5 rounded-lg bg-gray-100 dark:bg-gray-900 text-gray-700 dark:text-gray-300 transition-theme">2</span>
+          </span>
+        </button>
+
+        <button class="tab-btn px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-theme text-gray-800 dark:text-gray-200"
+                data-tab="tab-agreements" type="button" onclick="setTab('tab-agreements', this)">
+          <span class="tab-pill inline-flex items-center gap-2 px-3 py-1 rounded-lg border border-transparent transition-theme">
+            <i class="fas fa-check"></i>
+            <span class="font-semibold">Acuerdos</span>
+            <span id="pillAgreements" class="badge text-xs px-2 py-0.5 rounded-lg bg-gray-100 dark:bg-gray-900 text-gray-700 dark:text-gray-300 transition-theme">0</span>
+          </span>
+        </button>
+
+        <button class="tab-btn px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-theme text-gray-800 dark:text-gray-200"
+                data-tab="tab-req" type="button" onclick="setTab('tab-req', this)">
+          <span class="tab-pill inline-flex items-center gap-2 px-3 py-1 rounded-lg border border-transparent transition-theme">
+            <i class="fas fa-thumbtack"></i>
+            <span class="font-semibold">Requerimientos</span>
+            <span id="pillReq" class="badge text-xs px-2 py-0.5 rounded-lg bg-gray-100 dark:bg-gray-900 text-gray-700 dark:text-gray-300 transition-theme">0</span>
+          </span>
+        </button>
+
+        <button class="tab-btn px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-theme text-gray-800 dark:text-gray-200"
+                data-tab="tab-tags" type="button" onclick="setTab('tab-tags', this)">
+          <span class="tab-pill inline-flex items-center gap-2 px-3 py-1 rounded-lg border border-transparent transition-theme">
+            <i class="fas fa-tags"></i>
+            <span class="font-semibold">Tags</span>
+            <span id="pillTagsAI" class="badge text-xs px-2 py-0.5 rounded-lg bg-gray-100 dark:bg-gray-900 text-gray-700 dark:text-gray-300 transition-theme">0</span>
+          </span>
+        </button>
+
+        <button class="tab-btn px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-theme text-gray-800 dark:text-gray-200"
+                data-tab="tab-next" type="button" onclick="setTab('tab-next', this)">
+          <span class="tab-pill inline-flex items-center gap-2 px-3 py-1 rounded-lg border border-transparent transition-theme">
+            <i class="fas fa-calendar"></i>
+            <span class="font-semibold">Próximas Reuniones</span>
+            <span id="pillNext" class="badge text-xs px-2 py-0.5 rounded-lg bg-gray-100 dark:bg-gray-900 text-gray-700 dark:text-gray-300 transition-theme">0</span>
+          </span>
+        </button>
+
+        <button class="tab-btn px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-theme text-gray-800 dark:text-gray-200"
+                data-tab="tab-meta" type="button" onclick="setTab('tab-meta', this)">
+          <span class="tab-pill inline-flex items-center gap-2 px-3 py-1 rounded-lg border border-transparent transition-theme">
+            <i class="fas fa-gear"></i>
+            <span class="font-semibold">Metadata</span>
+          </span>
+        </button>
+      </div>
+    </section>
+
+    <!-- TAB: Información General -->
+    <section id="tab-info" class="tab-panel">
+      <div class="grid grid-cols-12 gap-6">
+
+        <!-- Información de la reunión (EDITABLE) -->
+        <article class="col-span-12 md:col-span-6 panel bg-white dark:bg-gray-800 rounded-xl p-6 transition-theme shadow-md">
+          <div class="flex items-center justify-between">
+            <h2 class="text-sm font-bold tracking-wider text-gray-800 dark:text-gray-200 uppercase transition-theme">
+              Información de la reunión
+            </h2>
+
+            <div class="flex items-center gap-2">
+              <button class="px-3 py-1.5 rounded-lg bg-gray-900/5 dark:bg-white/5 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-theme"
+                      type="button" onclick="toggleCardEdit('meetingCard')">
+                <i class="fas fa-pen mr-2"></i><span id="meetingCardEditTxt">Editar</span>
+              </button>
+            </div>
+          </div>
+
+          <div id="meetingCard" class="mt-5 space-y-4">
+            <!-- filas -->
+            <div class="flex items-center justify-between gap-3">
+              <span class="text-sm text-gray-500 dark:text-gray-400 transition-theme">Cliente</span>
+              <span class="text-sm font-semibold text-gray-900 dark:text-gray-100 transition-theme" data-field="client" data-editable="true">
+                Clínica Santa Aurora S.A.
+              </span>
+            </div>
+
+            <div class="flex items-center justify-between gap-3">
+              <span class="text-sm text-gray-500 dark:text-gray-400 transition-theme">Asunto</span>
+              <span class="text-sm font-semibold text-gray-900 dark:text-gray-100 transition-theme text-right" data-field="subject" data-editable="true">
+                Habilitación acceso VLAN Usuarios → Portal Web On-Prem
+              </span>
+            </div>
+
+            <div class="flex items-center justify-between gap-3">
+              <span class="text-sm text-gray-500 dark:text-gray-400 transition-theme">Fecha</span>
+              <span class="text-sm font-semibold text-gray-900 dark:text-gray-100 transition-theme" data-field="date" data-editable="true">
+                12/02/2026
+              </span>
+            </div>
+
+            <div class="flex items-center justify-between gap-3">
+              <span class="text-sm text-gray-500 dark:text-gray-400 transition-theme">Ubicación</span>
+              <span class="text-sm font-semibold text-gray-900 dark:text-gray-100 transition-theme" data-field="location" data-editable="true">
+                Microsoft Teams
+              </span>
+            </div>
+
+            <div class="flex items-center justify-between gap-3">
+              <span class="text-sm text-gray-500 dark:text-gray-400 transition-theme">Preparado por</span>
+              <span class="text-sm font-semibold text-gray-900 dark:text-gray-100 transition-theme" data-field="preparedBy" data-editable="true">
+                Juan Pérez
+              </span>
+            </div>
+          </div>
+
+          <div class="soft-divider mt-6 pt-4 flex justify-end gap-2">
+            <button class="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-theme"
+                    type="button" onclick="saveCard('meetingCard')">
+              <i class="fas fa-check mr-2"></i>Guardar
+            </button>
+          </div>
+        </article>
+
+        <!-- Horarios (EDITABLE) -->
+        <article class="col-span-12 md:col-span-6 panel bg-white dark:bg-gray-800 rounded-xl p-6 transition-theme shadow-md">
+          <div class="flex items-center justify-between">
+            <h2 class="text-sm font-bold tracking-wider text-gray-800 dark:text-gray-200 uppercase transition-theme">
+              Horarios
+            </h2>
+
+            <button class="px-3 py-1.5 rounded-lg bg-gray-900/5 dark:bg-white/5 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-theme"
+                    type="button" onclick="toggleCardEdit('timesCard')">
+              <i class="fas fa-pen mr-2"></i><span id="timesCardEditTxt">Editar</span>
+            </button>
+          </div>
+
+          <div id="timesCard" class="mt-5 space-y-4">
+            <div class="flex items-center justify-between gap-3">
+              <span class="text-sm text-gray-500 dark:text-gray-400 transition-theme">Inicio Programado</span>
+              <span class="text-sm font-semibold text-gray-900 dark:text-gray-100 transition-theme mono" data-field="scheduledStart" data-editable="true">
+                09:00
+              </span>
+            </div>
+
+            <div class="flex items-center justify-between gap-3">
+              <span class="text-sm text-gray-500 dark:text-gray-400 transition-theme">Inicio Real</span>
+              <span class="text-sm font-semibold text-gray-900 dark:text-gray-100 transition-theme mono" data-field="actualStart" data-editable="true">
+                09:02
+              </span>
+            </div>
+
+            <div class="flex items-center justify-between gap-3">
+              <span class="text-sm text-gray-500 dark:text-gray-400 transition-theme">Término Programado</span>
+              <span class="text-sm font-semibold text-gray-900 dark:text-gray-100 transition-theme mono" data-field="scheduledEnd" data-editable="true">
+                10:00
+              </span>
+            </div>
+
+            <div class="flex items-center justify-between gap-3">
+              <span class="text-sm text-gray-500 dark:text-gray-400 transition-theme">Término Real</span>
+              <span class="text-sm font-semibold text-gray-900 dark:text-gray-100 transition-theme mono" data-field="actualEnd" data-editable="true">
+                09:38
+              </span>
+            </div>
+
+            <div class="flex items-center justify-between gap-3">
+              <span class="text-sm text-gray-500 dark:text-gray-400 transition-theme">Duración</span>
+              <span class="text-sm font-semibold text-gray-900 dark:text-gray-100 transition-theme" data-field="duration" data-editable="true">
+                36 minutos
+              </span>
+            </div>
+          </div>
+
+          <div class="soft-divider mt-6 pt-4 flex justify-end gap-2">
+            <button class="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-theme"
+                    type="button" onclick="saveCard('timesCard')">
+              <i class="fas fa-check mr-2"></i>Guardar
+            </button>
+          </div>
+        </article>
+
+        <!-- Resumen de participación (NO MODIFICABLE) -->
+        <article class="col-span-12 md:col-span-6 panel bg-white dark:bg-gray-800 rounded-xl p-6 transition-theme shadow-md">
+          <div class="flex items-center justify-between">
+            <h2 class="text-sm font-bold tracking-wider text-gray-800 dark:text-gray-200 uppercase transition-theme">
+              Resumen de participación
+            </h2>
+            <span class="badge px-2.5 py-1 rounded-lg text-xs font-semibold bg-gray-100 dark:bg-gray-900 text-gray-700 dark:text-gray-300 transition-theme">
+              <i class="fas fa-lock mr-1"></i>No modificable
+            </span>
+          </div>
+
+          <div class="mt-5 readonly rounded-xl p-4 transition-theme">
+            <div class="flex items-center justify-between gap-3 py-2">
+              <span class="text-sm text-gray-500 dark:text-gray-400 transition-theme">Invitados</span>
+              <span class="text-sm font-semibold text-gray-900 dark:text-gray-100 transition-theme" id="roInvitados">5 personas</span>
+            </div>
+            <div class="flex items-center justify-between gap-3 py-2">
+              <span class="text-sm text-gray-500 dark:text-gray-400 transition-theme">Asistentes</span>
+              <span class="text-sm font-semibold text-gray-900 dark:text-gray-100 transition-theme" id="roAsistentes">5 personas (100%)</span>
+            </div>
+            <div class="flex items-center justify-between gap-3 py-2">
+              <span class="text-sm text-gray-500 dark:text-gray-400 transition-theme">Copia (CC)</span>
+              <span class="text-sm font-semibold text-gray-900 dark:text-gray-100 transition-theme" id="roCC">1 persona</span>
+            </div>
+          </div>
+
+          <p class="text-xs text-gray-500 dark:text-gray-400 transition-theme mt-3">
+            Calculado automáticamente según la tabla de participantes.
+          </p>
+        </article>
+
+        <!-- Información adicional (NO MODIFICABLE - IA) -->
+        <article class="col-span-12 md:col-span-6 panel bg-white dark:bg-gray-800 rounded-xl p-6 transition-theme shadow-md">
+          <div class="flex items-center justify-between">
+            <h2 class="text-sm font-bold tracking-wider text-gray-800 dark:text-gray-200 uppercase transition-theme">
+              Información adicional
+            </h2>
+            <span class="badge px-2.5 py-1 rounded-lg text-xs font-semibold bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 transition-theme">
+              <i class="fas fa-brain mr-1"></i>IA (bloqueado)
+            </span>
+          </div>
+
+          <div class="mt-5 readonly rounded-xl p-4 transition-theme">
+            <p class="text-sm text-gray-900 dark:text-gray-100 transition-theme">
+              Adicionar la necesidad de mejorar formatos de entrega y formalización de procesos con áreas a fin.
+            </p>
+          </div>
+
+          <p class="text-xs text-gray-500 dark:text-gray-400 transition-theme mt-3">
+            Este contenido fue enviado/procesado por IA y se mantiene inalterable para auditoría.
+          </p>
+        </article>
+
+      </div>
+    </section>
+
+    <!-- TAB: Participantes -->
+    <section id="tab-participants" class="tab-panel hidden">
+      <div class="panel bg-white dark:bg-gray-800 rounded-xl p-6 transition-theme shadow-md">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div>
+            <h2 class="text-lg font-bold text-gray-900 dark:text-white transition-theme">
+              <i class="fas fa-users mr-2 text-primary-600 dark:text-primary-400"></i>Participantes
+            </h2>
+            <p class="text-sm text-gray-600 dark:text-gray-300 transition-theme">
+              Tabla editable con acciones: crear, editar y eliminar registros.
+            </p>
+          </div>
+
+          <button class="px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white transition-theme shadow-md"
+                  type="button" onclick="openParticipantForm()">
+            <i class="fas fa-user-plus mr-2"></i>Agregar participante
+          </button>
+        </div>
+
+        <div class="mt-6 overflow-x-auto">
+          <table class="tbl w-full text-sm">
+            <thead>
+              <tr class="text-left text-gray-500 dark:text-gray-400 transition-theme">
+                <th class="py-3 pr-3">Nombre</th>
+                <th class="py-3 pr-3">Tipo</th>
+                <th class="py-3 pr-3">Rol</th>
+                <th class="py-3 pr-3">Correo</th>
+                <th class="py-3 pr-3">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="participantsTbody" class="text-gray-900 dark:text-gray-100 transition-theme"></tbody>
+          </table>
+        </div>
+
+        <div class="soft-divider mt-6 pt-4">
+          <p class="text-xs text-gray-500 dark:text-gray-400 transition-theme">
+            * “Tipo” define en qué sección aparece (Invitado/Asistente/CC). “Rol” es etiqueta operativa (Cliente, TI, Proveedor, etc.).
+          </p>
+        </div>
+      </div>
+
+      <!-- Modal simple (form) -->
+      <div id="participantModal" class="hidden fixed inset-0 z-50">
+        <div class="absolute inset-0 bg-black/55"></div>
+        <div class="absolute inset-0 flex items-center justify-center p-4">
+          <div class="panel w-full max-w-2xl bg-white dark:bg-gray-800 rounded-xl shadow-xl transition-theme">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+              <h3 id="participantModalTitle" class="text-base font-bold text-gray-900 dark:text-white transition-theme">
+                Agregar participante
+              </h3>
+              <button class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-theme"
+                      type="button" onclick="closeParticipantForm()">
+                <i class="fas fa-xmark text-gray-700 dark:text-gray-200"></i>
+              </button>
+            </div>
+
+            <div class="p-6 grid grid-cols-12 gap-4">
+              <input type="hidden" id="participantId" />
+
+              <div class="col-span-12 md:col-span-6">
+                <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 transition-theme">Nombre</label>
+                <input id="participantName" class="input-base w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 transition-theme"
+                       placeholder="Ej: Paula Rojas" />
+              </div>
+
+              <div class="col-span-12 md:col-span-6">
+                <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 transition-theme">Correo</label>
+                <input id="participantEmail" class="input-base w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 transition-theme"
+                       placeholder="Ej: pr@empresa.cl" />
+              </div>
+
+              <div class="col-span-12 md:col-span-6">
+                <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 transition-theme">Tipo</label>
+                <select id="participantType" class="input-base w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 transition-theme">
+                  <option value="Invitado">Invitado</option>
+                  <option value="Asistente">Asistente</option>
+                  <option value="CC">CC</option>
+                </select>
+              </div>
+
+              <div class="col-span-12 md:col-span-6">
+                <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 transition-theme">Rol</label>
+                <input id="participantRole" class="input-base w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 transition-theme"
+                       placeholder="Ej: Cliente / TI / Proveedor" />
+              </div>
+            </div>
+
+            <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-end gap-2">
+              <button class="px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-theme"
+                      type="button" onclick="closeParticipantForm()">
+                Cancelar
+              </button>
+              <button class="px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white transition-theme shadow-md"
+                      type="button" onclick="saveParticipant()">
+                <i class="fas fa-check mr-2"></i>Guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB: Alcance y Contenido -->
+    <section id="tab-scope" class="tab-panel hidden">
+      <div class="space-y-6">
+
+        <!-- SCOPE-001 -->
+        <article class="panel bg-white dark:bg-gray-800 rounded-xl p-6 transition-theme shadow-md">
+          <div class="flex items-center justify-between gap-4">
+            <div class="flex items-center gap-3 flex-wrap">
+              <h2 class="text-lg font-bold text-gray-900 dark:text-white transition-theme">
+                SCOPE-001 <span class="text-gray-500 dark:text-gray-400 font-semibold">|</span> Introducción
+              </h2>
+              <span class="badge px-2.5 py-1 rounded-lg text-xs font-semibold bg-gray-100 dark:bg-gray-900 text-gray-700 dark:text-gray-300 transition-theme">
+                INTRODUCTION
+              </span>
+            </div>
+          </div>
+
+          <div class="mt-5">
+            <p class="text-xs font-bold tracking-wider text-gray-500 dark:text-gray-400 uppercase transition-theme mb-2">Resumen (editable)</p>
+            <textarea id="scope1Summary"
+              class="input-base w-full min-h-[120px] px-4 py-3 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 transition-theme"
+            >Se revisó la restricción de acceso entre la VLAN de usuarios y la VLAN de servidores que impide el ingreso al portal web on-premise desde la red corporativa. Se identificó que el servicio sólo es accesible desde la VLAN de TI y que la segmentación inter-VLAN opera con una política "deny by default" administrada en el firewall (gateway de todas las VLAN).</textarea>
+          </div>
+
+          <div class="mt-5">
+            <div class="flex items-center justify-between">
+              <p class="text-xs font-bold tracking-wider text-gray-500 dark:text-gray-400 uppercase transition-theme">Temas tratados (editable)</p>
+              <button class="px-3 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white transition-theme shadow-md"
+                      type="button" onclick="addScopeTopic('scope1Topics')">
+                <i class="fas fa-plus mr-2"></i>Agregar tema
+              </button>
+            </div>
+
+            <ul id="scope1Topics" class="mt-3 space-y-2"></ul>
+          </div>
+        </article>
+
+        <!-- SCOPE-002 -->
+        <article class="panel bg-white dark:bg-gray-800 rounded-xl p-6 transition-theme shadow-md">
+          <div class="flex items-center justify-between gap-4">
+            <div class="flex items-center gap-3 flex-wrap">
+              <h2 class="text-lg font-bold text-gray-900 dark:text-white transition-theme">
+                SCOPE-002 <span class="text-gray-500 dark:text-gray-400 font-semibold">|</span> Habilitación de acceso inter-VLAN al portal on-premise
+              </h2>
+              <span class="badge px-2.5 py-1 rounded-lg text-xs font-semibold bg-gray-100 dark:bg-gray-900 text-gray-700 dark:text-gray-300 transition-theme">
+                TOPIC
+              </span>
+            </div>
+          </div>
+
+          <div class="mt-5">
+            <p class="text-xs font-bold tracking-wider text-gray-500 dark:text-gray-400 uppercase transition-theme mb-2">Resumen (editable)</p>
+            <textarea id="scope2Summary"
+              class="input-base w-full min-h-[110px] px-4 py-3 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 transition-theme"
+            >Paula Rojas y Marco Álvarez expusieron que los usuarios de la VLAN corporativa no acceden al portal, mientras que desde la VLAN de TI funciona correctamente. Tomás Cárdenas confirmó que el firewall opera como gateway inter-VLAN y que la segmentación se rige por deny-by-default, por lo que el problema es de políticas y no de ruteo.</textarea>
+          </div>
+
+          <div class="mt-5">
+            <p class="text-xs font-bold tracking-wider text-gray-500 dark:text-gray-400 uppercase transition-theme mb-2">Detalles (editable por secciones)</p>
+
+            <div id="scope2Details" class="space-y-4">
+              <!-- Detail blocks will be rendered by JS -->
+            </div>
+
+            <div class="soft-divider mt-6 pt-4 flex justify-end gap-2">
+              <button class="px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white transition-theme shadow-md"
+                      type="button" onclick="addScopeDetail()">
+                <i class="fas fa-plus mr-2"></i>Agregar detalle
+              </button>
+            </div>
+          </div>
+        </article>
+
+      </div>
+    </section>
+
+    <!-- TAB: Acuerdos -->
+    <section id="tab-agreements" class="tab-panel hidden">
+      <div class="panel bg-white dark:bg-gray-800 rounded-xl p-6 transition-theme shadow-md">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div>
+            <h2 class="text-lg font-bold text-gray-900 dark:text-white transition-theme">
+              <i class="fas fa-check mr-2 text-primary-600 dark:text-primary-400"></i>Acuerdos
+            </h2>
+            <p class="text-sm text-gray-600 dark:text-gray-300 transition-theme">
+              Editable. Incluye columna de acciones (editar/eliminar).
+            </p>
+          </div>
+
+          <button class="px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white transition-theme shadow-md"
+                  type="button" onclick="addAgreement()">
+            <i class="fas fa-plus mr-2"></i>Agregar acuerdo
+          </button>
+        </div>
+
+        <div class="mt-6 overflow-x-auto">
+          <table class="tbl w-full text-sm">
+            <thead>
+              <tr class="text-left text-gray-500 dark:text-gray-400 transition-theme">
+                <th class="py-3 pr-3">Título</th>
+                <th class="py-3 pr-3">Responsable</th>
+                <th class="py-3 pr-3">Fecha</th>
+                <th class="py-3 pr-3">Estado</th>
+                <th class="py-3 pr-3">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="agreementsTbody" class="text-gray-900 dark:text-gray-100 transition-theme"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB: Requerimientos -->
+    <section id="tab-req" class="tab-panel hidden">
+      <div class="panel bg-white dark:bg-gray-800 rounded-xl p-6 transition-theme shadow-md">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div>
+            <h2 class="text-lg font-bold text-gray-900 dark:text-white transition-theme">
+              <i class="fas fa-thumbtack mr-2 text-primary-600 dark:text-primary-400"></i>Requerimientos
+            </h2>
+            <p class="text-sm text-gray-600 dark:text-gray-300 transition-theme">
+              Editable. Incluye columna de acciones (editar/eliminar).
+            </p>
+          </div>
+
+          <button class="px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white transition-theme shadow-md"
+                  type="button" onclick="addRequirement()">
+            <i class="fas fa-plus mr-2"></i>Agregar requerimiento
+          </button>
+        </div>
+
+        <div class="mt-6 overflow-x-auto">
+          <table class="tbl w-full text-sm">
+            <thead>
+              <tr class="text-left text-gray-500 dark:text-gray-400 transition-theme">
+                <th class="py-3 pr-3">Requerimiento</th>
+                <th class="py-3 pr-3">Prioridad</th>
+                <th class="py-3 pr-3">Owner</th>
+                <th class="py-3 pr-3">Estado</th>
+                <th class="py-3 pr-3">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="reqTbody" class="text-gray-900 dark:text-gray-100 transition-theme"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB: Tags -->
+    <section id="tab-tags" class="tab-panel hidden">
+      <div class="grid grid-cols-12 gap-6">
+
+        <!-- Tags sugeridos por IA (solo eliminar) -->
+        <article class="col-span-12 lg:col-span-6 panel bg-white dark:bg-gray-800 rounded-xl p-6 transition-theme shadow-md">
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <h2 class="text-lg font-bold text-gray-900 dark:text-white transition-theme">
+                <i class="fas fa-brain mr-2 text-primary-600 dark:text-primary-400"></i>Tags sugeridos por IA
+              </h2>
+              <p class="text-sm text-gray-600 dark:text-gray-300 transition-theme">
+                Solo eliminar (no editar / no agregar).
+              </p>
+            </div>
+
+            <span class="badge px-2.5 py-1 rounded-lg text-xs font-semibold bg-gray-100 dark:bg-gray-900 text-gray-700 dark:text-gray-300 transition-theme">
+              <i class="fas fa-lock mr-1"></i>Controlado
+            </span>
+          </div>
+
+          <div class="mt-6 overflow-x-auto">
+            <table class="tbl w-full text-sm">
+              <thead>
+                <tr class="text-left text-gray-500 dark:text-gray-400 transition-theme">
+                  <th class="py-3 pr-3">Tag</th>
+                  <th class="py-3 pr-3">Origen</th>
+                  <th class="py-3 pr-3">Acción</th>
+                </tr>
+              </thead>
+              <tbody id="tagsAiTbody" class="text-gray-900 dark:text-gray-100 transition-theme"></tbody>
+            </table>
+          </div>
+        </article>
+
+        <!-- Tags del usuario (agregar / eliminar) -->
+        <article class="col-span-12 lg:col-span-6 panel bg-white dark:bg-gray-800 rounded-xl p-6 transition-theme shadow-md">
+          <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div>
+              <h2 class="text-lg font-bold text-gray-900 dark:text-white transition-theme">
+                <i class="fas fa-tags mr-2 text-primary-600 dark:text-primary-400"></i>Tags del usuario
+              </h2>
+              <p class="text-sm text-gray-600 dark:text-gray-300 transition-theme">
+                Agregar y eliminar.
+              </p>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <input id="userTagInput" class="input-base px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 transition-theme"
+                     placeholder="Nuevo tag..." />
+              <button class="px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white transition-theme shadow-md"
+                      type="button" onclick="addUserTag()">
+                <i class="fas fa-plus mr-2"></i>Agregar
+              </button>
+            </div>
+          </div>
+
+          <div class="mt-6 overflow-x-auto">
+            <table class="tbl w-full text-sm">
+              <thead>
+                <tr class="text-left text-gray-500 dark:text-gray-400 transition-theme">
+                  <th class="py-3 pr-3">Tag</th>
+                  <th class="py-3 pr-3">Acción</th>
+                </tr>
+              </thead>
+              <tbody id="tagsUserTbody" class="text-gray-900 dark:text-gray-100 transition-theme"></tbody>
+            </table>
+          </div>
+        </article>
+
+      </div>
+    </section>
+
+    <!-- TAB: Próximas reuniones -->
+    <section id="tab-next" class="tab-panel hidden">
+      <div class="panel bg-white dark:bg-gray-800 rounded-xl p-6 transition-theme shadow-md">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div>
+            <h2 class="text-lg font-bold text-gray-900 dark:text-white transition-theme">
+              <i class="fas fa-calendar mr-2 text-primary-600 dark:text-primary-400"></i>Próximas reuniones
+            </h2>
+            <p class="text-sm text-gray-600 dark:text-gray-300 transition-theme">
+              Editable. Incluye acciones editar/eliminar.
+            </p>
+          </div>
+
+          <button class="px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white transition-theme shadow-md"
+                  type="button" onclick="addNextMeeting()">
+            <i class="fas fa-plus mr-2"></i>Agregar reunión
+          </button>
+        </div>
+
+        <div class="mt-6 overflow-x-auto">
+          <table class="tbl w-full text-sm">
+            <thead>
+              <tr class="text-left text-gray-500 dark:text-gray-400 transition-theme">
+                <th class="py-3 pr-3">Fecha</th>
+                <th class="py-3 pr-3">Hora</th>
+                <th class="py-3 pr-3">Tema</th>
+                <th class="py-3 pr-3">Responsable</th>
+                <th class="py-3 pr-3">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="nextTbody" class="text-gray-900 dark:text-gray-100 transition-theme"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB: Metadata (no modificable) -->
+    <section id="tab-meta" class="tab-panel hidden">
+      <div class="panel bg-white dark:bg-gray-800 rounded-xl p-6 transition-theme shadow-md">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <h2 class="text-lg font-bold text-gray-900 dark:text-white transition-theme">
+              <i class="fas fa-gear mr-2 text-primary-600 dark:text-primary-400"></i>Metadata
+            </h2>
+            <p class="text-sm text-gray-600 dark:text-gray-300 transition-theme">
+              No modificable.
+            </p>
+          </div>
+          <span class="badge px-2.5 py-1 rounded-lg text-xs font-semibold bg-gray-100 dark:bg-gray-900 text-gray-700 dark:text-gray-300 transition-theme">
+            <i class="fas fa-lock mr-1"></i>Bloqueado
+          </span>
+        </div>
+
+        <div class="mt-6 readonly rounded-xl p-4 transition-theme">
+          <div class="grid grid-cols-12 gap-4 text-sm">
+            <div class="col-span-12 md:col-span-6">
+              <p class="text-gray-500 dark:text-gray-400 transition-theme">ID Minuta</p>
+              <p class="mono text-gray-900 dark:text-gray-100 transition-theme">min_20260212_0001</p>
+            </div>
+            <div class="col-span-12 md:col-span-6">
+              <p class="text-gray-500 dark:text-gray-400 transition-theme">Hash JSON</p>
+              <p class="mono text-gray-900 dark:text-gray-100 transition-theme">sha256: 7c9f...e1a2</p>
+            </div>
+            <div class="col-span-12 md:col-span-6">
+              <p class="text-gray-500 dark:text-gray-400 transition-theme">Modelo IA</p>
+              <p class="mono text-gray-900 dark:text-gray-100 transition-theme">gpt-5.2-thinking</p>
+            </div>
+            <div class="col-span-12 md:col-span-6">
+              <p class="text-gray-500 dark:text-gray-400 transition-theme">Generado</p>
+              <p class="mono text-gray-900 dark:text-gray-100 transition-theme">2026-02-12T23:18:00-03:00</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Hidden scratch for find/replace scope -->
+    <div id="docRoot" class="hidden"></div>
+
+  </main>
+
+  <script>
+    /* =========================
+       Estado inicial (demo)
+    ========================== */
+    const initialState = {
+      participants: [
+        { id: uid(), name: "Camila Soto", type: "Invitado", role: "Proveedor", email: "" },
+        { id: uid(), name: "Paula Rojas", type: "Invitado", role: "Cliente / TI", email: "" },
+        { id: uid(), name: "Marco Álvarez", type: "Invitado", role: "Usuario final", email: "" },
+        { id: uid(), name: "Tomás Cárdenas", type: "Invitado", role: "TI / Redes", email: "" },
+        { id: uid(), name: "Ignacio Valdés", type: "Invitado", role: "TI", email: "" },
+        { id: uid(), name: "Matías Maldonado", type: "CC", role: "Copia", email: "" },
+      ],
+      agreements: [
+        { id: uid(), title: "Definir puertos/protocolos exactos para acceso al portal", owner: "TI", date: "14/02/2026", status: "Pendiente" },
+        { id: uid(), title: "Ejecutar pruebas desde VLAN corporativa (UAT)", owner: "Cliente", date: "15/02/2026", status: "Pendiente" },
+      ],
+      requirements: [
+        { id: uid(), req: "Habilitar HTTP/HTTPS desde VLAN usuarios a servidor IIS", prio: "Alta", owner: "Redes", status: "Pendiente" },
+        { id: uid(), req: "Registrar evidencia de pruebas (logs / capturas)", prio: "Media", owner: "TI", status: "Pendiente" },
+      ],
+      tagsAI: [
+        { id: uid(), tag: "inter-vlan", origin: "IA" },
+        { id: uid(), tag: "firewall-policy", origin: "IA" },
+        { id: uid(), tag: "iis", origin: "IA" },
+      ],
+      tagsUser: [
+        { id: uid(), tag: "cliente" },
+        { id: uid(), tag: "seguridad" },
+      ],
+      nextMeetings: [
+        { id: uid(), date: "15/02/2026", time: "11:00", topic: "Validación reglas firewall + pruebas", owner: "Tomás Cárdenas" }
+      ],
+      scope1Topics: [
+        "Habilitación de acceso inter-VLAN al portal on-premise",
+        "Definición de reglas, protocolos y controles de seguridad",
+        "Plan de pruebas, observabilidad y ventana de cambio",
+      ],
+      scope2Details: [
+        { id: uid(), title: "Restricción actual", body: "El portal sólo responde desde la VLAN de TI (10.20.99.0/24). Desde la VLAN corporativa de usuarios (10.20.10.0/24) no hay acceso." },
+        { id: uid(), title: "Arquitectura confirmada", body: "Firewall es gateway de todas las VLAN. Política base: deny inter-VLAN, se habilita por excepción." },
+        { id: uid(), title: "Impacto operativo", body: "El portal es crítico para solicitudes internas. Actualmente se está resolviendo por correo debido a timeouts desde equipos de usuarios." },
+        { id: uid(), title: "Componente DNS", body: "Portal accesible por FQDN interno: intranet.clinicasantaaurora.local, que resuelve la IP 10.20.30.20 del IIS." },
+        { id: uid(), title: "Infraestructura del portal", body: "Windows Server con IIS en VLAN de servidores (10.20.30.0/24). Base SQL en la misma VLAN. No hay DMZ para este servicio." },
+      ]
+    };
+
+    let state = deepClone(initialState);
+
+    /* =========================
+       Helpers
+    ========================== */
+    function uid() { return Math.random().toString(16).slice(2) + Date.now().toString(16); }
+    function deepClone(o){ return JSON.parse(JSON.stringify(o)); }
+    function esc(s){ return String(s ?? "").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m])); }
+
+    function toggleTheme(){ document.documentElement.classList.toggle('dark'); }
+
+    /* =========================
+       Tabs
+    ========================== */
+    function setTab(tabId, btn){
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+      document.getElementById(tabId).classList.remove('hidden');
+
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    }
+
+    /* =========================
+       Cards edit (Información reunión / horarios)
+       - Convierte spans data-editable="true" en inputs inline (sin backend)
+    ========================== */
+    const cardEditState = new Map(); // cardId -> bool
+
+    function toggleCardEdit(cardId){
+      const el = document.getElementById(cardId);
+      const editing = !(cardEditState.get(cardId) === true);
+      cardEditState.set(cardId, editing);
+
+      const labelId = cardId + "EditTxt";
+      const label = document.getElementById(labelId);
+      if (label) label.textContent = editing ? "Bloquear" : "Editar";
+
+      el.querySelectorAll('[data-editable="true"]').forEach(node => {
+        if (editing) {
+          const val = node.textContent.trim();
+          const isMono = node.classList.contains('mono');
+          node.dataset.prev = val;
+          node.innerHTML = `
+            <input class="input-base w-full max-w-[260px] md:max-w-[320px] px-3 py-1.5 rounded-lg bg-gray-50 dark:bg-gray-900
+                          border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 transition-theme ${isMono ? "mono" : ""}"
+                   value="${esc(val)}" />
+          `;
+        } else {
+          // salir de modo edición sin guardar explícito => mantiene el valor actual
+          const inp = node.querySelector('input');
+          node.textContent = inp ? inp.value : (node.dataset.prev || "");
+        }
+      });
+    }
+
+    function saveCard(cardId){
+      const el = document.getElementById(cardId);
+      el.querySelectorAll('[data-editable="true"]').forEach(node => {
+        const inp = node.querySelector('input');
+        if (inp) node.textContent = inp.value;
+      });
+      cardEditState.set(cardId, false);
+
+      const labelId = cardId + "EditTxt";
+      const label = document.getElementById(labelId);
+      if (label) label.textContent = "Editar";
+
+      toast("Cambios guardados en la tarjeta.");
+    }
+
+    /* =========================
+       Scope topics (editable list)
+    ========================== */
+    function renderScopeTopics(){
+      const ul = document.getElementById('scope1Topics');
+      ul.innerHTML = state.scope1Topics.map((t, idx) => `
+        <li class="panel bg-gray-50 dark:bg-gray-900 rounded-xl px-4 py-3 transition-theme flex items-start justify-between gap-3">
+          <div class="flex items-start gap-3">
+            <span class="mt-1 w-2 h-2 rounded-full bg-primary-500"></span>
+            <input class="input-base w-full bg-transparent text-gray-900 dark:text-gray-100 transition-theme"
+                   value="${esc(t)}" oninput="updateScopeTopic(${idx}, this.value)" />
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <button class="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-theme"
+                    type="button" onclick="removeScopeTopic(${idx})" title="Eliminar">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </li>
+      `).join('');
+    }
+
+    function updateScopeTopic(idx, v){ state.scope1Topics[idx] = v; }
+    function addScopeTopic(){
+      state.scope1Topics.push("Nuevo tema");
+      renderScopeTopics();
+      toast("Tema agregado.");
+    }
+    function removeScopeTopic(idx){
+      state.scope1Topics.splice(idx, 1);
+      renderScopeTopics();
+      toast("Tema eliminado.");
+    }
+
+    /* =========================
+       Scope2 details (editable sections)
+    ========================== */
+    function renderScopeDetails(){
+      const wrap = document.getElementById('scope2Details');
+      wrap.innerHTML = state.scope2Details.map(d => `
+        <div class="panel bg-gray-50 dark:bg-gray-900 rounded-xl p-4 transition-theme">
+          <div class="flex items-center justify-between gap-3">
+            <input class="input-base font-semibold w-full bg-transparent text-primary-700 dark:text-primary-300 transition-theme"
+                   value="${esc(d.title)}" oninput="updateScopeDetailTitle('${d.id}', this.value)" />
+            <button class="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-theme"
+                    type="button" onclick="removeScopeDetail('${d.id}')" title="Eliminar">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+          <textarea class="input-base mt-3 w-full min-h-[90px] px-3 py-2 rounded-lg bg-white/60 dark:bg-black/10 border border-gray-200 dark:border-gray-700
+                           text-gray-900 dark:text-gray-100 transition-theme"
+                    oninput="updateScopeDetailBody('${d.id}', this.value)">${esc(d.body)}</textarea>
+        </div>
+      `).join('');
+    }
+
+    function addScopeDetail(){
+      state.scope2Details.push({ id: uid(), title: "Nuevo detalle", body: "" });
+      renderScopeDetails();
+      toast("Detalle agregado.");
+    }
+    function removeScopeDetail(id){
+      state.scope2Details = state.scope2Details.filter(x => x.id !== id);
+      renderScopeDetails();
+      toast("Detalle eliminado.");
+    }
+    function updateScopeDetailTitle(id, v){
+      const d = state.scope2Details.find(x => x.id === id);
+      if (d) d.title = v;
+    }
+    function updateScopeDetailBody(id, v){
+      const d = state.scope2Details.find(x => x.id === id);
+      if (d) d.body = v;
+    }
+
+    /* =========================
+       Participants table (CRUD)
+    ========================== */
+    function renderParticipants(){
+      const tb = document.getElementById('participantsTbody');
+      tb.innerHTML = state.participants.map(p => `
+        <tr>
+          <td class="py-3 pr-3 font-semibold">${esc(p.name)}</td>
+          <td class="py-3 pr-3">${badgeType(p.type)}</td>
+          <td class="py-3 pr-3">${esc(p.role)}</td>
+          <td class="py-3 pr-3 mono text-xs">${esc(p.email || "-")}</td>
+          <td class="py-3 pr-3">
+            <div class="flex items-center gap-2">
+              <button class="px-3 py-2 rounded-lg bg-gray-900/5 dark:bg-white/5 border border-gray-200 dark:border-gray-700
+                             text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-theme"
+                      type="button" onclick="editParticipant('${p.id}')" title="Editar">
+                <i class="fas fa-pen"></i>
+              </button>
+              <button class="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-theme"
+                      type="button" onclick="deleteParticipant('${p.id}')" title="Eliminar">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+
+      updateParticipantSummary();
+      document.getElementById('pillParticipants').textContent = state.participants.length;
+    }
+
+    function badgeType(t){
+      const map = {
+        "Invitado": "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300",
+        "Asistente": "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300",
+        "CC": "bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300",
+      };
+      const cls = map[t] || "bg-gray-100 dark:bg-gray-900 text-gray-700 dark:text-gray-200";
+      return `<span class="badge px-2.5 py-1 rounded-lg text-xs font-semibold ${cls} transition-theme">${esc(t)}</span>`;
+    }
+
+    function openParticipantForm(){
+      document.getElementById('participantModalTitle').textContent = "Agregar participante";
+      document.getElementById('participantId').value = "";
+      document.getElementById('participantName').value = "";
+      document.getElementById('participantEmail').value = "";
+      document.getElementById('participantType').value = "Invitado";
+      document.getElementById('participantRole').value = "";
+      document.getElementById('participantModal').classList.remove('hidden');
+    }
+
+    function closeParticipantForm(){
+      document.getElementById('participantModal').classList.add('hidden');
+    }
+
+    function editParticipant(id){
+      const p = state.participants.find(x => x.id === id);
+      if (!p) return;
+      document.getElementById('participantModalTitle').textContent = "Editar participante";
+      document.getElementById('participantId').value = p.id;
+      document.getElementById('participantName').value = p.name;
+      document.getElementById('participantEmail').value = p.email || "";
+      document.getElementById('participantType').value = p.type;
+      document.getElementById('participantRole').value = p.role || "";
+      document.getElementById('participantModal').classList.remove('hidden');
+    }
+
+    function saveParticipant(){
+      const id = document.getElementById('participantId').value.trim();
+      const name = document.getElementById('participantName').value.trim();
+      const email = document.getElementById('participantEmail').value.trim();
+      const type = document.getElementById('participantType').value;
+      const role = document.getElementById('participantRole').value.trim();
+
+      if (!name) { toast("Nombre es obligatorio.", true); return; }
+
+      if (id) {
+        const p = state.participants.find(x => x.id === id);
+        if (p) { p.name = name; p.email = email; p.type = type; p.role = role; }
+        toast("Participante actualizado.");
+      } else {
+        state.participants.push({ id: uid(), name, email, type, role });
+        toast("Participante agregado.");
+      }
+
+      closeParticipantForm();
+      renderParticipants();
+    }
+
+    function deleteParticipant(id){
+      if (!confirm("¿Eliminar participante?")) return;
+      state.participants = state.participants.filter(x => x.id !== id);
+      renderParticipants();
+      toast("Participante eliminado.");
+    }
+
+    function updateParticipantSummary(){
+      const inv = state.participants.filter(p => p.type === "Invitado").length;
+      const asis = state.participants.filter(p => p.type === "Asistente").length;
+      const cc = state.participants.filter(p => p.type === "CC").length;
+
+      document.getElementById('roInvitados').textContent = `${inv} persona(s)`;
+      document.getElementById('roAsistentes').textContent = `${asis} persona(s)`;
+      document.getElementById('roCC').textContent = `${cc} persona(s)`;
+    }
+
+    /* =========================
+       Agreements (CRUD inline prompts)
+    ========================== */
+    function renderAgreements(){
+      const tb = document.getElementById('agreementsTbody');
+      tb.innerHTML = state.agreements.map(a => `
+        <tr>
+          <td class="py-3 pr-3 font-semibold">${esc(a.title)}</td>
+          <td class="py-3 pr-3">${esc(a.owner)}</td>
+          <td class="py-3 pr-3 mono text-xs">${esc(a.date)}</td>
+          <td class="py-3 pr-3">${statusBadge(a.status)}</td>
+          <td class="py-3 pr-3">
+            <div class="flex items-center gap-2">
+              <button class="px-3 py-2 rounded-lg bg-gray-900/5 dark:bg-white/5 border border-gray-200 dark:border-gray-700
+                             text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-theme"
+                      type="button" onclick="editAgreement('${a.id}')"><i class="fas fa-pen"></i></button>
+              <button class="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-theme"
+                      type="button" onclick="deleteAgreement('${a.id}')"><i class="fas fa-trash"></i></button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+
+      document.getElementById('pillAgreements').textContent = state.agreements.length;
+    }
+
+    function addAgreement(){
+      state.agreements.push({ id: uid(), title: "Nuevo acuerdo", owner: "Pendiente", date: "dd/mm/aaaa", status: "Pendiente" });
+      renderAgreements();
+      toast("Acuerdo agregado.");
+    }
+
+    function editAgreement(id){
+      const a = state.agreements.find(x => x.id === id);
+      if (!a) return;
+      const title = prompt("Título", a.title); if (title === null) return;
+      const owner = prompt("Responsable", a.owner); if (owner === null) return;
+      const date = prompt("Fecha (dd/mm/aaaa)", a.date); if (date === null) return;
+      const status = prompt("Estado (Pendiente/En progreso/Cerrado)", a.status); if (status === null) return;
+
+      a.title = title; a.owner = owner; a.date = date; a.status = status;
+      renderAgreements();
+      toast("Acuerdo actualizado.");
+    }
+
+    function deleteAgreement(id){
+      if (!confirm("¿Eliminar acuerdo?")) return;
+      state.agreements = state.agreements.filter(x => x.id !== id);
+      renderAgreements();
+      toast("Acuerdo eliminado.");
+    }
+
+    /* =========================
+       Requirements (CRUD)
+    ========================== */
+    function renderRequirements(){
+      const tb = document.getElementById('reqTbody');
+      tb.innerHTML = state.requirements.map(r => `
+        <tr>
+          <td class="py-3 pr-3 font-semibold">${esc(r.req)}</td>
+          <td class="py-3 pr-3">${prioBadge(r.prio)}</td>
+          <td class="py-3 pr-3">${esc(r.owner)}</td>
+          <td class="py-3 pr-3">${statusBadge(r.status)}</td>
+          <td class="py-3 pr-3">
+            <div class="flex items-center gap-2">
+              <button class="px-3 py-2 rounded-lg bg-gray-900/5 dark:bg-white/5 border border-gray-200 dark:border-gray-700
+                             text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-theme"
+                      type="button" onclick="editRequirement('${r.id}')"><i class="fas fa-pen"></i></button>
+              <button class="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-theme"
+                      type="button" onclick="deleteRequirement('${r.id}')"><i class="fas fa-trash"></i></button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+
+      document.getElementById('pillReq').textContent = state.requirements.length;
+    }
+
+    function addRequirement(){
+      state.requirements.push({ id: uid(), req: "Nuevo requerimiento", prio: "Media", owner: "Pendiente", status: "Pendiente" });
+      renderRequirements();
+      toast("Requerimiento agregado.");
+    }
+
+    function editRequirement(id){
+      const r = state.requirements.find(x => x.id === id);
+      if (!r) return;
+      const req = prompt("Requerimiento", r.req); if (req === null) return;
+      const prio = prompt("Prioridad (Alta/Media/Baja)", r.prio); if (prio === null) return;
+      const owner = prompt("Owner", r.owner); if (owner === null) return;
+      const status = prompt("Estado (Pendiente/En progreso/Cerrado)", r.status); if (status === null) return;
+
+      r.req = req; r.prio = prio; r.owner = owner; r.status = status;
+      renderRequirements();
+      toast("Requerimiento actualizado.");
+    }
+
+    function deleteRequirement(id){
+      if (!confirm("¿Eliminar requerimiento?")) return;
+      state.requirements = state.requirements.filter(x => x.id !== id);
+      renderRequirements();
+      toast("Requerimiento eliminado.");
+    }
+
+    /* =========================
+       Tags
+       - AI: solo eliminar
+       - User: agregar y eliminar
+    ========================== */
+    function renderTags(){
+      const ai = document.getElementById('tagsAiTbody');
+      ai.innerHTML = state.tagsAI.map(t => `
+        <tr>
+          <td class="py-3 pr-3 font-semibold">${esc(t.tag)}</td>
+          <td class="py-3 pr-3">${esc(t.origin)}</td>
+          <td class="py-3 pr-3">
+            <button class="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-theme"
+                    type="button" onclick="deleteAiTag('${t.id}')">
+              <i class="fas fa-trash mr-2"></i>Eliminar
+            </button>
+          </td>
+        </tr>
+      `).join('');
+
+      const us = document.getElementById('tagsUserTbody');
+      us.innerHTML = state.tagsUser.map(t => `
+        <tr>
+          <td class="py-3 pr-3 font-semibold">${esc(t.tag)}</td>
+          <td class="py-3 pr-3">
+            <button class="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-theme"
+                    type="button" onclick="deleteUserTag('${t.id}')">
+              <i class="fas fa-trash mr-2"></i>Eliminar
+            </button>
+          </td>
+        </tr>
+      `).join('');
+
+      document.getElementById('pillTagsAI').textContent = state.tagsAI.length + state.tagsUser.length;
+    }
+
+    function deleteAiTag(id){
+      if (!confirm("¿Eliminar tag sugerido por IA?")) return;
+      state.tagsAI = state.tagsAI.filter(x => x.id !== id);
+      renderTags();
+      toast("Tag IA eliminado.");
+    }
+
+    function addUserTag(){
+      const v = document.getElementById('userTagInput').value.trim();
+      if (!v) { toast("Ingrese un tag.", true); return; }
+      state.tagsUser.push({ id: uid(), tag: v });
+      document.getElementById('userTagInput').value = "";
+      renderTags();
+      toast("Tag de usuario agregado.");
+    }
+
+    function deleteUserTag(id){
+      if (!confirm("¿Eliminar tag de usuario?")) return;
+      state.tagsUser = state.tagsUser.filter(x => x.id !== id);
+      renderTags();
+      toast("Tag de usuario eliminado.");
+    }
+
+    /* =========================
+       Próximas reuniones (CRUD)
+    ========================== */
+    function renderNextMeetings(){
+      const tb = document.getElementById('nextTbody');
+      tb.innerHTML = state.nextMeetings.map(n => `
+        <tr>
+          <td class="py-3 pr-3 mono text-xs">${esc(n.date)}</td>
+          <td class="py-3 pr-3 mono text-xs">${esc(n.time)}</td>
+          <td class="py-3 pr-3 font-semibold">${esc(n.topic)}</td>
+          <td class="py-3 pr-3">${esc(n.owner)}</td>
+          <td class="py-3 pr-3">
+            <div class="flex items-center gap-2">
+              <button class="px-3 py-2 rounded-lg bg-gray-900/5 dark:bg-white/5 border border-gray-200 dark:border-gray-700
+                             text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-theme"
+                      type="button" onclick="editNextMeeting('${n.id}')"><i class="fas fa-pen"></i></button>
+              <button class="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-theme"
+                      type="button" onclick="deleteNextMeeting('${n.id}')"><i class="fas fa-trash"></i></button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+
+      document.getElementById('pillNext').textContent = state.nextMeetings.length;
+    }
+
+    function addNextMeeting(){
+      state.nextMeetings.push({ id: uid(), date: "dd/mm/aaaa", time: "hh:mm", topic: "Nueva reunión", owner: "Pendiente" });
+      renderNextMeetings();
+      toast("Reunión agregada.");
+    }
+
+    function editNextMeeting(id){
+      const n = state.nextMeetings.find(x => x.id === id);
+      if (!n) return;
+      const date = prompt("Fecha (dd/mm/aaaa)", n.date); if (date === null) return;
+      const time = prompt("Hora (hh:mm)", n.time); if (time === null) return;
+      const topic = prompt("Tema", n.topic); if (topic === null) return;
+      const owner = prompt("Responsable", n.owner); if (owner === null) return;
+
+      n.date = date; n.time = time; n.topic = topic; n.owner = owner;
+      renderNextMeetings();
+      toast("Reunión actualizada.");
+    }
+
+    function deleteNextMeeting(id){
+      if (!confirm("¿Eliminar próxima reunión?")) return;
+      state.nextMeetings = state.nextMeetings.filter(x => x.id !== id);
+      renderNextMeetings();
+      toast("Reunión eliminada.");
+    }
+
+    /* =========================
+       Badges helpers
+    ========================== */
+    function statusBadge(s){
+      const v = (s || "").toLowerCase();
+      let cls = "bg-gray-100 dark:bg-gray-900 text-gray-700 dark:text-gray-200";
+      if (v.includes("pend")) cls = "bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300";
+      if (v.includes("pro")) cls = "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300";
+      if (v.includes("cerr") || v.includes("done")) cls = "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300";
+      return `<span class="badge px-2.5 py-1 rounded-lg text-xs font-semibold ${cls} transition-theme">${esc(s)}</span>`;
+    }
+
+    function prioBadge(p){
+      const v = (p || "").toLowerCase();
+      let cls = "bg-gray-100 dark:bg-gray-900 text-gray-700 dark:text-gray-200";
+      if (v.includes("alta")) cls = "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300";
+      if (v.includes("media")) cls = "bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300";
+      if (v.includes("baja")) cls = "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300";
+      return `<span class="badge px-2.5 py-1 rounded-lg text-xs font-semibold ${cls} transition-theme">${esc(p)}</span>`;
+    }
+
+    /* =========================
+       Find/Replace (aplica sobre campos editables principales)
+       - En esta demo, reemplaza texto en:
+         - textarea scope summaries
+         - lista topics
+         - scope2 details
+         - tablas (acuerdos, req, tags user)
+       No toca bloques readonly.
+    ========================== */
+    function getSearchCorpus(){
+      return {
+        scope1Summary: document.getElementById('scope1Summary').value,
+        scope2Summary: document.getElementById('scope2Summary').value,
+        topics: state.scope1Topics.join("\n"),
+        details: state.scope2Details.map(d => d.title + "\n" + d.body).join("\n\n"),
+        agreements: state.agreements.map(a => `${a.title} ${a.owner} ${a.date} ${a.status}`).join("\n"),
+        requirements: state.requirements.map(r => `${r.req} ${r.prio} ${r.owner} ${r.status}`).join("\n"),
+        tagsUser: state.tagsUser.map(t => t.tag).join("\n"),
+        next: state.nextMeetings.map(n => `${n.date} ${n.time} ${n.topic} ${n.owner}`).join("\n")
+      };
+    }
+
+    function doFind(){
+      const q = document.getElementById('findInput').value;
+      if (!q) { document.getElementById('findStatus').textContent = "0"; return; }
+      const corp = Object.values(getSearchCorpus()).join("\n");
+      const re = new RegExp(escapeRegExp(q), "gi");
+      const m = corp.match(re);
+      document.getElementById('findStatus').textContent = String(m ? m.length : 0);
+    }
+
+    function doReplace(all){
+      const q = document.getElementById('findInput').value;
+      const r = document.getElementById('replaceInput').value;
+      if (!q) { toast("Ingrese texto a buscar.", true); return; }
+
+      const re = new RegExp(escapeRegExp(q), all ? "gi" : "i");
+
+      // Textareas
+      const s1 = document.getElementById('scope1Summary');
+      s1.value = s1.value.replace(re, r);
+
+      const s2 = document.getElementById('scope2Summary');
+      s2.value = s2.value.replace(re, r);
+
+      // Topics
+      state.scope1Topics = state.scope1Topics.map(t => t.replace(re, r));
+
+      // Details
+      state.scope2Details = state.scope2Details.map(d => ({
+        ...d,
+        title: d.title.replace(re, r),
+        body: d.body.replace(re, r),
+      }));
+
+      // Agreements / requirements / tags user / next meetings
+      state.agreements = state.agreements.map(a => ({...a, title: a.title.replace(re, r), owner: a.owner.replace(re, r), status: a.status.replace(re, r), date: a.date.replace(re, r) }));
+      state.requirements = state.requirements.map(x => ({...x, req: x.req.replace(re, r), prio: x.prio.replace(re, r), owner: x.owner.replace(re, r), status: x.status.replace(re, r) }));
+      state.tagsUser = state.tagsUser.map(t => ({...t, tag: t.tag.replace(re, r)}));
+      state.nextMeetings = state.nextMeetings.map(n => ({...n, date: n.date.replace(re, r), time: n.time.replace(re, r), topic: n.topic.replace(re, r), owner: n.owner.replace(re, r)}));
+
+      renderAll();
+      doFind();
+      toast(all ? "Reemplazo global aplicado." : "Reemplazo aplicado.");
+    }
+
+    function escapeRegExp(s){ return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+    /* =========================
+       Print PDF (demo)
+    ========================== */
+    function printPDF(){
+      // En producción: aquí disparas tu pipeline de render/HTML->PDF.
+      toast("Demo: se enviaría a generación de PDF (HTML/PDF template).");
+      console.log("Payload (demo)", exportPayload());
+      alert("Demo: revisar consola (payload).");
+    }
+
+    function exportPayload(){
+      return {
+        meetingInfo: readCard('meetingCard'),
+        times: readCard('timesCard'),
+        participants: deepClone(state.participants),
+        scope: {
+          scope1Summary: document.getElementById('scope1Summary').value,
+          scope1Topics: deepClone(state.scope1Topics),
+          scope2Summary: document.getElementById('scope2Summary').value,
+          scope2Details: deepClone(state.scope2Details)
+        },
+        agreements: deepClone(state.agreements),
+        requirements: deepClone(state.requirements),
+        tagsAI: deepClone(state.tagsAI),
+        tagsUser: deepClone(state.tagsUser),
+        nextMeetings: deepClone(state.nextMeetings),
+        metadataLocked: true
+      };
+    }
+
+    function readCard(cardId){
+      const el = document.getElementById(cardId);
+      const obj = {};
+      el.querySelectorAll('[data-editable="true"]').forEach(node => {
+        const key = node.dataset.field;
+        const inp = node.querySelector('input');
+        obj[key] = inp ? inp.value : node.textContent.trim();
+      });
+      return obj;
+    }
+
+    /* =========================
+       Reset demo
+    ========================== */
+    function resetAll(){
+      if (!confirm("¿Revertir todo al estado inicial?")) return;
+      state = deepClone(initialState);
+
+      // Restore scope textareas
+      document.getElementById('scope1Summary').value = initialText.scope1Summary;
+      document.getElementById('scope2Summary').value = initialText.scope2Summary;
+
+      // Restore cards: si estaban en modo edición, cerrarlas
+      forceCardToText('meetingCard');
+      forceCardToText('timesCard');
+
+      renderAll();
+      toast("Estado inicial restaurado.");
+    }
+
+    function forceCardToText(cardId){
+      const el = document.getElementById(cardId);
+      el.querySelectorAll('[data-editable="true"]').forEach(node => {
+        const inp = node.querySelector('input');
+        if (inp) node.textContent = inp.value;
+      });
+      cardEditState.set(cardId, false);
+      const label = document.getElementById(cardId + "EditTxt");
+      if (label) label.textContent = "Editar";
+    }
+
+    /* =========================
+       Toast (simple)
+    ========================== */
+    let toastTimer = null;
+    function toast(msg, isErr=false){
+      let el = document.getElementById('toast');
+      if (!el){
+        el = document.createElement('div');
+        el.id = 'toast';
+        el.className = 'fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999]';
+        document.body.appendChild(el);
+      }
+      el.innerHTML = `
+        <div class="panel ${isErr ? "bg-red-50 dark:bg-red-900/25 border-red-200 dark:border-red-800" : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"}
+                    rounded-xl px-4 py-3 shadow-lg transition-theme">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-lg flex items-center justify-center ${isErr ? "bg-red-600/10 text-red-700 dark:text-red-300" : "bg-primary-600/10 text-primary-700 dark:text-primary-300"}">
+              <i class="fas ${isErr ? "fa-triangle-exclamation" : "fa-circle-check"}"></i>
+            </div>
+            <div class="text-sm font-semibold text-gray-900 dark:text-gray-100 transition-theme">${esc(msg)}</div>
+          </div>
+        </div>
+      `;
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { el.innerHTML = ""; }, 2200);
+    }
+
+    /* =========================
+       Render all
+    ========================== */
+    function renderAll(){
+      renderParticipants();
+      renderScopeTopics();
+      renderScopeDetails();
+      renderAgreements();
+      renderRequirements();
+      renderTags();
+      renderNextMeetings();
+      doFind();
+    }
+
+    /* Guardar textos iniciales (para reset) */
+    const initialText = {
+      scope1Summary: "",
+      scope2Summary: ""
+    };
+
+    /* Init */
+    window.addEventListener('DOMContentLoaded', () => {
+      // Snapshot inicial de los textareas ya montados
+      initialText.scope1Summary = document.getElementById('scope1Summary').value;
+      initialText.scope2Summary = document.getElementById('scope2Summary').value;
+
+      renderAll();
+    });
+  </script>
+</body>
+</html>
