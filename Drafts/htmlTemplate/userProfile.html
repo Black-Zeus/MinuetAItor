@@ -1,0 +1,1070 @@
+<!-- Template: Mi Perfil (Desktop Only) + Secciones de Cards -->
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mi Perfil - MinuetAItor</title>
+
+  <!-- Tailwind (CDN) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- FontAwesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            primary: {
+              50:  '#eff6ff',
+              100: '#dbeafe',
+              200: '#bfdbfe',
+              300: '#93c5fd',
+              400: '#60a5fa',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+              800: '#1e40af',
+              900: '#1e3a8a',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    .transition-theme { transition: background-color .2s, border-color .2s, color .2s; }
+
+    .avatar-ring { box-shadow: 0 0 0 4px rgba(37, 99, 235, .15); }
+
+    .input-base { outline: none; }
+    .input-base:focus { box-shadow: 0 0 0 3px rgba(59, 130, 246, .35); border-color: transparent !important; }
+
+    .badge { border: 1px solid rgba(148, 163, 184, .35); }
+
+    /* Card look similar a tus screenshots */
+    .card-shell {
+      border: 1px solid rgba(148, 163, 184, .18);
+      background: rgba(31, 41, 55, .55);
+    }
+    .card-divider { border-top: 1px solid rgba(148, 163, 184, .18); }
+    .pill {
+      border: 1px solid rgba(148, 163, 184, .18);
+    }
+    .action-pill {
+      border: 1px solid rgba(148, 163, 184, .20);
+      background: rgba(15, 23, 42, .35);
+    }
+    .btn-soft {
+      border: 1px solid rgba(148, 163, 184, .22);
+      background: rgba(15, 23, 42, .25);
+    }
+    .btn-soft:hover { background: rgba(15, 23, 42, .38); }
+
+    .btn-primary {
+      background: #2563eb;
+    }
+    .btn-primary:hover {
+      background: #1d4ed8;
+    }
+    .btn-timeline {
+      background: rgba(8, 145, 178, .55); /* teal-like */
+    }
+    .btn-timeline:hover {
+      background: rgba(8, 145, 178, .70);
+    }
+
+    /* Desktop-only: fuerza layout a 3 columnas de cards si quieres */
+    .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+    .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  </style>
+</head>
+
+<body class="bg-gray-900 transition-theme min-h-screen">
+
+  <div class="container mx-auto px-6 py-8 max-w-7xl">
+
+    <!-- Header -->
+    <div class="mb-6">
+      <div class="flex items-center justify-between gap-6">
+        <div>
+          <h1 class="text-3xl font-bold text-white transition-theme">
+            <i class="fas fa-user-gear text-primary-400 mr-3"></i>
+            Mi Perfil
+          </h1>
+          <p class="text-gray-300 mt-2 transition-theme">
+            Configura tu información personal, credenciales y preferencias de cuenta.
+          </p>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <button
+            type="button"
+            class="px-6 py-3 btn-soft text-gray-200 rounded-lg transition-all font-medium"
+            onclick="alert('Descartar cambios (demo)')"
+          >
+            <i class="fas fa-rotate-left mr-2"></i>Descartar
+          </button>
+
+          <button
+            type="button"
+            class="px-6 py-3 btn-primary text-white rounded-lg flex items-center gap-2 transition-all shadow-lg hover:shadow-xl"
+            onclick="alert('Guardar cambios (demo)')"
+          >
+            <i class="fas fa-floppy-disk"></i>
+            <span class="font-semibold">Guardar</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="space-y-6">
+
+      <!-- Resumen superior: Avatar SOLO aquí -->
+      <section class="bg-gray-800/60 rounded-xl shadow-md p-6 transition-theme border border-gray-700/60">
+        <div class="flex items-center justify-between gap-6">
+
+          <div class="flex items-center gap-4">
+            <div class="w-16 h-16 rounded-2xl overflow-hidden bg-gradient-to-br from-primary-600 to-primary-700 avatar-ring flex items-center justify-center">
+              <img
+                src="https://via.placeholder.com/160x160.png?text=VS"
+                alt="Avatar"
+                class="w-full h-full object-cover"
+              />
+            </div>
+
+            <div>
+              <div class="flex items-center gap-3">
+                <p class="text-xl font-bold text-white transition-theme leading-tight">
+                  Víctor Soto
+                </p>
+
+                <!-- Acción sutil: cambiar avatar (sin duplicarlo en Datos Personales) -->
+                <label class="text-xs font-semibold px-3 py-1 rounded-full action-pill text-gray-200 cursor-pointer transition-theme">
+                  <i class="fas fa-camera mr-2"></i>Cambiar avatar
+                  <input type="file" class="hidden" accept="image/*" />
+                </label>
+
+                <button
+                  type="button"
+                  class="text-xs font-semibold px-3 py-1 rounded-full action-pill text-gray-200 transition-theme"
+                  onclick="alert('Eliminar avatar (demo)')"
+                  title="Volver a avatar por defecto"
+                >
+                  <i class="fas fa-trash mr-2"></i>Eliminar
+                </button>
+              </div>
+
+              <p class="text-gray-300 transition-theme text-sm">
+                vsoto@empresa.cl
+              </p>
+
+              <div class="flex items-center gap-2 mt-3">
+                <span class="badge px-2.5 py-1 rounded-full text-xs font-semibold text-primary-200 bg-primary-900/25 transition-theme">
+                  <i class="fas fa-shield-halved mr-1"></i>Admin
+                </span>
+                <span class="badge px-2.5 py-1 rounded-full text-xs font-semibold text-green-200 bg-green-900/25 transition-theme">
+                  <i class="fas fa-circle-check mr-1"></i>Activo
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-gray-700/35 rounded-lg px-5 py-4 transition-theme border border-gray-700/60">
+            <p class="text-xs font-semibold text-gray-400 transition-theme">
+              <i class="fas fa-clock mr-2"></i>Último acceso
+            </p>
+            <p class="text-white mt-1 transition-theme">16 Feb 2026 - 18:05</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Datos personales (SIN avatar) -->
+      <section class="bg-gray-800/60 rounded-xl shadow-md p-6 transition-theme border border-gray-700/60">
+        <div class="flex items-center justify-between gap-6">
+          <div>
+            <h2 class="text-xl font-bold text-white transition-theme">
+              <i class="fas fa-address-card text-primary-400 mr-2"></i>
+              Datos personales
+            </h2>
+            <p class="text-gray-300 mt-1 transition-theme text-sm">
+              Información visible en tu cuenta.
+            </p>
+          </div>
+
+          <span class="text-xs font-semibold px-3 py-1 rounded-full bg-gray-700/60 text-gray-200 transition-theme">
+            <i class="fas fa-lock mr-1"></i>Privado
+          </span>
+        </div>
+
+        <div class="mt-6 grid grid-cols-12 gap-4">
+          <div class="col-span-6">
+            <label class="block text-sm font-medium text-gray-300 mb-2 transition-theme">
+              <i class="fas fa-user mr-2"></i>Nombre completo
+            </label>
+            <input
+              type="text"
+              value="Víctor Soto"
+              class="input-base w-full px-4 py-2 border border-gray-700 rounded-lg bg-gray-700/45 text-white transition-theme"
+            />
+          </div>
+
+          <div class="col-span-6">
+            <label class="block text-sm font-medium text-gray-300 mb-2 transition-theme">
+              <i class="fas fa-briefcase mr-2"></i>Cargo
+            </label>
+            <input
+              type="text"
+              value="SysAdmin / DevOps"
+              class="input-base w-full px-4 py-2 border border-gray-700 rounded-lg bg-gray-700/45 text-white transition-theme"
+            />
+          </div>
+
+          <div class="col-span-6">
+            <label class="block text-sm font-medium text-gray-300 mb-2 transition-theme">
+              <i class="fas fa-phone mr-2"></i>Teléfono
+            </label>
+            <input
+              type="tel"
+              value="+56 9 0000 0000"
+              class="input-base w-full px-4 py-2 border border-gray-700 rounded-lg bg-gray-700/45 text-white transition-theme"
+            />
+          </div>
+
+          <div class="col-span-6">
+            <label class="block text-sm font-medium text-gray-300 mb-2 transition-theme">
+              <i class="fas fa-building mr-2"></i>Departamento / Área
+            </label>
+            <input
+              type="text"
+              value="Infraestructura TI"
+              class="input-base w-full px-4 py-2 border border-gray-700 rounded-lg bg-gray-700/45 text-white transition-theme"
+            />
+          </div>
+
+          <div class="col-span-12">
+            <label class="block text-sm font-medium text-gray-300 mb-2 transition-theme">
+              <i class="fas fa-comment-dots mr-2"></i>Notas
+            </label>
+            <textarea
+              rows="3"
+              class="input-base w-full px-4 py-2 border border-gray-700 rounded-lg bg-gray-700/45 text-white transition-theme"
+            >Cuenta personal para administración de proyectos y minutas.</textarea>
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-700/60">
+          <button
+            type="button"
+            class="px-6 py-2 btn-soft text-gray-200 rounded-lg transition-all font-medium"
+            onclick="alert('Restablecer datos personales (demo)')"
+          >
+            <i class="fas fa-eraser mr-2"></i>Restablecer
+          </button>
+          <button
+            type="button"
+            class="px-6 py-2 btn-primary text-white rounded-lg transition-all font-medium shadow-md"
+            onclick="alert('Guardar datos personales (demo)')"
+          >
+            <i class="fas fa-check mr-2"></i>Guardar
+          </button>
+        </div>
+      </section>
+
+      <!-- ========================= -->
+      <!-- SECCIONES NUEVAS (CARDS) -->
+      <!-- ========================= -->
+
+      <!-- 1) Últimas minutas pendientes de aprobación -->
+      <section class="bg-gray-800/60 rounded-xl shadow-md p-6 transition-theme border border-gray-700/60">
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-xl font-bold text-white transition-theme">
+              <i class="fas fa-clipboard-check text-primary-400 mr-2"></i>
+              Minutas pendientes de aprobación
+            </h2>
+            <p class="text-gray-300 mt-1 transition-theme text-sm">
+              Últimas minutas que requieren confirmación o aprobación.
+            </p>
+          </div>
+
+          <button class="px-4 py-2 btn-soft text-gray-200 rounded-lg font-medium transition-all"
+                  onclick="alert('Ver todas (demo)')">
+            <i class="fas fa-list mr-2"></i>Ver todas
+          </button>
+        </div>
+
+        <div class="mt-6 grid-3">
+          <!-- LOOP: pendingApprovalMinutes.map(...) -->
+
+          <!-- Card Minuta (formato minuta) -->
+          <article class="rounded-2xl p-5 card-shell shadow-sm">
+            <div class="flex items-start justify-between gap-3">
+              <h3 class="text-lg font-extrabold text-white leading-tight">
+                Análisis de Requerimientos...
+              </h3>
+              <span class="pill px-3 py-1 rounded-full text-xs font-semibold text-blue-200 bg-blue-900/25">
+                <i class="fas fa-spinner fa-spin mr-2"></i>En Progreso
+              </span>
+            </div>
+
+            <div class="mt-3 text-sm text-gray-300 space-y-1">
+              <div class="flex items-center gap-3">
+                <i class="fas fa-calendar-day text-gray-400"></i><span>22 Ene 2025</span>
+                <i class="fas fa-clock text-gray-400 ml-4"></i><span>11:00 AM</span>
+              </div>
+
+              <div class="flex items-center gap-3 mt-2">
+                <i class="fas fa-building text-gray-400"></i><span>Global Solutions</span>
+                <i class="fas fa-folder text-gray-400 ml-4"></i><span>Sistema CRM</span>
+              </div>
+
+              <div class="flex items-center gap-4 mt-2">
+                <i class="fas fa-users text-gray-400"></i>
+                <span>Juan Pérez</span><span>María García</span><span>Carlos López</span>
+              </div>
+            </div>
+
+            <p class="mt-4 text-gray-300 text-sm leading-relaxed">
+              Sesión de análisis detallado de requerimientos funcionales y no funcionales del nuevo sistema CRM empresarial.
+            </p>
+
+            <div class="mt-4 flex items-center gap-2">
+              <span class="pill px-3 py-1 rounded-full text-xs font-semibold text-blue-200 bg-blue-900/25">Análisis</span>
+              <span class="pill px-3 py-1 rounded-full text-xs font-semibold text-gray-200 bg-gray-900/20">Requerimientos</span>
+            </div>
+
+            <button class="mt-5 w-full py-3 rounded-full btn-timeline text-white font-semibold transition-all"
+                    onclick="alert('Ver Línea de Tiempo (demo)')">
+              <i class="fas fa-rotate-right mr-2"></i>Ver Línea de Tiempo
+            </button>
+
+            <div class="mt-5 card-divider pt-4 flex items-center justify-between gap-3">
+              <button class="w-full py-2 rounded-full btn-soft text-gray-200 transition-all" title="Ver">
+                <i class="fas fa-eye"></i>
+              </button>
+              <button class="w-full py-2 rounded-full btn-soft text-gray-200 transition-all" title="Editar">
+                <i class="fas fa-pen-to-square"></i>
+              </button>
+              <button class="w-full py-2 rounded-full btn-soft text-gray-200 transition-all" title="Descargar">
+                <i class="fas fa-download"></i>
+              </button>
+              <button class="w-full py-2 rounded-full btn-soft text-gray-200 transition-all" title="Eliminar">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </article>
+
+          <!-- Duplica 2 cards más (demo) -->
+          <article class="rounded-2xl p-5 card-shell shadow-sm">
+            <div class="flex items-start justify-between gap-3">
+              <h3 class="text-lg font-extrabold text-white leading-tight">
+                Comité de Seguridad TI...
+              </h3>
+              <span class="pill px-3 py-1 rounded-full text-xs font-semibold text-yellow-200 bg-yellow-900/25">
+                <i class="fas fa-circle-exclamation mr-2"></i>Pendiente
+              </span>
+            </div>
+
+            <div class="mt-3 text-sm text-gray-300 space-y-1">
+              <div class="flex items-center gap-3">
+                <i class="fas fa-calendar-day text-gray-400"></i><span>10 Feb 2026</span>
+                <i class="fas fa-clock text-gray-400 ml-4"></i><span>09:30</span>
+              </div>
+              <div class="flex items-center gap-3 mt-2">
+                <i class="fas fa-building text-gray-400"></i><span>Clínica Santa Aurora</span>
+                <i class="fas fa-folder text-gray-400 ml-4"></i><span>CSIRT / Controles</span>
+              </div>
+              <div class="flex items-center gap-4 mt-2">
+                <i class="fas fa-users text-gray-400"></i>
+                <span>Paula Rojas</span><span>Camila Soto</span>
+              </div>
+            </div>
+
+            <p class="mt-4 text-gray-300 text-sm leading-relaxed">
+              Revisión de hallazgos, plan de mitigación y seguimiento de acciones críticas.
+            </p>
+
+            <div class="mt-4 flex items-center gap-2">
+              <span class="pill px-3 py-1 rounded-full text-xs font-semibold text-blue-200 bg-blue-900/25">Seguridad</span>
+              <span class="pill px-3 py-1 rounded-full text-xs font-semibold text-gray-200 bg-gray-900/20">Acciones</span>
+            </div>
+
+            <button class="mt-5 w-full py-3 rounded-full btn-timeline text-white font-semibold transition-all"
+                    onclick="alert('Ver Línea de Tiempo (demo)')">
+              <i class="fas fa-rotate-right mr-2"></i>Ver Línea de Tiempo
+            </button>
+
+            <div class="mt-5 card-divider pt-4 flex items-center justify-between gap-3">
+              <button class="w-full py-2 rounded-full btn-soft text-gray-200 transition-all" title="Ver">
+                <i class="fas fa-eye"></i>
+              </button>
+              <button class="w-full py-2 rounded-full btn-soft text-gray-200 transition-all" title="Editar">
+                <i class="fas fa-pen-to-square"></i>
+              </button>
+              <button class="w-full py-2 rounded-full btn-soft text-gray-200 transition-all" title="Descargar">
+                <i class="fas fa-download"></i>
+              </button>
+              <button class="w-full py-2 rounded-full btn-soft text-gray-200 transition-all" title="Eliminar">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </article>
+
+          <article class="rounded-2xl p-5 card-shell shadow-sm">
+            <div class="flex items-start justify-between gap-3">
+              <h3 class="text-lg font-extrabold text-white leading-tight">
+                Ajustes Infraestructura...
+              </h3>
+              <span class="pill px-3 py-1 rounded-full text-xs font-semibold text-yellow-200 bg-yellow-900/25">
+                <i class="fas fa-circle-exclamation mr-2"></i>Pendiente
+              </span>
+            </div>
+
+            <div class="mt-3 text-sm text-gray-300 space-y-1">
+              <div class="flex items-center gap-3">
+                <i class="fas fa-calendar-day text-gray-400"></i><span>16 Feb 2026</span>
+                <i class="fas fa-clock text-gray-400 ml-4"></i><span>18:00</span>
+              </div>
+              <div class="flex items-center gap-3 mt-2">
+                <i class="fas fa-building text-gray-400"></i><span>Empresa</span>
+                <i class="fas fa-folder text-gray-400 ml-4"></i><span>Infra / Redes</span>
+              </div>
+              <div class="flex items-center gap-4 mt-2">
+                <i class="fas fa-users text-gray-400"></i>
+                <span>Equipo TI</span><span>Operaciones</span>
+              </div>
+            </div>
+
+            <p class="mt-4 text-gray-300 text-sm leading-relaxed">
+              Validación de cambios de segmentación y prueba de conectividad controlada.
+            </p>
+
+            <div class="mt-4 flex items-center gap-2">
+              <span class="pill px-3 py-1 rounded-full text-xs font-semibold text-blue-200 bg-blue-900/25">Infra</span>
+              <span class="pill px-3 py-1 rounded-full text-xs font-semibold text-gray-200 bg-gray-900/20">Redes</span>
+            </div>
+
+            <button class="mt-5 w-full py-3 rounded-full btn-timeline text-white font-semibold transition-all"
+                    onclick="alert('Ver Línea de Tiempo (demo)')">
+              <i class="fas fa-rotate-right mr-2"></i>Ver Línea de Tiempo
+            </button>
+
+            <div class="mt-5 card-divider pt-4 flex items-center justify-between gap-3">
+              <button class="w-full py-2 rounded-full btn-soft text-gray-200 transition-all" title="Ver">
+                <i class="fas fa-eye"></i>
+              </button>
+              <button class="w-full py-2 rounded-full btn-soft text-gray-200 transition-all" title="Editar">
+                <i class="fas fa-pen-to-square"></i>
+              </button>
+              <button class="w-full py-2 rounded-full btn-soft text-gray-200 transition-all" title="Descargar">
+                <i class="fas fa-download"></i>
+              </button>
+              <button class="w-full py-2 rounded-full btn-soft text-gray-200 transition-all" title="Eliminar">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </article>
+
+          <!-- END LOOP -->
+        </div>
+      </section>
+
+      <!-- 2) Últimas minutas donde participo -->
+      <section class="bg-gray-800/60 rounded-xl shadow-md p-6 transition-theme border border-gray-700/60">
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-xl font-bold text-white transition-theme">
+              <i class="fas fa-user-check text-primary-400 mr-2"></i>
+              Minutas donde participé
+            </h2>
+            <p class="text-gray-300 mt-1 transition-theme text-sm">
+              Últimas minutas registradas con tu participación.
+            </p>
+          </div>
+
+          <button class="px-4 py-2 btn-soft text-gray-200 rounded-lg font-medium transition-all"
+                  onclick="alert('Ver historial (demo)')">
+            <i class="fas fa-clock-rotate-left mr-2"></i>Historial
+          </button>
+        </div>
+
+        <div class="mt-6 grid-3">
+          <!-- Reutiliza exactamente el mismo componente Card Minuta -->
+          <!-- LOOP: participatedMinutes.map(...) -->
+          <!-- (Se omite duplicación para no inflar el template: en tu implementación real, renderiza el mismo artículo) -->
+
+          <article class="rounded-2xl p-5 card-shell shadow-sm">
+            <div class="flex items-start justify-between gap-3">
+              <h3 class="text-lg font-extrabold text-white leading-tight">
+                Revisión Roadmap...
+              </h3>
+              <span class="pill px-3 py-1 rounded-full text-xs font-semibold text-green-200 bg-green-900/25">
+                <i class="fas fa-circle-check mr-2"></i>Aprobada
+              </span>
+            </div>
+
+            <div class="mt-3 text-sm text-gray-300 space-y-1">
+              <div class="flex items-center gap-3">
+                <i class="fas fa-calendar-day text-gray-400"></i><span>05 Feb 2026</span>
+                <i class="fas fa-clock text-gray-400 ml-4"></i><span>16:00</span>
+              </div>
+              <div class="flex items-center gap-3 mt-2">
+                <i class="fas fa-building text-gray-400"></i><span>TechCorp Chile</span>
+                <i class="fas fa-folder text-gray-400 ml-4"></i><span>Plataforma</span>
+              </div>
+              <div class="flex items-center gap-4 mt-2">
+                <i class="fas fa-users text-gray-400"></i>
+                <span>Víctor Soto</span><span>Equipo Dev</span><span>Stakeholders</span>
+              </div>
+            </div>
+
+            <p class="mt-4 text-gray-300 text-sm leading-relaxed">
+              Priorización de entregables y definición de próximos hitos.
+            </p>
+
+            <div class="mt-4 flex items-center gap-2">
+              <span class="pill px-3 py-1 rounded-full text-xs font-semibold text-blue-200 bg-blue-900/25">Roadmap</span>
+              <span class="pill px-3 py-1 rounded-full text-xs font-semibold text-gray-200 bg-gray-900/20">Planificación</span>
+            </div>
+
+            <button class="mt-5 w-full py-3 rounded-full btn-timeline text-white font-semibold transition-all"
+                    onclick="alert('Ver Línea de Tiempo (demo)')">
+              <i class="fas fa-rotate-right mr-2"></i>Ver Línea de Tiempo
+            </button>
+
+            <div class="mt-5 card-divider pt-4 flex items-center justify-between gap-3">
+              <button class="w-full py-2 rounded-full btn-soft text-gray-200 transition-all" title="Ver">
+                <i class="fas fa-eye"></i>
+              </button>
+              <button class="w-full py-2 rounded-full btn-soft text-gray-200 transition-all" title="Editar">
+                <i class="fas fa-pen-to-square"></i>
+              </button>
+              <button class="w-full py-2 rounded-full btn-soft text-gray-200 transition-all" title="Descargar">
+                <i class="fas fa-download"></i>
+              </button>
+              <button class="w-full py-2 rounded-full btn-soft text-gray-200 transition-all" title="Eliminar">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </article>
+
+          <article class="rounded-2xl p-5 card-shell shadow-sm">
+            <div class="flex items-start justify-between gap-3">
+              <h3 class="text-lg font-extrabold text-white leading-tight">
+                Cambio VLAN Acceso...
+              </h3>
+              <span class="pill px-3 py-1 rounded-full text-xs font-semibold text-green-200 bg-green-900/25">
+                <i class="fas fa-circle-check mr-2"></i>Aprobada
+              </span>
+            </div>
+
+            <div class="mt-3 text-sm text-gray-300 space-y-1">
+              <div class="flex items-center gap-3">
+                <i class="fas fa-calendar-day text-gray-400"></i><span>12 Feb 2026</span>
+                <i class="fas fa-clock text-gray-400 ml-4"></i><span>10:00</span>
+              </div>
+              <div class="flex items-center gap-3 mt-2">
+                <i class="fas fa-building text-gray-400"></i><span>Clínica Santa Aurora</span>
+                <i class="fas fa-folder text-gray-400 ml-4"></i><span>Redes / Seguridad</span>
+              </div>
+              <div class="flex items-center gap-4 mt-2">
+                <i class="fas fa-users text-gray-400"></i>
+                <span>Víctor Soto</span><span>Paula Rojas</span><span>Proveedor</span>
+              </div>
+            </div>
+
+            <p class="mt-4 text-gray-300 text-sm leading-relaxed">
+              Definición de reglas de firewall y plan de pruebas con mínimo de exposición.
+            </p>
+
+            <div class="mt-4 flex items-center gap-2">
+              <span class="pill px-3 py-1 rounded-full text-xs font-semibold text-blue-200 bg-blue-900/25">Redes</span>
+              <span class="pill px-3 py-1 rounded-full text-xs font-semibold text-gray-200 bg-gray-900/20">Accesos</span>
+            </div>
+
+            <button class="mt-5 w-full py-3 rounded-full btn-timeline text-white font-semibold transition-all"
+                    onclick="alert('Ver Línea de Tiempo (demo)')">
+              <i class="fas fa-rotate-right mr-2"></i>Ver Línea de Tiempo
+            </button>
+
+            <div class="mt-5 card-divider pt-4 flex items-center justify-between gap-3">
+              <button class="w-full py-2 rounded-full btn-soft text-gray-200 transition-all" title="Ver">
+                <i class="fas fa-eye"></i>
+              </button>
+              <button class="w-full py-2 rounded-full btn-soft text-gray-200 transition-all" title="Editar">
+                <i class="fas fa-pen-to-square"></i>
+              </button>
+              <button class="w-full py-2 rounded-full btn-soft text-gray-200 transition-all" title="Descargar">
+                <i class="fas fa-download"></i>
+              </button>
+              <button class="w-full py-2 rounded-full btn-soft text-gray-200 transition-all" title="Eliminar">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </article>
+
+          <article class="rounded-2xl p-5 card-shell shadow-sm">
+            <div class="flex items-start justify-between gap-3">
+              <h3 class="text-lg font-extrabold text-white leading-tight">
+                Post-Mortem Incidente...
+              </h3>
+              <span class="pill px-3 py-1 rounded-full text-xs font-semibold text-gray-200 bg-gray-900/20">
+                <i class="fas fa-file-lines mr-2"></i>Cerrada
+              </span>
+            </div>
+
+            <div class="mt-3 text-sm text-gray-300 space-y-1">
+              <div class="flex items-center gap-3">
+                <i class="fas fa-calendar-day text-gray-400"></i><span>01 Feb 2026</span>
+                <i class="fas fa-clock text-gray-400 ml-4"></i><span>14:30</span>
+              </div>
+              <div class="flex items-center gap-3 mt-2">
+                <i class="fas fa-building text-gray-400"></i><span>Empresa</span>
+                <i class="fas fa-folder text-gray-400 ml-4"></i><span>Operaciones</span>
+              </div>
+              <div class="flex items-center gap-4 mt-2">
+                <i class="fas fa-users text-gray-400"></i>
+                <span>Víctor Soto</span><span>NOC</span><span>Infra</span>
+              </div>
+            </div>
+
+            <p class="mt-4 text-gray-300 text-sm leading-relaxed">
+              Análisis de causa raíz y acciones preventivas.
+            </p>
+
+            <div class="mt-4 flex items-center gap-2">
+              <span class="pill px-3 py-1 rounded-full text-xs font-semibold text-blue-200 bg-blue-900/25">RCA</span>
+              <span class="pill px-3 py-1 rounded-full text-xs font-semibold text-gray-200 bg-gray-900/20">Mejoras</span>
+            </div>
+
+            <button class="mt-5 w-full py-3 rounded-full btn-timeline text-white font-semibold transition-all"
+                    onclick="alert('Ver Línea de Tiempo (demo)')">
+              <i class="fas fa-rotate-right mr-2"></i>Ver Línea de Tiempo
+            </button>
+
+            <div class="mt-5 card-divider pt-4 flex items-center justify-between gap-3">
+              <button class="w-full py-2 rounded-full btn-soft text-gray-200 transition-all" title="Ver">
+                <i class="fas fa-eye"></i>
+              </button>
+              <button class="w-full py-2 rounded-full btn-soft text-gray-200 transition-all" title="Editar">
+                <i class="fas fa-pen-to-square"></i>
+              </button>
+              <button class="w-full py-2 rounded-full btn-soft text-gray-200 transition-all" title="Descargar">
+                <i class="fas fa-download"></i>
+              </button>
+              <button class="w-full py-2 rounded-full btn-soft text-gray-200 transition-all" title="Eliminar">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </article>
+
+          <!-- END LOOP -->
+        </div>
+      </section>
+
+      <!-- 3) Clientes confidenciales con acceso (Formato Cliente) -->
+      <section class="bg-gray-800/60 rounded-xl shadow-md p-6 transition-theme border border-gray-700/60">
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-xl font-bold text-white transition-theme">
+              <i class="fas fa-user-shield text-primary-400 mr-2"></i>
+              Clientes confidenciales con acceso
+            </h2>
+            <p class="text-gray-300 mt-1 transition-theme text-sm">
+              Clientes marcados como confidenciales a los cuales tu usuario tiene visibilidad.
+            </p>
+          </div>
+
+          <button class="px-4 py-2 btn-soft text-gray-200 rounded-lg font-medium transition-all"
+                  onclick="alert('Administrar accesos (demo)')">
+            <i class="fas fa-key mr-2"></i>Accesos
+          </button>
+        </div>
+
+        <div class="mt-6 grid-3">
+          <!-- LOOP: confidentialClients.map(...) -->
+
+          <!-- Card Cliente (formato cliente) -->
+          <article class="rounded-2xl p-5 card-shell shadow-sm">
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex items-start gap-3">
+                <div class="w-10 h-10 rounded-full bg-gray-900/35 flex items-center justify-center pill">
+                  <i class="fas fa-user text-gray-200"></i>
+                </div>
+                <div>
+                  <h3 class="text-lg font-extrabold text-white leading-tight">Andrés Campos</h3>
+                  <p class="text-sm text-gray-300">Vicerrector Académico</p>
+                </div>
+              </div>
+
+              <span class="pill px-3 py-1 rounded-full text-xs font-semibold text-yellow-200 bg-yellow-900/25">
+                Prospecto
+              </span>
+            </div>
+
+            <div class="mt-4 text-sm text-gray-300 space-y-2">
+              <div class="flex items-center gap-3">
+                <i class="fas fa-building text-gray-400"></i>
+                <span>Universidad Metropolitana</span>
+              </div>
+              <div class="flex items-center gap-3">
+                <i class="fas fa-envelope text-gray-400"></i>
+                <span>acampos@universidad.cl</span>
+              </div>
+              <div class="flex items-center gap-3">
+                <i class="fas fa-phone text-gray-400"></i>
+                <span>+56 9 7654 3210</span>
+              </div>
+
+              <div class="flex items-center gap-6 mt-3">
+                <div class="flex items-center gap-2">
+                  <i class="fas fa-folder text-gray-400"></i>
+                  <span>1 proyecto</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <i class="fas fa-folder-open text-gray-400"></i>
+                  <span>Educación</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-5 card-divider pt-4 flex items-center justify-between gap-3">
+              <button class="w-full py-2 rounded-full btn-soft text-gray-200 transition-all" title="Ver">
+                <i class="fas fa-eye"></i>
+              </button>
+              <button class="w-full py-2 rounded-full btn-soft text-gray-200 transition-all" title="Editar">
+                <i class="fas fa-pen-to-square"></i>
+              </button>
+              <button class="w-full py-2 rounded-full btn-soft text-gray-200 transition-all" title="Eliminar">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </article>
+
+          <!-- 2 cards demo -->
+          <article class="rounded-2xl p-5 card-shell shadow-sm">
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex items-start gap-3">
+                <div class="w-10 h-10 rounded-full bg-gray-900/35 flex items-center justify-center pill">
+                  <i class="fas fa-user text-gray-200"></i>
+                </div>
+                <div>
+                  <h3 class="text-lg font-extrabold text-white leading-tight">Dirección TI</h3>
+                  <p class="text-sm text-gray-300">Contacto Principal</p>
+                </div>
+              </div>
+              <span class="pill px-3 py-1 rounded-full text-xs font-semibold text-green-200 bg-green-900/25">
+                Activo
+              </span>
+            </div>
+
+            <div class="mt-4 text-sm text-gray-300 space-y-2">
+              <div class="flex items-center gap-3">
+                <i class="fas fa-building text-gray-400"></i><span>Global Solutions</span>
+              </div>
+              <div class="flex items-center gap-3">
+                <i class="fas fa-envelope text-gray-400"></i><span>ti@globalsolutions.cl</span>
+              </div>
+              <div class="flex items-center gap-3">
+                <i class="fas fa-phone text-gray-400"></i><span>+56 2 2000 0000</span>
+              </div>
+              <div class="flex items-center gap-6 mt-3">
+                <div class="flex items-center gap-2">
+                  <i class="fas fa-folder text-gray-400"></i><span>3 proyectos</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <i class="fas fa-folder-open text-gray-400"></i><span>Tecnología</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-5 card-divider pt-4 flex items-center justify-between gap-3">
+              <button class="w-full py-2 rounded-full btn-soft text-gray-200 transition-all" title="Ver">
+                <i class="fas fa-eye"></i>
+              </button>
+              <button class="w-full py-2 rounded-full btn-soft text-gray-200 transition-all" title="Editar">
+                <i class="fas fa-pen-to-square"></i>
+              </button>
+              <button class="w-full py-2 rounded-full btn-soft text-gray-200 transition-all" title="Eliminar">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </article>
+
+          <article class="rounded-2xl p-5 card-shell shadow-sm">
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex items-start gap-3">
+                <div class="w-10 h-10 rounded-full bg-gray-900/35 flex items-center justify-center pill">
+                  <i class="fas fa-user text-gray-200"></i>
+                </div>
+                <div>
+                  <h3 class="text-lg font-extrabold text-white leading-tight">Gerencia Operaciones</h3>
+                  <p class="text-sm text-gray-300">Sponsor</p>
+                </div>
+              </div>
+              <span class="pill px-3 py-1 rounded-full text-xs font-semibold text-green-200 bg-green-900/25">
+                Activo
+              </span>
+            </div>
+
+            <div class="mt-4 text-sm text-gray-300 space-y-2">
+              <div class="flex items-center gap-3">
+                <i class="fas fa-building text-gray-400"></i><span>TechCorp Chile</span>
+              </div>
+              <div class="flex items-center gap-3">
+                <i class="fas fa-envelope text-gray-400"></i><span>ops@techcorp.cl</span>
+              </div>
+              <div class="flex items-center gap-3">
+                <i class="fas fa-phone text-gray-400"></i><span>+56 9 8888 8888</span>
+              </div>
+              <div class="flex items-center gap-6 mt-3">
+                <div class="flex items-center gap-2">
+                  <i class="fas fa-folder text-gray-400"></i><span>2 proyectos</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <i class="fas fa-folder-open text-gray-400"></i><span>Industria</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-5 card-divider pt-4 flex items-center justify-between gap-3">
+              <button class="w-full py-2 rounded-full btn-soft text-gray-200 transition-all" title="Ver">
+                <i class="fas fa-eye"></i>
+              </button>
+              <button class="w-full py-2 rounded-full btn-soft text-gray-200 transition-all" title="Editar">
+                <i class="fas fa-pen-to-square"></i>
+              </button>
+              <button class="w-full py-2 rounded-full btn-soft text-gray-200 transition-all" title="Eliminar">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </article>
+
+          <!-- END LOOP -->
+        </div>
+      </section>
+
+      <!-- 4) Proyectos confidenciales con acceso (Formato Proyecto) -->
+      <section class="bg-gray-800/60 rounded-xl shadow-md p-6 transition-theme border border-gray-700/60">
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-xl font-bold text-white transition-theme">
+              <i class="fas fa-folder-closed text-primary-400 mr-2"></i>
+              Proyectos confidenciales con acceso
+            </h2>
+            <p class="text-gray-300 mt-1 transition-theme text-sm">
+              Proyectos marcados como confidenciales donde tu usuario tiene permisos.
+            </p>
+          </div>
+
+          <button class="px-4 py-2 btn-soft text-gray-200 rounded-lg font-medium transition-all"
+                  onclick="alert('Ver proyectos (demo)')">
+            <i class="fas fa-folder-tree mr-2"></i>Ver proyectos
+          </button>
+        </div>
+
+        <div class="mt-6 grid-3">
+          <!-- LOOP: confidentialProjects.map(...) -->
+
+          <!-- Card Proyecto (formato proyecto) -->
+          <article class="rounded-2xl overflow-hidden card-shell shadow-sm">
+            <div class="p-5">
+              <div class="flex items-start justify-between gap-3">
+                <div class="flex items-start gap-3">
+                  <div class="w-10 h-10 rounded-full bg-gray-900/35 flex items-center justify-center pill">
+                    <i class="fas fa-folder text-gray-200"></i>
+                  </div>
+                  <div>
+                    <h3 class="text-lg font-extrabold text-white leading-tight">
+                      Desarrollo Web Corporativo...
+                    </h3>
+                    <p class="text-sm text-gray-300 mt-1">
+                      <i class="fas fa-building mr-2 text-gray-400"></i>TechCorp Chile
+                    </p>
+                  </div>
+                </div>
+
+                <span class="pill px-3 py-1 rounded-full text-xs font-semibold text-green-200 bg-green-900/25">
+                  <i class="fas fa-circle-check mr-2"></i>Activo
+                </span>
+              </div>
+            </div>
+
+            <div class="px-5 pb-4">
+              <p class="text-gray-300 text-sm leading-relaxed">
+                Desarrollo de sitio web corporativo con sistema de gestión de contenidos y panel administrativo.
+              </p>
+            </div>
+
+            <div class="px-5 py-4 card-divider">
+              <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-gray-900/25 flex items-center justify-center pill">
+                  <i class="fas fa-file-lines text-gray-200"></i>
+                </div>
+                <div>
+                  <p class="text-white font-extrabold text-lg leading-tight">12 <span class="font-normal text-gray-300 text-sm">minutas</span></p>
+                  <p class="text-gray-400 text-sm">Total registradas en este proyecto</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="px-5 py-4 card-divider">
+              <div class="flex items-center gap-2">
+                <span class="pill px-3 py-1 rounded-full text-xs font-semibold text-blue-200 bg-blue-900/25">Web</span>
+                <span class="pill px-3 py-1 rounded-full text-xs font-semibold text-blue-200 bg-blue-900/25">CMS</span>
+              </div>
+            </div>
+
+            <div class="px-5 py-4 card-divider flex items-center justify-between gap-3">
+              <button class="w-full py-2 rounded-full btn-soft text-gray-200 transition-all" title="Ver">
+                <i class="fas fa-eye"></i>
+              </button>
+              <button class="w-full py-2 rounded-full btn-soft text-gray-200 transition-all" title="Editar">
+                <i class="fas fa-pen-to-square"></i>
+              </button>
+              <button class="w-full py-2 rounded-full btn-soft text-gray-200 transition-all" title="Eliminar">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </article>
+
+          <!-- 2 cards demo -->
+          <article class="rounded-2xl overflow-hidden card-shell shadow-sm">
+            <div class="p-5">
+              <div class="flex items-start justify-between gap-3">
+                <div class="flex items-start gap-3">
+                  <div class="w-10 h-10 rounded-full bg-gray-900/35 flex items-center justify-center pill">
+                    <i class="fas fa-folder text-gray-200"></i>
+                  </div>
+                  <div>
+                    <h3 class="text-lg font-extrabold text-white leading-tight">
+                      Implementación CRM...
+                    </h3>
+                    <p class="text-sm text-gray-300 mt-1">
+                      <i class="fas fa-building mr-2 text-gray-400"></i>Global Solutions
+                    </p>
+                  </div>
+                </div>
+
+                <span class="pill px-3 py-1 rounded-full text-xs font-semibold text-blue-200 bg-blue-900/25">
+                  <i class="fas fa-spinner fa-spin mr-2"></i>En Progreso
+                </span>
+              </div>
+            </div>
+
+            <div class="px-5 pb-4">
+              <p class="text-gray-300 text-sm leading-relaxed">
+                Diseño funcional, alcance y etapas para despliegue controlado.
+              </p>
+            </div>
+
+            <div class="px-5 py-4 card-divider">
+              <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-gray-900/25 flex items-center justify-center pill">
+                  <i class="fas fa-file-lines text-gray-200"></i>
+                </div>
+                <div>
+                  <p class="text-white font-extrabold text-lg leading-tight">7 <span class="font-normal text-gray-300 text-sm">minutas</span></p>
+                  <p class="text-gray-400 text-sm">Total registradas en este proyecto</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="px-5 py-4 card-divider">
+              <div class="flex items-center gap-2">
+                <span class="pill px-3 py-1 rounded-full text-xs font-semibold text-blue-200 bg-blue-900/25">CRM</span>
+                <span class="pill px-3 py-1 rounded-full text-xs font-semibold text-blue-200 bg-blue-900/25">Implementación</span>
+              </div>
+            </div>
+
+            <div class="px-5 py-4 card-divider flex items-center justify-between gap-3">
+              <button class="w-full py-2 rounded-full btn-soft text-gray-200 transition-all" title="Ver">
+                <i class="fas fa-eye"></i>
+              </button>
+              <button class="w-full py-2 rounded-full btn-soft text-gray-200 transition-all" title="Editar">
+                <i class="fas fa-pen-to-square"></i>
+              </button>
+              <button class="w-full py-2 rounded-full btn-soft text-gray-200 transition-all" title="Eliminar">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </article>
+
+          <article class="rounded-2xl overflow-hidden card-shell shadow-sm">
+            <div class="p-5">
+              <div class="flex items-start justify-between gap-3">
+                <div class="flex items-start gap-3">
+                  <div class="w-10 h-10 rounded-full bg-gray-900/35 flex items-center justify-center pill">
+                    <i class="fas fa-folder text-gray-200"></i>
+                  </div>
+                  <div>
+                    <h3 class="text-lg font-extrabold text-white leading-tight">
+                      Hardening Servidores...
+                    </h3>
+                    <p class="text-sm text-gray-300 mt-1">
+                      <i class="fas fa-building mr-2 text-gray-400"></i>Empresa
+                    </p>
+                  </div>
+                </div>
+
+                <span class="pill px-3 py-1 rounded-full text-xs font-semibold text-green-200 bg-green-900/25">
+                  <i class="fas fa-circle-check mr-2"></i>Activo
+                </span>
+              </div>
+            </div>
+
+            <div class="px-5 pb-4">
+              <p class="text-gray-300 text-sm leading-relaxed">
+                Endurecimiento, revisión de servicios, auditoría y control de accesos.
+              </p>
+            </div>
+
+            <div class="px-5 py-4 card-divider">
+              <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-gray-900/25 flex items-center justify-center pill">
+                  <i class="fas fa-file-lines text-gray-200"></i>
+                </div>
+                <div>
+                  <p class="text-white font-extrabold text-lg leading-tight">4 <span class="font-normal text-gray-300 text-sm">minutas</span></p>
+                  <p class="text-gray-400 text-sm">Total registradas en este proyecto</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="px-5 py-4 card-divider">
+              <div class="flex items-center gap-2">
+                <span class="pill px-3 py-1 rounded-full text-xs font-semibold text-blue-200 bg-blue-900/25">Seguridad</span>
+                <span class="pill px-3 py-1 rounded-full text-xs font-semibold text-blue-200 bg-blue-900/25">Hardening</span>
+              </div>
+            </div>
+
+            <div class="px-5 py-4 card-divider flex items-center justify-between gap-3">
+              <button class="w-full py-2 rounded-full btn-soft text-gray-200 transition-all" title="Ver">
+                <i class="fas fa-eye"></i>
+              </button>
+              <button class="w-full py-2 rounded-full btn-soft text-gray-200 transition-all" title="Editar">
+                <i class="fas fa-pen-to-square"></i>
+              </button>
+              <button class="w-full py-2 rounded-full btn-soft text-gray-200 transition-all" title="Eliminar">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </article>
+
+          <!-- END LOOP -->
+        </div>
+      </section>
+
+      <!-- (Opcional) Cuenta y correo + Seguridad: las mantienes debajo si quieres -->
+      <!-- Si deseas liberar espacio visual, estas dos secciones pueden ir a una pestaña "Seguridad" o acordeón. -->
+
+    </div>
+  </div>
+
+</body>
+</html>
