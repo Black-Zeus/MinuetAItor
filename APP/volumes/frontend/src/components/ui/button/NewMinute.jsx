@@ -237,8 +237,8 @@ const NewMinuteForm = ({ onSubmit, onCancel }) => {
               {idx < steps.length - 1 && (
                 <div
                   className={`w-12 h-1 mx-2 ${idx < currentStep
-                      ? "bg-green-600"
-                      : "bg-gray-300 dark:bg-gray-600"
+                    ? "bg-green-600"
+                    : "bg-gray-300 dark:bg-gray-600"
                     }`}
                 />
               )}
@@ -717,10 +717,11 @@ const NewMinuteForm = ({ onSubmit, onCancel }) => {
         {currentStep === 5 && (
           <div className="space-y-4">
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-              Revise la información ingresada antes de crear la minuta
+              Revise la información ingresada antes de crear la minuta.
             </p>
 
             <div className="space-y-6">
+              {/* 1) Información General */}
               <div className="border-l-4 border-blue-500 pl-4">
                 <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-3 flex items-center">
                   <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-500 text-white text-xs mr-2">
@@ -728,49 +729,207 @@ const NewMinuteForm = ({ onSubmit, onCancel }) => {
                   </span>
                   Información General
                 </h4>
+
                 <div className="space-y-2 text-sm">
                   <div className="flex">
-                    <span className="font-medium text-gray-700 dark:text-gray-300 w-40">
+                    <span className="font-medium text-gray-700 dark:text-gray-300 w-44">
                       Empresa:
                     </span>
                     <span className="text-gray-600 dark:text-gray-400">
-                      {String(selectedClient?.company ?? "") || "Sin información proporcionada"}
+                      {String(selectedClient?.company ?? "").trim() || "Sin información proporcionada"}
                     </span>
                   </div>
 
                   <div className="flex">
-                    <span className="font-medium text-gray-700 dark:text-gray-300 w-40">
+                    <span className="font-medium text-gray-700 dark:text-gray-300 w-44">
                       Proyecto:
                     </span>
                     <span className="text-gray-600 dark:text-gray-400">
-                      {selectedProject?.name || "Sin información proporcionada"}
+                      {String(selectedProject?.name ?? "").trim() || "Sin información proporcionada"}
                     </span>
                   </div>
 
                   <div className="flex">
-                    <span className="font-medium text-gray-700 dark:text-gray-300 w-40">
+                    <span className="font-medium text-gray-700 dark:text-gray-300 w-44">
                       Categoría (análisis IA):
                     </span>
                     <span className="text-gray-600 dark:text-gray-400">
-                      {formData.analysisCategory || "Sin información proporcionada"}
+                      {String(formData.analysisCategory ?? "").trim() || "Sin información proporcionada"}
                     </span>
                   </div>
 
                   <div className="flex">
-                    <span className="font-medium text-gray-700 dark:text-gray-300 w-40">
+                    <span className="font-medium text-gray-700 dark:text-gray-300 w-44">
                       Perfil (análisis IA):
                     </span>
                     <span className="text-gray-600 dark:text-gray-400">
-                      {selectedProfile?.nombre || "Sin información proporcionada"}
+                      {String(selectedProfile?.nombre ?? "").trim() || "Sin información proporcionada"}
+                    </span>
+                  </div>
+
+                  {selectedProfile?.descripcion && (
+                    <div className="mt-2 text-xs text-gray-600 dark:text-gray-400 p-2 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800">
+                      <p>
+                        <strong>Descripción:</strong> {String(selectedProfile.descripcion).trim()}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 2) Adjuntos */}
+              <div className="border-l-4 border-purple-500 pl-4">
+                <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-3 flex items-center">
+                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-purple-500 text-white text-xs mr-2">
+                    2
+                  </span>
+                  Adjuntos
+                </h4>
+
+                <div className="space-y-2 text-sm">
+                  <div className="flex">
+                    <span className="font-medium text-gray-700 dark:text-gray-300 w-44">
+                      Transcripción:
+                    </span>
+                    <span className="text-gray-600 dark:text-gray-400">
+                      {formData.transcription?.name ? formData.transcription.name : "No cargada"}
+                    </span>
+                  </div>
+
+                  <div className="flex">
+                    <span className="font-medium text-gray-700 dark:text-gray-300 w-44">
+                      Resumen:
+                    </span>
+                    <span className="text-gray-600 dark:text-gray-400">
+                      {formData.summary?.name ? formData.summary.name : "No cargado (opcional)"}
                     </span>
                   </div>
                 </div>
               </div>
 
-              {/* (resto confirmación igual a tu código actual) */}
+              {/* 3) Fechas y Horarios */}
+              <div className="border-l-4 border-green-500 pl-4">
+                <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-3 flex items-center">
+                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-500 text-white text-xs mr-2">
+                    3
+                  </span>
+                  Fechas y Horarios
+                </h4>
+
+                <div className="space-y-2 text-sm">
+                  <div className="flex">
+                    <span className="font-medium text-gray-700 dark:text-gray-300 w-44">
+                      Fecha programada:
+                    </span>
+                    <span className="text-gray-600 dark:text-gray-400">
+                      {String(formData.scheduledDate ?? "").trim() || "Sin información proporcionada"}
+                    </span>
+                  </div>
+
+                  <div className="flex">
+                    <span className="font-medium text-gray-700 dark:text-gray-300 w-44">
+                      Inicio programado:
+                    </span>
+                    <span className="text-gray-600 dark:text-gray-400">
+                      {String(formData.scheduledStartTime ?? "").trim() || "Sin información proporcionada"}
+                    </span>
+                  </div>
+
+                  <div className="flex">
+                    <span className="font-medium text-gray-700 dark:text-gray-300 w-44">
+                      Inicio real:
+                    </span>
+                    <span className="text-gray-600 dark:text-gray-400">
+                      {String(formData.actualStartTime ?? "").trim() || "Sin información proporcionada"}
+                    </span>
+                  </div>
+
+                  <div className="flex">
+                    <span className="font-medium text-gray-700 dark:text-gray-300 w-44">
+                      Término programado:
+                    </span>
+                    <span className="text-gray-600 dark:text-gray-400">
+                      {String(formData.scheduledEndTime ?? "").trim() || "Sin información proporcionada"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 4) Participantes */}
+              <div className="border-l-4 border-amber-500 pl-4">
+                <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-3 flex items-center">
+                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-500 text-white text-xs mr-2">
+                    4
+                  </span>
+                  Participantes
+                </h4>
+
+                <div className="space-y-3 text-sm">
+                  <div>
+                    <div className="flex">
+                      <span className="font-medium text-gray-700 dark:text-gray-300 w-44">
+                        Participantes:
+                      </span>
+                      <span className="text-gray-600 dark:text-gray-400">
+                        {String(formData.attendees ?? "").trim()
+                          ? "Ver listado"
+                          : "Sin información proporcionada"}
+                      </span>
+                    </div>
+
+                    {String(formData.attendees ?? "").trim() && (
+                      <pre className="mt-2 text-xs whitespace-pre-wrap break-words p-3 rounded bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">
+                        {String(formData.attendees).trim()}
+                      </pre>
+                    )}
+                  </div>
+
+                  <div>
+                    <div className="flex">
+                      <span className="font-medium text-gray-700 dark:text-gray-300 w-44">
+                        Copia (CC):
+                      </span>
+                      <span className="text-gray-600 dark:text-gray-400">
+                        {String(formData.ccParticipants ?? "").trim()
+                          ? "Ver listado"
+                          : "Sin información proporcionada"}
+                      </span>
+                    </div>
+
+                    {String(formData.ccParticipants ?? "").trim() && (
+                      <pre className="mt-2 text-xs whitespace-pre-wrap break-words p-3 rounded bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">
+                        {String(formData.ccParticipants).trim()}
+                      </pre>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* 5) Información Adicional */}
+              <div className="border-l-4 border-gray-500 pl-4">
+                <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-3 flex items-center">
+                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-600 text-white text-xs mr-2">
+                    5
+                  </span>
+                  Información Adicional
+                </h4>
+
+                <div className="text-sm">
+                  {String(formData.additionalInfo ?? "").trim() ? (
+                    <pre className="text-xs whitespace-pre-wrap break-words p-3 rounded bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">
+                      {String(formData.additionalInfo).trim()}
+                    </pre>
+                  ) : (
+                    <p className="text-gray-600 dark:text-gray-400">
+                      Sin información adicional.
+                    </p>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         )}
+
       </div>
 
       {/* Footer con botones */}
@@ -833,7 +992,7 @@ const NewMinute = () => {
             });
           }}
           onCancel={() => {
-            // El modal se cierra automáticamente
+            ModalManager.closeAll()
           }}
         />
       ),
