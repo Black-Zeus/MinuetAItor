@@ -1,0 +1,68 @@
+{
+    "transactionId": "550e8400-e29b-41d4-a716-446655440000",
+    "attachments": [
+        {
+            "fileName": "transcripcion.txt",
+            "mimeType": "text/plain",
+            "sha256": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f2",
+            "fileType": "transcription"
+        },
+        {
+            "fileName": "resumen.txt",
+            "mimeType": "text/plain",
+            "sha256": "f2e1d0c9b8a7z6y5x4w3v2u1t0s9r8q7p6o5n4m3l2k1j0i9h8g7f6e5d4c3b2a1",
+            "fileType": "summary"
+        }
+    ],
+    "meetingInfo": {
+        "scheduledDate": "2026-02-12",
+        "scheduledStartTime": "09:00",
+        "scheduledEndTime": "10:00",
+        "actualStartTime": "09:05",
+        "location": "Microsoft Teams",
+        "title": "Habilitación acceso VLAN Usuarios → Portal Web On-Prem (Redes/Seguridad)"
+    },
+    "projectInfo": {
+        "client": "Clínica Santa Aurora S.A.",
+        "project": "Desarrollo Web Corporativo",
+        "category": "Operaciones"
+    },
+    "participants": {
+        "attendees": [
+            "Juan Perez"
+        ],
+        "copyRecipients": [
+            "Matias Maldonado"
+        ]
+    },
+    "profileInfo": {
+        "profileId": "PROF-001",
+        "profileName": "Seguimiento de Servicios (Service Review Semanal)"
+    },
+    "preparedBy": "Juan Perez",
+    "additionalNotes": "Adicionar la necesidad de mejorar formatos de entrega y formalización de procesos con áreas a fin",
+    "tags": [
+        "infraestructura",
+        "redes",
+        "seguridad",
+        "firewall",
+        "vlan"
+    ],
+    "generationOptions": {
+        "language": "es",
+        "includeTranscriptionTimestamps": false,
+        "detailLevel": "standard",
+        "autoCalculateNextMeeting": true
+    },
+    "clientSpecificRules": {
+        "defaultCopyRecipients": [],
+        "excludeFromCopyIfAttendee": true,
+        "nextMeetingRecurrence": "none"
+    },
+    "metadata": {
+        "requestedAt": "2026-02-16T14:30:00Z",
+        "requestedBy": "web-app",
+        "environment": "production",
+        "version": "1.0"
+    }
+}

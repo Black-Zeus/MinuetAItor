@@ -1,0 +1,461 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "MinuteGenerationInput",
+    "description": "Esquema para el input que se pasa al agente de IA para generar minutas de reunión",
+    "type": "object",
+    "required": [
+        "transactionId",
+        "attachments",
+        "meetingInfo",
+        "projectInfo",
+        "participants",
+        "profileInfo",
+        "preparedBy"
+    ],
+    "additionalProperties": false,
+    "properties": {
+        "transactionId": {
+            "type": "string",
+            "description": "Identificador único de la transacción (UUID v4)",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "examples": [
+                "550e8400-e29b-41d4-a716-446655440000"
+            ]
+        },
+        "attachments": {
+            "type": "array",
+            "description": "Metadatos de los archivos adjuntos (los archivos se pasan por separado)",
+            "minItems": 1,
+            "maxItems": 10,
+            "items": {
+                "type": "object",
+                "required": [
+                    "fileName",
+                    "mimeType",
+                    "sha256"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                    "fileName": {
+                        "type": "string",
+                        "description": "Nombre del archivo con extensión",
+                        "minLength": 1,
+                        "maxLength": 255,
+                        "examples": [
+                            "transcripcion.txt",
+                            "resumen.txt",
+                            "documento.pdf"
+                        ]
+                    },
+                    "mimeType": {
+                        "type": "string",
+                        "description": "Tipo MIME del archivo",
+                        "enum": [
+                            "text/plain",
+                            "text/html",
+                            "text/csv",
+                            "application/pdf",
+                            "application/json",
+                            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                            "application/msword"
+                        ],
+                        "examples": [
+                            "text/plain",
+                            "application/pdf"
+                        ]
+                    },
+                    "sha256": {
+                        "type": "string",
+                        "description": "Hash SHA-256 del archivo para verificación de integridad",
+                        "pattern": "^[a-f0-9]{64}$",
+                        "examples": [
+                            "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2"
+                        ]
+                    },
+                    "fileType": {
+                        "type": "string",
+                        "description": "Tipo de archivo según su propósito",
+                        "enum": [
+                            "transcription",
+                            "summary",
+                            "attachment",
+                            "reference"
+                        ],
+                        "examples": [
+                            "transcription",
+                            "summary"
+                        ]
+                    }
+                }
+            }
+        },
+        "meetingInfo": {
+            "type": "object",
+            "description": "Información de la reunión",
+            "required": [
+                "scheduledDate",
+                "scheduledStartTime",
+                "scheduledEndTime"
+            ],
+            "additionalProperties": false,
+            "properties": {
+                "scheduledDate": {
+                    "type": "string",
+                    "description": "Fecha programada de la reunión (formato YYYY-MM-DD)",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                    "examples": [
+                        "2026-02-12"
+                    ]
+                },
+                "scheduledStartTime": {
+                    "type": "string",
+                    "description": "Hora de inicio programada (formato HH:MM)",
+                    "pattern": "^\\d{2}:\\d{2}$",
+                    "examples": [
+                        "09:00",
+                        "14:30"
+                    ]
+                },
+                "scheduledEndTime": {
+                    "type": "string",
+                    "description": "Hora de término programada (formato HH:MM)",
+                    "pattern": "^\\d{2}:\\d{2}$",
+                    "examples": [
+                        "10:00",
+                        "16:30"
+                    ]
+                },
+                "actualStartTime": {
+                    "type": "string",
+                    "description": "Hora de inicio real si se conoce (formato HH:MM), opcional",
+                    "pattern": "^\\d{2}:\\d{2}$",
+                    "examples": [
+                        "09:05",
+                        "14:35"
+                    ]
+                },
+                "location": {
+                    "type": "string",
+                    "description": "Lugar o plataforma de la reunión (opcional, por defecto 'Microsoft Teams')",
+                    "maxLength": 200,
+                    "examples": [
+                        "Microsoft Teams",
+                        "Zoom",
+                        "Presencial - Sala Ejecutiva",
+                        "Google Meet"
+                    ]
+                },
+                "title": {
+                    "type": "string",
+                    "description": "Título de la reunión/minuta (opcional, si no se proporciona, la IA lo genera)",
+                    "minLength": 1,
+                    "maxLength": 300,
+                    "examples": [
+                        "Habilitación acceso VLAN Usuarios → Portal Web On-Prem"
+                    ]
+                }
+            }
+        },
+        "projectInfo": {
+            "type": "object",
+            "description": "Información del proyecto y cliente",
+            "required": [
+                "client",
+                "project"
+            ],
+            "additionalProperties": false,
+            "properties": {
+                "client": {
+                    "type": "string",
+                    "description": "Nombre del cliente/empresa",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "examples": [
+                        "Clínica Santa Aurora S.A.",
+                        "Minera GoldFields",
+                        "TechCorp Chile"
+                    ]
+                },
+                "project": {
+                    "type": "string",
+                    "description": "Nombre del proyecto",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "examples": [
+                        "Desarrollo Web Corporativo",
+                        "Proyecto Primavera",
+                        "Migración de Servidores"
+                    ]
+                },
+                "category": {
+                    "type": "string",
+                    "description": "Categoría del proyecto (opcional)",
+                    "maxLength": 100,
+                    "examples": [
+                        "Operaciones",
+                        "Infraestructura",
+                        "Desarrollo"
+                    ]
+                }
+            }
+        },
+        "participants": {
+            "type": "object",
+            "description": "Participantes de la reunión proporcionados por el usuario",
+            "required": [
+                "attendees"
+            ],
+            "additionalProperties": false,
+            "properties": {
+                "attendees": {
+                    "type": "array",
+                    "description": "Lista de nombres de asistentes (mínimo 1)",
+                    "minItems": 1,
+                    "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200,
+                        "examples": [
+                            "Juan Perez",
+                            "María González",
+                            "Carlos Rodríguez"
+                        ]
+                    }
+                },
+                "invited": {
+                    "type": "array",
+                    "description": "Lista de nombres de invitados (opcional, por defecto igual a attendees)",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                    }
+                },
+                "copyRecipients": {
+                    "type": "array",
+                    "description": "Lista de nombres de destinatarios de copia (opcional)",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200,
+                        "examples": [
+                            "Matias Maldonado",
+                            "Alejandro Quinteros"
+                        ]
+                    }
+                }
+            }
+        },
+        "profileInfo": {
+            "type": "object",
+            "description": "Información del perfil/plantilla utilizada",
+            "required": [
+                "profileId",
+                "profileName"
+            ],
+            "additionalProperties": false,
+            "properties": {
+                "profileId": {
+                    "type": "string",
+                    "description": "Identificador único del perfil",
+                    "minLength": 1,
+                    "maxLength": 50,
+                    "examples": [
+                        "PROF-001",
+                        "PROF-SERVICE-REVIEW",
+                        "PROF-TECH-MEETING"
+                    ]
+                },
+                "profileName": {
+                    "type": "string",
+                    "description": "Nombre descriptivo del perfil",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "examples": [
+                        "Seguimiento de Servicios (Service Review Semanal)",
+                        "Reunión Técnica de Infraestructura",
+                        "Comité de Proyectos"
+                    ]
+                }
+            }
+        },
+        "preparedBy": {
+            "type": "string",
+            "description": "Nombre completo de quien prepara/solicita la minuta",
+            "minLength": 1,
+            "maxLength": 200,
+            "examples": [
+                "Juan Perez",
+                "María González"
+            ]
+        },
+        "additionalNotes": {
+            "type": "string",
+            "description": "Notas adicionales o instrucciones especiales para la generación (opcional)",
+            "maxLength": 2000,
+            "examples": [
+                "Adicionar la necesidad de mejorar formatos de entrega y formalización de procesos con áreas a fin",
+                "Enfocarse en aspectos de seguridad y cumplimiento normativo"
+            ]
+        },
+        "tags": {
+            "type": "array",
+            "description": "Tags proporcionados por el usuario para clasificar la minuta (opcional)",
+            "maxItems": 20,
+            "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 50,
+                "examples": [
+                    "infraestructura",
+                    "redes",
+                    "seguridad",
+                    "firewall",
+                    "vlan",
+                    "windows",
+                    "servidores"
+                ]
+            }
+        },
+        "generationOptions": {
+            "type": "object",
+            "description": "Opciones de generación de la minuta (opcional)",
+            "additionalProperties": false,
+            "properties": {
+                "language": {
+                    "type": "string",
+                    "description": "Idioma de la minuta",
+                    "enum": [
+                        "es",
+                        "en",
+                        "pt"
+                    ],
+                    "default": "es",
+                    "examples": [
+                        "es"
+                    ]
+                },
+                "includeTranscriptionTimestamps": {
+                    "type": "boolean",
+                    "description": "Incluir timestamps de la transcripción en la minuta",
+                    "default": false
+                },
+                "detailLevel": {
+                    "type": "string",
+                    "description": "Nivel de detalle de la minuta",
+                    "enum": [
+                        "summary",
+                        "standard",
+                        "detailed"
+                    ],
+                    "default": "standard",
+                    "examples": [
+                        "standard",
+                        "detailed"
+                    ]
+                },
+                "autoCalculateNextMeeting": {
+                    "type": "boolean",
+                    "description": "Calcular automáticamente la próxima reunión (para clientes recurrentes como GoldFields)",
+                    "default": true
+                }
+            }
+        },
+        "clientSpecificRules": {
+            "type": "object",
+            "description": "Reglas específicas del cliente (opcional)",
+            "additionalProperties": false,
+            "properties": {
+                "defaultCopyRecipients": {
+                    "type": "array",
+                    "description": "Destinatarios de copia por defecto para este cliente",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                    },
+                    "examples": [
+                        [
+                            "Alejandro Quinteros",
+                            "Carlos Miranda",
+                            "Luis Manriquez",
+                            "Daniela Zepeda"
+                        ]
+                    ]
+                },
+                "excludeFromCopyIfAttendee": {
+                    "type": "boolean",
+                    "description": "Excluir de copia si está en asistentes",
+                    "default": true
+                },
+                "nextMeetingRecurrence": {
+                    "type": "string",
+                    "description": "Patrón de recurrencia para próximas reuniones",
+                    "enum": [
+                        "weekly",
+                        "biweekly",
+                        "monthly",
+                        "none"
+                    ],
+                    "examples": [
+                        "weekly"
+                    ]
+                },
+                "nextMeetingDayOfWeek": {
+                    "type": "integer",
+                    "description": "Día de la semana para próximas reuniones (1=Lunes, 7=Domingo)",
+                    "minimum": 1,
+                    "maximum": 7,
+                    "examples": [
+                        4
+                    ]
+                }
+            }
+        },
+        "metadata": {
+            "type": "object",
+            "description": "Metadatos adicionales del request (opcional)",
+            "additionalProperties": false,
+            "properties": {
+                "requestedAt": {
+                    "type": "string",
+                    "description": "Timestamp de cuando se solicita la generación (ISO 8601)",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$",
+                    "examples": [
+                        "2026-02-16T14:30:00Z"
+                    ]
+                },
+                "requestedBy": {
+                    "type": "string",
+                    "description": "Usuario/sistema que solicita la generación",
+                    "maxLength": 100,
+                    "examples": [
+                        "web-app",
+                        "api-client",
+                        "automation-script"
+                    ]
+                },
+                "environment": {
+                    "type": "string",
+                    "description": "Ambiente de ejecución",
+                    "enum": [
+                        "production",
+                        "staging",
+                        "development"
+                    ],
+                    "examples": [
+                        "production"
+                    ]
+                },
+                "version": {
+                    "type": "string",
+                    "description": "Versión del esquema de input",
+                    "pattern": "^\\d+\\.\\d+$",
+                    "examples": [
+                        "1.0"
+                    ]
+                }
+            }
+        }
+    }
+}

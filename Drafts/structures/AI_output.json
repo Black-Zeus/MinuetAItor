@@ -1,0 +1,344 @@
+{
+    "metadata": {
+        "transactionId": "550e8400-e29b-41d4-a716-446655440000",
+        "generatedAt": "2026-02-16T14:30:00Z",
+        "generatedBy": "Juan Perez",
+        "version": "1.0"
+    },
+    "inputInfo": {
+        "attachments": [
+            {
+                "fileName": "transcripcion.txt",
+                "mimeType": "text/plain",
+                "sha256": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f2"
+            },
+            {
+                "fileName": "resumen.txt",
+                "mimeType": "text/plain",
+                "sha256": "f2e1d0c9b8a7z6y5x4w3v2u1t0s9r8q7p6o5n4m3l2k1j0i9h8g7f6e5d4c3b2a1"
+            }
+        ],
+        "meetingSchedule": {
+            "scheduledDate": "2026-02-12",
+            "scheduledStartTime": "09:00",
+            "actualStartTime": "09:05",
+            "scheduledEndTime": "10:00"
+        },
+        "participants": {
+            "attendees": [
+                "Juan Perez"
+            ],
+            "copyRecipients": [
+                "Matias Maldonado"
+            ]
+        },
+        "projectInfo": {
+            "client": "Clínica Santa Aurora S.A.",
+            "project": "Desarrollo Web Corporativo",
+            "minuteTitle": "Habilitación acceso VLAN Usuarios → Portal Web On-Prem (Redes/Seguridad)",
+            "titleGeneratedByAI": false
+        },
+        "profileInfo": {
+            "profileId": "PROF-001",
+            "profileName": "Seguimiento de Servicios (Service Review Semanal)"
+        },
+        "additionalNotes": "Adicionar la necesidad de mejorar formatos de entrega y formalización de procesos con áreas a fin",
+        "userProvidedTags": [
+            "infraestructura",
+            "redes",
+            "seguridad",
+            "firewall",
+            "vlan"
+        ]
+    },
+    "aiSuggestedTags": [
+        {
+            "name": "segmentación-red",
+            "description": "Temas relacionados con la separación lógica de redes mediante VLANs y políticas de firewall"
+        },
+        {
+            "name": "políticas-firewall",
+            "description": "Configuración y gestión de reglas de acceso en firewalls corporativos"
+        },
+        {
+            "name": "portal-web-interno",
+            "description": "Aplicaciones web on-premise para uso corporativo interno"
+        },
+        {
+            "name": "autenticación-windows",
+            "description": "Integración con Active Directory y autenticación integrada de Windows (IWA, Kerberos, NTLM)"
+        },
+        {
+            "name": "troubleshooting-conectividad",
+            "description": "Diagnóstico y resolución de problemas de acceso y conectividad de red"
+        },
+        {
+            "name": "logging-auditoría",
+            "description": "Implementación de registros y trazabilidad de eventos de seguridad"
+        },
+        {
+            "name": "cambios-controlados",
+            "description": "Gestión de cambios con ventanas de implementación y planes de rollback"
+        },
+        {
+            "name": "mínimo-privilegio",
+            "description": "Aplicación del principio de acceso mínimo necesario en configuraciones de seguridad"
+        },
+        {
+            "name": "iis-windows-server",
+            "description": "Administración de servicios web en Internet Information Services sobre plataforma Windows Server"
+        },
+        {
+            "name": "criterios-aceptación",
+            "description": "Definición de pruebas funcionales y técnicas para validar implementaciones"
+        }
+    ],
+    "generalInfo": {
+        "client": "Clínica Santa Aurora S.A.",
+        "subject": "Habilitación acceso VLAN Usuarios → Portal Web On-Prem (Redes/Seguridad)",
+        "meetingDate": "12/02/2026",
+        "scheduledStartTime": "09:00",
+        "actualStartTime": "00:00",
+        "scheduledEndTime": "10:00",
+        "actualEndTime": "00:36",
+        "location": "Microsoft Teams",
+        "preparedBy": "Juan Perez"
+    },
+    "participants": {
+        "invited": [
+            {
+                "fullName": "Camila Soto",
+                "initials": "CS"
+            },
+            {
+                "fullName": "Paula Rojas",
+                "initials": "PR"
+            },
+            {
+                "fullName": "Marco Álvarez",
+                "initials": "MA"
+            },
+            {
+                "fullName": "Tomás Cárdenas",
+                "initials": "TC"
+            },
+            {
+                "fullName": "Ignacio Valdés",
+                "initials": "IV"
+            }
+        ],
+        "attendees": [
+            {
+                "fullName": "Camila Soto",
+                "initials": "CS"
+            },
+            {
+                "fullName": "Paula Rojas",
+                "initials": "PR"
+            },
+            {
+                "fullName": "Marco Álvarez",
+                "initials": "MA"
+            },
+            {
+                "fullName": "Tomás Cárdenas",
+                "initials": "TC"
+            },
+            {
+                "fullName": "Ignacio Valdés",
+                "initials": "IV"
+            }
+        ],
+        "copyRecipients": [
+            {
+                "fullName": "Matias Maldonado",
+                "initials": "MM"
+            }
+        ]
+    },
+    "scope": {
+        "sections": [
+            {
+                "sectionId": "SCOPE-001",
+                "sectionTitle": "Introducción",
+                "sectionType": "introduction",
+                "content": {
+                    "summary": "Se revisó la restricción de acceso entre la VLAN de usuarios y la VLAN de servidores que impide el ingreso al portal web on-premise desde la red corporativa. Se identificó que el servicio sólo es accesible desde la VLAN de TI y que la segmentación inter-VLAN opera con una política \"deny by default\" administrada en el firewall (gateway de todas las VLAN).",
+                    "topicsList": [
+                        "Habilitación de acceso inter-VLAN al portal on-premise",
+                        "Definición de reglas, protocolos y controles de seguridad",
+                        "Plan de pruebas, observabilidad y ventana de cambio"
+                    ]
+                }
+            },
+            {
+                "sectionId": "SCOPE-002",
+                "sectionTitle": "Habilitación de acceso inter-VLAN al portal on-premise",
+                "sectionType": "topic",
+                "content": {
+                    "summary": "Paula Rojas y Marco Álvarez expusieron que los usuarios de la VLAN corporativa no acceden al portal, mientras que desde la VLAN de TI funciona correctamente. Tomás Cárdenas confirmó que el firewall opera como gateway inter-VLAN y que la segmentación se rige por deny-by-default, por lo que el problema es de políticas y no de ruteo.",
+                    "details": [
+                        {
+                            "label": "Restricción actual",
+                            "description": "El portal sólo responde desde la VLAN de TI (10.20.99.0/24). Desde la VLAN corporativa de usuarios (10.20.10.0/24) no hay acceso."
+                        },
+                        {
+                            "label": "Arquitectura confirmada",
+                            "description": "Firewall es gateway de todas las VLAN. Política base: deny inter-VLAN, se habilita por excepción."
+                        },
+                        {
+                            "label": "Impacto operativo",
+                            "description": "El portal es crítico para solicitudes internas. Actualmente se está resolviendo por correo debido a timeouts desde equipos de usuarios."
+                        },
+                        {
+                            "label": "Componente DNS",
+                            "description": "Portal accesible por FQDN interno: intranet.clinicasantaaurora.local, que resuelve a IP 10.20.30.20 del IIS."
+                        },
+                        {
+                            "label": "Infraestructura del portal",
+                            "description": "Windows Server con IIS en VLAN de servidores (10.20.30.0/24). Base SQL en la misma VLAN. No hay DMZ para este servicio."
+                        }
+                    ]
+                }
+            },
+            {
+                "sectionId": "SCOPE-003",
+                "sectionTitle": "Definición de reglas, protocolos y controles de seguridad",
+                "sectionType": "topic",
+                "content": {
+                    "summary": "Ignacio Valdés propuso la habilitación mínima necesaria: permitir HTTPS desde VLAN Usuarios hacia el host del IIS, sin habilitar acceso a SQL ni a otros servidores. Se discutió ICMP como herramienta de troubleshooting (manteniéndolo bloqueado salvo necesidad), la validez de DNS (FQDN resuelve correctamente) y la autenticación integrada Windows (IWA), evitando proxy/intercept TLS en tráfico interno.",
+                    "details": [
+                        {
+                            "label": "Regla host-based propuesta",
+                            "description": "src 10.20.10.0/24 → dst 10.20.30.20 → TCP/443 con logging habilitado. TCP/80 opcional sólo si existe redirección HTTP→HTTPS en IIS."
+                        },
+                        {
+                            "label": "Scope de acceso",
+                            "description": "Mantener DENY para el resto de VLAN Servidores (10.20.30.0/24). Sin abrir SQL ni shares ni otros servidores."
+                        },
+                        {
+                            "label": "ICMP",
+                            "description": "Se mantiene bloqueado por estándar. Se evaluará sólo si el troubleshooting lo requiere."
+                        },
+                        {
+                            "label": "Autenticación IWA",
+                            "description": "Autenticación integrada Windows (Kerberos/NTLM). No se recomienda proxy/intercept TLS para tráfico interno."
+                        },
+                        {
+                            "label": "Naming de objetos",
+                            "description": "NET_VLAN_USUARIOS_10.20.10.0_24, HOST_INTRANET_10.20.30.20, SVC_HTTPS_443. Regla: ALLOW_USUARIOS_TO_INTRANET_HTTPS."
+                        },
+                        {
+                            "label": "Recomendación de seguridad adicional",
+                            "description": "Proteger rutas administrativas por roles (AD group) a nivel aplicación, dado que no hay WAF interno."
+                        }
+                    ]
+                }
+            },
+            {
+                "sectionId": "SCOPE-004",
+                "sectionTitle": "Plan de pruebas, observabilidad y ventana de cambio",
+                "sectionType": "topic",
+                "content": {
+                    "summary": "Camila Soto consolidó el scope (sólo navegador hacia portal) y definió criterios de aceptación, además de logging y posible export a syslog. Se acordó implementar la regla en ventana controlada con rollback por deshabilitación de la allow. Se dejó el punto de revisar posibles dependencias adicionales si algún módulo consume APIs internas fuera del host 10.20.30.20.",
+                    "details": [
+                        {
+                            "label": "Criterios de aceptación",
+                            "description": "Carga página principal por HTTPS desde PC de VLAN usuarios. Autenticación integrada sin prompt de credenciales. Acceso a dos módulos críticos: creación de solicitud y consulta de estado."
+                        },
+                        {
+                            "label": "Validación por logs",
+                            "description": "Revisión de logs FW: hits a la regla allow, sin drops relevantes. Logging habilitado mínimo 7 días con evaluación de export a syslog si es viable."
+                        },
+                        {
+                            "label": "Ventana de cambio",
+                            "description": "Implementación a las 18:30 con rollback simple por deshabilitación de la regla allow."
+                        },
+                        {
+                            "label": "Validación de dependencias adicionales",
+                            "description": "Revisar mediante F12/Network en navegador y logs FW si algún módulo consume APIs internas desde el cliente hacia hosts distintos a 10.20.30.20."
+                        },
+                        {
+                            "label": "Verificación de orden de reglas",
+                            "description": "Ubicar la regla allow antes de la deny general para que tenga match correctamente."
+                        }
+                    ]
+                }
+            }
+        ]
+    },
+    "agreements": {
+        "items": [
+            {
+                "agreementId": "AGR-001",
+                "subject": "Envío de checklist de pruebas",
+                "body": "Enviar checklist de pruebas funcionales y detalle de configuración/naming de objetos de firewall antes de la ventana de cambio.",
+                "responsible": "Camila Soto",
+                "dueDate": null,
+                "status": "pending"
+            },
+            {
+                "agreementId": "AGR-002",
+                "subject": "Implementación de regla allow en firewall",
+                "body": "Implementar regla allow (src 10.20.10.0/24 → dst 10.20.30.20 → TCP/443 con log) a las 18:30. Verificar orden de reglas (allow sobre deny general). Incluir TCP/80 opcional si existe redirección HTTP→HTTPS en IIS.",
+                "responsible": "Paula Rojas",
+                "dueDate": "2026-02-12T18:30:00Z",
+                "status": "pending"
+            },
+            {
+                "agreementId": "AGR-003",
+                "subject": "Ejecución de pruebas funcionales",
+                "body": "Ejecutar pruebas funcionales posterior al cambio: ingreso al portal, creación de solicitud y consulta de estado desde estación de VLAN usuarios.",
+                "responsible": "Marco Álvarez",
+                "dueDate": "2026-02-12T18:30:00Z",
+                "status": "pending"
+            },
+            {
+                "agreementId": "AGR-004",
+                "subject": "Gestión de logging y observabilidad",
+                "body": "Mantener logging habilitado en la regla allow al menos 7 días. Evaluar export a syslog si es viable; caso contrario, mantener registro local del firewall.",
+                "responsible": "Paula Rojas",
+                "dueDate": null,
+                "status": "pending"
+            }
+        ]
+    },
+    "requirements": {
+        "items": [
+            {
+                "requirementId": "REQ-001",
+                "entity": "Clínica Santa Aurora S.A. (TI)",
+                "body": "Confirmar si existe redirección HTTP→HTTPS en el IIS que requiera habilitar TCP/80 además de TCP/443.",
+                "responsible": "Paula Rojas",
+                "priority": "medium",
+                "status": "open"
+            },
+            {
+                "requirementId": "REQ-002",
+                "entity": "Clínica Santa Aurora S.A. (TI)",
+                "body": "Validar si algún módulo del portal consume APIs internas adicionales desde el cliente hacia hosts distintos a 10.20.30.20.",
+                "responsible": "Paula Rojas",
+                "priority": "medium",
+                "status": "open"
+            },
+            {
+                "requirementId": "REQ-003",
+                "entity": "Clínica Santa Aurora S.A. (TI / Seguridad)",
+                "body": "Revisar y reforzar el control de endpoints administrativos del portal mediante roles/grupos AD a nivel aplicación, considerando que no hay WAF interno.",
+                "responsible": "Paula Rojas",
+                "priority": "high",
+                "status": "open"
+            }
+        ]
+    },
+    "upcomingMeetings": {
+        "items": [
+            {
+                "meetingId": "MEET-001",
+                "scheduledDate": "Por definir",
+                "agenda": "Seguimiento post-implementación: validación de logs, análisis de hits a la regla allow, confirmación de estabilidad operativa del portal y evaluación de dependencias adicionales detectadas.",
+                "attendees": []
+            }
+        ]
+    }
+}
