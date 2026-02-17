@@ -334,5 +334,12 @@
     "description": "Plan de pruebas, validación, evidencias y control de calidad.",
     "status": "activo",
     "category": "Calidad"
+  },
+  {
+    "id": 49,
+    "name": "VLAN",
+    "description": "Segmentación lógica de red mediante VLANs: definición/estandarización de IDs, trunks/access, tagging (802.1Q), ruteo inter-VLAN, ACLs asociadas, alcance por sitio y validación de conectividad.",
+    "status": "activo",
+    "category": "Redes"
   }
 ]
