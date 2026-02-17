@@ -2,6 +2,11 @@
  * ProfilesCatalogFilters.jsx
  * Componente de filtros para el catálogo de perfiles
  * Alineado visualmente y funcionalmente al patrón ProjectFilters / ClientFilters
+ *
+ * Fix:
+ * - Soporta prop `categories: string[]` (catálogo cerrado)
+ * - Si no se entrega `categories`, deriva categorías desde `profiles`
+ * - Se elimina el filtro "Orden"
  */
 
 import React, { useMemo, useState } from "react";
@@ -15,14 +20,27 @@ const FILTER_LABELS = {
   search: "Búsqueda",
   status: "Estado",
   categoria: "Categoría",
-  sort: "Orden",
 };
 
 const FILTER_ICONS = {
   search: "FaSearch",
   status: "FaToggleOn",
   categoria: "FaLayerGroup",
-  sort: "FaArrowDownAZ",
+};
+
+const normalizeText = (v) => String(v ?? "").trim();
+
+const uniqueStrings = (arr) => {
+  const out = [];
+  const seen = new Set();
+  (Array.isArray(arr) ? arr : []).forEach((v) => {
+    const s = normalizeText(v);
+    if (!s) return;
+    if (seen.has(s)) return;
+    seen.add(s);
+    out.push(s);
+  });
+  return out;
 };
 
 const FilterDropdown = ({ visibleFilters, onToggleVisibility, onClose }) => (
@@ -66,7 +84,7 @@ const FilterField = ({ type, label, icon, value, onChange, options, placeholder 
         <option value="" className="bg-white dark:bg-gray-800">
           {placeholder}
         </option>
-        {options.map((option) => (
+        {(Array.isArray(options) ? options : []).map((option) => (
           <option key={option.value} value={option.value} className="bg-white dark:bg-gray-800">
             {option.label}
           </option>
@@ -95,14 +113,17 @@ const ProfilesCatalogFilters = ({
   onFilterChange,
   onClearFilters,
   onApplyFilters,
-  onExport,
+
+  // catálogo cerrado (recomendado)
+  categories = [],
+
+  // fallback: si no hay categories, se deriva desde perfiles
   profiles = [],
 }) => {
   const [visibleFilters, setVisibleFilters] = useState({
     search: true,
     categoria: true,
     status: true,
-    sort: true,
   });
 
   const [showFiltersDropdown, setShowFiltersDropdown] = useState(false);
@@ -114,8 +135,8 @@ const ProfilesCatalogFilters = ({
 
   const activeFiltersCount = useMemo(() => {
     if (!filters) return 0;
-    const keys = ["search", "categoria", "status", "sort"];
-    return keys.reduce((acc, k) => acc + (String(filters?.[k] ?? "").trim() !== "" ? 1 : 0), 0);
+    const keys = ["search", "categoria", "status"]; // ✅ sin sort
+    return keys.reduce((acc, k) => acc + (normalizeText(filters?.[k]) !== "" ? 1 : 0), 0);
   }, [filters]);
 
   const statusOptions = [
@@ -123,24 +144,17 @@ const ProfilesCatalogFilters = ({
     { value: "inactivo", label: "Inactivo" },
   ];
 
-  const sortOptions = [
-    { value: "az", label: "Nombre (A → Z)" },
-    { value: "za", label: "Nombre (Z → A)" },
-    { value: "status", label: "Estado" },
-    { value: "categoria", label: "Categoría" },
-  ];
-
   const categoriaOptions = useMemo(() => {
-    const raw = Array.isArray(profiles) ? profiles : [];
-    const set = new Set(
-      raw
-        .map((p) => String(p?.categoria ?? "").trim())
-        .filter((v) => v.length > 0)
-    );
+    const fromCatalog = uniqueStrings(categories);
+    if (fromCatalog.length > 0) {
+      const list = fromCatalog.sort((a, b) => a.localeCompare(b));
+      return list.map((c) => ({ value: c, label: c }));
+    }
 
-    const list = Array.from(set).sort((a, b) => a.localeCompare(b));
+    const raw = Array.isArray(profiles) ? profiles : [];
+    const list = uniqueStrings(raw.map((p) => p?.categoria)).sort((a, b) => a.localeCompare(b));
     return list.map((c) => ({ value: c, label: c }));
-  }, [profiles]);
+  }, [categories, profiles]);
 
   return (
     <div className="bg-surface shadow-card rounded-2xl p-6 mb-6 border border-secondary-200 dark:border-secondary-700/60 dark:ring-1 dark:ring-white/5 transition-theme">
@@ -152,7 +166,11 @@ const ProfilesCatalogFilters = ({
         >
           <Icon name="FaFilter" className="text-primary-500 dark:text-primary-400" />
           Filtros Activos
-          
+          {activeFiltersCount > 0 ? (
+            <span className="ml-2 inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-semibold bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-200">
+              {activeFiltersCount}
+            </span>
+          ) : null}
           <Icon
             name={filtersExpanded ? "FaChevronUp" : "FaChevronDown"}
             className="text-sm transition-transform duration-200"
@@ -215,18 +233,6 @@ const ProfilesCatalogFilters = ({
               onChange={(value) => onFilterChange?.("status", value)}
               options={statusOptions}
               placeholder="Todos los estados"
-            />
-          )}
-
-          {visibleFilters.sort && (
-            <FilterField
-              type="select"
-              label="Orden"
-              icon={FILTER_ICONS.sort}
-              value={filters?.sort ?? "az"}
-              onChange={(value) => onFilterChange?.("sort", value)}
-              options={sortOptions}
-              placeholder="Ordenar por"
             />
           )}
 

@@ -1,9 +1,3 @@
-/**
- * ProfilesCatalog.jsx
- * Orquestador para gestión de Perfiles de Análisis
- * Alineado al patrón visual/arquitectónico de Project.jsx
- */
-
 import React, { useState, useEffect, useMemo } from "react";
 import ProfilesCatalogHeader from "./ProfilesCatalogHeader";
 import ProfilesCatalogStats from "./ProfilesCatalogStats";
@@ -12,18 +6,57 @@ import ProfilesCatalogGrid from "./ProfilesCatalogGrid";
 import ModalManager from "@/components/ui/modal";
 import PageLoadingSpinner from "@/components/ui/modal/types/system/PageLoadingSpinner";
 
+// Modal de perfiles
+import ProfilesCatalogModal, { PROFILE_MODAL_MODES } from "./ProfilesCatalogModal";
+
 // (DEV) Mock data - En PROD: reemplazar por service
 import profilesDataJSON from "@/data/analysisProfilesCatalog.json";
+
+// ============================================================
+// HELPERS
+// ============================================================
+const normalizeText = (v) => String(v ?? "").trim();
+
+const normalizeStatusToUI = (v) => {
+    // Acepta boolean o string y lo transforma a "activo"/"inactivo"
+    if (typeof v === "boolean") return v ? "activo" : "inactivo";
+    const s = normalizeText(v).toLowerCase();
+    if (s === "inactivo" || s === "inactive") return "inactivo";
+    if (s === "activo" || s === "active") return "activo";
+    return "activo";
+};
+
+const uniqueStrings = (arr) => {
+    const out = [];
+    const seen = new Set();
+    (Array.isArray(arr) ? arr : []).forEach((v) => {
+        const s = normalizeText(v);
+        if (!s) return;
+        if (seen.has(s)) return;
+        seen.add(s);
+        out.push(s);
+    });
+    return out;
+};
+
+const normalizeProfileUI = (p = {}) => ({
+    id: Number(p.id) || 0,
+    nombre: normalizeText(p.nombre),
+    categoria: normalizeText(p.categoria),
+    descripcion: normalizeText(p.descripcion),
+    prompt: normalizeText(p.prompt),
+    status: normalizeStatusToUI(p.status ?? true), // default activo
+});
 
 const ProfilesCatalog = () => {
     const [profiles, setProfiles] = useState([]);
     const [filteredProfiles, setFilteredProfiles] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
 
-    // Filters (mismo patrón que Project.jsx)
+    // Filters
     const [filters, setFilters] = useState({
         search: "",
-        status: "",
+        status: "", // "" | "activo" | "inactivo"
         categoria: "",
         sort: "az",
     });
@@ -33,25 +66,15 @@ const ProfilesCatalog = () => {
     const itemsPerPage = 12;
 
     // ============================================================
-    // LOAD DATA (patrón Project)
+    // LOAD DATA
     // ============================================================
     useEffect(() => {
         const loadProfiles = async () => {
             try {
-                // Simulación carga (igual a Project)
                 await new Promise((resolve) => setTimeout(resolve, 500));
 
-                // Normalización: status -> activo/inactivo
-                // Si tu JSON no trae status, dejamos activo por defecto.
-                const transformed = (Array.isArray(profilesDataJSON) ? profilesDataJSON : []).map((p) => ({
-                    id: p.id,
-                    nombre: String(p.nombre ?? "").trim(),
-                    categoria: String(p.categoria ?? "").trim(),
-                    descripcion: String(p.descripcion ?? "").trim(),
-                    prompt: String(p.prompt ?? "").trim(),
-                    // true => activo, false => inactivo (default: activo si viene null/undefined)
-                    status: (p.status ?? true) ? "activo" : "inactivo",
-                }));
+                const src = Array.isArray(profilesDataJSON) ? profilesDataJSON : [];
+                const transformed = src.map((p) => normalizeProfileUI(p));
 
                 setProfiles(transformed);
                 setFilteredProfiles(transformed);
@@ -66,7 +89,15 @@ const ProfilesCatalog = () => {
     }, []);
 
     // ============================================================
-    // FILTERING (patrón Project)
+    // CATEGORÍAS DISPONIBLES (catálogo cerrado)
+    // ============================================================
+    const categoryOptions = useMemo(() => {
+        const cats = profiles.map((p) => p.categoria);
+        return uniqueStrings(cats).sort((a, b) => a.localeCompare(b));
+    }, [profiles]);
+
+    // ============================================================
+    // FILTERING
     // ============================================================
     useEffect(() => {
         let filtered = [...profiles];
@@ -120,7 +151,7 @@ const ProfilesCatalog = () => {
     }, [filters, profiles]);
 
     // ============================================================
-    // FILTER HANDLERS (igual a Project.jsx)
+    // FILTER HANDLERS
     // ============================================================
     const handleFilterChange = (filterName, value) => {
         setFilters((prev) => ({ ...prev, [filterName]: value }));
@@ -136,7 +167,6 @@ const ProfilesCatalog = () => {
     };
 
     const handleApplyFilters = () => {
-        // Hook para futuro (igual que Project)
         console.log("[ProfilesCatalog] Filtros aplicados:", filters);
     };
 
@@ -144,29 +174,76 @@ const ProfilesCatalog = () => {
     // PAGINACIÓN
     // ============================================================
     const totalPages = Math.max(1, Math.ceil(filteredProfiles.length / itemsPerPage));
-    const paginatedProfiles = filteredProfiles.slice(
-        (page - 1) * itemsPerPage,
-        page * itemsPerPage
-    );
+    const paginatedProfiles = filteredProfiles.slice((page - 1) * itemsPerPage, page * itemsPerPage);
 
     const handlePageChange = (newPage) => {
         if (newPage >= 1 && newPage <= totalPages) setPage(newPage);
     };
 
     // ============================================================
-    // CRUD (igual enfoque que Profile original, pero coherente)
+    // MODAL ORQUESTACIÓN (VIEW / EDIT)
+    // ============================================================
+    const openViewModal = (profile) => {
+        ModalManager.show({
+            type: "custom",
+            title: "Detalles del Perfil",
+            size: "large",
+            showFooter: false,
+            content: (
+                <ProfilesCatalogModal
+                    mode={PROFILE_MODAL_MODES.VIEW}
+                    profile={profile}
+                    categories={categoryOptions} // ✅ (aunque en view no sea obligatorio)
+                    onClose={() => ModalManager.close?.()}
+                />
+            ),
+        });
+    };
+
+    const openEditModal = (profile) => {
+        ModalManager.show({
+            type: "custom",
+            title: "Editar Perfil",
+            size: "large",
+            showFooter: false,
+            content: (
+                <ProfilesCatalogModal
+                    mode={PROFILE_MODAL_MODES.EDIT}
+                    profile={profile}
+                    categories={categoryOptions} // ✅
+                    onSubmit={(payload) => {
+                        handleUpdate(profile.id, payload);
+                        ModalManager.close?.();
+                    }}
+                    onClose={() => ModalManager.close?.()}
+                />
+            ),
+        });
+    };
+
+    // ============================================================
+    // CRUD
     // ============================================================
     const handleCreate = (newProfile) => {
         const nextId = Math.max(0, ...profiles.map((p) => Number(p.id) || 0)) + 1;
 
-        const profile = {
+        const profile = normalizeProfileUI({
             id: nextId,
-            nombre: String(newProfile?.nombre ?? "").trim(),
-            categoria: String(newProfile?.categoria ?? "").trim(),
-            descripcion: String(newProfile?.descripcion ?? "").trim(),
-            prompt: String(newProfile?.prompt ?? "").trim(),
-            status: newProfile?.status === "inactivo" ? "inactivo" : "activo",
-        };
+            nombre: newProfile?.nombre,
+            categoria: newProfile?.categoria,
+            descripcion: newProfile?.descripcion,
+            prompt: newProfile?.prompt,
+            status: newProfile?.status, // boolean|string
+        });
+
+        // catálogo cerrado
+        if (!categoryOptions.includes(profile.categoria)) {
+            ModalManager.error?.({
+                title: "Categoría inválida",
+                message: "La categoría seleccionada no pertenece al catálogo existente.",
+            });
+            return;
+        }
 
         setProfiles((prev) => [profile, ...prev]);
 
@@ -177,9 +254,27 @@ const ProfilesCatalog = () => {
     };
 
     const handleUpdate = (id, updatedData) => {
-        setProfiles((prev) =>
-            prev.map((p) => (p.id === id ? { ...p, ...updatedData } : p))
-        );
+        const patch = {
+            nombre: updatedData?.nombre,
+            categoria: updatedData?.categoria,
+            descripcion: updatedData?.descripcion,
+            prompt: updatedData?.prompt,
+            status: updatedData?.status,
+        };
+
+        const normalizedPatch = normalizeProfileUI(patch);
+        delete normalizedPatch.id;
+
+        // catálogo cerrado
+        if (normalizeText(normalizedPatch.categoria) && !categoryOptions.includes(normalizedPatch.categoria)) {
+            ModalManager.error?.({
+                title: "Categoría inválida",
+                message: "La categoría seleccionada no pertenece al catálogo existente.",
+            });
+            return;
+        }
+
+        setProfiles((prev) => prev.map((p) => (p.id === id ? { ...p, ...normalizedPatch } : p)));
 
         ModalManager.success({
             title: "Perfil Actualizado",
@@ -188,12 +283,9 @@ const ProfilesCatalog = () => {
     };
 
     const handleToggleStatus = (id) => {
+        // aunque el toggle se mueva al modal, se mantiene por compatibilidad con Grid
         setProfiles((prev) =>
-            prev.map((p) =>
-                p.id === id
-                    ? { ...p, status: p.status === "activo" ? "inactivo" : "activo" }
-                    : p
-            )
+            prev.map((p) => (p.id === id ? { ...p, status: p.status === "activo" ? "inactivo" : "activo" } : p))
         );
     };
 
@@ -218,7 +310,7 @@ const ProfilesCatalog = () => {
     };
 
     // ============================================================
-    // EXPORT (sin cambios funcionales)
+    // EXPORT
     // ============================================================
     const handleExport = () => {
         const exported = profiles.map((p) => ({
@@ -227,7 +319,7 @@ const ProfilesCatalog = () => {
             categoria: p.categoria,
             descripcion: p.descripcion,
             prompt: p.prompt,
-            status: p.status,
+            status: p.status, // "activo"|"inactivo"
         }));
 
         const blob = new Blob([JSON.stringify(exported, null, 2)], {
@@ -244,7 +336,7 @@ const ProfilesCatalog = () => {
     };
 
     // ============================================================
-    // STATS (patrón similar a Project)
+    // STATS
     // ============================================================
     const stats = useMemo(() => {
         return {
@@ -264,14 +356,15 @@ const ProfilesCatalog = () => {
 
     return (
         <div className="space-y-6">
-            <ProfilesCatalogHeader onExport={handleExport} />
+            <ProfilesCatalogHeader />
 
             <ProfilesCatalogFilters
                 filters={filters}
                 onFilterChange={handleFilterChange}
                 onClearFilters={handleClearFilters}
                 onApplyFilters={handleApplyFilters}
-                onExport={handleExport}
+                categories={categoryOptions}     // ✅ aquí se llena el combo
+                profiles={profiles}             // (opcional) fallback
             />
 
             <ProfilesCatalogStats stats={stats} />
@@ -283,8 +376,14 @@ const ProfilesCatalog = () => {
                 totalPages={totalPages}
                 itemsPerPage={itemsPerPage}
                 onPageChange={handlePageChange}
-                onCreate={handleCreate}
-                onEdit={handleUpdate}
+                onView={openViewModal}
+                onEdit={(idOrProfile, maybeProfile) => {
+                    const p =
+                        typeof idOrProfile === "object"
+                            ? idOrProfile
+                            : maybeProfile || profiles.find((x) => x.id === idOrProfile);
+                    if (p) openEditModal(p);
+                }}
                 onToggleStatus={handleToggleStatus}
                 onDelete={handleDelete}
                 hasFilters={!!(filters.search || filters.status || filters.categoria)}
