@@ -2,14 +2,9 @@
  * ProfilesCatalogCard.jsx
  * Card individual para mostrar un perfil de análisis
  *
- * Ajustado al template ProjectCard:
- * - h-full + flex-col, rounded-2xl, tokens surface/secondary, hover lift
- * - Header fijo con min-h, icon badge, título truncado
- * - Body flexible con descripción + preview de prompt
- * - Footer fijo con ActionButton + tooltip
- *
- * Cambio solicitado:
- * - Se elimina el botón Activar/Desactivar (toggle). Esa acción queda en el modal.
+ * Fix:
+ * - status normalizado a "activo" | "inactivo"
+ * - se pasa categories al modal (VIEW/EDIT) para llenar combo de categoría
  */
 
 import React from "react";
@@ -25,19 +20,28 @@ const TXT_META = "text-gray-500 dark:text-gray-400";
 
 const safeText = (v) => String(v ?? "").trim();
 
+const normalizeStatus = (v) => {
+  // soporta boolean, "activo/inactivo", "active/inactive"
+  if (typeof v === "boolean") return v ? "activo" : "inactivo";
+  const s = safeText(v).toLowerCase();
+  if (s === "activo" || s === "active") return "activo";
+  if (s === "inactivo" || s === "inactive") return "inactivo";
+  return "inactivo";
+};
+
 const getStatusColor = (status) => {
   const colors = {
-    active:
+    activo:
       "bg-success-50 text-success-700 dark:bg-success-900/20 dark:text-success-200",
-    inactive:
+    inactivo:
       "bg-secondary-100 text-secondary-700 dark:bg-secondary-900/20 dark:text-secondary-200",
   };
-  return colors[status] || colors.inactive;
+  return colors[status] || colors.inactivo;
 };
 
 const getStatusText = (status) => {
-  const texts = { active: "Activo", inactive: "Inactivo" };
-  return texts[status] || status || "Inactivo";
+  const texts = { activo: "Activo", inactivo: "Inactivo" };
+  return texts[status] || "Inactivo";
 };
 
 const truncateUi = (text, base = 25) => {
@@ -45,12 +49,19 @@ const truncateUi = (text, base = 25) => {
   return t.length > base ? `${t.slice(0, base + 3)}...` : t;
 };
 
-const ProfilesCatalogCard = ({ profile, onEdit, onDelete }) => {
+/**
+ * props:
+ * - profile: objeto perfil (modelo UI)
+ * - categories: string[] (catálogo cerrado)
+ * - onEdit(id, payload)
+ * - onDelete(id)
+ */
+const ProfilesCatalogCard = ({ profile, categories = [], onEdit, onDelete }) => {
   // ============================================================
   // NORMALIZACIÓN UI
   // ============================================================
-  const status = safeText(profile?.status) || "inactive";
-  const isActive = status === "active";
+  const status = normalizeStatus(profile?.status);
+  const isActive = status === "activo";
 
   const nombre = safeText(profile?.nombre) || "Sin nombre";
   const categoria = safeText(profile?.categoria) || "Sin categoría";
@@ -74,7 +85,8 @@ const ProfilesCatalogCard = ({ profile, onEdit, onDelete }) => {
         <ProfilesCatalogModal
           mode={PROFILE_MODAL_MODES.VIEW}
           profile={profile}
-          onClose={() => ModalManager.close()}
+          categories={categories} // ✅ NECESARIO
+          onClose={() => ModalManager.close?.()}
         />
       ),
     });
@@ -90,18 +102,18 @@ const ProfilesCatalogCard = ({ profile, onEdit, onDelete }) => {
         <ProfilesCatalogModal
           mode={PROFILE_MODAL_MODES.EDIT}
           profile={profile}
+          categories={categories} // ✅ NECESARIO
           onSubmit={(data) => {
             onEdit?.(profile.id, data);
-            ModalManager.close();
+            ModalManager.close?.();
           }}
-          onClose={() => ModalManager.close()}
+          onClose={() => ModalManager.close?.()}
         />
       ),
     });
   };
 
   const handleDelete = async () => {
-    // Mantengo confirmación consistente con ProjectCard
     try {
       const confirmed = await ModalManager.confirm({
         title: "Confirmar Eliminación",
@@ -123,10 +135,9 @@ const ProfilesCatalogCard = ({ profile, onEdit, onDelete }) => {
   // ============================================================
   return (
     <div className="bg-surface rounded-2xl border border-secondary-200 dark:border-secondary-700/60 dark:ring-1 dark:ring-white/5 overflow-hidden transition-all duration-200 shadow-card hover:shadow-card-hover hover:-translate-y-0.5 hover:border-primary-500 dark:hover:border-primary-400 h-full flex flex-col">
-      {/* HEADER (fijo) */}
+      {/* HEADER */}
       <div className="p-6 border-b border-secondary-200 dark:border-secondary-700/60 transition-theme min-h-[120px]">
         <div className="grid grid-cols-2 gap-3 items-start">
-          {/* Título ocupa todo el ancho */}
           <div className="col-span-2 flex items-start gap-3">
             <div className="w-11 h-11 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center shrink-0">
               <Icon
@@ -158,18 +169,15 @@ const ProfilesCatalogCard = ({ profile, onEdit, onDelete }) => {
             </div>
           </div>
 
-          {/* Categoría (izquierda) */}
-          <div
-            className={`flex flex-col gap-2 text-xs ${TXT_META} transition-theme`}
-          >
+          {/* Categoría */}
+          <div className={`flex flex-col gap-2 text-xs ${TXT_META} transition-theme`}>
             <span className="flex items-center gap-1.5 min-w-0">
-              {/* Si FaTag no existe en tu iconManager, reemplaza por uno disponible */}
               <Icon name="FaTag" className="w-3.5 h-3.5 shrink-0" />
               <span className="truncate">{categoria}</span>
             </span>
           </div>
 
-          {/* Estado (derecha) */}
+          {/* Estado */}
           <div className="flex justify-end">
             <div
               className={`px-4 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-theme ${getStatusColor(
@@ -184,22 +192,19 @@ const ProfilesCatalogCard = ({ profile, onEdit, onDelete }) => {
         </div>
       </div>
 
-      {/* BODY (flexible) */}
+      {/* BODY */}
       <div className="flex-1 flex flex-col">
         <div className="p-6">
-          {/* Descripción */}
           <div className="mb-4">
             <p className={`text-sm ${TXT_BODY} transition-theme line-clamp-3`}>
               {descripcion}
             </p>
           </div>
 
-          {/* Prompt preview */}
           {hasPrompt ? (
             <div className="mt-4">
               <div className="flex items-center gap-3 pt-4">
                 <div className="w-10 h-10 rounded-xl bg-primary-100 dark:bg-primary-900/20 flex items-center justify-center shrink-0">
-                  {/* Si FaCode no existe en tu iconManager, reemplaza por uno disponible */}
                   <Icon
                     name="FaCode"
                     className="text-primary-600 dark:text-primary-400 w-4 h-4"
@@ -207,14 +212,10 @@ const ProfilesCatalogCard = ({ profile, onEdit, onDelete }) => {
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <div
-                    className={`text-xs font-semibold ${TXT_META} transition-theme`}
-                  >
+                  <div className={`text-xs font-semibold ${TXT_META} transition-theme`}>
                     Prompt
                   </div>
-                  <p
-                    className={`text-xs ${TXT_BODY} transition-theme font-mono line-clamp-2`}
-                  >
+                  <p className={`text-xs ${TXT_BODY} transition-theme font-mono line-clamp-2`}>
                     {prompt}
                   </p>
                 </div>
@@ -228,9 +229,8 @@ const ProfilesCatalogCard = ({ profile, onEdit, onDelete }) => {
         </div>
       </div>
 
-      {/* FOOTER (fijo) */}
+      {/* FOOTER */}
       <div className="p-4 border-t border-secondary-200 dark:border-secondary-700/60 transition-theme min-h-[70px] flex flex-col">
-        {/* 3 acciones: Ver / Editar / Eliminar */}
         <div className="grid grid-cols-3 gap-2 mt-auto w-full place-items-center">
           <ActionButton
             variant="soft"
