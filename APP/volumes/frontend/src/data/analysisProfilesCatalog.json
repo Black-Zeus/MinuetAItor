@@ -310,5 +310,29 @@
     "status": true,
     "descripcion": "Enfocado en control HSE: permisos de trabajo, análisis de riesgos (AST/JSA), controles críticos, barreras, EPP, autorizaciones y evidencias requeridas.",
     "prompt": "Analiza la minuta con enfoque HSE centrado en permisos de trabajo y controles críticos. Delimita el alcance a: actividades de riesgo, PTW (permiso de trabajo), AST/JSA, controles críticos/barreras (preventivas y mitigadoras), EPP, señalización/aislamiento (LOTO si se menciona), supervisión, charlas de seguridad, autorizaciones y coordinaciones con seguridad/facilities. Extrae: actividad, ubicación, riesgos identificados, controles acordados, responsables de autorización/ejecución/supervisión, ventana/condiciones de trabajo, evidencias requeridas (permiso firmado, checklist, registros, fotografías, mediciones), y validaciones previas/durante/post. Si falta el permiso, el análisis de riesgo, la autorización, la identificación de controles o la evidencia, regístralo como brecha y formula preguntas concretas. No inventes condiciones ni controles no mencionados."
+  },
+  {
+    "id": 40,
+    "nombre": "Reunión de Seguimiento Semanal (Weekly Status)",
+    "categoria": "Operaciones",
+    "status": true,
+    "descripcion": "Enfocado en reuniones recurrentes de seguimiento semanal: estado de avances vs plan, bloqueos, riesgos, próximos pasos y compromisos de la semana.",
+    "prompt": "Analiza la minuta como reunión de seguimiento semanal. Delimita el alcance a: estado del trabajo (hecho/en curso/pendiente), avances relevantes desde la última semana, desviaciones vs plan, bloqueos, riesgos operacionales, dependencias y compromisos para la próxima semana. Normaliza el resultado en: resumen_ejecutivo (3-5 bullets), avances_semana, plan_proxima_semana, bloqueos_y_dependencias, riesgos_y_mitigaciones (solo si se mencionan), decisiones_y_acuerdos, y compromisos (accion, responsable, fecha si existe, criterio_de_cierre, evidencia esperada). No inventes fechas ni responsables: si faltan, regístralo como brecha y formula la pregunta mínima."
+  },
+  {
+    "id": 41,
+    "nombre": "Seguimiento de Proyecto (Ejecución y Control)",
+    "categoria": "PMO",
+    "status": true,
+    "descripcion": "Enfocado en control de ejecución del proyecto: hitos, cronograma, alcance, cambios, issues, decisiones y gobernanza de seguimiento.",
+    "prompt": "Analiza la minuta con enfoque de seguimiento de proyecto (control de ejecución). Delimita a: avance por entregables/hitos, cronograma (fechas comprometidas vs reales si se mencionan), variaciones de alcance, issues y bloqueos, cambios (RFC si aplica), decisiones pendientes, dependencias y próximos puntos de control. Extrae un estado consolidado: semaforo_general (solo si se menciona o puede inferirse de forma explícita por acuerdos; si no, marca 'no definido'), estado_por_hito (hito, estado, fecha objetivo si existe, bloqueo), riesgos_y_mitigaciones acordadas, decisiones_tomadas, decisiones_pendientes, y acciones_con_dueño. No asumas métricas ni fechas: registra brechas y preguntas concretas."
+  },
+  {
+    "id": 42,
+    "nombre": "Seguimiento de Servicios (Service Review Semanal)",
+    "categoria": "Operaciones",
+    "status": true,
+    "descripcion": "Enfocado en reuniones semanales con cliente para revisar estado del servicio: cumplimiento de SLA, tickets, incidentes, cambios, capacidad y mejoras.",
+    "prompt": "Analiza la minuta como reunión semanal de seguimiento de servicios (service review). Delimita a: estado del servicio, tickets/incidentes (volumen y estado si se menciona), cumplimiento de SLA/OLA (si se menciona), causas recurrentes/problemas, cambios ejecutados y planificados (ventanas si existen), capacidad/rendimiento (si se discute), comunicaciones con cliente y próximos compromisos. Estructura el resultado en: resumen_del_servicio, tickets_e_incidentes (id/ticket si existe, estado, impacto, responsable), cumplimiento_sla (brechas si faltan métricas), cambios_y_ventanas, problemas_recurrentes_y_rca (solo si se menciona), riesgos_operacionales, y compromisos_para_la_proxima_semana (accion, dueño, fecha, criterio_de_cierre, evidencia). Si faltan IDs de ticket, métricas SLA, alcance del impacto o ventana, regístralo como brecha y solicita los datos mínimos necesarios sin inferir."
   }
 ]

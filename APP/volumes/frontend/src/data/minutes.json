@@ -89,6 +89,24 @@
         { "label": "Daily", "color": "orange" },
         { "label": "Backend", "color": "purple" }
       ]
+    },
+    {
+      "id": 7,
+      "title": "Habilitación acceso VLAN Usuarios → Portal Web On-Prem (Redes/Seguridad)",
+      "date": "12 Feb 2026",
+      "time": "09:00 AM",
+      "status": "ready-for-edit",
+      "client": "Clínica Santa Aurora S.A.",
+      "project": "Desarrollo Web Corporativo",
+      "participants": ["Juan Perez", "Matias Maldonado"],
+      "summary": "Reunión orientada a habilitar el acceso desde la VLAN de usuarios hacia el portal web on-premise, definiendo lineamientos de seguridad, reglas de firewall, puertos/protocolos y un plan de pruebas con mínima exposición.",
+      "tags": [
+        { "label": "Infraestructura", "color": "purple" },
+        { "label": "Redes", "color": "blue" },
+        { "label": "Seguridad", "color": "red" },
+        { "label": "Firewall", "color": "orange" },
+        { "label": "VLAN", "color": "green" }
+      ]
     }
   ],
   "clients": [
