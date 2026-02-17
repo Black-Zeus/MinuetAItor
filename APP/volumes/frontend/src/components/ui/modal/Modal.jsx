@@ -135,89 +135,89 @@ const Modal = ({
   message,
   content,
   children,
-  
+
   // Configuración de UI
   size,
   position = 'center',
   showCloseButton,
   showHeader = true,
   showFooter = true,
-  
+
   // Comportamiento
   isOpen = true,
   closeOnOverlayClick,
   closeOnEscape,
   autoClose,
-  
+
   // Callbacks
   onClose,
   onOpen,
   onAfterClose,
-  
+
   // Props específicos por tipo (se pasan al renderer)
   ...modalProps
 }) => {
   // ====================================
   // ESTADO LOCAL - SIEMPRE PRIMERO
   // ====================================
-  
+
   const [isVisible, setIsVisible] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
-  
+
   // ====================================
   // REFS - SIEMPRE EN EL MISMO ORDEN
   // ====================================
-  
+
   const modalRef = useRef(null);
   const overlayRef = useRef(null);
   const uniqueId = useRef(id || generateModalId(type));
-  
+
   // ====================================
   // CONFIGURACIÓN MEMOIZADA - TODAS JUNTAS
   // ====================================
-  
+
   const config = useMemo(() => getModalConfig(type), [type]);
   const modalTitle = useMemo(() => title || getDefaultTitle(type), [title, type]);
   const modalSize = useMemo(() => size || config.size, [size, config.size]);
-  
+
   const modalSettings = useMemo(() => ({
     showClose: showCloseButton ?? config.showCloseButton,
     closeOnClick: closeOnOverlayClick ?? config.closeOnOverlayClick,
     closeOnEsc: closeOnEscape ?? config.closeOnEscape,
   }), [showCloseButton, config.showCloseButton, closeOnOverlayClick, config.closeOnOverlayClick, closeOnEscape, config.closeOnEscape]);
-  
+
   // ====================================
   // HOOKS PERSONALIZADOS
   // ====================================
-  
+
   const { handleKeyDown, restoreFocus } = useFocusManagement(isOpen && isVisible, modalRef);
   useBodyScrollLock(isOpen && isVisible);
-  
+
   // ====================================
   // HANDLERS ESTABLES
   // ====================================
-  
+
   const stableHandlers = useMemo(() => ({
     close: () => {
       if (isClosing) return;
-      
+
       setIsClosing(true);
       setIsAnimating(false);
-      
+
       // Animación de salida
       setTimeout(() => {
         setIsVisible(false);
         restoreFocus();
         onClose?.();
-        
+
         // Callback después del cierre
         setTimeout(() => {
           onAfterClose?.();
         }, 50);
       }, MODAL_CONFIG.animationDuration);
     },
-    
+
     overlayClick: (e) => {
       if (modalSettings.closeOnClick && e.target === overlayRef.current) {
         // Usar la función de cierre del mismo objeto
@@ -225,20 +225,20 @@ const Modal = ({
       }
     }
   }), [isClosing, restoreFocus, onClose, onAfterClose, modalSettings.closeOnClick]);
-  
+
   // Función de cierre expuesta para callbacks externos
   const handleClose = useCallback(() => {
     stableHandlers.close();
   }, [stableHandlers]);
-  
+
   const handleOverlayClick = useCallback((e) => {
     stableHandlers.overlayClick(e);
   }, [stableHandlers]);
-  
+
   // ====================================
   // EFECTOS - TODOS JUNTOS
   // ====================================
-  
+
   // Mostrar modal con animación
   useEffect(() => {
     if (isOpen) {
@@ -247,60 +247,77 @@ const Modal = ({
         setIsAnimating(true);
         onOpen?.();
       }, 10);
-      
+
       return () => clearTimeout(timer);
     }
   }, [isOpen, onOpen]);
-  
+
   // Auto-close
   useEffect(() => {
     if (!autoClose || !isOpen) return;
-    
+
     const timer = setTimeout(() => {
       handleClose();
     }, typeof autoClose === 'number' ? autoClose : MODAL_CONFIG.defaultAutoClose);
-    
+
     return () => clearTimeout(timer);
   }, [autoClose, isOpen, handleClose]);
-  
+
   // Keyboard listeners
   useEffect(() => {
     if (!isOpen) return;
-    
+
     const handleKeyPress = (e) => {
       if (modalSettings.closeOnEsc && e.key === 'Escape') {
         handleClose();
       }
       handleKeyDown(e);
     };
-    
+
     document.addEventListener('keydown', handleKeyPress);
-    
+
     return () => {
       document.removeEventListener('keydown', handleKeyPress);
     };
   }, [isOpen, modalSettings.closeOnEsc, handleKeyDown, handleClose]);
-  
+
   // ====================================
   // CONTENIDO MEMOIZADO
   // ====================================
-  
+
   const modalContent = useMemo(() => {
     // Obtener el renderer específico del tipo
     const renderModalContent = ALL_MODAL_RENDERERS[type];
-    
+
     // Si no hay renderer, mostrar contenido básico
     if (renderModalContent) {
       const Comp = renderModalContent;
-      return <Comp
-        type={type}
-        title={modalTitle}
-        message={message}
-        content={content || children}
-        onClose={handleClose}
-        {...modalProps}
-      />;
+      // Version Original
+      // return <Comp
+      //   type={type}
+      //   title={modalTitle}
+      //   message={message}
+      //   content={content || children}
+      //   onClose={handleClose}
+      //   {...modalProps}
+      // />;
 
+      return (
+        <Comp
+          type={type}
+          title={modalTitle}
+          message={message}
+          content={content || children}
+          onClose={handleClose}
+
+          // ✅ Forward explícito de props “consumidas” por Modal.jsx
+          showFooter={showFooter}
+          showHeader={showHeader}
+          size={modalSize}
+
+          {...modalProps}
+        />
+      );
     }
 
     // Fallback para tipos no implementados
@@ -312,7 +329,7 @@ const Modal = ({
           {content && (typeof content === 'string' ? <p>{content}</p> : content)}
           {children}
         </div>
-        
+
         {/* Footer por defecto */}
         {showFooter && (
           <div className={MODAL_CLASSES.footer}>
@@ -329,92 +346,91 @@ const Modal = ({
       </>
     );
   }, [type, modalTitle, message, content, children, showFooter, handleClose, modalProps]);
-  
+
   // CLASES CSS MEMOIZADAS
   const cssClasses = useMemo(() => ({
     overlay: `${MODAL_CLASSES.overlay.base} ${getModalPositionClasses(position)}`,
     backdrop: `${MODAL_CLASSES.overlay.backdrop} ${isAnimating ? 'opacity-100' : 'opacity-0'}`,
-    modal: `${MODAL_CLASSES.modal.base} ${getModalSizeClasses(modalSize)} ${
-      isAnimating 
-        ? MODAL_CLASSES.modal.enterActive 
+    modal: `${MODAL_CLASSES.modal.base} ${getModalSizeClasses(modalSize)} ${isAnimating
+        ? MODAL_CLASSES.modal.enterActive
         : MODAL_CLASSES.modal.enter
-    }`,
+      }`,
     header: `${MODAL_CLASSES.header.base} ${config.styles?.header || ''}`,
     headerTitle: MODAL_CLASSES.header.title,
     headerClose: MODAL_CLASSES.header.close
   }), [position, isAnimating, modalSize, config.styles]);
-  
+
   // ====================================
   // RENDER CONDICIONAL
   // ====================================
-  
+
   if (!isVisible) return null;
-  
+
   // ====================================
   // RENDER PRINCIPAL
   // ====================================
-  
-const modalElement = (
-  <div
-    className={cssClasses.overlay}
-    style={{ zIndex: MODAL_CONFIG.baseZIndex }}
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby={`modal-title-${uniqueId.current}`}
-    aria-describedby={`modal-body-${uniqueId.current}`}
-  >
-    {/* Backdrop */}
+
+  const modalElement = (
     <div
-      ref={overlayRef}
-      className={cssClasses.backdrop}
-      onClick={handleOverlayClick}
-      aria-hidden="true"
-    />
-    
-    {/* FLEX CONTAINER: Añadido para centrar el modal */}
-    <div className={MODAL_CLASSES.overlay.container}>
+      className={cssClasses.overlay}
+      style={{ zIndex: MODAL_CONFIG.baseZIndex }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={`modal-title-${uniqueId.current}`}
+      aria-describedby={`modal-body-${uniqueId.current}`}
+    >
+      {/* Backdrop */}
       <div
-        ref={modalRef}
-        className={cssClasses.modal}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        {showHeader && (
-          <div className={cssClasses.header}>
-            <h2 
-              id={`modal-title-${uniqueId.current}`}
-              className={cssClasses.headerTitle}
-            >
-              {/* Icono del tipo */}
-              {config.icon && (
-                <config.icon className={`w-5 h-5 mr-3 inline ${config.styles?.icon || ''}`} />
-              )}
-              {modalTitle}
-            </h2>
-            
-            {/* Botón cerrar */}
-            {modalSettings.showClose && (
-              <button
-                onClick={handleClose}
-                className={cssClasses.headerClose}
-                aria-label={MODAL_CONFIG.accessibility.closeLabel}
+        ref={overlayRef}
+        className={cssClasses.backdrop}
+        onClick={handleOverlayClick}
+        aria-hidden="true"
+      />
+
+      {/* FLEX CONTAINER: Añadido para centrar el modal */}
+      <div className={MODAL_CLASSES.overlay.container}>
+        <div
+          ref={modalRef}
+          className={cssClasses.modal}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          {showHeader && (
+            <div className={cssClasses.header}>
+              <h2
+                id={`modal-title-${uniqueId.current}`}
+                className={cssClasses.headerTitle}
               >
-                <X className="w-5 h-5" />
-              </button>
-            )}
+                {/* Icono del tipo */}
+                {config.icon && (
+                  <config.icon className={`w-5 h-5 mr-3 inline ${config.styles?.icon || ''}`} />
+                )}
+                {modalTitle}
+              </h2>
+
+              {/* Botón cerrar */}
+              {modalSettings.showClose && (
+                <button
+                  onClick={handleClose}
+                  className={cssClasses.headerClose}
+                  aria-label={MODAL_CONFIG.accessibility.closeLabel}
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Contenido dinámico según el tipo */}
+          <div id={`modal-body-${uniqueId.current}`}>
+            {modalContent}
           </div>
-        )}
-        
-        {/* Contenido dinámico según el tipo */}
-        <div id={`modal-body-${uniqueId.current}`}>
-          {modalContent}
         </div>
       </div>
     </div>
-  </div>
-);
+  );
 
-  
+
   // Renderizar en portal
   const container = document.getElementById('modal-root') || document.body;
   return createPortal(modalElement, container);
@@ -431,15 +447,15 @@ const modalElement = (
  */
 export const useModal = (config = {}) => {
   const [isOpen, setIsOpen] = useState(false);
-  
+
   const openModal = useCallback(() => {
     setIsOpen(true);
   }, []);
-  
+
   const closeModal = useCallback(() => {
     setIsOpen(false);
   }, []);
-  
+
   const ModalComponent = useCallback((props) => (
     <Modal
       {...config}
@@ -448,7 +464,7 @@ export const useModal = (config = {}) => {
       onClose={closeModal}
     />
   ), [config, isOpen, closeModal]);
-  
+
   return [isOpen, openModal, closeModal, ModalComponent];
 };
 
@@ -463,15 +479,15 @@ export const useModal = (config = {}) => {
 const validateModalProps = (props) => {
   if (process.env.NODE_ENV === 'development') {
     const { type, size, position } = props;
-    
+
     if (type && !ALL_MODAL_RENDERERS[type]) {
       console.warn(`⚠️ Modal: Tipo "${type}" no implementado. Usando fallback.`);
     }
-    
+
     if (size && !['small', 'medium', 'large', 'xlarge', 'fullscreen', 'fullscreenWide'].includes(size)) {
       console.warn(`⚠️ Modal: Tamaño "${size}" no válido. Usando "medium".`);
     }
-    
+
     if (position && !['center', 'top', 'top-left', 'top-right'].includes(position)) {
       console.warn(`⚠️ Modal: Posición "${position}" no válida. Usando "center".`);
     }
