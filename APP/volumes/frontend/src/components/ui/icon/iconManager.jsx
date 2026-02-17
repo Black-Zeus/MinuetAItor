@@ -10,13 +10,13 @@ import {
   FaChevronLeft,
   FaChevronRight,
   FaChevronDown,
-  FaChevronUp,            // ✅ NUEVO
+  FaChevronUp,
   FaClock,
   FaDownload,
   FaEye,
   FaBrain,
   FaCircleInfo,
-  FaCircleQuestion,       // ✅ NUEVO
+  FaCircleQuestion,
   FaDoorOpen,
   FaEnvelope,
   FaEraser,
@@ -53,20 +53,20 @@ import {
   FaTerminal,
   FaHouse,
   FaRegFileLines,
-  FaRegWindowRestore,     // ✅ NUEVO
+  FaRegWindowRestore,
   FaChartLine,
   FaClipboardCheck,
   FaRegFile,
   FaGears,
   FaFlask,
   FaBell,
-  FaBug,                  // ✅ NUEVO
+  FaBug,
 
   // =========================
   // TOGGLES / SORT (warnings actuales)
   // =========================
-  FaToggleOn,             // ✅ NUEVO
-  FaArrowDownAZ,          // ✅ NUEVO
+  FaToggleOn,
+  FaArrowDownAZ,
 
   // =========================
   // NUEVOS (ya tenías)
@@ -87,6 +87,17 @@ import {
   FaGaugeHigh,
   FaCodeBranch,
   FaTriangleExclamation,
+
+  // =========================
+  // FIX warnings (faltaban imports)
+  // =========================
+  FaPlus,
+  FaUserPlus,
+  FaPrint,
+  FaClipboardList,
+  FaCheck,
+  FaThumbtack,
+  FaGear,
 } from "react-icons/fa6";
 
 const kebabToCamel = (str) =>
@@ -106,6 +117,7 @@ const ICON_REGISTRY = {
   // =========================
   business: FaBuilding,
   calendar: FaCalendar,
+  calendarPlus: FaCalendarPlus,
   chevronLeft: FaChevronLeft,
   chevronRight: FaChevronRight,
   chevronDown: FaChevronDown,
@@ -122,6 +134,7 @@ const ICON_REGISTRY = {
   folder: FaFolder,
   folderOpen: FaFolderOpen,
   history: FaClockRotateLeft,
+  rotate: FaClockRotateLeft,
   listCheck: FaListCheck,
   search: FaMagnifyingGlass,
   sliders: FaSliders,
@@ -137,7 +150,34 @@ const ICON_REGISTRY = {
   toggleOn: FaToggleOn,
   sortAZ: FaArrowDownAZ,
 
-  // (aliases simples opcionales útiles)
+  // =========================
+  // FIX warnings (claves exactas solicitadas por UI)
+  // =========================
+  circleInfo: FaCircleInfo,
+  brain: FaBrain,
+  rotateLeft: FaClockRotateLeft,
+  print: FaPrint,
+  clipboardList: FaClipboardList,
+  diagramProject: FaDiagramProject,
+  check: FaCheck,
+  thumbtack: FaThumbtack,
+  tags: FaTags,
+  tag: FaTag,
+  gear: FaGear,
+  lock: FaLock,
+  plus: FaPlus,
+  userPlus: FaUserPlus,
+
+  // =========================
+  // FIX warnings (los 3 que reportas ahora)
+  // =========================
+  triangleExclamation: FaTriangleExclamation, // <- faltaba clave exacta
+  user: FaUser,                               // <- faltaba clave simple
+  pen: FaPen,                                 // <- faltaba clave simple
+
+  // =========================
+  // Aliases simples opcionales útiles
+  // =========================
   home: FaHouse,
   bell: FaBell,
   star: FaStar,
@@ -155,6 +195,7 @@ const ICON_REGISTRY = {
   // =========================
   FaBrain: FaBrain,
   FaBuilding: FaBuilding,
+  FaCalendar: FaCalendar,
   FaCalendarPlus: FaCalendarPlus,
 
   // FA5 -> FA6 (aliases típicos)
@@ -166,7 +207,7 @@ const ICON_REGISTRY = {
   FaPauseCircle: FaCirclePause,
 
   // =========================
-  // Existentes (mapeo directo)
+  // Mapeo directo (component names)
   // =========================
   FaCircleInfo: FaCircleInfo,
   FaCircleQuestion: FaCircleQuestion,
@@ -224,7 +265,7 @@ const ICON_REGISTRY = {
   FaToggleOn: FaToggleOn,
   FaArrowDownAZ: FaArrowDownAZ,
 
-  // ✅ NUEVOS (ya tenías)
+  // nuevos
   FaSpinner: FaSpinner,
   FaStar: FaStar,
   FaCirclePause: FaCirclePause,
@@ -232,13 +273,22 @@ const ICON_REGISTRY = {
   FaUserSlash: FaUserSlash,
   FaUserShield: FaUserShield,
 
-  // ✅ NUEVOS (warnings previos)
+  // warnings previos
   FaDiagramProject: FaDiagramProject,
   FaChartPie: FaChartPie,
   FaFileExport: FaFileExport,
   FaGaugeHigh: FaGaugeHigh,
   FaCodeBranch: FaCodeBranch,
   FaTriangleExclamation: FaTriangleExclamation,
+
+  // faltantes
+  FaPlus: FaPlus,
+  FaUserPlus: FaUserPlus,
+  FaPrint: FaPrint,
+  FaClipboardList: FaClipboardList,
+  FaCheck: FaCheck,
+  FaThumbtack: FaThumbtack,
+  FaGear: FaGear,
 };
 
 export const Icon = ({ name, className = "", ...rest }) => {
