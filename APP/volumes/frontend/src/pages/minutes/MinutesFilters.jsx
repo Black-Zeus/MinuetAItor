@@ -6,12 +6,30 @@ import ActionButton from "@/components/ui/button/ActionButton";
 const TXT_TITLE = "text-gray-900 dark:text-gray-50";
 const TXT_META = "text-gray-500 dark:text-gray-400";
 
+const safeArray = (v) => (Array.isArray(v) ? v : []);
+
+/**
+ * Estados soportados (manteniendo los existentes):
+ * - completed
+ * - pending
+ * - in-progress
+ * - ready-for-edit (nuevo)
+ *
+ * Nota: id = value del select (string estable)
+ */
+const STATUS_OPTIONS = [
+  { id: "completed", name: "Completada" },
+  { id: "pending", name: "Pendiente" },
+  { id: "in-progress", name: "En Progreso" },
+  { id: "ready-for-edit", name: "Lista para edición" },
+];
+
 const FILTER_LABELS = {
   client: "Cliente",
   project: "Proyecto",
   dateFrom: "Fecha Desde",
   dateTo: "Fecha Hasta",
-  participant: "Participante",
+  status: "Estado",
 };
 
 const FILTER_ICONS = {
@@ -19,7 +37,7 @@ const FILTER_ICONS = {
   project: "folder",
   dateFrom: "calendar",
   dateTo: "calendar",
-  participant: "users",
+  status: "tag", // si no existe en tu iconManager, cámbialo por "filter" o "clipboard"
 };
 
 // Subcomponente: FilterDropdown
@@ -49,31 +67,52 @@ const FilterDropdown = ({ visibleFilters, onToggleVisibility, onClose }) => (
 );
 
 // Subcomponente: FilterField
-const FilterField = ({ type, label, icon, value, onChange, options, placeholder }) => (
+const FilterField = ({
+  type,
+  label,
+  icon,
+  value,
+  onChange,
+  options,
+  placeholder,
+  // extras
+  getOptionValue,
+  getOptionLabel,
+}) => (
   <div className="flex flex-col gap-2">
     <label className={`text-sm font-semibold ${TXT_META} flex items-center gap-2 transition-theme`}>
       <Icon name={icon} className="text-primary-500 dark:text-primary-400 text-sm" />
       {label}
     </label>
+
     {type === "select" ? (
       <select
-        value={value}
+        value={value ?? ""}
         onChange={(e) => onChange(e.target.value)}
         className={`w-full px-4 py-2.5 border border-secondary-200 dark:border-secondary-700 rounded-xl bg-white dark:bg-gray-800 ${TXT_TITLE} text-sm focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-theme hover:border-secondary-300 dark:hover:border-secondary-600`}
       >
         <option value="" className="bg-white dark:bg-gray-800">
           {placeholder}
         </option>
-        {options.map((option) => (
-          <option key={option.id} value={option.id} className="bg-white dark:bg-gray-800">
-            {option.name}
-          </option>
-        ))}
+
+        {safeArray(options).map((option, idx) => {
+          const optValue = getOptionValue ? getOptionValue(option) : option?.id;
+          const optLabel = getOptionLabel ? getOptionLabel(option) : option?.name;
+
+          // fallback defensivo
+          const key = String(optValue ?? idx);
+
+          return (
+            <option key={key} value={String(optValue ?? "")} className="bg-white dark:bg-gray-800">
+              {String(optLabel ?? "-")}
+            </option>
+          );
+        })}
       </select>
     ) : (
       <input
         type="date"
-        value={value}
+        value={value ?? ""}
         onChange={(e) => onChange(e.target.value)}
         className={`w-full px-4 py-2.5 border border-secondary-200 dark:border-secondary-700 rounded-xl bg-white dark:bg-gray-800 ${TXT_TITLE} text-sm focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-theme hover:border-secondary-300 dark:hover:border-secondary-600`}
       />
@@ -86,9 +125,9 @@ const MinutesFilters = ({ filters, onFilterChange, onClearFilters, onApplyFilter
   const [visibleFilters, setVisibleFilters] = useState({
     client: true,
     project: true,
+    status: true,
     dateFrom: false,
     dateTo: false,
-    participant: false,
   });
 
   const [showFiltersDropdown, setShowFiltersDropdown] = useState(false);
@@ -97,6 +136,12 @@ const MinutesFilters = ({ filters, onFilterChange, onClearFilters, onApplyFilter
   const toggleFilterVisibility = (filterName) => {
     setVisibleFilters((prev) => ({ ...prev, [filterName]: !prev[filterName] }));
   };
+
+  // Normalización defensiva: si filters.status no existe, igual funciona.
+  const currentFilters = filters ?? {};
+
+  const clients = safeArray(data?.clients);
+  const projects = safeArray(data?.projects);
 
   return (
     <div className="bg-surface shadow-card rounded-2xl p-6 mb-6 border border-secondary-200 dark:border-secondary-700/60 dark:ring-1 dark:ring-white/5 transition-theme">
@@ -140,10 +185,10 @@ const MinutesFilters = ({ filters, onFilterChange, onClearFilters, onApplyFilter
             <FilterField
               type="select"
               label="Cliente"
-              icon="business"
-              value={filters.client}
+              icon={FILTER_ICONS.client}
+              value={currentFilters.client}
               onChange={(value) => onFilterChange("client", value)}
-              options={data.clients}
+              options={clients}
               placeholder="Todos los clientes"
             />
           )}
@@ -152,11 +197,25 @@ const MinutesFilters = ({ filters, onFilterChange, onClearFilters, onApplyFilter
             <FilterField
               type="select"
               label="Proyecto"
-              icon="folder"
-              value={filters.project}
+              icon={FILTER_ICONS.project}
+              value={currentFilters.project}
               onChange={(value) => onFilterChange("project", value)}
-              options={data.projects}
+              options={projects}
               placeholder="Todos los proyectos"
+            />
+          )}
+
+          {visibleFilters.status && (
+            <FilterField
+              type="select"
+              label="Estado"
+              icon={FILTER_ICONS.status}
+              value={currentFilters.status}
+              onChange={(value) => onFilterChange("status", value)}
+              options={STATUS_OPTIONS}
+              placeholder="Todos los estados"
+              getOptionValue={(o) => o.id}
+              getOptionLabel={(o) => o.name}
             />
           )}
 
@@ -164,8 +223,8 @@ const MinutesFilters = ({ filters, onFilterChange, onClearFilters, onApplyFilter
             <FilterField
               type="date"
               label="Desde"
-              icon="calendar"
-              value={filters.dateFrom}
+              icon={FILTER_ICONS.dateFrom}
+              value={currentFilters.dateFrom}
               onChange={(value) => onFilterChange("dateFrom", value)}
             />
           )}
@@ -174,21 +233,9 @@ const MinutesFilters = ({ filters, onFilterChange, onClearFilters, onApplyFilter
             <FilterField
               type="date"
               label="Hasta"
-              icon="calendar"
-              value={filters.dateTo}
+              icon={FILTER_ICONS.dateTo}
+              value={currentFilters.dateTo}
               onChange={(value) => onFilterChange("dateTo", value)}
-            />
-          )}
-
-          {visibleFilters.participant && (
-            <FilterField
-              type="select"
-              label="Participante"
-              icon="users"
-              value={filters.participant}
-              onChange={(value) => onFilterChange("participant", value)}
-              options={data.participants}
-              placeholder="Todos los participantes"
             />
           )}
 
