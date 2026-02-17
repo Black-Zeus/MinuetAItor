@@ -26,6 +26,7 @@ import General from "./pages/demo/General";
 import ModalDemo from "./pages/demo/ModalDemo";
 
 import useBaseSiteStore from "@store/baseSiteStore";
+import ProfilesCatalog from "./pages/profiles/ProfilesCatalog";
 
 function App() {
   const { theme } = useBaseSiteStore();
@@ -60,6 +61,7 @@ function App() {
 
           {/* Config */}
           <Route path="/settings/tags" element={<Tags />} /> {/* placeholder */}
+          <Route path="/settings/profiles" element={<ProfilesCatalog />} /> {/* placeholder */}
           <Route path="/settings/system" element={<Dashboard />} /> {/* placeholder */}
 
           {/* Demos */}
