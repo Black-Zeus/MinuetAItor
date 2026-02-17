@@ -27,6 +27,7 @@ import ModalDemo from "./pages/demo/ModalDemo";
 
 import useBaseSiteStore from "@store/baseSiteStore";
 import ProfilesCatalog from "./pages/profiles/ProfilesCatalog";
+import MinuteEditor from "./pages/minuteEditor/MinuteEditor";
 
 function App() {
   const { theme } = useBaseSiteStore();
@@ -48,7 +49,9 @@ function App() {
 
           {/* Core */}
           <Route path="/dashboard" element={<Dashboard />} />
+
           <Route path="/minutes" element={<Minute />} />
+          <Route path="/minutes/process/:id" element={<MinuteEditor />} />
 
           {/* Management */}
           <Route path="/clients" element={<Client />} />
