@@ -174,12 +174,20 @@ export const SIDEBAR_MODULES = [
     order: 9
   },
   {
+    id: 'profiles',
+    name: 'Perfiles',
+    icon: 'FaTags',
+    path: '/settings/profiles',
+    section: 'config',
+    order: 10
+  },
+  {
     id: 'system',
     name: 'Sistema',
     icon: 'FaGears',
     path: '/settings/system',
     section: 'config',
-    order: 10,
+    order: 11,
     requiresAdmin: true
   },
 
