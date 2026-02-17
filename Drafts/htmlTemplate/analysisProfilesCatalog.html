@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MinuetAItor - Perfiles de Análisis</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <style>
+    .modal-overlay { background-color: rgba(0,0,0,0.5); backdrop-filter: blur(4px); }
+    .tab-content { animation: fadeIn .3s ease-in-out; }
+    @keyframes fadeIn { from { opacity:0; transform: translateY(10px);} to { opacity:1; transform: translateY(0);} }
+    .tab-disabled { opacity: .5; cursor: not-allowed !important; pointer-events: none; }
+    .hidden-soft { display:none; }
+  </style>
+</head>
+
+<body class="bg-gray-50">
+  <div class="max-w-[1400px] mx-auto p-6">
+
+    <!-- ============================================ -->
+    <!-- HEADER -->
+    <!-- ============================================ -->
+    <div class="mb-8">
+      <div class="flex items-center justify-between mb-2">
+        <div>
+          <h1 class="text-3xl font-bold text-gray-900">
+            <i class="fas fa-brain text-blue-600 mr-2"></i>
+            Perfiles de Análisis
+          </h1>
+          <p class="text-sm text-gray-500 mt-1">
+            Catálogo de perfiles (nombre + descripción + prompt) para análisis AI de minutas
+          </p>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <button onclick="openModal('create')" class="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2">
+            <i class="fas fa-plus text-sm"></i>
+            Nuevo Perfil
+          </button>
+        </div>
+      </div>
+
+      <!-- Stats Bar -->
+      <div class="grid grid-cols-4 gap-4 mt-6">
+        <div class="bg-white rounded-lg border border-gray-200 p-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Total Perfiles</p>
+              <p id="statTotal" class="text-2xl font-bold text-gray-900">0</p>
+            </div>
+            <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+              <i class="fas fa-layer-group text-blue-600 text-xl"></i>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-lg border border-gray-200 p-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Activos</p>
+              <p id="statActive" class="text-2xl font-bold text-green-600">0</p>
+            </div>
+            <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+              <i class="fas fa-check-circle text-green-600 text-xl"></i>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-lg border border-gray-200 p-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Inactivos</p>
+              <p id="statInactive" class="text-2xl font-bold text-gray-400">0</p>
+            </div>
+            <div class="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
+              <i class="fas fa-times-circle text-gray-400 text-xl"></i>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-lg border border-gray-200 p-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Con Prompt</p>
+              <p id="statWithPrompt" class="text-2xl font-bold text-purple-600">0</p>
+            </div>
+            <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+              <i class="fas fa-terminal text-purple-600 text-xl"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- FILTERS -->
+    <!-- ============================================ -->
+    <div class="bg-white rounded-lg border border-gray-200 p-5 mb-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-base font-semibold text-gray-900 flex items-center gap-2">
+          <i class="fas fa-filter text-gray-400 text-sm"></i>
+          Filtros
+        </h2>
+        <button id="btnClearFilters" class="text-sm text-blue-600 hover:text-blue-700 font-medium">
+          Limpiar filtros
+        </button>
+      </div>
+
+      <div class="grid grid-cols-5 gap-4">
+        <!-- Search -->
+        <div class="col-span-3">
+          <label class="block text-xs font-medium text-gray-700 mb-1.5">Buscar</label>
+          <div class="relative">
+            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+            <input id="q"
+              type="text"
+              placeholder="Nombre, descripción o texto del prompt..."
+              class="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+          </div>
+        </div>
+
+        <!-- Status -->
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1.5">Estado</label>
+          <select id="status"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+            <option value="">Todos</option>
+            <option value="active">Activo</option>
+            <option value="inactive">Inactivo</option>
+          </select>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex items-end justify-end gap-2">
+          <button id="btnExport"
+            class="w-full px-3 py-2 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2">
+            <i class="fas fa-file-code text-xs"></i>
+            Exportar JSON
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- DATA SECTION -->
+    <!-- ============================================ -->
+    <div>
+      <div class="flex items-center justify-between mb-4">
+        <p class="text-sm text-gray-600">
+          Mostrando <span id="countShown" class="font-semibold text-gray-900">0</span> perfiles
+        </p>
+
+        <div class="flex items-center gap-3">
+          <select id="sort"
+            class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="az">Ordenar: Nombre A-Z</option>
+            <option value="za">Ordenar: Nombre Z-A</option>
+            <option value="status">Ordenar: Estado</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Empty state -->
+      <div id="emptyState" class="hidden-soft bg-white rounded-lg border border-gray-200 p-10 text-center">
+        <div class="mx-auto w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mb-4">
+          <i class="fas fa-inbox text-gray-400 text-xl"></i>
+        </div>
+        <p class="text-gray-800 font-semibold">Sin resultados</p>
+        <p class="text-gray-500 text-sm mt-1">Ajusta filtros o crea un nuevo perfil.</p>
+      </div>
+
+      <!-- Grid -->
+      <div id="grid" class="grid grid-cols-3 gap-5"></div>
+
+      <!-- Pagination -->
+      <div class="mt-6 flex items-center justify-between">
+        <p id="footerInfo" class="text-sm text-gray-600">Mostrando 0</p>
+        <div class="flex items-center gap-2">
+          <button id="btnPrev"
+            class="px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-all">
+            <i class="fas fa-chevron-left"></i>
+          </button>
+          <span id="pageInfo" class="text-sm text-gray-600">1 / 1</span>
+          <button id="btnNext"
+            class="px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-all">
+            <i class="fas fa-chevron-right"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ============================================ -->
+  <!-- MODAL -->
+  <!-- ============================================ -->
+  <div id="modalBackdrop" class="fixed inset-0 z-50 hidden items-center justify-center modal-overlay"></div>
+
+  <div id="profileModal" class="fixed inset-0 z-50 hidden items-center justify-center modal-overlay">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-5xl h-[85vh] flex flex-col">
+
+      <!-- Header -->
+      <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+        <div>
+          <h2 id="modalTitle" class="text-xl font-bold text-gray-900">Nuevo Perfil</h2>
+          <p id="modalSub" class="text-sm text-gray-500 mt-0.5">Define el alcance del análisis y el prompt.</p>
+        </div>
+        <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+          <i class="fas fa-times text-xl"></i>
+        </button>
+      </div>
+
+      <!-- Tabs -->
+      <div class="px-6 pt-4 border-b border-gray-200 flex-shrink-0">
+        <div class="flex gap-1 overflow-x-auto">
+          <button onclick="switchTab(1)" id="tab-btn-1"
+            class="tab-button active px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors border-b-2 border-blue-600 text-blue-600 bg-blue-50 whitespace-nowrap">
+            <i class="fas fa-id-card mr-2"></i>
+            Información
+          </button>
+
+          <button onclick="switchTab(2)" id="tab-btn-2"
+            class="tab-button px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors border-b-2 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 whitespace-nowrap">
+            <i class="fas fa-terminal mr-2"></i>
+            Prompt
+          </button>
+
+          <button onclick="switchTab(3)" id="tab-btn-3"
+            class="tab-button px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors border-b-2 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 whitespace-nowrap">
+            <i class="fas fa-eye mr-2"></i>
+            Vista previa
+          </button>
+        </div>
+      </div>
+
+      <!-- Body -->
+      <div class="flex-1 overflow-y-auto px-6 py-6">
+
+        <!-- Alert -->
+        <div id="modalAlert" class="hidden-soft mb-5 px-4 py-3 rounded-lg border border-red-200 bg-red-50 text-red-700">
+          <i class="fas fa-triangle-exclamation mr-2"></i>
+          <span id="modalAlertText">Error</span>
+        </div>
+
+        <!-- TAB 1 -->
+        <div id="tab-content-1" class="tab-content">
+          <div class="space-y-6">
+
+            <div class="grid grid-cols-2 gap-5">
+              <div class="col-span-2">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                  Nombre <span class="text-red-500">*</span>
+                </label>
+                <input id="fNombre" type="text"
+                  placeholder="Ej: Análisis de Redes"
+                  class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+              </div>
+
+              <div class="col-span-2">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                  Descripción <span class="text-red-500">*</span>
+                </label>
+                <textarea id="fDescripcion" rows="3"
+                  placeholder="Breve descripción operativa del alcance..."
+                  class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"></textarea>
+                <p class="text-xs text-gray-500 mt-2">Recomendado: 80–180 caracteres, específico y operativo.</p>
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Estado</label>
+                <select id="fStatus"
+                  class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                  <option value="active">Activo</option>
+                  <option value="inactive">Inactivo</option>
+                </select>
+              </div>
+
+              <div class="flex items-end">
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 w-full">
+                  <p class="text-xs text-blue-800">
+                    <i class="fas fa-info-circle text-blue-600 mr-2"></i>
+                    El estado es de catálogo (interno). En export se incluyen solo: nombre, descripcion, prompt.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- TAB 2 -->
+        <div id="tab-content-2" class="tab-content hidden">
+          <div class="space-y-4">
+            <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+              <div class="flex gap-3">
+                <i class="fas fa-circle-info text-gray-600 text-lg mt-0.5"></i>
+                <div>
+                  <h4 class="text-sm font-semibold text-gray-900 mb-1">Prompt del perfil</h4>
+                  <p class="text-sm text-gray-600">
+                    Debe delimitar alcance, exigir no inventar datos y producir salida técnica.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                Prompt <span class="text-red-500">*</span>
+              </label>
+              <textarea id="fPrompt" rows="12"
+                placeholder="Escribe el prompt completo..."
+                class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
+              <p class="text-xs text-gray-500 mt-2">Sugerencia: 300–900 caracteres típicamente funcional.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 3 -->
+        <div id="tab-content-3" class="tab-content hidden">
+          <div class="space-y-4">
+            <div class="bg-white border border-gray-200 rounded-lg p-5">
+              <div class="flex items-start justify-between gap-4">
+                <div>
+                  <h3 id="prevNombre" class="text-lg font-bold text-gray-900">—</h3>
+                  <p id="prevDesc" class="text-sm text-gray-600 mt-1">—</p>
+                </div>
+                <span id="prevStatus"
+                  class="px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">
+                  —
+                </span>
+              </div>
+
+              <div class="mt-4 pt-4 border-t border-gray-200">
+                <p class="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Prompt</p>
+                <pre id="prevPrompt"
+                  class="whitespace-pre-wrap text-sm text-gray-800 bg-gray-50 border border-gray-200 rounded-lg p-4 overflow-auto max-h-[360px] font-mono">—</pre>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Footer -->
+      <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between flex-shrink-0">
+        <button onclick="closeModal()" class="px-4 py-2.5 text-gray-700 hover:text-gray-900 font-medium transition-colors">
+          Cancelar
+        </button>
+
+        <div class="flex items-center gap-3">
+          <button onclick="previousTab()" id="btn-previous"
+            class="px-4 py-2.5 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 rounded-lg font-medium transition-colors hidden">
+            <i class="fas fa-arrow-left mr-2"></i>
+            Anterior
+          </button>
+
+          <button onclick="nextTab()" id="btn-next"
+            class="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors">
+            Siguiente
+            <i class="fas fa-arrow-right ml-2"></i>
+          </button>
+
+          <button onclick="submitModal()" id="btn-save"
+            class="px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors hidden">
+            <i class="fas fa-check mr-2"></i>
+            Guardar Perfil
+          </button>
+
+          <button onclick="deleteProfile()" id="btn-delete"
+            class="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors hidden">
+            <i class="fas fa-trash mr-2"></i>
+            Eliminar
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // =========================================================
+    // DATA (SEED) - tu JSON + status interno
+    // =========================================================
+    const seedProfiles = () => ([
+      {
+        "nombre": "Análisis de Redes",
+        "descripcion": "Enfocado en decisiones y acciones técnicas sobre redes (LAN/WAN, routing/switching, VLAN, DNS/DHCP, firewall, conectividad).",
+        "prompt": "Analiza la minuta con enfoque de ingeniería de redes. Delimita el alcance a conectividad y componentes de red. Identifica decisiones, cambios propuestos/ejecutados, impacto esperado, dependencias técnicas, riesgos de indisponibilidad, pasos de validación (antes/durante/después) y tareas accionables. Si aparecen datos incompletos (IPs, VLANs, sitios, equipos), regístralo como brecha y sugiere qué dato falta sin inventarlo. Mantén redacción técnica y precisa.",
+        "status": "active"
+      },
+      {
+        "nombre": "Análisis de Servidores",
+        "descripcion": "Enfocado en operación y administración de servidores (Windows/Linux), roles, servicios, almacenamiento, rendimiento y continuidad.",
+        "prompt": "Analiza la minuta con enfoque de servidores. Limita el análisis a sistema operativo, roles/servicios, recursos (CPU/RAM/disco), almacenamiento, alta disponibilidad, respaldos, parches y monitoreo. Extrae decisiones, tareas, responsables e impactos. Señala riesgos operacionales (capacidad, fallas, mantenibilidad) y validaciones recomendadas. Registra brechas de información y solicita los datos mínimos necesarios sin asumir valores.",
+        "status": "active"
+      },
+      {
+        "nombre": "Implementación de Software",
+        "descripcion": "Enfocado en implementación/despliegue de software, ambientes, dependencias, configuración, CI/CD y criterios de aceptación.",
+        "prompt": "Analiza la minuta con enfoque de implementación de software. Delimita a despliegue, configuración, dependencias, ambientes (dev/qa/prod), versionado, CI/CD, migraciones y validación funcional. Identifica decisiones, alcance, entregables, tareas accionables y criterios de aceptación. Explicita riesgos (indisponibilidad, compatibilidad, regresiones) y mitigaciones. No inventes datos; documenta brechas y qué se debe confirmar.",
+        "status": "active"
+      },
+      {
+        "nombre": "Implementación de Características",
+        "descripcion": "Enfocado en definición e implementación de funcionalidades: requerimientos, alcance, dependencias y criterios de éxito.",
+        "prompt": "Analiza la minuta con enfoque de implementación de características. Delimita el alcance a requerimientos, tareas, reglas de negocio, dependencias y criterios de éxito. Extrae decisiones, acuerdos, definiciones pendientes, riesgos de alcance (desviación de alcance) y tareas con responsables. Si faltan criterios de aceptación o definición de 'hecho', decláralo como brecha y sugiere preguntas concretas para cerrarlo.",
+        "status": "active"
+      },
+      {
+        "nombre": "Análisis de Vulnerabilidades",
+        "descripcion": "Enfocado en hallazgos de seguridad: evidencia, exposición, severidad/prioridad y plan de remediación.",
+        "prompt": "Analiza la minuta con enfoque de vulnerabilidades. Limita el análisis a hallazgos de seguridad, evidencias mencionadas, alcance de exposición, severidad/prioridad (si se menciona) y acciones de contención/remediación. Extrae decisiones, responsables, plazos, riesgo residual y validaciones post-remediación. Si faltan CVE, evidencia, activos afectados o criterio de severidad, indícalo como brecha sin inferir.",
+        "status": "active"
+      },
+      {
+        "nombre": "Operaciones de Seguridad",
+        "descripcion": "Enfocado en SOC/CSIRT: incidentes, alertas, respuesta, evidencias, contención y seguimiento.",
+        "prompt": "Analiza la minuta con enfoque de operaciones de seguridad. Delimita a incidentes/alertas, investigación, contención, erradicación, recuperación y seguimiento. Identifica cronología, decisiones, acciones ejecutadas, responsables y evidencias/logs citados. Señala brechas (fuentes de log, IOCs, activos, alcance) y plantea las preguntas mínimas para cerrar el análisis. No inventes información.",
+        "status": "active"
+      },
+      {
+        "nombre": "Cumplimiento y Auditoría",
+        "descripcion": "Enfocado en evidencia, trazabilidad, controles, aprobaciones, segregación de funciones y riesgos de no conformidad.",
+        "prompt": "Analiza la minuta con enfoque de cumplimiento y auditoría. Delimita a controles, aprobaciones, evidencias requeridas, segregación de funciones, trazabilidad y registro de decisiones. Extrae acuerdos, responsables, plazos y artefactos a generar/adjuntar. Señala riesgos de no conformidad y brechas de evidencia. No asumas controles inexistentes; registra solo lo mencionado y lo faltante.",
+        "status": "active"
+      },
+      {
+        "nombre": "Análisis Administrativo",
+        "descripcion": "Enfocado en coordinación: acuerdos, pendientes, bloqueos, dependencias, comunicaciones y seguimiento.",
+        "prompt": "Analiza la minuta con enfoque administrativo. Delimita a acuerdos, pendientes, bloqueos, dependencias, comunicaciones, responsables y fechas. Redacta conclusiones claras y lista acciones accionables. Identifica elementos que requieren confirmación. Evita inventar fechas, responsables o compromisos no explícitos.",
+        "status": "active"
+      },
+      {
+        "nombre": "Análisis de RRHH",
+        "descripcion": "Enfocado en gestión de personas: dotación, roles, desempeño, capacitación, clima, políticas internas y acuerdos.",
+        "prompt": "Analiza la minuta con enfoque de RRHH. Delimita a dotación, roles y responsabilidades, desempeño, capacitación, clima, políticas internas y acuerdos de gestión. Extrae decisiones, acciones, responsables y plazos. Señala riesgos únicamente si están sustentados por lo conversado; si faltan datos, decláralo como brecha y especifica qué se debe confirmar.",
+        "status": "active"
+      },
+      {
+        "nombre": "Gestión de Proyectos",
+        "descripcion": "Enfocado en alcance, hitos, cronograma, estado, riesgos, dependencias y próximos pasos.",
+        "prompt": "Analiza la minuta con enfoque de gestión de proyectos. Delimita a alcance, entregables, hitos, estado, riesgos, dependencias, cambios y próximos pasos. Extrae decisiones y acciones con responsables y fechas. Identifica bloqueos y criterios de éxito. Si faltan fechas/hitos o definición de alcance, indícalo como brecha y propone las preguntas mínimas.",
+        "status": "active"
+      },
+      {
+        "nombre": "Análisis de Bases de Datos",
+        "descripcion": "Enfocado en cambios de esquema, migraciones, rendimiento, respaldos/restore, replicación y permisos.",
+        "prompt": "Analiza la minuta con enfoque de bases de datos. Delimita a cambios de esquema, migraciones, rendimiento (consultas/índices), respaldos/restore, replicación y permisos. Extrae decisiones, tareas, responsables e impactos. Señala riesgos (pérdida de datos, indisponibilidad, degradación) y validaciones recomendadas. No infieras estructuras; documenta brechas y datos a confirmar.",
+        "status": "active"
+      },
+      {
+        "nombre": "Gestión de Cambios de Infraestructura",
+        "descripcion": "Enfocado en plan de cambio, ventana, impacto, prerequisitos, aprobaciones, rollback y criterio de éxito.",
+        "prompt": "Analiza la minuta con enfoque de control de cambios de infraestructura. Delimita a plan de cambio, ventana, impacto, prerequisitos, aprobaciones, rollback y criterio de éxito. Extrae decisiones, tareas, responsables, dependencias y riesgos. Si faltan pasos de rollback o validación, indícalo explícitamente como brecha.",
+        "status": "active"
+      }
+    ]);
+
+    // =========================================================
+    // STORAGE
+    // =========================================================
+    const STORAGE_KEY = "minuetaitor_analysis_profiles_catalog_v1";
+    let PROFILES = [];
+
+    // =========================================================
+    // UI STATE
+    // =========================================================
+    let filtered = [];
+    let page = 1;
+    const pageSize = 9; // 3x3 cards
+    let currentTab = 1;
+    const totalTabs = 3;
+
+    // modal mode: create | edit | view
+    let modalMode = "create";
+    let currentKey = null; // key lógico => nombre
+
+    // =========================================================
+    // HELPERS
+    // =========================================================
+    function esc(s) {
+      return String(s ?? "").replace(/[&<>"']/g, m => ({
+        "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+      }[m]));
+    }
+
+    function showModalShell() {
+      const el = document.getElementById("profileModal");
+      el.classList.remove("hidden");
+      el.classList.add("flex");
+    }
+    function hideModalShell() {
+      const el = document.getElementById("profileModal");
+      el.classList.add("hidden");
+      el.classList.remove("flex");
+    }
+
+    function showAlert(msg) {
+      document.getElementById("modalAlertText").textContent = msg;
+      document.getElementById("modalAlert").classList.remove("hidden-soft");
+    }
+    function hideAlert() {
+      document.getElementById("modalAlert").classList.add("hidden-soft");
+    }
+
+    function load() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) { PROFILES = seedProfiles(); save(); return; }
+      try { PROFILES = JSON.parse(raw) || []; }
+      catch { PROFILES = seedProfiles(); save(); }
+    }
+
+    function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(PROFILES)); }
+
+    function findByNombre(nombre) { return PROFILES.find(p => (p.nombre || "") === nombre); }
+
+    function badgeStatus(st) {
+      return (st === "active")
+        ? `<span class="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">Activo</span>`
+        : `<span class="px-2 py-1 bg-gray-100 text-gray-600 text-xs font-medium rounded-full">Inactivo</span>`;
+    }
+
+    function promptPreview(p) {
+      const s = String(p ?? "").trim();
+      if (!s) return "—";
+      return (s.length > 140) ? (s.slice(0, 140) + "…") : s;
+    }
+
+    // =========================================================
+    // FILTER / SORT / PAGINATION
+    // =========================================================
+    function applyFilters() {
+      const q = document.getElementById("q").value.trim().toLowerCase();
+      const st = document.getElementById("status").value;
+      const sort = document.getElementById("sort").value;
+
+      filtered = PROFILES.filter(p => {
+        const matchQ = !q
+          || (p.nombre || "").toLowerCase().includes(q)
+          || (p.descripcion || "").toLowerCase().includes(q)
+          || (p.prompt || "").toLowerCase().includes(q);
+
+        const matchSt = !st || p.status === st;
+        return matchQ && matchSt;
+      });
+
+      if (sort === "az") filtered.sort((a,b) => (a.nombre||"").localeCompare(b.nombre||""));
+      if (sort === "za") filtered.sort((a,b) => (b.nombre||"").localeCompare(a.nombre||""));
+      if (sort === "status") filtered.sort((a,b) => (a.status||"").localeCompare(b.status||""));
+
+      page = 1;
+      render();
+    }
+
+    function pageCount() { return Math.max(1, Math.ceil(filtered.length / pageSize)); }
+
+    function slicePage() {
+      const start = (page - 1) * pageSize;
+      return filtered.slice(start, start + pageSize);
+    }
+
+    // =========================================================
+    // RENDER
+    // =========================================================
+    function renderStats() {
+      const total = PROFILES.length;
+      const active = PROFILES.filter(p => p.status === "active").length;
+      const inactive = total - active;
+      const withPrompt = PROFILES.filter(p => String(p.prompt||"").trim().length > 0).length;
+
+      document.getElementById("statTotal").textContent = total;
+      document.getElementById("statActive").textContent = active;
+      document.getElementById("statInactive").textContent = inactive;
+      document.getElementById("statWithPrompt").textContent = withPrompt;
+    }
+
+    function renderGrid() {
+      const grid = document.getElementById("grid");
+      const empty = document.getElementById("emptyState");
+      grid.innerHTML = "";
+
+      const items = slicePage();
+      document.getElementById("countShown").textContent = filtered.length;
+      document.getElementById("footerInfo").textContent = `Mostrando ${items.length} de ${filtered.length}`;
+      document.getElementById("pageInfo").textContent = `${page} / ${pageCount()}`;
+
+      if (!items.length) { empty.classList.remove("hidden-soft"); return; }
+      empty.classList.add("hidden-soft");
+
+      for (const p of items) {
+        const initials = (p.nombre || "").split(/\s+/).filter(Boolean).slice(0,2).map(x => x[0]).join("").toUpperCase() || "AI";
+
+        const card = document.createElement("div");
+        card.className = "bg-white rounded-lg border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all duration-200 overflow-hidden group";
+
+        card.innerHTML = `
+          <div class="p-5 pb-4 border-b border-gray-100">
+            <div class="flex items-start justify-between mb-3">
+              <div class="flex items-center gap-3">
+                <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-lg flex-shrink-0">
+                  ${esc(initials)}
+                </div>
+                <div>
+                  <h3 class="text-base font-semibold text-gray-900 leading-tight group-hover:text-blue-600 transition-colors">
+                    ${esc(p.nombre)}
+                  </h3>
+                  <p class="text-xs text-gray-500 mt-0.5">Perfil de análisis</p>
+                </div>
+              </div>
+              ${badgeStatus(p.status)}
+            </div>
+
+            <p class="text-sm text-gray-600 leading-relaxed">
+              ${esc(p.descripcion)}
+            </p>
+          </div>
+
+          <div class="p-5 pt-4 pb-4 bg-gray-50">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-semibold text-gray-700 uppercase tracking-wide">Prompt (preview)</span>
+              <span class="text-xs text-gray-500"><i class="fas fa-terminal mr-1"></i>${(p.prompt||"").length} chars</span>
+            </div>
+            <p class="text-xs text-gray-700 bg-white border border-gray-200 rounded-lg p-3 font-mono leading-relaxed">
+              ${esc(promptPreview(p.prompt))}
+            </p>
+          </div>
+
+          <div class="p-5 pt-3 pb-4 bg-white border-t border-gray-200">
+            <div class="flex items-center gap-2">
+              <button data-action="view" data-key="${esc(p.nombre)}"
+                class="flex-1 px-3 py-2 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2">
+                <i class="fas fa-eye text-xs"></i>
+                Ver Detalles
+              </button>
+
+              <button data-action="edit" data-key="${esc(p.nombre)}"
+                class="px-3 py-2 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 rounded-lg transition-colors"
+                title="Editar">
+                <i class="fas fa-pen-to-square text-sm"></i>
+              </button>
+
+              <button data-action="toggle" data-key="${esc(p.nombre)}"
+                class="px-3 py-2 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 rounded-lg transition-colors"
+                title="Activar/Desactivar">
+                <i class="fas fa-arrow-rotate-right text-sm"></i>
+              </button>
+            </div>
+          </div>
+        `;
+
+        grid.appendChild(card);
+      }
+    }
+
+    function updatePaginationButtons() {
+      const prev = document.getElementById("btnPrev");
+      const next = document.getElementById("btnNext");
+      prev.disabled = page <= 1;
+      next.disabled = page >= pageCount();
+      prev.classList.toggle("opacity-50", prev.disabled);
+      next.classList.toggle("opacity-50", next.disabled);
+    }
+
+    function render() {
+      renderStats();
+      renderGrid();
+      updatePaginationButtons();
+    }
+
+    // =========================================================
+    // CRUD
+    // =========================================================
+    function toggleStatus(nombre) {
+      const p = findByNombre(nombre);
+      if (!p) return;
+      p.status = (p.status === "active") ? "inactive" : "active";
+      save();
+      applyFilters();
+    }
+
+    function deleteProfile() {
+      if (!currentKey) return;
+      const p = findByNombre(currentKey);
+      if (!p) return;
+      const ok = confirm(`Eliminar el perfil "${p.nombre}"? Esta acción no se puede deshacer.`);
+      if (!ok) return;
+      PROFILES = PROFILES.filter(x => x.nombre !== currentKey);
+      save();
+      closeModal();
+      applyFilters();
+    }
+
+    function validate(payload) {
+      if (!payload.nombre || payload.nombre.trim().length < 3) return "El nombre es obligatorio (mín. 3 caracteres).";
+      if (!payload.descripcion || payload.descripcion.trim().length < 30) return "La descripción debe tener al menos 30 caracteres.";
+      if (!payload.prompt || payload.prompt.trim().length < 60) return "El prompt debe tener al menos 60 caracteres.";
+
+      const exists = PROFILES.some(p =>
+        (p.nombre || "").toLowerCase() === payload.nombre.toLowerCase()
+        && p.nombre !== currentKey
+      );
+      if (exists) return "Ya existe un perfil con ese nombre (debe ser único).";
+      return null;
+    }
+
+    // =========================================================
+    // MODAL + TABS
+    // =========================================================
+    function openModal(mode, profile) {
+      modalMode = mode;
+      currentKey = profile?.nombre ?? null;
+      currentTab = 1;
+
+      const title = document.getElementById("modalTitle");
+      const sub = document.getElementById("modalSub");
+      const btnDelete = document.getElementById("btn-delete");
+
+      if (mode === "create") {
+        title.textContent = "Nuevo Perfil";
+        sub.textContent = "Define el alcance del análisis y el prompt.";
+        btnDelete.classList.add("hidden-soft");
+      } else if (mode === "edit") {
+        title.textContent = "Editar Perfil";
+        sub.textContent = "Actualiza el alcance y guarda cambios.";
+        btnDelete.classList.remove("hidden-soft");
+      } else if (mode === "view") {
+        title.textContent = "Ver Perfil";
+        sub.textContent = "Detalle en modo lectura.";
+        btnDelete.classList.remove("hidden-soft");
+      }
+
+      document.getElementById("fNombre").value = profile?.nombre ?? "";
+      document.getElementById("fDescripcion").value = profile?.descripcion ?? "";
+      document.getElementById("fPrompt").value = profile?.prompt ?? "";
+      document.getElementById("fStatus").value = profile?.status ?? "active";
+
+      setReadonly(mode === "view");
+      hideAlert();
+
+      syncPreview();
+
+      document.getElementById("modalBackdrop").classList.remove("hidden");
+      document.getElementById("modalBackdrop").classList.add("flex");
+      showModalShell();
+
+      updateTabVisibility();
+    }
+
+    function closeModal() {
+      hideModalShell();
+      const bd = document.getElementById("modalBackdrop");
+      bd.classList.add("hidden");
+      bd.classList.remove("flex");
+      modalMode = "create";
+      currentKey = null;
+      currentTab = 1;
+      hideAlert();
+    }
+
+    function setReadonly(isReadonly) {
+      ["fNombre","fDescripcion","fPrompt","fStatus"].forEach(id => {
+        const el = document.getElementById(id);
+        el.disabled = isReadonly;
+        el.classList.toggle("opacity-80", isReadonly);
+      });
+
+      // botones
+      const btnNext = document.getElementById("btn-next");
+      const btnSave = document.getElementById("btn-save");
+
+      // En view se permite navegar tabs, pero "Guardar" pasa a "Editar"
+      if (isReadonly) {
+        btnSave.innerHTML = `<i class="fas fa-pen-to-square mr-2"></i>Editar`;
+      } else {
+        btnSave.innerHTML = `<i class="fas fa-check mr-2"></i>Guardar Perfil`;
+      }
+    }
+
+    function switchTab(tabNumber) {
+      currentTab = tabNumber;
+      syncPreview();
+      updateTabVisibility();
+    }
+
+    function nextTab() {
+      if (currentTab < totalTabs) {
+        currentTab++;
+        syncPreview();
+        updateTabVisibility();
+      }
+    }
+
+    function previousTab() {
+      if (currentTab > 1) {
+        currentTab--;
+        syncPreview();
+        updateTabVisibility();
+      }
+    }
+
+    function updateTabVisibility() {
+      for (let i = 1; i <= totalTabs; i++) {
+        document.getElementById(`tab-content-${i}`).classList.add("hidden");
+        const btn = document.getElementById(`tab-btn-${i}`);
+        btn.classList.remove("active","border-blue-600","text-blue-600","bg-blue-50");
+        btn.classList.add("border-transparent","text-gray-600");
+      }
+
+      document.getElementById(`tab-content-${currentTab}`).classList.remove("hidden");
+
+      const curBtn = document.getElementById(`tab-btn-${currentTab}`);
+      curBtn.classList.add("active","border-blue-600","text-blue-600","bg-blue-50");
+      curBtn.classList.remove("border-transparent","text-gray-600");
+
+      const btnPrevious = document.getElementById("btn-previous");
+      const btnNext = document.getElementById("btn-next");
+      const btnSave = document.getElementById("btn-save");
+
+      if (currentTab === 1) btnPrevious.classList.add("hidden");
+      else btnPrevious.classList.remove("hidden");
+
+      if (currentTab === totalTabs) {
+        btnNext.classList.add("hidden");
+        btnSave.classList.remove("hidden");
+      } else {
+        btnNext.classList.remove("hidden");
+        btnSave.classList.add("hidden");
+      }
+    }
+
+    function syncPreview() {
+      const nombre = String(document.getElementById("fNombre")?.value || "").trim() || "—";
+      const desc = String(document.getElementById("fDescripcion")?.value || "").trim() || "—";
+      const prompt = String(document.getElementById("fPrompt")?.value || "").trim() || "—";
+      const st = document.getElementById("fStatus")?.value || "active";
+
+      document.getElementById("prevNombre").textContent = nombre;
+      document.getElementById("prevDesc").textContent = desc;
+      document.getElementById("prevPrompt").textContent = prompt;
+
+      const prevStatus = document.getElementById("prevStatus");
+      if (st === "active") {
+        prevStatus.textContent = "Activo";
+        prevStatus.className = "px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700";
+      } else {
+        prevStatus.textContent = "Inactivo";
+        prevStatus.className = "px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600";
+      }
+    }
+
+    function submitModal() {
+      // si está en view => cambiar a edit
+      if (modalMode === "view" && currentKey) {
+        const p = findByNombre(currentKey);
+        if (p) openModal("edit", p);
+        return;
+      }
+
+      const payload = {
+        nombre: String(document.getElementById("fNombre").value || "").trim(),
+        descripcion: String(document.getElementById("fDescripcion").value || "").trim(),
+        prompt: String(document.getElementById("fPrompt").value || "").trim(),
+        status: document.getElementById("fStatus").value
+      };
+
+      const err = validate(payload);
+      if (err) return showAlert(err);
+
+      if (modalMode === "create") {
+        PROFILES.unshift(payload);
+      } else if (modalMode === "edit") {
+        const idx = PROFILES.findIndex(p => p.nombre === currentKey);
+        if (idx >= 0) PROFILES[idx] = payload;
+      }
+
+      save();
+      closeModal();
+      applyFilters();
+    }
+
+    // =========================================================
+    // EXPORT
+    // =========================================================
+    function exportJSON() {
+      // Export “contrato” solicitado: SOLO nombre + descripcion + prompt
+      const exported = PROFILES.map(p => ({
+        nombre: p.nombre,
+        descripcion: p.descripcion,
+        prompt: p.prompt
+      }));
+      const blob = new Blob([JSON.stringify(exported, null, 2)], { type: "application/json;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "analysis-profiles.json";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    // =========================================================
+    // EVENTS
+    // =========================================================
+    document.getElementById("q").addEventListener("input", applyFilters);
+    document.getElementById("status").addEventListener("change", applyFilters);
+    document.getElementById("sort").addEventListener("change", applyFilters);
+
+    document.getElementById("btnClearFilters").onclick = () => {
+      document.getElementById("q").value = "";
+      document.getElementById("status").value = "";
+      document.getElementById("sort").value = "az";
+      applyFilters();
+    };
+
+    document.getElementById("btnExport").onclick = exportJSON;
+
+    document.getElementById("btnPrev").onclick = () => { if (page > 1) { page--; render(); } };
+    document.getElementById("btnNext").onclick = () => { if (page < pageCount()) { page++; render(); } };
+
+    // delegación acciones en grid
+    document.getElementById("grid").onclick = (ev) => {
+      const btn = ev.target.closest("button[data-action]");
+      if (!btn) return;
+
+      const action = btn.getAttribute("data-action");
+      const key = btn.getAttribute("data-key");
+      const p = findByNombre(key);
+      if (!p) return;
+
+      if (action === "view") return openModal("view", p);
+      if (action === "edit") return openModal("edit", p);
+      if (action === "toggle") return toggleStatus(key);
+    };
+
+    // cerrar modal click fuera
+    document.getElementById("profileModal").addEventListener("click", function(e) {
+      if (e.target === this) closeModal();
+    });
+
+    document.getElementById("modalBackdrop").addEventListener("click", closeModal);
+
+    // live preview hook
+    ["fNombre","fDescripcion","fPrompt","fStatus"].forEach(id => {
+      const el = document.getElementById(id);
+      el?.addEventListener("input", syncPreview);
+      el?.addEventListener("change", syncPreview);
+    });
+
+    // =========================================================
+    // INIT
+    // =========================================================
+    load();
+    filtered = [...PROFILES];
+    applyFilters();
+  </script>
+</body>
+</html>
