@@ -237,6 +237,29 @@ export const SIDEBAR_MODULES = [
         icon: 'FaBug',
         path: '/demo/server-error',
         order: 5
+      },
+
+      // ✅ Demos de auth pages
+      {
+        id: 'demo-login',
+        name: 'Login',
+        icon: 'FaRightToBracket',
+        path: '/login',
+        order: 6
+      },
+      {
+        id: 'demo-forgot',
+        name: 'Forgot Password',
+        icon: 'FaEnvelope',
+        path: '/forgot-password',
+        order: 7
+      },
+      {
+        id: 'demo-reset',
+        name: 'Reset Password',
+        icon: 'FaKey',
+        path: '/reset-password',
+        order: 8
       }
     ]
   }
