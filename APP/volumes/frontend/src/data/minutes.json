@@ -17,6 +17,36 @@
     },
     {
       "id": 2,
+      "title": "Cierre Sprint 3 - Plataforma E-commerce",
+      "date": "05 Feb 2025",
+      "time": "04:00 PM",
+      "status": "completed",
+      "client": "Innovation Labs",
+      "project": "Plataforma E-commerce",
+      "participants": ["Ana Martínez", "Carlos López", "+2 más"],
+      "summary": "Cierre formal del tercer sprint con entrega de módulo de pagos y carrito de compras. Todos los criterios de aceptación cumplidos. Minuta aprobada por los participantes.",
+      "tags": [
+        { "label": "Sprint Closure", "color": "green" },
+        { "label": "E-commerce", "color": "blue" }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Aprobación Arquitectura Sistema CRM",
+      "date": "18 Feb 2025",
+      "time": "11:30 AM",
+      "status": "completed",
+      "client": "Global Solutions",
+      "project": "Sistema CRM",
+      "participants": ["Juan Pérez", "María García", "Carlos López"],
+      "summary": "Aprobación formal de la arquitectura técnica del sistema CRM. Se validaron los diagramas de componentes, modelo de datos y estrategia de despliegue en nube híbrida.",
+      "tags": [
+        { "label": "Arquitectura", "color": "purple" },
+        { "label": "Aprobación", "color": "green" }
+      ]
+    },
+    {
+      "id": 4,
       "title": "Revisión de Avances - Sprint 1",
       "date": "20 Ene 2025",
       "time": "2:30 PM",
@@ -31,81 +61,168 @@
       ]
     },
     {
-      "id": 3,
-      "title": "Análisis de Requerimientos",
+      "id": 5,
+      "title": "Definición de SLAs y Acuerdos de Servicio",
+      "date": "02 Feb 2026",
+      "time": "10:00 AM",
+      "status": "pending",
+      "client": "Acme Corporation",
+      "project": "Rediseño Web",
+      "participants": ["Juan Pérez", "María García"],
+      "summary": "Reunión para establecer los acuerdos de nivel de servicio del nuevo portal web. Se definieron tiempos de respuesta, disponibilidad esperada y procedimientos de escalamiento ante incidentes.",
+      "tags": [
+        { "label": "SLA", "color": "yellow" },
+        { "label": "Acuerdos", "color": "blue" }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Validación de Requerimientos Módulo Facturación",
+      "date": "10 Feb 2026",
+      "time": "03:00 PM",
+      "status": "pending",
+      "client": "Innovation Labs",
+      "project": "Plataforma E-commerce",
+      "participants": ["Ana Martínez", "Carlos López", "Juan Pérez"],
+      "summary": "Sesión de validación de requerimientos para el módulo de facturación electrónica. Se revisaron los flujos de emisión, anulación y reenvío de documentos tributarios.",
+      "tags": [
+        { "label": "Facturación", "color": "orange" },
+        { "label": "Requerimientos", "color": "red" }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Habilitación acceso VLAN Usuarios → Portal Web On-Prem",
+      "date": "12 Feb 2026",
+      "time": "09:00 AM",
+      "status": "ready-for-edit",
+      "client": "Clínica Santa Aurora S.A.",
+      "project": "Desarrollo Web Corporativo",
+      "participants": ["Juan Pérez", "Matías Maldonado"],
+      "summary": "Reunión orientada a habilitar el acceso desde la VLAN de usuarios hacia el portal web on-premise, definiendo lineamientos de seguridad, reglas de firewall, puertos/protocolos y un plan de pruebas.",
+      "tags": [
+        { "label": "Infraestructura", "color": "purple" },
+        { "label": "Redes", "color": "blue" },
+        { "label": "Seguridad", "color": "red" }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Revisión Diseño Base de Datos - Módulo Reportes",
+      "date": "14 Feb 2026",
+      "time": "11:00 AM",
+      "status": "ready-for-edit",
+      "client": "Global Solutions",
+      "project": "Sistema CRM",
+      "participants": ["María García", "Carlos López"],
+      "summary": "La IA procesó la transcripción y generó el borrador de la minuta con los acuerdos sobre el modelo relacional, índices y procedimientos almacenados para el módulo de reportería.",
+      "tags": [
+        { "label": "Base de Datos", "color": "blue" },
+        { "label": "Reportes", "color": "purple" }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Planificación Q1 2026 - Equipo Desarrollo",
+      "date": "17 Feb 2026",
+      "time": "09:30 AM",
+      "status": "ready-for-edit",
+      "client": "TechStart Inc",
+      "project": "App Mobile",
+      "participants": ["Ana Martínez", "Juan Pérez", "Carlos López", "+2 más"],
+      "summary": "Sesión de planificación trimestral. El agente IA generó el resumen con objetivos, hitos y asignaciones del equipo. Pendiente validación por parte del líder técnico.",
+      "tags": [
+        { "label": "Planificación", "color": "green" },
+        { "label": "Q1 2026", "color": "yellow" }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Análisis de Requerimientos Sistema CRM",
       "date": "22 Ene 2025",
       "time": "11:00 AM",
       "status": "in-progress",
       "client": "Global Solutions",
       "project": "Sistema CRM",
       "participants": ["Juan Pérez", "María García", "Carlos López"],
-      "summary": "Sesión de análisis detallado de requerimientos funcionales y no funcionales del nuevo sistema CRM empresarial.",
+      "summary": "Sesión de análisis detallado de requerimientos funcionales y no funcionales del nuevo sistema CRM empresarial. La transcripción está siendo procesada por el agente IA.",
       "tags": [
         { "label": "Análisis", "color": "blue" },
         { "label": "Requerimientos", "color": "red" }
       ]
     },
     {
-      "id": 4,
-      "title": "Presentación de Propuesta Comercial",
-      "date": "25 Ene 2025",
-      "time": "3:00 PM",
-      "status": "completed",
-      "client": "Innovation Labs",
-      "project": "Plataforma E-commerce",
-      "participants": ["Ana Martínez", "+2 más"],
-      "summary": "Presentación de la propuesta técnica y comercial para el desarrollo de la plataforma de comercio electrónico con todas las funcionalidades requeridas.",
-      "tags": [
-        { "label": "Propuesta", "color": "green" },
-        { "label": "Comercial", "color": "yellow" }
-      ]
-    },
-    {
-      "id": 5,
-      "title": "Sesión de Diseño UX/UI",
-      "date": "28 Ene 2025",
-      "time": "9:30 AM",
+      "id": 11,
+      "title": "Sesión de Diseño UX/UI - App Mobile",
+      "date": "15 Feb 2026",
+      "time": "09:30 AM",
       "status": "in-progress",
-      "client": "Acme Corporation",
-      "project": "Rediseño Web",
-      "participants": ["María García", "Juan Pérez"],
-      "summary": "Revisión de wireframes y mockups del nuevo diseño de la plataforma web, definición de componentes y flujos de usuario.",
+      "client": "TechStart Inc",
+      "project": "App Mobile",
+      "participants": ["María García", "Ana Martínez"],
+      "summary": "Revisión de wireframes de la nueva app mobile. El agente IA está procesando la grabación de la sesión para extraer los acuerdos y decisiones de diseño tomadas.",
       "tags": [
         { "label": "Diseño", "color": "purple" },
         { "label": "UX/UI", "color": "blue" }
       ]
     },
     {
-      "id": 6,
-      "title": "Daily Standup - Equipo Backend",
-      "date": "30 Ene 2025",
-      "time": "10:00 AM",
-      "status": "completed",
-      "client": "TechStart Inc",
-      "project": "App Mobile",
-      "participants": ["Carlos López", "+4 más"],
-      "summary": "Sincronización diaria del equipo de desarrollo backend, reporte de avances y coordinación de dependencias entre tareas.",
+      "id": 12,
+      "title": "Reunión de Seguridad - Revisión de Accesos",
+      "date": "18 Feb 2026",
+      "time": "02:00 PM",
+      "status": "in-progress",
+      "client": "Clínica Santa Aurora S.A.",
+      "project": "Desarrollo Web Corporativo",
+      "participants": ["Matías Maldonado", "Juan Pérez"],
+      "summary": "Auditoría de accesos y revisión de permisos del sistema. Transcripción en procesamiento por el agente IA. Se esperan resultados en los próximos minutos.",
       "tags": [
-        { "label": "Daily", "color": "orange" },
-        { "label": "Backend", "color": "purple" }
+        { "label": "Seguridad", "color": "red" },
+        { "label": "Auditoría", "color": "orange" }
       ]
     },
     {
-      "id": 7,
-      "title": "Habilitación acceso VLAN Usuarios → Portal Web On-Prem (Redes/Seguridad)",
-      "date": "12 Feb 2026",
-      "time": "09:00 AM",
-      "status": "ready-for-edit",
-      "client": "Clínica Santa Aurora S.A.",
-      "project": "Desarrollo Web Corporativo",
-      "participants": ["Juan Perez", "Matias Maldonado"],
-      "summary": "Reunión orientada a habilitar el acceso desde la VLAN de usuarios hacia el portal web on-premise, definiendo lineamientos de seguridad, reglas de firewall, puertos/protocolos y un plan de pruebas con mínima exposición.",
+      "id": 13,
+      "title": "Propuesta Comercial Proyecto Abandonado",
+      "date": "10 Dic 2024",
+      "time": "10:00 AM",
+      "status": "cancelled",
+      "client": "Innovation Labs",
+      "project": "Plataforma E-commerce",
+      "participants": ["Ana Martínez", "Carlos López"],
+      "summary": "Reunión de presentación de propuesta que fue anulada por decisión del cliente. El proyecto fue cancelado antes de iniciar el desarrollo formal.",
       "tags": [
-        { "label": "Infraestructura", "color": "purple" },
-        { "label": "Redes", "color": "blue" },
-        { "label": "Seguridad", "color": "red" },
-        { "label": "Firewall", "color": "orange" },
-        { "label": "VLAN", "color": "green" }
+        { "label": "Propuesta", "color": "yellow" },
+        { "label": "Cancelado", "color": "red" }
+      ]
+    },
+    {
+      "id": 14,
+      "title": "Daily Standup - Datos Incorrectos",
+      "date": "05 Ene 2025",
+      "time": "10:00 AM",
+      "status": "cancelled",
+      "client": "Acme Corporation",
+      "project": "Rediseño Web",
+      "participants": ["Juan Pérez"],
+      "summary": "Minuta anulada por carga errónea de transcripción. El archivo de audio correspondía a otra reunión. Se registra para trazabilidad del proceso.",
+      "tags": [
+        { "label": "Error", "color": "red" }
+      ]
+    },
+    {
+      "id": 15,
+      "title": "Revisión Contrato - Servicios Adicionales",
+      "date": "20 Ene 2026",
+      "time": "04:30 PM",
+      "status": "cancelled",
+      "client": "Global Solutions",
+      "project": "Sistema CRM",
+      "participants": ["María García", "Carlos López", "+1 más"],
+      "summary": "Sesión anulada a solicitud del área legal. La revisión del contrato fue derivada a un proceso formal fuera del sistema. Registro mantenido para auditoría.",
+      "tags": [
+        { "label": "Legal", "color": "purple" },
+        { "label": "Contratos", "color": "blue" }
       ]
     }
   ],
@@ -113,18 +230,21 @@
     { "id": "1", "name": "Acme Corporation" },
     { "id": "2", "name": "TechStart Inc" },
     { "id": "3", "name": "Global Solutions" },
-    { "id": "4", "name": "Innovation Labs" }
+    { "id": "4", "name": "Innovation Labs" },
+    { "id": "5", "name": "Clínica Santa Aurora S.A." }
   ],
   "projects": [
     { "id": "1", "name": "Rediseño Web" },
     { "id": "2", "name": "App Mobile" },
     { "id": "3", "name": "Sistema CRM" },
-    { "id": "4", "name": "Plataforma E-commerce" }
+    { "id": "4", "name": "Plataforma E-commerce" },
+    { "id": "5", "name": "Desarrollo Web Corporativo" }
   ],
   "participants": [
     { "id": "1", "name": "Juan Pérez" },
     { "id": "2", "name": "María García" },
     { "id": "3", "name": "Carlos López" },
-    { "id": "4", "name": "Ana Martínez" }
+    { "id": "4", "name": "Ana Martínez" },
+    { "id": "5", "name": "Matías Maldonado" }
   ]
 }
