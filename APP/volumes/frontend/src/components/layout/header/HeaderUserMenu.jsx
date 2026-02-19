@@ -6,7 +6,7 @@
 import React, { useState } from 'react';
 import Icon from '@components/ui/icon/iconManager';
 
-const HeaderUserMenu = ({ 
+const HeaderUserMenu = ({
   avatar,
   initials = 'JD',
   name = 'Usuario',
@@ -14,41 +14,20 @@ const HeaderUserMenu = ({
   email = 'usuario@example.com',
   menuItems = [],
   onLogout,
-  className = '' 
+  className = ''
 }) => {
   const [isOpen, setIsOpen] = useState(false);
 
-  const toggleMenu = () => {
-    setIsOpen(!isOpen);
-  };
-
-  const defaultMenuItems = [
-    {
-      label: 'Mi Perfil',
-      icon: 'FaPerson',
-      onClick: () => console.log('Mi Perfil clicked')
-    },
-    {
-      label: 'Configuración',
-      icon: 'FaFilter',
-      onClick: () => console.log('Configuración clicked')
-    },
-    {
-      label: 'Ayuda & Soporte',
-      icon: 'FaCircleInfo',
-      onClick: () => console.log('Ayuda clicked')
-    }
-  ];
-
-  const items = menuItems.length > 0 ? menuItems : defaultMenuItems;
+  const toggleMenu = () => setIsOpen(!isOpen);
 
   const handleLogout = () => {
-    if (onLogout) {
-      onLogout();
-    } else {
-      console.log('Cerrar Sesión clicked');
-      window.location.href = './login.html';
-    }
+    setIsOpen(false);
+    if (onLogout) onLogout();
+  };
+
+  const handleItemClick = (item) => {
+    setIsOpen(false);
+    if (item.onClick) item.onClick();
   };
 
   return (
@@ -83,8 +62,8 @@ const HeaderUserMenu = ({
         </div>
 
         {/* Chevron */}
-        <Icon 
-          name="FaChevronDown" 
+        <Icon
+          name="FaChevronDown"
           className={`w-4 h-4 text-gray-600 dark:text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
         />
       </button>
@@ -93,10 +72,10 @@ const HeaderUserMenu = ({
       {isOpen && (
         <>
           {/* Backdrop */}
-          <div 
+          <div
             className="fixed inset-0 z-30"
             onClick={toggleMenu}
-          ></div>
+          />
 
           {/* Dropdown Content */}
           <div className="
@@ -117,32 +96,32 @@ const HeaderUserMenu = ({
             </div>
 
             {/* Menu Items */}
-            <div className="py-2">
-              {items.map((item, index) => (
-                <a
-                  key={index}
-                  href={item.href || '#'}
-                  className="
-                    flex items-center px-4 py-2
-                    text-sm text-gray-700 dark:text-gray-300
-                    hover:bg-gray-100 dark:hover:bg-gray-700
-                    transition-colors
-                  "
-                  onClick={(e) => { 
-                    e.preventDefault(); 
-                    if (item.onClick) {
-                      item.onClick();
-                    }
-                  }}
-                >
-                  <Icon name={item.icon} className="w-4 h-4 mr-3" />
-                  {item.label}
-                </a>
-              ))}
-            </div>
+            {menuItems.length > 0 && (
+              <div className="py-2">
+                {menuItems.map((item, index) => (
+                  <a
+                    key={index}
+                    href={item.href || '#'}
+                    className="
+                      flex items-center px-4 py-2
+                      text-sm text-gray-700 dark:text-gray-300
+                      hover:bg-gray-100 dark:hover:bg-gray-700
+                      transition-colors
+                    "
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleItemClick(item);
+                    }}
+                  >
+                    <Icon name={item.icon} className="w-4 h-4 mr-3" />
+                    {item.label}
+                  </a>
+                ))}
+              </div>
+            )}
 
             {/* Divider */}
-            <div className="h-px bg-gray-200 dark:bg-gray-700 my-2"></div>
+            <div className="h-px bg-gray-200 dark:bg-gray-700 my-2" />
 
             {/* Logout */}
             <div className="px-2 py-2">

@@ -1,10 +1,10 @@
 /**
  * HeaderThemeToggle.jsx
- * Toggle de theme con soporte para theme dinámico
+ * Toggle de tema con soporte para tema dinámico
  */
 
 import React from 'react';
-import { FaSun, FaMoon } from 'react-icons/fa';
+import Icon from '@components/ui/icon/iconManager';
 
 const HeaderThemeToggle = ({ onClick, currentTheme = 'light' }) => {
   return (
@@ -13,11 +13,10 @@ const HeaderThemeToggle = ({ onClick, currentTheme = 'light' }) => {
       className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
       aria-label="Cambiar tema"
     >
-      {currentTheme === 'light' ? (
-        <FaMoon className="text-xl text-gray-600 dark:text-gray-300" />
-      ) : (
-        <FaSun className="text-xl text-gray-600 dark:text-gray-300" />
-      )}
+      <Icon
+        name={currentTheme === 'light' ? 'FaMoon' : 'FaSun'}
+        className="text-xl text-gray-600 dark:text-gray-300"
+      />
     </button>
   );
 };

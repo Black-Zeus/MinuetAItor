@@ -19,7 +19,7 @@ const Header = () => {
   // ====================================
   // ZUSTAND STORE
   // ====================================
-  const { 
+  const {
     theme,
     toggleTheme,
     navigationHistory,
@@ -31,18 +31,18 @@ const Header = () => {
   // HANDLERS
   // ====================================
   const handleSearch = (query) => {
+    // TODO: implementar búsqueda global
     console.log('Searching:', query);
   };
 
   const handleNotificationsClick = () => {
-    console.log('Notifications clicked');
-    resetUnreadNotifications(); // Resetear contador al abrir notificaciones
+    resetUnreadNotifications();
   };
 
   // ====================================
   // BREADCRUMB DINÁMICO DESDE STORE
   // ====================================
-  const currentSection = navigationHistory[0] || { 
+  const currentSection = navigationHistory[0] || {
     name: 'Dashboard',
     path: '/'
   };
@@ -51,34 +51,33 @@ const Header = () => {
     {
       label: 'Inicio',
       href: '/',
-      onClick: (e) => { 
-        e.preventDefault(); 
-        console.log('Inicio clicked'); 
+      onClick: (e) => {
+        e.preventDefault();
       }
     },
     {
-      label: currentSection.name // Título dinámico desde store
+      label: currentSection.name
     }
   ];
 
   // ====================================
-  // USER MENU
+  // USER MENU ITEMS
   // ====================================
   const userMenuItems = [
     {
       label: 'Mi Perfil',
       icon: 'FaPerson',
-      onClick: () => console.log('Mi Perfil clicked')
+      onClick: () => {}
     },
     {
       label: 'Configuración',
-      icon: 'FaFilter',
-      onClick: () => console.log('Configuración clicked')
+      icon: 'FaGear',
+      onClick: () => {}
     },
     {
       label: 'Ayuda & Soporte',
       icon: 'FaCircleInfo',
-      onClick: () => console.log('Ayuda clicked')
+      onClick: () => {}
     }
   ];
 
@@ -86,7 +85,7 @@ const Header = () => {
     <HeaderContainer>
       {/* LEFT SECTION */}
       <HeaderBreadcrumb
-        title={currentSection.name} // Título dinámico
+        title={currentSection.name}
         items={breadcrumbItems}
       />
 
@@ -106,19 +105,19 @@ const Header = () => {
             iconName="FaBell"
             onClick={handleNotificationsClick}
             ariaLabel="Notificaciones"
-            showBadge={unreadNotificationsCount > 0} // Badge dinámico
-            badgeCount={unreadNotificationsCount} // Opcional: pasar el contador
+            showBadge={unreadNotificationsCount > 0}
+            badgeCount={unreadNotificationsCount}
           />
-          
+
           <HeaderActionButton
             iconName="FaEnvelope"
-            onClick={() => console.log('Messages clicked')}
+            onClick={() => {}}
             ariaLabel="Mensajes"
           />
-          
+
           <HeaderThemeToggle
-            onClick={toggleTheme} // ✅ Conectado al store
-            currentTheme={theme} // ✅ Pasar theme actual
+            onClick={toggleTheme}
+            currentTheme={theme}
           />
         </div>
 
@@ -133,8 +132,7 @@ const Header = () => {
           email="john.doe@example.com"
           menuItems={userMenuItems}
           onLogout={() => {
-            console.log('Cerrar Sesión');
-            window.location.href = './login.html';
+            window.location.href = '/login';
           }}
         />
       </div>
