@@ -63,7 +63,7 @@ import {
   FaBug,
 
   // =========================
-  // TOGGLES / SORT (warnings actuales)
+  // TOGGLES / SORT
   // =========================
   FaToggleOn,
   FaArrowDownAZ,
@@ -98,6 +98,29 @@ import {
   FaCheck,
   FaThumbtack,
   FaGear,
+
+  // =========================
+  // FIX warnings (los que reportaste antes)
+  // =========================
+  FaFloppyDisk,
+  FaCamera,
+  FaBriefcase,
+  FaList,
+  FaKey,
+  FaFolderClosed,
+
+  // =========================
+  // FIX warnings (CalendarAlt / Desktop / LocationDot / NetworkWired)
+  // =========================
+  FaCalendarDays, // equivalente FA6 para CalendarAlt
+  FaDesktop,
+  FaLocationDot,
+  FaNetworkWired,
+
+  // =========================
+  // FIX warnings (FaPerson)
+  // =========================
+  FaPerson,
 } from "react-icons/fa6";
 
 const kebabToCamel = (str) =>
@@ -169,11 +192,45 @@ const ICON_REGISTRY = {
   userPlus: FaUserPlus,
 
   // =========================
-  // FIX warnings (los 3 que reportas ahora)
+  // FIX warnings (claves simples extra)
   // =========================
-  triangleExclamation: FaTriangleExclamation, // <- faltaba clave exacta
-  user: FaUser,                               // <- faltaba clave simple
-  pen: FaPen,                                 // <- faltaba clave simple
+  triangleExclamation: FaTriangleExclamation,
+  user: FaUser,
+  pen: FaPen,
+
+  // =========================
+  // FIX warnings (Fa... no registrados)
+  // =========================
+  FaFloppyDisk: FaFloppyDisk,
+  FaCamera: FaCamera,
+  FaBriefcase: FaBriefcase,
+  FaList: FaList,
+  FaKey: FaKey,
+  FaFolderClosed: FaFolderClosed,
+
+  // CalendarAlt / Desktop / LocationDot / NetworkWired
+  FaCalendarAlt: FaCalendarDays,
+  FaDesktop: FaDesktop,
+  FaLocationDot: FaLocationDot,
+  FaNetworkWired: FaNetworkWired,
+
+  // =========================
+  // FIX warning (FaPerson)
+  // =========================
+  FaPerson: FaPerson,
+  person: FaPerson, // alias simple recomendado
+
+  // aliases simples (recomendado)
+  save: FaFloppyDisk,
+  camera: FaCamera,
+  briefcase: FaBriefcase,
+  list: FaList,
+  key: FaKey,
+  folderClosed: FaFolderClosed,
+  calendarAlt: FaCalendarDays,
+  desktop: FaDesktop,
+  locationDot: FaLocationDot,
+  networkWired: FaNetworkWired,
 
   // =========================
   // Aliases simples opcionales útiles
@@ -289,6 +346,9 @@ const ICON_REGISTRY = {
   FaCheck: FaCheck,
   FaThumbtack: FaThumbtack,
   FaGear: FaGear,
+
+  // extra (por si lo usas directo)
+  FaCalendarDays: FaCalendarDays,
 };
 
 export const Icon = ({ name, className = "", ...rest }) => {
