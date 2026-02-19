@@ -1,99 +1,96 @@
 /**
- * AppRouter.jsx - Router principal simplificado
- * Usa tu Layout existente solo para rutas privadas
+ * AppRouter.jsx
+ * Router principal — MinuetAItor
+ *
+ * Flujo de guards:
+ *  isPublic  → PublicRoute  (sin Layout, redirige a /dashboard si ya autenticado)
+ *  !isPublic → ProtectedRoute + Layout (redirige a /login si no autenticado)
+ *
+ * Lazy loading: cada componente de módulo ya viene con lazy() definido
+ * en su archivo de rutas. LazyWrapper solo agrega el Suspense.
  */
 
-import React from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import React, { Suspense } from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
-// Tu Layout existente
-import Layout from "@/components/layout";
-
-// Guards
+import Layout         from "@/components/layout/Layout";
 import ProtectedRoute from "./guards/ProtectedRoute";
-import PublicRoute from "./guards/PublicRoute";
+import PublicRoute    from "./guards/PublicRoute";
+import { allRoutes }  from "./modules";
 
-// Lazy Wrapper
-import LazyWrapper from "./LazyWrapper";
-
-// Rutas organizadas
-import { allRoutes } from "./modules";
-
-// Páginas de error
-import NotFoundPage from "@/pages/errorPages/NotFoundPage";
+// Páginas de error (no lazy — son ligeras y críticas)
+import NotFoundPage   from "@/pages/errorPages/NotFoundPage";
 import ServerErrorPage from "@/pages/errorPages/ServerErrorPage";
-import ForbiddenPage from "@/pages/errorPages/ForbiddenPage";
+import ForbiddenPage  from "@/pages/errorPages/ForbiddenPage";
+
+// ─── Fallbacks de carga ────────────────────────────────────────────
+
+const PageLoader = () => (
+  <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+    <div className="text-center">
+      <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+      <p className="text-sm text-gray-500 dark:text-gray-400">Cargando...</p>
+    </div>
+  </div>
+);
+
+const InnerLoader = () => (
+  <div className="min-h-[400px] flex items-center justify-center">
+    <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />
+  </div>
+);
+
+// ─── AppRouter ─────────────────────────────────────────────────────
 
 const AppRouter = () => {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Mapear todas las rutas */}
-        {allRoutes.map((route) => {
-          const {
-            path,
-            component: Component,
-            isPublic,
-            requiresAuth,
-            roles,
-            ...routeProps
-          } = route;
 
-          // Determinar el elemento base
-          let routeElement = (
-            <LazyWrapper>
-              <Component {...routeProps} />
-            </LazyWrapper>
+        {/* ── Rutas dinámicas de módulos ────────────────────────── */}
+        {allRoutes.map(({ path, component: Component, isPublic, roles }) => {
+
+          // Elemento base con Suspense apropiado según tipo de ruta
+          const element = (
+            <Suspense fallback={isPublic ? <PageLoader /> : <InnerLoader />}>
+              <Component />
+            </Suspense>
           );
 
-          // Aplicar guards según el tipo de ruta
           if (isPublic) {
-            // Rutas públicas (login, etc.) - SIN Layout
-            routeElement = <PublicRoute>{routeElement}</PublicRoute>;
-          } else {
-            // Rutas privadas - CON Layout
-            routeElement = (
-              <ProtectedRoute requiredRoles={roles}>
-                <Layout>{routeElement}</Layout>
-              </ProtectedRoute>
+            return (
+              <Route
+                key={path}
+                path={path}
+                element={<PublicRoute>{element}</PublicRoute>}
+              />
             );
           }
 
-          return <Route key={path} path={path} element={routeElement} />;
+          return (
+            <Route
+              key={path}
+              path={path}
+              element={
+                <ProtectedRoute requiredRoles={roles ?? []}>
+                  <Layout>
+                    <Suspense fallback={<InnerLoader />}>
+                      <Component />
+                    </Suspense>
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+          );
         })}
 
-        {/* ================================ */}
-        {/* RUTAS DE ERROR */}
-        {/* ================================ */}
-        <Route
-          path="/forbidden"
-          element={
-            <LazyWrapper>
-              <ForbiddenPage />
-            </LazyWrapper>
-          }
-        />
+        {/* ── Rutas de error (acceso directo sin guard) ─────────── */}
+        <Route path="/forbidden"    element={<ForbiddenPage />} />
+        <Route path="/server-error" element={<ServerErrorPage />} />
 
-        <Route
-          path="/server-error"
-          element={
-            <LazyWrapper>
-              <ServerErrorPage />
-            </LazyWrapper>
-          }
-        />
+        {/* ── 404 — siempre al final ────────────────────────────── */}
+        <Route path="*" element={<NotFoundPage />} />
 
-        {/* ================================ */}
-        {/* 404 - DEBE IR AL FINAL */}
-        {/* ================================ */}
-        <Route
-          path="*"
-          element={
-            <LazyWrapper>
-              <NotFoundPage />
-            </LazyWrapper>
-          }
-        />
       </Routes>
     </BrowserRouter>
   );
