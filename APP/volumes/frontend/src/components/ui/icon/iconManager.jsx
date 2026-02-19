@@ -121,6 +121,16 @@ import {
   // FIX warnings (FaPerson)
   // =========================
   FaPerson,
+
+  // =========================
+  // FIX warnings (NUEVOS: tema / cerrar / link externo)
+  // =========================
+  FaSun,
+  FaCircleHalfStroke,
+  FaXmark,
+  FaArrowUpRightFromSquare,
+  FaArrowRight,
+  FaMoon,
 } from "react-icons/fa6";
 
 const kebabToCamel = (str) =>
@@ -220,7 +230,26 @@ const ICON_REGISTRY = {
   FaPerson: FaPerson,
   person: FaPerson, // alias simple recomendado
 
+  // =========================
+  // FIX warnings NUEVOS (FaSun / FaCircleHalfStroke / FaXmark / FaArrowUpRightFromSquare)
+  // =========================
+  FaSun: FaSun,
+  FaCircleHalfStroke: FaCircleHalfStroke,
+  FaXmark: FaXmark,
+  FaArrowUpRightFromSquare: FaArrowUpRightFromSquare,
+
+  // aliases simples recomendados
+  sun: FaSun,
+  theme: FaCircleHalfStroke,
+  halfStroke: FaCircleHalfStroke,
+  close: FaXmark,
+  xmark: FaXmark,
+  externalLink: FaArrowUpRightFromSquare,
+  openExternal: FaArrowUpRightFromSquare,
+
+  // =========================
   // aliases simples (recomendado)
+  // =========================
   save: FaFloppyDisk,
   camera: FaCamera,
   briefcase: FaBriefcase,
@@ -349,6 +378,17 @@ const ICON_REGISTRY = {
 
   // extra (por si lo usas directo)
   FaCalendarDays: FaCalendarDays,
+  FaDesktop: FaDesktop,
+
+  // arrows
+  arrowRight: FaArrowRight,
+  FaArrowRight: FaArrowRight,
+
+  // theme
+  FaMoon: FaMoon,
+  moon: FaMoon,
+
+
 };
 
 export const Icon = ({ name, className = "", ...rest }) => {
@@ -374,5 +414,4 @@ export const Icon = ({ name, className = "", ...rest }) => {
 };
 
 export const ICONS = ICON_REGISTRY;
-
 export default Icon;
