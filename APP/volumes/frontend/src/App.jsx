@@ -8,15 +8,28 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 
 import Layout from "@components/layout/Layout";
 
-// Secciones
+// Core
 import Dashboard from "./pages/dashboard/Dashboard";
+import GlobalSearch from "./pages/globalSearch/GlobalSearch";
+
+// Minutes
 import Minute from "./pages/minutes/Minute";
+import MinuteEditor from "./pages/minuteEditor/MinuteEditor";
+
+// Management
 import Client from "./pages/clientes/Client";
 import Project from "./pages/project/Project";
 import Teams from "./pages/teams/Teams";
-import Tags from "./pages/tags/Tags";
 
-//Error Page
+// Analytics & Reports
+import UnderConstructionPage from "./pages/errorPages/UnderConstructionPage";
+
+// Settings
+import Tags from "./pages/tags/Tags";
+import ProfilesCatalog from "./pages/profiles/ProfilesCatalog";
+import UserProfile from "./pages/userProfile/UserProfile";
+
+// Error Pages
 import ForbiddenPage from "./pages/errorPages/ForbiddenPage";
 import NotFoundPage from "./pages/errorPages/NotFoundPage";
 import ServerErrorPage from "./pages/errorPages/ServerErrorPage";
@@ -26,11 +39,6 @@ import General from "./pages/demo/General";
 import ModalDemo from "./pages/demo/ModalDemo";
 
 import useBaseSiteStore from "@store/baseSiteStore";
-import ProfilesCatalog from "./pages/profiles/ProfilesCatalog";
-import MinuteEditor from "./pages/minuteEditor/MinuteEditor";
-import UserProfile from "./pages/userProfile/UserProfile";
-import UnderConstructionPage from "./pages/errorPages/UnderConstructionPage";
-import GlobalSearch from "./pages/globalSearch/GlobalSearch";
 
 function App() {
   const { theme } = useBaseSiteStore();
@@ -47,55 +55,57 @@ function App() {
     <Router>
       <Routes>
         <Route element={<Layout />}>
-          {/* Base */}
+
+          {/* ── Redirect ─────────────────────────────────────────── */}
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
-          {/* Core */}
-          <Route path="/dashboard" element={<Dashboard />} />
+          {/* ── Core ─────────────────────────────────────────────── */}
+          <Route path="/dashboard"    element={<Dashboard />} />
           <Route path="/globalSearch" element={<GlobalSearch />} />
 
+          {/* ── Minutes ──────────────────────────────────────────── */}
+          <Route path="/minutes"              element={<Minute />} />
+          <Route path="/minutes/process/:id"  element={<MinuteEditor />} />
 
-
-          <Route path="/minutes" element={<Minute />} />
-          <Route path="/minutes/process/:id" element={<MinuteEditor />} />
-
-          {/* Management */}
-          <Route path="/clients" element={<Client />} />
+          {/* ── Management ───────────────────────────────────────── */}
+          <Route path="/clients"  element={<Client />} />
           <Route path="/projects" element={<Project />} />
-          <Route path="/teams" element={<Teams />} /> 
+          <Route path="/teams"    element={<Teams />} />
 
-          {/* Intelligence */}
-          <Route path="/analytics/metrics" element={<UnderConstructionPage />} /> {/* placeholder */}
-          <Route path="/analytics/audit/overview" element={<UnderConstructionPage />} /> {/* placeholder */}
-          <Route path="/analytics/audit/access" element={<UnderConstructionPage />} /> {/* placeholder */}
-          <Route path="/analytics/audit/changes" element={<UnderConstructionPage />} /> {/* placeholder */}
-          <Route path="/analytics/audit/sessions" element={<UnderConstructionPage />} /> {/* placeholder */}
-          <Route path="/analytics/audit/exceptions" element={<UnderConstructionPage />} /> {/* placeholder */}
+          {/* ── Analytics ────────────────────────────────────────── */}
+          <Route path="/analytics/metrics"          element={<UnderConstructionPage />} />
+          <Route path="/analytics/audit/overview"   element={<UnderConstructionPage />} />
+          <Route path="/analytics/audit/access"     element={<UnderConstructionPage />} />
+          <Route path="/analytics/audit/changes"    element={<UnderConstructionPage />} />
+          <Route path="/analytics/audit/sessions"   element={<UnderConstructionPage />} />
+          <Route path="/analytics/audit/exceptions" element={<UnderConstructionPage />} />
 
-          <Route path="/reports/projects" element={<UnderConstructionPage />} /> {/* placeholder */}
-          <Route path="/reports/minutes" element={<UnderConstructionPage />} /> {/* placeholder */}
-          <Route path="/reports/actions" element={<UnderConstructionPage />} /> {/* placeholder */}
-          <Route path="/reports/kpis" element={<UnderConstructionPage />} /> {/* placeholder */}
-          <Route path="/reports/export" element={<UnderConstructionPage />} /> {/* placeholder */}
+          {/* ── Reports ──────────────────────────────────────────── */}
+          <Route path="/reports/projects" element={<UnderConstructionPage />} />
+          <Route path="/reports/minutes"  element={<UnderConstructionPage />} />
+          <Route path="/reports/actions"  element={<UnderConstructionPage />} />
+          <Route path="/reports/kpis"     element={<UnderConstructionPage />} />
+          <Route path="/reports/export"   element={<UnderConstructionPage />} />
 
-          {/* Config */}
-          <Route path="/settings/tags" element={<Tags />} /> {/* placeholder */}
-          <Route path="/settings/profiles" element={<ProfilesCatalog />} /> {/* placeholder */}
-          <Route path="/settings/userProfile" element={<UserProfile />} />
+          {/* ── Settings ─────────────────────────────────────────── */}
+          <Route path="/settings/tags"         element={<Tags />} />
+          <Route path="/settings/profiles"     element={<ProfilesCatalog />} />
+          <Route path="/settings/userProfile"  element={<UserProfile />} />
+          <Route path="/settings/system"       element={<UnderConstructionPage />} />
 
-          <Route path="/settings/system" element={<UnderConstructionPage />} /> {/* placeholder */}
+          {/* ── Help ─────────────────────────────────────────────── */}
+          <Route path="/help" element={<UnderConstructionPage />} />
 
-          {/* Demos */}
-          <Route path="/demo/general" element={<General />} />
-          <Route path="/demo/modal" element={<ModalDemo />} />
-
-          {/* Demos: error pages */}
-          <Route path="/demo/forbidden" element={<ForbiddenPage />} />
-          <Route path="/demo/not-found" element={<NotFoundPage />} />
+          {/* ── Demos ────────────────────────────────────────────── */}
+          <Route path="/demo/general"      element={<General />} />
+          <Route path="/demo/modal"        element={<ModalDemo />} />
+          <Route path="/demo/forbidden"    element={<ForbiddenPage />} />
+          <Route path="/demo/not-found"    element={<NotFoundPage />} />
           <Route path="/demo/server-error" element={<ServerErrorPage />} />
 
-          {/* 404 global */}
+          {/* ── 404 ──────────────────────────────────────────────── */}
           <Route path="*" element={<NotFoundPage />} />
+
         </Route>
       </Routes>
     </Router>
