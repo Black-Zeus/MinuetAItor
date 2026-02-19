@@ -92,6 +92,37 @@ INSERT INTO buckets (code, name, description, is_active) VALUES
   ('published_container',   'minuetaitor-published',  'Salidas publicadas (PDF)', 1),
   ('attachments_container', 'minuetaitor-attach',     'Adjuntos (imágenes/otros)', 1);
 
+-- ----------------------------------------------------------------------------
+-- Dashboard widgets base (alineado a tu DASHBOARD_WIDGETS_DEFAULT)
+-- ----------------------------------------------------------------------------
+INSERT INTO dashboard_widgets (code, name, description, is_active) VALUES
+  ('stats', 'Stats generales', 'KPIs principales', 1),
+  ('ultima_conexion', 'Última conexión', 'Último acceso del usuario', 1),
+  ('minutas_pendientes', 'Minutas pendientes', 'Pendientes de aprobación', 1),
+  ('minutas_participadas', 'Minutas donde participé', 'Historial de participación', 1),
+  ('clientes_confidenciales', 'Clientes confidenciales', 'Clientes con acceso confidencial', 1),
+  ('proyectos_confidenciales', 'Proyectos confidenciales', 'Proyectos con acceso confidencial', 1),
+  ('tags_populares', 'Etiquetas populares', 'Tags más usados', 1);
+
+-- ----------------------------------------------------------------------------
+-- IA: categorías base (puedes ampliarlas desde analysisProfilesCatalog.json)
+-- ----------------------------------------------------------------------------
+INSERT INTO ai_profile_categories (name, is_active) VALUES
+  ('Infraestructura', 1),
+  ('Ciberseguridad', 1),
+  ('Operaciones', 1),
+  ('Gestión', 1);
+
+-- ----------------------------------------------------------------------------
+-- Tags: categorías base (puedes ampliarlas desde dataTags.json)
+-- ----------------------------------------------------------------------------
+INSERT INTO tag_categories (name, is_active) VALUES
+  ('Infraestructura', 1),
+  ('Seguridad', 1),
+  ('Aplicaciones', 1),
+  ('Procesos', 1),
+  ('Otros', 1);
+
 -- Reglas: requeridos al publicar (por tipo)
 INSERT INTO record_type_artifact_types (record_type_id, artifact_type_id, is_required_on_publish, max_count, is_active)
 SELECT rt.id, at.id, 1, 1, 1
