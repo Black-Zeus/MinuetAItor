@@ -1,40 +1,41 @@
-// modules/index.js - Combina todos los módulos de rutas
-// Punto central para todas las rutas del sistema
+/**
+ * modules/index.js
+ * Punto central de todas las rutas — MinuetAItor
+ *
+ * Orden de prioridad:
+ *  1. Auth (públicas) — primero para que el guard PublicRoute actúe antes
+ *  2. Core (dashboard, búsqueda)
+ *  3. Minutes (módulo principal)
+ *  4. Management (clientes, proyectos, equipos)
+ *  5. Analytics + Reports
+ *  6. Settings + Perfil
+ *  7. Demo (última prioridad)
+ */
 
-import { authRoutes } from './auth.routes';
-import { dashboardRoutes } from './dashboard.routes';
-import { adminRoutes } from './admin.routes';
-import { salesRoutes } from './sales.routes';
-import { cashRoutes } from './cash.routes';
-import { inventoryRoutes } from './inventory.routes';
-import { reportsRoutes } from './reports.routes';
-import { configRoutes } from './config.routes';
-import { demoRoutes } from './demo.routes';
-import profileRoutes from "./profile";
+import { authRoutes }       from "./auth.routes";
+import { coreRoutes }       from "./core.routes";
+import { minutesRoutes }    from "./minutes.routes";
+import { managementRoutes } from "./management.routes";
+import analyticsRoutes      from "./analytics.routes";
+import { settingsRoutes }   from "./settings.routes";
+import { demoRoutes }       from "./demo.routes";
 
-// Combinar todas las rutas en orden de prioridad
 export const allRoutes = [
-    ...authRoutes,
-    ...dashboardRoutes,
-    ...profileRoutes,
-    ...adminRoutes,
-    ...salesRoutes,
-    ...cashRoutes,
-    ...inventoryRoutes,
-    ...reportsRoutes,
-    ...configRoutes,
-    ...demoRoutes
+  ...authRoutes,
+  ...coreRoutes,
+  ...minutesRoutes,
+  ...managementRoutes,
+  ...analyticsRoutes,
+  ...settingsRoutes,
+  ...demoRoutes,
 ];
 
-// Export individual de módulos (para uso específico)
-export { authRoutes } from './auth.routes';
-export { dashboardRoutes } from './dashboard.routes';
-export { adminRoutes } from './admin.routes';
-export { salesRoutes } from './sales.routes';
-export { cashRoutes } from './cash.routes';
-export { inventoryRoutes } from './inventory.routes';
-export { reportsRoutes } from './reports.routes';
-export { configRoutes } from './config.routes';
-export { demoRoutes } from './demo.routes';
+// Re-exports individuales (para imports selectivos)
+export { authRoutes }       from "./auth.routes";
+export { coreRoutes }       from "./core.routes";
+export { minutesRoutes }    from "./minutes.routes";
+export { managementRoutes } from "./management.routes";
+export { settingsRoutes }   from "./settings.routes";
+export { demoRoutes }       from "./demo.routes";
 
 export default allRoutes;
