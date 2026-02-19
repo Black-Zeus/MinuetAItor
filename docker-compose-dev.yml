@@ -149,7 +149,7 @@ services:
       JWT_SECRET: ${JWT_SECRET}
     volumes:
       - ./APP/volumes/backend/app:/app
-      - ./APP/data/backend_data:/app/_data
+      - ./APP/data/backend_data:/app/remote_data
       - ./APP/logs/backend:/var/log/app
     ports:
       - "${BACKEND_PORT:-8000}:8000"
