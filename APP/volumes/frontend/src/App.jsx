@@ -28,6 +28,9 @@ import ModalDemo from "./pages/demo/ModalDemo";
 import useBaseSiteStore from "@store/baseSiteStore";
 import ProfilesCatalog from "./pages/profiles/ProfilesCatalog";
 import MinuteEditor from "./pages/minuteEditor/MinuteEditor";
+import UserProfile from "./pages/userProfile/UserProfile";
+import UnderConstructionPage from "./pages/errorPages/UnderConstructionPage";
+import GlobalSearch from "./pages/globalSearch/GlobalSearch";
 
 function App() {
   const { theme } = useBaseSiteStore();
@@ -49,6 +52,9 @@ function App() {
 
           {/* Core */}
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/globalSearch" element={<GlobalSearch />} />
+
+
 
           <Route path="/minutes" element={<Minute />} />
           <Route path="/minutes/process/:id" element={<MinuteEditor />} />
@@ -59,13 +65,25 @@ function App() {
           <Route path="/teams" element={<Teams />} /> 
 
           {/* Intelligence */}
-          <Route path="/metrics" element={<Dashboard />} /> {/* placeholder */}
-          <Route path="/reports" element={<Dashboard />} /> {/* placeholder */}
+          <Route path="/analytics/metrics" element={<UnderConstructionPage />} /> {/* placeholder */}
+          <Route path="/analytics/audit/overview" element={<UnderConstructionPage />} /> {/* placeholder */}
+          <Route path="/analytics/audit/access" element={<UnderConstructionPage />} /> {/* placeholder */}
+          <Route path="/analytics/audit/changes" element={<UnderConstructionPage />} /> {/* placeholder */}
+          <Route path="/analytics/audit/sessions" element={<UnderConstructionPage />} /> {/* placeholder */}
+          <Route path="/analytics/audit/exceptions" element={<UnderConstructionPage />} /> {/* placeholder */}
+
+          <Route path="/reports/projects" element={<UnderConstructionPage />} /> {/* placeholder */}
+          <Route path="/reports/minutes" element={<UnderConstructionPage />} /> {/* placeholder */}
+          <Route path="/reports/actions" element={<UnderConstructionPage />} /> {/* placeholder */}
+          <Route path="/reports/kpis" element={<UnderConstructionPage />} /> {/* placeholder */}
+          <Route path="/reports/export" element={<UnderConstructionPage />} /> {/* placeholder */}
 
           {/* Config */}
           <Route path="/settings/tags" element={<Tags />} /> {/* placeholder */}
           <Route path="/settings/profiles" element={<ProfilesCatalog />} /> {/* placeholder */}
-          <Route path="/settings/system" element={<Dashboard />} /> {/* placeholder */}
+          <Route path="/settings/userProfile" element={<UserProfile />} />
+
+          <Route path="/settings/system" element={<UnderConstructionPage />} /> {/* placeholder */}
 
           {/* Demos */}
           <Route path="/demo/general" element={<General />} />
