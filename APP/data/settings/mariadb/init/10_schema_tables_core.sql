@@ -949,3 +949,32 @@ CREATE TABLE artifact_type_mime_types (
   CONSTRAINT fk_atmt_updated_by FOREIGN KEY (updated_by) REFERENCES users(id),
   CONSTRAINT fk_atmt_deleted_by FOREIGN KEY (deleted_by) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
+-- Sesiones del usuario
+CREATE TABLE user_sessions (
+  id            CHAR(36) NOT NULL,
+  user_id       CHAR(36) NOT NULL,
+  jti           VARCHAR(36) NOT NULL,
+
+  ip_v4         VARCHAR(45) NULL,
+  ip_v6         VARCHAR(45) NULL,
+  user_agent    VARCHAR(500) NULL,
+  device        VARCHAR(200) NULL,
+
+  country_code  CHAR(2) NULL,
+  country_name  VARCHAR(100) NULL,
+  city          VARCHAR(100) NULL,
+  location      VARCHAR(200) NULL,
+
+  logged_out_at DATETIME NULL,
+  created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_us_jti (jti),
+  KEY idx_us_user (user_id),
+  KEY idx_us_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+ALTER TABLE user_sessions
+  ADD CONSTRAINT fk_us_user FOREIGN KEY (user_id) REFERENCES users(id);
