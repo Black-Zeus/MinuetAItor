@@ -125,6 +125,9 @@ CREATE TABLE clients (
   id            CHAR(36) PRIMARY KEY,
   name          VARCHAR(200) NOT NULL,
   code          VARCHAR(50) NULL,
+  description   VARCHAR(600) NULL,
+  industry      VARCHAR(120) NULL,
+  is_confidential TINYINT(1) NOT NULL DEFAULT 0,
   is_active     TINYINT(1) NOT NULL DEFAULT 1,
 
   created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -137,12 +140,49 @@ CREATE TABLE clients (
 
   UNIQUE KEY uq_clients_name (name),
   UNIQUE KEY uq_clients_code (code),
+  KEY idx_clients_confidential (is_confidential),
   KEY idx_clients_active (is_active),
   KEY idx_clients_deleted_at (deleted_at),
 
   CONSTRAINT fk_clients_created_by FOREIGN KEY (created_by) REFERENCES users(id),
   CONSTRAINT fk_clients_updated_by FOREIGN KEY (updated_by) REFERENCES users(id),
   CONSTRAINT fk_clients_deleted_by FOREIGN KEY (deleted_by) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ----------------------------------------------------------------------------
+-- 3.1) Projects (1..N por client)
+-- ----------------------------------------------------------------------------
+CREATE TABLE projects (
+  id              CHAR(36) PRIMARY KEY,
+  client_id       CHAR(36) NOT NULL,
+
+  name            VARCHAR(220) NOT NULL,
+  code            VARCHAR(50) NULL,
+  description     VARCHAR(900) NULL,
+  status          VARCHAR(40) NOT NULL DEFAULT 'activo',
+  is_confidential TINYINT(1) NOT NULL DEFAULT 0,
+  is_active       TINYINT(1) NOT NULL DEFAULT 1,
+
+  created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_by      CHAR(36) NULL,
+  updated_at      DATETIME NULL ON UPDATE CURRENT_TIMESTAMP,
+  updated_by      CHAR(36) NULL,
+
+  deleted_at      DATETIME NULL,
+  deleted_by      CHAR(36) NULL,
+
+  CONSTRAINT fk_projects_client     FOREIGN KEY (client_id) REFERENCES clients(id),
+  CONSTRAINT fk_projects_created_by FOREIGN KEY (created_by) REFERENCES users(id),
+  CONSTRAINT fk_projects_updated_by FOREIGN KEY (updated_by) REFERENCES users(id),
+  CONSTRAINT fk_projects_deleted_by FOREIGN KEY (deleted_by) REFERENCES users(id),
+
+  UNIQUE KEY uq_projects_client_name (client_id, name),
+  UNIQUE KEY uq_projects_code (code),
+  KEY idx_projects_client (client_id),
+  KEY idx_projects_status (status),
+  KEY idx_projects_confidential (is_confidential),
+  KEY idx_projects_active (is_active),
+  KEY idx_projects_deleted_at (deleted_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE user_clients (
@@ -169,6 +209,217 @@ CREATE TABLE user_clients (
 
   KEY idx_uc_active (is_active),
   KEY idx_uc_deleted_at (deleted_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ----------------------------------------------------------------------------
+-- 3.2) ACL fina (equivalente a dataTeams.json: assignmentMode + permisos por cliente/proyecto)
+--      Nota: esto NO reemplaza RBAC; es un overlay por dominio (cliente/proyecto).
+-- ----------------------------------------------------------------------------
+CREATE TABLE user_client_acl (
+  user_id     CHAR(36) NOT NULL,
+  client_id   CHAR(36) NOT NULL,
+  permission  ENUM('read','edit','owner') NOT NULL DEFAULT 'read',
+  is_active   TINYINT(1) NOT NULL DEFAULT 1,
+
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_by  CHAR(36) NULL,
+  updated_at  DATETIME NULL ON UPDATE CURRENT_TIMESTAMP,
+  updated_by  CHAR(36) NULL,
+  deleted_at  DATETIME NULL,
+  deleted_by  CHAR(36) NULL,
+
+  PRIMARY KEY (user_id, client_id),
+  CONSTRAINT fk_uca_user FOREIGN KEY (user_id) REFERENCES users(id),
+  CONSTRAINT fk_uca_client FOREIGN KEY (client_id) REFERENCES clients(id),
+  CONSTRAINT fk_uca_created_by FOREIGN KEY (created_by) REFERENCES users(id),
+  CONSTRAINT fk_uca_updated_by FOREIGN KEY (updated_by) REFERENCES users(id),
+  CONSTRAINT fk_uca_deleted_by FOREIGN KEY (deleted_by) REFERENCES users(id),
+  KEY idx_uca_permission (permission),
+  KEY idx_uca_active (is_active),
+  KEY idx_uca_deleted_at (deleted_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE user_project_acl (
+  user_id     CHAR(36) NOT NULL,
+  project_id  CHAR(36) NOT NULL,
+  permission  ENUM('read','edit','owner') NOT NULL DEFAULT 'read',
+  is_active   TINYINT(1) NOT NULL DEFAULT 1,
+
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_by  CHAR(36) NULL,
+  updated_at  DATETIME NULL ON UPDATE CURRENT_TIMESTAMP,
+  updated_by  CHAR(36) NULL,
+  deleted_at  DATETIME NULL,
+  deleted_by  CHAR(36) NULL,
+
+  PRIMARY KEY (user_id, project_id),
+  CONSTRAINT fk_upa_user FOREIGN KEY (user_id) REFERENCES users(id),
+  CONSTRAINT fk_upa_project FOREIGN KEY (project_id) REFERENCES projects(id),
+  CONSTRAINT fk_upa_created_by FOREIGN KEY (created_by) REFERENCES users(id),
+  CONSTRAINT fk_upa_updated_by FOREIGN KEY (updated_by) REFERENCES users(id),
+  CONSTRAINT fk_upa_deleted_by FOREIGN KEY (deleted_by) REFERENCES users(id),
+  KEY idx_upa_permission (permission),
+  KEY idx_upa_active (is_active),
+  KEY idx_upa_deleted_at (deleted_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ----------------------------------------------------------------------------
+-- 3.3) Dashboard (equivalente dataUserProfile.json / dataDashBoard.json)
+-- ----------------------------------------------------------------------------
+CREATE TABLE dashboard_widgets (
+  id           SMALLINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  code         VARCHAR(80) NOT NULL,
+  name         VARCHAR(160) NOT NULL,
+  description  VARCHAR(400) NULL,
+  is_active    TINYINT(1) NOT NULL DEFAULT 1,
+
+  created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_by   CHAR(36) NULL,
+  updated_at   DATETIME NULL ON UPDATE CURRENT_TIMESTAMP,
+  updated_by   CHAR(36) NULL,
+  deleted_at   DATETIME NULL,
+  deleted_by   CHAR(36) NULL,
+
+  UNIQUE KEY uq_dw_code (code),
+  KEY idx_dw_active (is_active),
+  KEY idx_dw_deleted_at (deleted_at),
+  CONSTRAINT fk_dw_created_by FOREIGN KEY (created_by) REFERENCES users(id),
+  CONSTRAINT fk_dw_updated_by FOREIGN KEY (updated_by) REFERENCES users(id),
+  CONSTRAINT fk_dw_deleted_by FOREIGN KEY (deleted_by) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE user_dashboard_widgets (
+  user_id     CHAR(36) NOT NULL,
+  widget_id   SMALLINT UNSIGNED NOT NULL,
+  enabled     TINYINT(1) NOT NULL DEFAULT 1,
+  sort_order  SMALLINT UNSIGNED NULL,
+
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_by  CHAR(36) NULL,
+  updated_at  DATETIME NULL ON UPDATE CURRENT_TIMESTAMP,
+  updated_by  CHAR(36) NULL,
+  deleted_at  DATETIME NULL,
+  deleted_by  CHAR(36) NULL,
+
+  PRIMARY KEY (user_id, widget_id),
+  CONSTRAINT fk_udw_user FOREIGN KEY (user_id) REFERENCES users(id),
+  CONSTRAINT fk_udw_widget FOREIGN KEY (widget_id) REFERENCES dashboard_widgets(id),
+  CONSTRAINT fk_udw_created_by FOREIGN KEY (created_by) REFERENCES users(id),
+  CONSTRAINT fk_udw_updated_by FOREIGN KEY (updated_by) REFERENCES users(id),
+  CONSTRAINT fk_udw_deleted_by FOREIGN KEY (deleted_by) REFERENCES users(id),
+  KEY idx_udw_enabled (enabled),
+  KEY idx_udw_deleted_at (deleted_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Perfil extendido del usuario (UI/branding y metadatos no críticos)
+CREATE TABLE user_profiles (
+  user_id        CHAR(36) PRIMARY KEY,
+  initials       VARCHAR(10) NULL,
+  color          VARCHAR(20) NULL,
+  position       VARCHAR(120) NULL,
+  department     VARCHAR(80) NULL,
+  notes          VARCHAR(600) NULL,
+  last_activity  DATE NULL,
+
+  CONSTRAINT fk_up_user FOREIGN KEY (user_id) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ----------------------------------------------------------------------------
+-- 3.4) IA: Catálogo de perfiles de análisis (analysisProfilesCatalog.json)
+-- ----------------------------------------------------------------------------
+CREATE TABLE ai_profile_categories (
+  id          SMALLINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  name        VARCHAR(120) NOT NULL,
+  is_active   TINYINT(1) NOT NULL DEFAULT 1,
+  UNIQUE KEY uq_ai_pc_name (name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE ai_profiles (
+  id              CHAR(36) PRIMARY KEY,
+  category_id     SMALLINT UNSIGNED NOT NULL,
+  name            VARCHAR(180) NOT NULL,
+  description     VARCHAR(900) NULL,
+  prompt          MEDIUMTEXT NOT NULL,
+  is_active       TINYINT(1) NOT NULL DEFAULT 1,
+
+  created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_by      CHAR(36) NULL,
+  updated_at      DATETIME NULL ON UPDATE CURRENT_TIMESTAMP,
+  updated_by      CHAR(36) NULL,
+  deleted_at      DATETIME NULL,
+  deleted_by      CHAR(36) NULL,
+
+  CONSTRAINT fk_ai_p_cat FOREIGN KEY (category_id) REFERENCES ai_profile_categories(id),
+  CONSTRAINT fk_ai_p_created_by FOREIGN KEY (created_by) REFERENCES users(id),
+  CONSTRAINT fk_ai_p_updated_by FOREIGN KEY (updated_by) REFERENCES users(id),
+  CONSTRAINT fk_ai_p_deleted_by FOREIGN KEY (deleted_by) REFERENCES users(id),
+
+  UNIQUE KEY uq_ai_profiles_name (name),
+  KEY idx_ai_profiles_cat (category_id),
+  KEY idx_ai_profiles_active (is_active),
+  KEY idx_ai_profiles_deleted_at (deleted_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ----------------------------------------------------------------------------
+-- 3.5) Tags (dataTags.json) + Tags IA (minuteIAResponse.json)
+-- ----------------------------------------------------------------------------
+CREATE TABLE tag_categories (
+  id          SMALLINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  name        VARCHAR(120) NOT NULL,
+  is_active   TINYINT(1) NOT NULL DEFAULT 1,
+  UNIQUE KEY uq_tag_cat_name (name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE tags (
+  id            CHAR(36) PRIMARY KEY,
+  category_id   SMALLINT UNSIGNED NOT NULL,
+  name          VARCHAR(140) NOT NULL,
+  description   VARCHAR(900) NULL,
+  source        ENUM('user','ai') NOT NULL DEFAULT 'user',
+  status        VARCHAR(30) NOT NULL DEFAULT 'activo',
+  is_active     TINYINT(1) NOT NULL DEFAULT 1,
+
+  created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_by    CHAR(36) NULL,
+  updated_at    DATETIME NULL ON UPDATE CURRENT_TIMESTAMP,
+  updated_by    CHAR(36) NULL,
+  deleted_at    DATETIME NULL,
+  deleted_by    CHAR(36) NULL,
+
+  CONSTRAINT fk_tags_cat FOREIGN KEY (category_id) REFERENCES tag_categories(id),
+  CONSTRAINT fk_tags_created_by FOREIGN KEY (created_by) REFERENCES users(id),
+  CONSTRAINT fk_tags_updated_by FOREIGN KEY (updated_by) REFERENCES users(id),
+  CONSTRAINT fk_tags_deleted_by FOREIGN KEY (deleted_by) REFERENCES users(id),
+
+  UNIQUE KEY uq_tags_cat_name (category_id, name),
+  KEY idx_tags_source (source),
+  KEY idx_tags_status (status),
+  KEY idx_tags_active (is_active),
+  KEY idx_tags_deleted_at (deleted_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Tags IA por "slug" (name normalizado) para evitar duplicar por versión
+CREATE TABLE ai_tags (
+  id            CHAR(36) PRIMARY KEY,
+  slug          VARCHAR(180) NOT NULL,
+  description   VARCHAR(900) NULL,
+  is_active     TINYINT(1) NOT NULL DEFAULT 1,
+  created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  UNIQUE KEY uq_ai_tags_slug (slug),
+  KEY idx_ai_tags_active (is_active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE ai_tag_conversions (
+  ai_tag_id     CHAR(36) NOT NULL,
+  tag_id        CHAR(36) NOT NULL,
+  converted_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  converted_by  CHAR(36) NULL,
+
+  PRIMARY KEY (ai_tag_id, tag_id),
+  CONSTRAINT fk_atc_ai_tag FOREIGN KEY (ai_tag_id) REFERENCES ai_tags(id),
+  CONSTRAINT fk_atc_tag    FOREIGN KEY (tag_id) REFERENCES tags(id),
+  CONSTRAINT fk_atc_by     FOREIGN KEY (converted_by) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ----------------------------------------------------------------------------
@@ -369,11 +620,19 @@ CREATE TABLE objects (
 CREATE TABLE records (
   id                  CHAR(36) PRIMARY KEY,
   client_id           CHAR(36) NOT NULL,
+  project_id          CHAR(36) NULL,
   record_type_id      SMALLINT UNSIGNED NOT NULL,
   status_id           SMALLINT UNSIGNED NOT NULL,
 
+  ai_profile_id       CHAR(36) NULL,
+
   title               VARCHAR(300) NOT NULL,
   document_date       DATE NULL,
+  location            VARCHAR(220) NULL,
+  scheduled_start_time TIME NULL,
+  scheduled_end_time   TIME NULL,
+  actual_start_time    TIME NULL,
+  actual_end_time      TIME NULL,
   prepared_by_user_id CHAR(36) NOT NULL,
 
   intro_snippet       VARCHAR(800) NULL,
@@ -390,17 +649,22 @@ CREATE TABLE records (
   deleted_by          CHAR(36) NULL,
 
   CONSTRAINT fk_rec_client FOREIGN KEY (client_id) REFERENCES clients(id),
+  CONSTRAINT fk_rec_project FOREIGN KEY (project_id) REFERENCES projects(id),
   CONSTRAINT fk_rec_type FOREIGN KEY (record_type_id) REFERENCES record_types(id),
   CONSTRAINT fk_rec_status FOREIGN KEY (status_id) REFERENCES record_statuses(id),
+  CONSTRAINT fk_rec_ai_profile FOREIGN KEY (ai_profile_id) REFERENCES ai_profiles(id),
   CONSTRAINT fk_rec_prepared_by FOREIGN KEY (prepared_by_user_id) REFERENCES users(id),
   CONSTRAINT fk_rec_created_by FOREIGN KEY (created_by) REFERENCES users(id),
   CONSTRAINT fk_rec_updated_by FOREIGN KEY (updated_by) REFERENCES users(id),
   CONSTRAINT fk_rec_deleted_by FOREIGN KEY (deleted_by) REFERENCES users(id),
 
   KEY idx_rec_client (client_id),
+  KEY idx_rec_project (project_id),
   KEY idx_rec_type (record_type_id),
   KEY idx_rec_status (status_id),
   KEY idx_rec_docdate (document_date),
+  KEY idx_rec_location (location),
+  KEY idx_rec_ai_profile (ai_profile_id),
   KEY idx_rec_prepared_by (prepared_by_user_id),
   KEY idx_rec_latest_version_num (latest_version_num),
   KEY idx_rec_deleted_at (deleted_at),
@@ -438,6 +702,17 @@ CREATE TABLE record_versions (
   schema_version   VARCHAR(40) NOT NULL,
   template_version VARCHAR(40) NOT NULL,
 
+  -- Índices de búsqueda (NO reemplazan el JSON completo; el JSON vive en MinIO vía objects/record_artifacts)
+  summary_text     MEDIUMTEXT NULL,
+  decisions_text   MEDIUMTEXT NULL,
+  agreements_text  MEDIUMTEXT NULL,
+  risks_text       MEDIUMTEXT NULL,
+  next_steps_text  MEDIUMTEXT NULL,
+
+  ai_provider      VARCHAR(40) NULL,
+  ai_model         VARCHAR(80) NULL,
+  ai_run_id        VARCHAR(80) NULL,
+
   deleted_at       DATETIME NULL,
   deleted_by       CHAR(36) NULL,
 
@@ -450,6 +725,50 @@ CREATE TABLE record_versions (
   KEY idx_ver_record (record_id),
   KEY idx_ver_published_at (published_at),
   KEY idx_ver_deleted_at (deleted_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Participantes SCOPED a la versión (evita la "people" global y mantiene 3FN por contexto)
+CREATE TABLE record_version_participants (
+  id               BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  record_version_id CHAR(36) NOT NULL,
+  role             ENUM('required','optional','observer','unknown') NOT NULL DEFAULT 'unknown',
+  display_name     VARCHAR(220) NOT NULL,
+  organization     VARCHAR(220) NULL,
+  title            VARCHAR(160) NULL,
+  email            VARCHAR(200) NULL,
+
+  created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  CONSTRAINT fk_rvp_ver FOREIGN KEY (record_version_id) REFERENCES record_versions(id),
+  KEY idx_rvp_ver (record_version_id),
+  KEY idx_rvp_name (display_name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Tags de usuario por versión (para búsquedas y analítica)
+CREATE TABLE record_version_tags (
+  record_version_id CHAR(36) NOT NULL,
+  tag_id            CHAR(36) NOT NULL,
+  added_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  added_by          CHAR(36) NULL,
+
+  PRIMARY KEY (record_version_id, tag_id),
+  CONSTRAINT fk_rvt_ver FOREIGN KEY (record_version_id) REFERENCES record_versions(id),
+  CONSTRAINT fk_rvt_tag FOREIGN KEY (tag_id) REFERENCES tags(id),
+  CONSTRAINT fk_rvt_by  FOREIGN KEY (added_by) REFERENCES users(id),
+
+  KEY idx_rvt_tag (tag_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Tags IA detectados por versión (para UI y potencial conversión)
+CREATE TABLE record_version_ai_tags (
+  record_version_id CHAR(36) NOT NULL,
+  ai_tag_id         CHAR(36) NOT NULL,
+  detected_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  PRIMARY KEY (record_version_id, ai_tag_id),
+  CONSTRAINT fk_rvat_ver FOREIGN KEY (record_version_id) REFERENCES record_versions(id),
+  CONSTRAINT fk_rvat_ai_tag FOREIGN KEY (ai_tag_id) REFERENCES ai_tags(id),
+  KEY idx_rvat_ai_tag (ai_tag_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE record_version_commits (
