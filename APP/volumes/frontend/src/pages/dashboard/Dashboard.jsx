@@ -22,7 +22,6 @@ import clientsData   from "@/data/dataClientes.json";
 import projectsData  from "@/data/dataProjectos.json";
 
 import DashboardHeader from "./DashboardHeader";
-import DashboardError  from "./DashboardError";
 import MetricCard      from "./MetricCard";
 import PopularTags     from "./PopularTags";
 import LastConectionInfo from "./LastConectionInfo";
