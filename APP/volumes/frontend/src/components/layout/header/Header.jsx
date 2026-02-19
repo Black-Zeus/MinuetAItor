@@ -1,6 +1,11 @@
 /**
  * Header.jsx
- * Componente principal del header integrado con Zustand store
+ * Componente principal del header integrado con Zustand store.
+ *
+ * Breadcrumb derivado desde URL via useBreadcrumb hook:
+ * - Lee sidebarConfig como fuente de verdad
+ * - Funciona con cualquier tipo de navegación (sidebar, links, URL directa, búsqueda)
+ * - Soporta 3 niveles: Inicio > Módulo > Submódulo
  */
 
 import React, { useState } from 'react';
@@ -12,9 +17,12 @@ import HeaderThemeToggle from './HeaderThemeToggle';
 import HeaderDivider from './HeaderDivider';
 import HeaderUserMenu from './HeaderUserMenu';
 import useBaseSiteStore from '@store/baseSiteStore';
+import useBreadcrumb from '@/hooks/useBreadcrumb';
+import { useNavigate } from 'react-router-dom';
 
 const Header = () => {
   const [searchQuery, setSearchQuery] = useState('');
+  const navigate = useNavigate();
 
   // ====================================
   // ZUSTAND STORE
@@ -22,43 +30,23 @@ const Header = () => {
   const {
     theme,
     toggleTheme,
-    navigationHistory,
     unreadNotificationsCount,
     resetUnreadNotifications
   } = useBaseSiteStore();
 
   // ====================================
+  // BREADCRUMB — derivado desde URL
+  // No depende del store ni de clicks en el sidebar.
+  // Se actualiza automáticamente con cualquier cambio de ruta.
+  // ====================================
+  const { title, items: breadcrumbItems } = useBreadcrumb();
+
+  // ====================================
   // HANDLERS
   // ====================================
-  const handleSearch = (query) => {
-    // TODO: implementar búsqueda global
-    console.log('Searching:', query);
-  };
-
   const handleNotificationsClick = () => {
     resetUnreadNotifications();
   };
-
-  // ====================================
-  // BREADCRUMB DINÁMICO DESDE STORE
-  // ====================================
-  const currentSection = navigationHistory[0] || {
-    name: 'Dashboard',
-    path: '/'
-  };
-
-  const breadcrumbItems = [
-    {
-      label: 'Inicio',
-      href: '/',
-      onClick: (e) => {
-        e.preventDefault();
-      }
-    },
-    {
-      label: currentSection.name
-    }
-  ];
 
   // ====================================
   // USER MENU ITEMS
@@ -67,35 +55,35 @@ const Header = () => {
     {
       label: 'Mi Perfil',
       icon: 'FaPerson',
-      onClick: () => {}
+      onClick: () => navigate('/settings/userProfile')
     },
     {
       label: 'Configuración',
       icon: 'FaGear',
-      onClick: () => {}
+      onClick: () => navigate('/settings/system')
     },
     {
       label: 'Ayuda & Soporte',
       icon: 'FaCircleInfo',
-      onClick: () => {}
+      onClick: () => navigate('/help')
     }
   ];
 
   return (
     <HeaderContainer>
-      {/* LEFT SECTION */}
+      {/* LEFT SECTION — título + migas de pan */}
       <HeaderBreadcrumb
-        title={currentSection.name}
+        title={title}
         items={breadcrumbItems}
       />
 
       {/* RIGHT SECTION */}
       <div className="flex items-center space-x-4">
+
         {/* SEARCH */}
         <HeaderSearch
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          onSubmit={handleSearch}
           placeholder="Buscar Minutas..."
         />
 
@@ -111,7 +99,7 @@ const Header = () => {
 
           <HeaderActionButton
             iconName="FaEnvelope"
-            onClick={() => {}}
+            onClick={() => { }}
             ariaLabel="Mensajes"
           />
 
