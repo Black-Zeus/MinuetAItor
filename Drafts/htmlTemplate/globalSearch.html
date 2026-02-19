@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Búsqueda Global - MinuetAItor</title>
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="./css/styles.css">
+  <link rel="stylesheet" href="./css/global-search.css">
+</head>
+
+<body>
+  <div class="container" style="max-width: 100%; padding: var(--spacing-xl);">
+
+    <!-- Page Header (similar a Minutas) -->
+    <div class="gs-page-header">
+      <div class="gs-header-content">
+        <div class="gs-header-left">
+          <h1 class="gs-page-title">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            Búsqueda Global
+          </h1>
+          <p class="gs-page-subtitle">
+            Buscar en Clientes, Proyectos, Minutas y Personas. Resultados agrupados por módulo.
+          </p>
+        </div>
+
+        <div class="gs-header-right">
+          <button class="btn btn-secondary btn-lg" id="btnAdvanced">
+            <i class="fa-solid fa-sliders"></i>
+            Búsqueda Avanzada
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Search Bar -->
+    <div class="gs-search-panel">
+      <div class="gs-search-row">
+        <div class="gs-search-input-wrap">
+          <i class="fa-solid fa-magnifying-glass gs-search-icon"></i>
+          <input
+            id="globalSearchInput"
+            type="text"
+            class="gs-search-input"
+            placeholder="Ej: 'Acme', 'Sprint 1', 'Juan Pérez', 'CRM'..."
+            autocomplete="off"
+          />
+          <button class="gs-clear-btn" id="btnClearQuery" title="Limpiar búsqueda" aria-label="Limpiar">
+            <i class="fa-solid fa-circle-xmark"></i>
+          </button>
+        </div>
+
+        <button class="btn btn-primary gs-btn-search" id="btnSearch">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          Buscar
+        </button>
+      </div>
+
+      <!-- Quick filters + scope -->
+      <div class="gs-filters-row">
+        <div class="gs-scope">
+          <div class="gs-scope-title">
+            <i class="fa-solid fa-layer-group"></i>
+            Alcance
+          </div>
+
+          <div class="gs-scope-pills" id="scopePills">
+            <button class="gs-pill active" data-scope="all">
+              <i class="fa-solid fa-globe"></i> Todo
+            </button>
+            <button class="gs-pill" data-scope="clients">
+              <i class="fa-solid fa-building"></i> Clientes
+            </button>
+            <button class="gs-pill" data-scope="projects">
+              <i class="fa-solid fa-folder"></i> Proyectos
+            </button>
+            <button class="gs-pill" data-scope="minutes">
+              <i class="fa-solid fa-file-lines"></i> Minutas
+            </button>
+            <button class="gs-pill" data-scope="people">
+              <i class="fa-solid fa-users"></i> Personas
+            </button>
+          </div>
+        </div>
+
+        <div class="gs-quick">
+          <div class="gs-quick-title">
+            <i class="fa-solid fa-filter"></i>
+            Filtros rápidos
+          </div>
+
+          <div class="gs-quick-controls">
+            <label class="gs-check">
+              <input type="checkbox" id="chkExact" />
+              <span>Coincidencia exacta</span>
+            </label>
+
+            <label class="gs-check">
+              <input type="checkbox" id="chkConfidentialOnly" />
+              <span>Solo confidenciales</span>
+            </label>
+
+            <div class="gs-select-wrap">
+              <i class="fa-solid fa-arrow-down-a-z"></i>
+              <select id="selSort" class="gs-select">
+                <option value="relevance">Orden: Relevancia</option>
+                <option value="recent">Orden: Más reciente</option>
+                <option value="az">Orden: A → Z</option>
+              </select>
+            </div>
+
+            <button class="btn btn-secondary" id="btnReset">
+              <i class="fa-solid fa-rotate-left"></i>
+              Reset
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Hints / UX -->
+      <div class="gs-hint">
+        <i class="fa-solid fa-circle-info"></i>
+        Atajos: <strong>Ctrl+K</strong> foco en búsqueda, <strong>Enter</strong> buscar, <strong>Esc</strong> limpiar.
+      </div>
+    </div>
+
+    <!-- Results Header -->
+    <div class="gs-results-info">
+      <div class="gs-results-text" id="resultsInfo">
+        <i class="fa-solid fa-list-check"></i>
+        Ingrese un término para buscar.
+      </div>
+
+      <div class="gs-results-actions">
+        <button class="btn btn-secondary" id="btnCollapseAll">
+          <i class="fa-solid fa-compress"></i>
+          Colapsar todo
+        </button>
+        <button class="btn btn-secondary" id="btnExpandAll">
+          <i class="fa-solid fa-expand"></i>
+          Expandir todo
+        </button>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="gs-tabs" role="tablist" aria-label="Módulos">
+      <button class="gs-tab active" data-tab="all" role="tab" aria-selected="true">
+        Todo <span class="gs-tab-count" id="countAll">0</span>
+      </button>
+      <button class="gs-tab" data-tab="clients" role="tab" aria-selected="false">
+        Clientes <span class="gs-tab-count" id="countClients">0</span>
+      </button>
+      <button class="gs-tab" data-tab="projects" role="tab" aria-selected="false">
+        Proyectos <span class="gs-tab-count" id="countProjects">0</span>
+      </button>
+      <button class="gs-tab" data-tab="minutes" role="tab" aria-selected="false">
+        Minutas <span class="gs-tab-count" id="countMinutes">0</span>
+      </button>
+      <button class="gs-tab" data-tab="people" role="tab" aria-selected="false">
+        Personas <span class="gs-tab-count" id="countPeople">0</span>
+      </button>
+    </div>
+
+    <!-- Results Container -->
+    <div class="gs-results" id="resultsContainer">
+
+      <!-- Group: Clients -->
+      <section class="gs-group" data-group="clients">
+        <header class="gs-group-header">
+          <button class="gs-group-toggle" data-toggle="clients" aria-expanded="true">
+            <i class="fa-solid fa-chevron-down"></i>
+          </button>
+
+          <div class="gs-group-title">
+            <span class="gs-group-icon badge-clients">
+              <i class="fa-solid fa-building"></i>
+            </span>
+            <div class="gs-group-title-text">
+              <div class="gs-group-name">Clientes</div>
+              <div class="gs-group-sub" id="subClients">0 resultados</div>
+            </div>
+          </div>
+
+          <div class="gs-group-right">
+            <button class="btn btn-secondary gs-group-more" data-more="clients">
+              Ver más
+              <i class="fa-solid fa-chevron-right"></i>
+            </button>
+          </div>
+        </header>
+
+        <div class="gs-group-body" id="listClients">
+          <!-- cards dinámicas -->
+        </div>
+      </section>
+
+      <!-- Group: Projects -->
+      <section class="gs-group" data-group="projects">
+        <header class="gs-group-header">
+          <button class="gs-group-toggle" data-toggle="projects" aria-expanded="true">
+            <i class="fa-solid fa-chevron-down"></i>
+          </button>
+
+          <div class="gs-group-title">
+            <span class="gs-group-icon badge-projects">
+              <i class="fa-solid fa-folder"></i>
+            </span>
+            <div class="gs-group-title-text">
+              <div class="gs-group-name">Proyectos</div>
+              <div class="gs-group-sub" id="subProjects">0 resultados</div>
+            </div>
+          </div>
+
+          <div class="gs-group-right">
+            <button class="btn btn-secondary gs-group-more" data-more="projects">
+              Ver más
+              <i class="fa-solid fa-chevron-right"></i>
+            </button>
+          </div>
+        </header>
+
+        <div class="gs-group-body" id="listProjects"></div>
+      </section>
+
+      <!-- Group: Minutes -->
+      <section class="gs-group" data-group="minutes">
+        <header class="gs-group-header">
+          <button class="gs-group-toggle" data-toggle="minutes" aria-expanded="true">
+            <i class="fa-solid fa-chevron-down"></i>
+          </button>
+
+          <div class="gs-group-title">
+            <span class="gs-group-icon badge-minutes">
+              <i class="fa-solid fa-file-lines"></i>
+            </span>
+            <div class="gs-group-title-text">
+              <div class="gs-group-name">Minutas</div>
+              <div class="gs-group-sub" id="subMinutes">0 resultados</div>
+            </div>
+          </div>
+
+          <div class="gs-group-right">
+            <button class="btn btn-secondary gs-group-more" data-more="minutes">
+              Ver más
+              <i class="fa-solid fa-chevron-right"></i>
+            </button>
+          </div>
+        </header>
+
+        <div class="gs-group-body" id="listMinutes"></div>
+      </section>
+
+      <!-- Group: People -->
+      <section class="gs-group" data-group="people">
+        <header class="gs-group-header">
+          <button class="gs-group-toggle" data-toggle="people" aria-expanded="true">
+            <i class="fa-solid fa-chevron-down"></i>
+          </button>
+
+          <div class="gs-group-title">
+            <span class="gs-group-icon badge-people">
+              <i class="fa-solid fa-users"></i>
+            </span>
+            <div class="gs-group-title-text">
+              <div class="gs-group-name">Personas</div>
+              <div class="gs-group-sub" id="subPeople">0 resultados</div>
+            </div>
+          </div>
+
+          <div class="gs-group-right">
+            <button class="btn btn-secondary gs-group-more" data-more="people">
+              Ver más
+              <i class="fa-solid fa-chevron-right"></i>
+            </button>
+          </div>
+        </header>
+
+        <div class="gs-group-body" id="listPeople"></div>
+      </section>
+
+    </div>
+
+    <!-- Empty State -->
+    <div class="gs-empty hidden" id="emptyState">
+      <div class="gs-empty-card">
+        <div class="gs-empty-icon">
+          <i class="fa-solid fa-magnifying-glass"></i>
+        </div>
+        <div class="gs-empty-title">Sin resultados</div>
+        <div class="gs-empty-sub">
+          Ajuste el término, cambie el alcance o revise los filtros rápidos.
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="./js/global-search.js"></script>
+</body>
+</html>
