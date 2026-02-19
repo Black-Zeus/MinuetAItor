@@ -5,10 +5,10 @@
 
 import React from 'react';
 
-const HeaderBreadcrumb = ({ 
-  title, 
-  items = [], 
-  className = '' 
+const HeaderBreadcrumb = ({
+  title,
+  items = [],
+  className = ''
 }) => {
   return (
     <div className={className}>
@@ -20,8 +20,8 @@ const HeaderBreadcrumb = ({
           {items.map((item, index) => (
             <React.Fragment key={index}>
               {item.href ? (
-                <a 
-                  href={item.href} 
+                <a
+                  href={item.href}
                   className="hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
                   onClick={item.onClick}
                 >

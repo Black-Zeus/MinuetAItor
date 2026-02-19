@@ -1,29 +1,31 @@
 /**
  * HeaderSearch.jsx
- * Componente de búsqueda con input e icono - 100% Tailwind
+ * Barra de búsqueda del header — al hacer submit navega a /search?q=...
  */
 
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import Icon from '@components/ui/icon/iconManager';
 
-const HeaderSearch = ({ 
+const HeaderSearch = ({
   value = '',
   onChange,
-  onSubmit,
   placeholder = 'Buscar...',
-  className = '' 
+  className = ''
 }) => {
+  const navigate = useNavigate();
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (onSubmit) {
-      onSubmit(value);
-    }
+    const q = value.trim();
+    if (!q) return;
+    navigate(`/globalSearch?q=${encodeURIComponent(q)}`);
   };
 
   return (
     <form onSubmit={handleSubmit} className={`relative hidden md:block ${className}`}>
-      <Icon 
-        name="FaMagnifyingGlass" 
+      <Icon
+        name="FaMagnifyingGlass"
         className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
       />
       <input
