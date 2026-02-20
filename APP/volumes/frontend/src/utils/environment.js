@@ -1,203 +1,233 @@
 /**
  * utils/environment.js
- * Manejador centralizado de variables de entorno de Vite
- * Simple y directo - sin sobre-ingeniería
+ * Fuente única de verdad para todas las variables de entorno del frontend
+ *
+ * Convención de defaults:
+ *  - Variables críticas (API_URL, etc.)  → default '-'  para detectar que no llegan
+ *  - Variables con fallback sensato       → default real (ej: 'localhost', '5173')
+ *  - Variables booleanas                  → evaluadas con !== / === sobre el string
+ *
+ * NOTA sobre console.* en este archivo:
+ *  logger.js importa environment.js, por lo que usar logger aquí
+ *  generaría una referencia circular. Los console.* de este módulo
+ *  son la ÚNICA excepción permitida al uso directo de console en el proyecto.
  */
 
 // ==========================================
-// VARIABLES DE ENTORNO
+// VARIABLES DE ENTORNO RAW
 // ==========================================
 
-const env = {
-  // Información básica de la app
-  NODE_ENV: import.meta.env.MODE || 'development',
-  DEV: import.meta.env.DEV,
-  PROD: import.meta.env.PROD,
+const _env = {
 
-  // Variables personalizadas del .env
-  FRONTEND_ENV: import.meta.env.VITE_FRONTEND_ENV || 'development',
-  FRONTEND_VERSION: import.meta.env.VITE_FRONTEND_VERSION || '1.0.0',
-  FRONTEND_NAME: import.meta.env.VITE_FRONTEND_NAME || 'Inventario System',
+  // ----- Vite internos -----
+  MODE:  import.meta.env.MODE  || 'development',
+  DEV:   import.meta.env.DEV   ?? true,
+  PROD:  import.meta.env.PROD  ?? false,
 
-  // Configuración de red
-  FRONTEND_PORT: import.meta.env.VITE_FRONTEND_PORT || '3000',
-  FRONTEND_HOST: import.meta.env.VITE_FRONTEND_HOST || 'localhost',
+  // ----- App info -----
+  APP_NAME:    import.meta.env.VITE_FRONTEND_NAME    || '-',
+  APP_VERSION: import.meta.env.VITE_FRONTEND_VERSION || '-',
+  APP_ENV:     import.meta.env.VITE_FRONTEND_ENV     || '-',
 
-  // URL del backend API (CRÍTICA)
-  API_URL: import.meta.env.VITE_FRONTEND_API_URL || 'http://localhost:8000',
+  // ----- Red -----
+  FRONTEND_HOST: import.meta.env.VITE_FRONTEND_HOST    || 'localhost',   // fallback real — siempre hay host
+  FRONTEND_PORT: import.meta.env.VITE_FRONTEND_PORT    || '5173',        // fallback real — puerto por defecto de Vite
+  API_URL:       import.meta.env.VITE_FRONTEND_API_URL || '-',           // crítica — sin fallback real
 
-  // Variables adicionales que puedas necesitar
-  DEBUG_MODE: import.meta.env.VITE_DEBUG_MODE === 'true' || false,
-  ENABLE_LOGS: import.meta.env.VITE_ENABLE_LOGS === 'true' || false,
+  // ----- Logger (strings RAW, el logger los interpreta) -----
+  LOG_ENABLED:       import.meta.env.VITE_LOG_ENABLED,                          // undefined si no viene → logger decide
+  LOG_LEVELS:        import.meta.env.VITE_LOG_LEVELS        || '-',
+  LOG_SCOPES:        import.meta.env.VITE_LOG_SCOPES        || '-',
+  LOG_DEFAULT_SCOPE: import.meta.env.VITE_LOG_DEFAULT_SCOPE || '-',
+  LOG_PREFIX:        import.meta.env.VITE_LOG_PREFIX        || '-',
 
-  // Features flags (si las usas)
-  ENABLE_DARK_MODE: import.meta.env.VITE_ENABLE_DARK_MODE !== 'false', // true por defecto
-  ENABLE_NOTIFICATIONS: import.meta.env.VITE_ENABLE_NOTIFICATIONS !== 'false', // true por defecto
+  // ----- Page Spinner -----
+  SPINNER_VARIANT:       import.meta.env.VITE_PAGE_SPINNER_VARIANT       || '-',
+  SPINNER_SIZE:          import.meta.env.VITE_PAGE_SPINNER_SIZE          || '-',
+  SPINNER_TYPE:          import.meta.env.VITE_PAGE_SPINNER_TYPE          || '-',
+  SPINNER_SHOW_PROGRESS: import.meta.env.VITE_PAGE_SPINNER_SHOW_PROGRESS === 'true',   // false por defecto
+  SPINNER_INDETERMINATE: import.meta.env.VITE_PAGE_SPINNER_INDETERMINATE !== 'false',  // true por defecto
+
+  // ----- Feature flags -----
+  DARK_MODE:     import.meta.env.VITE_ENABLE_DARK_MODE     !== 'false',  // true por defecto
+  NOTIFICATIONS: import.meta.env.VITE_ENABLE_NOTIFICATIONS !== 'false',  // true por defecto
+  DEBUG_MODE:    import.meta.env.VITE_DEBUG_MODE           === 'true',   // false por defecto
 };
 
+
 // ==========================================
-// VALIDACIONES BÁSICAS
+// HELPERS DE AMBIENTE
+// ==========================================
+
+/** Estamos en desarrollo local */
+export const isDev  = () => _env.DEV;
+
+/** Estamos en producción */
+export const isProd = () => _env.PROD;
+
+/** Estamos en QA (vite --mode qa) */
+export const isQA   = () => _env.MODE === 'qa';
+
+/** Nombre del ambiente actual como string legible */
+export const getEnvName = () => {
+  if (isProd()) return 'production';
+  if (isQA())   return 'qa';
+  return 'development';
+};
+
+/**
+ * Indica si se deben emitir logs en el código de negocio.
+ * Mantenido por compatibilidad con imports existentes.
+ * Usa isDev() directamente para evitar referencia circular con logger.js.
+ */
+export const shouldLog = () => isDev() || _env.DEBUG_MODE;
+
+
+// ==========================================
+// API
 // ==========================================
 
 /**
- * Valida que las variables críticas estén presentes
+ * URL completa de un endpoint del API
+ * @example getApiUrl('/auth/login') → 'http://localhost:8000/api/auth/login'
  */
-const validateEnvironment = () => {
-  const errors = [];
+export const getApiUrl = (endpoint = '') => {
+  const base  = _env.API_URL.endsWith('/') ? _env.API_URL.slice(0, -1) : _env.API_URL;
+  const clean = endpoint.startsWith('/')   ? endpoint                  : `/${endpoint}`;
+  return `${base}/api${clean}`;
+};
 
-  // API URL es crítica
-  if (!env.API_URL) {
-    errors.push('VITE_FRONTEND_API_URL is required');
+/** Base URL del backend sin path */
+export const getApiBaseUrl = () => _env.API_URL;
+
+
+// ==========================================
+// FRONTEND URL
+// ==========================================
+
+export const getFrontendBaseUrl = () => {
+  if (isProd()) return window.location.origin;
+  const protocol = _env.FRONTEND_HOST === 'localhost' ? 'http' : 'https';
+  return `${protocol}://${_env.FRONTEND_HOST}:${_env.FRONTEND_PORT}`;
+};
+
+
+// ==========================================
+// GETTERS AGRUPADOS
+// ==========================================
+
+export const getAppInfo = () => ({
+  name:      _env.APP_NAME,
+  version:   _env.APP_VERSION,
+  env:       _env.APP_ENV,
+  mode:      _env.MODE,
+  buildTime: new Date().toISOString(),
+});
+
+/**
+ * Configuración del logger — consumida por logger.js
+ * Los strings '-' indican variable no configurada, el logger usa sus propios defaults.
+ * Se entregan RAW para que el logger los interprete con envToBool / parseCsvSet.
+ */
+export const getLoggerConfig = () => ({
+  enabled:      _env.LOG_ENABLED,                                    // undefined | 'true' | 'false'
+  levels:       _env.LOG_LEVELS        === '-' ? '' : _env.LOG_LEVELS,        // '' → logger usa su default
+  scopes:       _env.LOG_SCOPES        === '-' ? '' : _env.LOG_SCOPES,        // '' → sin restricción
+  defaultScope: _env.LOG_DEFAULT_SCOPE === '-' ? 'core' : _env.LOG_DEFAULT_SCOPE,
+  prefix:       _env.LOG_PREFIX        === '-' ? ''     : _env.LOG_PREFIX,
+  mode:         _env.MODE,
+});
+
+export const getSpinnerConfig = () => ({
+  variant:       _env.SPINNER_VARIANT,
+  size:          _env.SPINNER_SIZE,
+  spinnerType:   _env.SPINNER_TYPE,
+  showProgress:  _env.SPINNER_SHOW_PROGRESS,
+  indeterminate: _env.SPINNER_INDETERMINATE,
+});
+
+export const getFeatureFlags = () => ({
+  darkMode:      _env.DARK_MODE,
+  notifications: _env.NOTIFICATIONS,
+  debugMode:     _env.DEBUG_MODE,
+});
+
+
+// ==========================================
+// VALIDACIÓN
+// ==========================================
+
+const _isValidUrl = (str) => { try { new URL(str); return true; } catch { return false; } };
+
+export const validateEnvironment = () => {
+  const errors   = [];
+  const warnings = [];
+
+  // ----- Errores críticos -----
+  if (!_env.API_URL || _env.API_URL === '-')
+    errors.push('VITE_FRONTEND_API_URL no está definida');
+  else if (!_isValidUrl(_env.API_URL))
+    errors.push(`VITE_FRONTEND_API_URL no es una URL válida → "${_env.API_URL}"`);
+
+  // ----- Warnings: variables con sentinel '-' -----
+  const sentinels = {
+    APP_NAME:          'VITE_FRONTEND_NAME',
+    APP_VERSION:       'VITE_FRONTEND_VERSION',
+    APP_ENV:           'VITE_FRONTEND_ENV',
+    LOG_LEVELS:        'VITE_LOG_LEVELS',
+    LOG_SCOPES:        'VITE_LOG_SCOPES',
+    LOG_DEFAULT_SCOPE: 'VITE_LOG_DEFAULT_SCOPE',
+    LOG_PREFIX:        'VITE_LOG_PREFIX',
+    SPINNER_VARIANT:   'VITE_PAGE_SPINNER_VARIANT',
+    SPINNER_SIZE:      'VITE_PAGE_SPINNER_SIZE',
+    SPINNER_TYPE:      'VITE_PAGE_SPINNER_TYPE',
+  };
+
+  for (const [key, envVar] of Object.entries(sentinels)) {
+    if (_env[key] === '-') warnings.push(`${envVar} no está definida (usando sentinel "-")`);
   }
 
-  // Validar formato de API URL
-  if (env.API_URL && !isValidUrl(env.API_URL)) {
-    errors.push('VITE_FRONTEND_API_URL must be a valid URL');
+  // ----- Salida por consola (EXCEPCIÓN: circular con logger) -----
+  if (errors.length) {
+    console.group('❌ [environment] Errores críticos de configuración');
+    errors.forEach(e => console.error(`   • ${e}`));
+    console.warn('⚠️  La app puede no funcionar correctamente');
+    console.groupEnd();
   }
 
-  // Si hay errores, mostrarlos en desarrollo
-  if (errors.length > 0 && env.DEV) {
-    console.error('❌ Environment validation errors:');
-    errors.forEach(error => console.error(`  - ${error}`));
-    console.warn('⚠️ App may not work correctly with invalid environment variables');
+  if (isDev() && warnings.length) {
+    console.group('⚠️  [environment] Variables no configuradas');
+    warnings.forEach(w => console.warn(`   • ${w}`));
+    console.groupEnd();
   }
 
   return errors.length === 0;
 };
 
-/**
- * Validador simple de URL
- */
-const isValidUrl = (string) => {
-  try {
-    new URL(string);
-    return true;
-  } catch (_) {
-    return false;
-  }
-};
+validateEnvironment();
+
 
 // ==========================================
-// UTILIDADES
+// DEBUG (solo dev + DEBUG_MODE)
 // ==========================================
 
-/**
- * Obtiene el base URL completo del frontend
- */
-export const getFrontendBaseUrl = () => {
-  if (env.PROD) {
-    // En producción, usar la URL actual del navegador
-    return window.location.origin;
-  }
-
-  // En desarrollo, construir desde las variables
-  const protocol = env.FRONTEND_HOST === 'localhost' ? 'http' : 'https';
-  return `${protocol}://${env.FRONTEND_HOST}:${env.FRONTEND_PORT}`;
-};
-
-/**
- * Obtiene la URL completa de un endpoint del API
- */
-export const getApiUrl = (endpoint = '') => {
-  const baseUrl = env.API_URL.endsWith('/')
-    ? env.API_URL.slice(0, -1)
-    : env.API_URL;
-
-  const cleanEndpoint = endpoint.startsWith('/')
-    ? endpoint
-    : `/${endpoint}`;
-
-  return `${baseUrl}/api${cleanEndpoint}`;
-};
-
-/**
- * Verifica si estamos en desarrollo
- */
-export const isDevelopment = () => env.DEV;
-
-/**
- * Verifica si estamos en producción
- */
-export const isProduction = () => env.PROD;
-
-/**
- * Verifica si los logs están habilitados
- */
-export const shouldLog = () => env.ENABLE_LOGS || env.DEV;
-
-/**
- * Obtiene información de la app
- */
-export const getAppInfo = () => ({
-  name: env.FRONTEND_NAME,
-  version: env.FRONTEND_VERSION,
-  environment: env.FRONTEND_ENV,
-  nodeEnv: env.NODE_ENV,
-  buildTime: new Date().toISOString()
-});
-
-/**
- * Obtiene configuración de features
- */
-export const getFeatureFlags = () => ({
-  darkMode: env.ENABLE_DARK_MODE,
-  notifications: env.ENABLE_NOTIFICATIONS,
-  debugMode: env.DEBUG_MODE
-});
-
-// ==========================================
-// DEBUGGING (solo en desarrollo)
-// ==========================================
-
-if (env.DEV && env.DEBUG_MODE) {
-  console.group('🔧 Environment Configuration');
-  //console.log('Environment:', env.FRONTEND_ENV);
-  //console.log('Node Environment:', env.NODE_ENV);
-  //console.log('API URL:', env.API_URL);
-  //console.log('Frontend URL:', getFrontendBaseUrl());
-  //console.log('Features:', getFeatureFlags());
+if (isDev() && _env.DEBUG_MODE) {
+  console.group('🔧 Environment');
+  console.log('Mode:',     _env.MODE);
+  console.log('API URL:',  _env.API_URL);
+  console.log('App:',      getAppInfo());
+  console.log('Logger:',   getLoggerConfig());
+  console.log('Features:', getFeatureFlags());
   console.groupEnd();
 }
 
-// ==========================================
-// VALIDAR AL CARGAR
-// ==========================================
-
-// Validar variables al importar el módulo
-validateEnvironment();
 
 // ==========================================
-// EXPORTACIONES
+// EXPORTS
 // ==========================================
 
-// Export individual de variables más usadas
-export const {
-  NODE_ENV,
-  DEV,
-  PROD,
-  API_URL,
-  FRONTEND_NAME,
-  FRONTEND_VERSION,
-  DEBUG_MODE
-} = env;
+export const { MODE, DEV, PROD, APP_NAME, APP_VERSION, API_URL, DEBUG_MODE } = _env;
 
-// Export del objeto completo
-export const environment = env;
+export const environment = Object.freeze({ ..._env });
 
-// Export por defecto con todas las utilidades
-export default {
-  ...env,
-
-  // Utilidades
-  getFrontendBaseUrl,
-  getApiUrl,
-  isDevelopment,
-  isProduction,
-  shouldLog,
-  getAppInfo,
-  getFeatureFlags,
-
-  // Validación
-  validateEnvironment,
-  isValid: validateEnvironment()
-};
+export default environment;
