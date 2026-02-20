@@ -3,13 +3,13 @@
 
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from '@/store/authStore'; // Ajusta según tu store
+import useAuthStore from '@/store/authStore';
 
 const PublicRoute = ({ children, redirectTo = '/' }) => {
-    const location = useLocation();
-    const { isAuthenticated, isLoading } = useAuth();
+    const location        = useLocation();
+    const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+    const isLoading       = useAuthStore((s) => s.isLoading);
 
-    // Mostrar loading mientras verifica auth
     if (isLoading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -21,9 +21,7 @@ const PublicRoute = ({ children, redirectTo = '/' }) => {
         );
     }
 
-    // Si está autenticado, redirigir al dashboard
     if (isAuthenticated) {
-        // Usar la ubicación guardada en el state o ir al dashboard
         const from = location.state?.from || redirectTo;
         return <Navigate to={from} replace />;
     }

@@ -100,8 +100,8 @@ const UserProfilePersonalData = ({ profile, onChange, onSave, onReset }) => {
           <Field label="Departamento / Área" icon="FaBuilding">
             <input
               type="text"
-              value={profile?.department || ""}
-              onChange={(e) => handleChange("department", e.target.value)}
+              value={profile?.area || ""}
+              onChange={(e) => handleChange("area", e.target.value)}
               placeholder="Ej: Infraestructura TI"
               className={INPUT_BASE}
             />
