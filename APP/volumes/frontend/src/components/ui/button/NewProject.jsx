@@ -14,6 +14,10 @@ import ProjectModal, { PROJECT_MODAL_MODES } from '@/pages/project/ProjectModal'
 // (DEV) Catálogo de clientes. En PROD: reemplazar por service (GET /clients)
 import clientsData from '@/data/dataClientes.json';
 
+import logger from '@/utils/logger';
+const projectLog = logger.scope("project");
+
+
 // Botón que abre el modal
 const showProjectWizard = () => {
   ModalManager.show({
@@ -28,7 +32,7 @@ const showProjectWizard = () => {
         onSubmit={(data) => {
           // data normalizado desde ProjectModal:
           // { projectName, projectDescription, projectStatus, projectTags, clientId, clientName, isConfidential, ... }
-          console.log('✅ Nuevo proyecto:', data);
+          projectLog.log('Nuevo proyecto:', data);
 
           // Aquí luego iría ProjectService.create(data)
           ModalManager.success({

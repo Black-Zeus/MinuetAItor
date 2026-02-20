@@ -137,6 +137,9 @@ import {
 
 } from "react-icons/fa6";
 
+import logger from '@/utils/logger';
+const iconLog = logger.scope("icon");
+
 const kebabToCamel = (str) =>
   str.replace(/-([a-z])/g, (_, c) => (c ? c.toUpperCase() : ""));
 
@@ -381,8 +384,7 @@ const ICON_REGISTRY = {
   FaGear: FaGear,
 
   // extra (por si lo usas directo)
-  FaCalendarDays: FaCalendarDays,
-  FaDesktop: FaDesktop,
+  FaCalendarDays: FaCalendarDays,  
 
   // arrows
   arrowRight: FaArrowRight,
@@ -418,7 +420,7 @@ export const Icon = ({ name, className = "", ...rest }) => {
 
   if (!IconComponent) {
     if (process.env.NODE_ENV !== "production") {
-      console.warn(`[IconManager] Icon "${name}" no está registrado.`);
+      iconLog.warn(`[IconManager] Icon "${name}" no está registrado.`);
     }
     return null;
   }

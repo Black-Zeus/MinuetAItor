@@ -15,6 +15,9 @@ import ModalManager from "@components/ui/modal";
 import { useNavigate } from "react-router-dom";
 import ActionButton from "@/components/ui/button/ActionButton";
 
+import logger from '@/utils/logger';
+const minEdLog = logger.scope("minute-editor");
+
 // ─── URL demo del PDF (reemplazar por URL real en producción) ───────────────
 const DEMO_PDF_URL = "/pdf/demo.pdf";
 
@@ -184,7 +187,7 @@ const showDownloadModal = (filename) => {
         try {
             await triggerBrowserDownload(DEMO_PDF_URL, filename);
         } catch (e) {
-            console.error("Error descarga PDF:", e);
+            minEdLog.error("Error descarga PDF:", e);
             ModalManager.custom({
                 title: "Error al descargar",
                 size: "small",
@@ -411,7 +414,7 @@ const MinuteEditorHeader = () => {
                         }
 
                         const payload = getExportPayload();
-                        console.log("Reprocesando payload:", payload);
+                        minEdLog.log("Reprocesando payload:", payload);
 
                         addTimelineEntry({
                             publishedBy: meetingInfo.preparedBy ?? "Usuario",

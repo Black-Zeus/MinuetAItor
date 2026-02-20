@@ -14,6 +14,10 @@ import {
   MODAL_TYPES
 } from './modalTypes.js';
 
+
+import logger from '@/utils/logger';
+const modalLog = logger.scope("modal");
+
 // ====================================
 // ESTADO GLOBAL DE MODALES
 // ====================================
@@ -57,7 +61,7 @@ class ModalState {
   addModal(modal) {
     // Validar límite de modales concurrentes
     if (this.modals.length >= MODAL_CONFIG.maxConcurrentModals) {
-      console.warn(`⚠️ ModalManager: Máximo ${MODAL_CONFIG.maxConcurrentModals} modales concurrentes alcanzado`);
+      modalLog.warn(`ModalManager: Máximo ${MODAL_CONFIG.maxConcurrentModals} modales concurrentes alcanzado`);
       // Cerrar el modal más antiguo
       this.removeModal(this.modals[0].id);
     }
@@ -175,7 +179,7 @@ class ModalState {
       try {
         callback(event, data, this.getStats());
       } catch (error) {
-        console.error('Error in modal subscriber:', error);
+        modalLog.error('Error in modal subscriber:', error);
       }
     });
   }
@@ -210,7 +214,7 @@ class ModalState {
         </StrictMode>
       );
     } catch (error) {
-      console.error('❌ Error rendering modals:', error);
+      modalLog.error('Error rendering modals:', error);
     }
   }
 
@@ -258,7 +262,7 @@ class ModalManager {
 
     // Validar tipo
     if (!isValidModalType(type)) {
-      console.warn(`⚠️ ModalManager: Tipo "${type}" no válido. Usando "info".`);
+      modalLog.warn(`ModalManager: Tipo "${type}" no válido. Usando "info".`);
       options.type = MODAL_TYPES.INFO;
     }
 
@@ -737,7 +741,7 @@ class ModalManager {
   static notify(options = {}) {
     // Esta será una implementación de toast/notification
     // que se puede mostrar sin bloquear la UI
-    //console.log('🔔 Notification:', options);
+    modalLog.log('Notification:', options);
 
     // TODO: Implementar sistema de notificaciones toast
     // que aparezcan en esquina y se auto-cierren
@@ -759,7 +763,7 @@ export const initializeModalSystem = (config = {}) => {
   // Asegurar que el contenedor existe
   modalState.ensureContainer();
 
-  //console.log('✅ Sistema de modales inicializado');
+  modalLog.log('Sistema de modales inicializado');
   return modalState.getStats();
 };
 
@@ -776,7 +780,7 @@ export const isModalSystemReady = () => {
 */
 export const cleanupModalSystem = () => {
   modalState.cleanup();
-  //console.log('🧹 Sistema de modales limpiado');
+  modalLog.log('Sistema de modales limpiado');
 };
 
 // ====================================

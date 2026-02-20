@@ -10,6 +10,9 @@ import { ModalManager } from '@/components/ui/modal';
 import ClientModal, { CLIENT_MODAL_MODES } from './ClientModal';
 import ActionButton from '@/components/ui/button/ActionButton';
 
+import logger from '@/utils/logger';
+const clientLog = logger.scope("client");
+
 const TXT_TITLE = "text-gray-900 dark:text-white";
 const TXT_BODY = "text-gray-600 dark:text-gray-300";
 const TXT_META = "text-gray-500 dark:text-gray-400";
@@ -126,7 +129,7 @@ const ClientCard = ({ client, onEdit, onDelete, onUpdate }) => {
         onDelete(client.id);
       }
     } catch (error) {
-      console.log('[ClientCard] Eliminación cancelada');
+      clientLog.log('[ClientCard] Eliminación cancelada');
     }
   };
 

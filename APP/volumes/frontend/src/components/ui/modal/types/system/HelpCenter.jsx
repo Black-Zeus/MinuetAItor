@@ -11,6 +11,10 @@ import {
     ThumbsUp, ThumbsDown, Copy, Share, Download
 } from 'lucide-react';
 
+
+import logger from '@/utils/logger';
+const modalLog = logger.scope("modal");
+
 // ====================================
 // ICONOS POR CATEGORÍA
 // ====================================
@@ -171,7 +175,7 @@ export const HelpCenter = ({
         try {
             await onSearch?.(query);
         } catch (error) {
-            console.error('Error searching:', error);
+            modalLog.error('Error searching:', error);
         } finally {
             setIsSearching(false);
         }

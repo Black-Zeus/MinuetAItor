@@ -11,6 +11,8 @@ import ModalManager from "@/components/ui/modal";
 // Import del componente único
 import TagsModal, { TAGS_MODAL_MODES } from "@/pages/tags/TagsModal";
 
+import logger from '@/utils/logger';
+const tagLog = logger.scope("tag");
 
 // Botón que abre el modal
 const showTagWizard = () => {
@@ -26,7 +28,7 @@ const showTagWizard = () => {
         onSubmit={(payload) => {
           // payload normalizado desde TagsModal:
           // { tagName, tagDescription, tagStatus, id? }
-          console.log("✅ Nuevo tag:", payload);
+          tagLog.log("Nuevo tag:", payload);
 
           // Ejemplo DEV (opcional): agregar a catálogo local en memoria (no persistente)
           // En PROD: TagsService.create(payload)

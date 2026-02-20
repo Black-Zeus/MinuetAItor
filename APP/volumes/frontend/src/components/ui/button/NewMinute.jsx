@@ -7,6 +7,8 @@ import analysisProfiles from "@/data/analysisProfilesCatalog.json";
 import ModalManager from "@/components/ui/modal";
 import { useState, useCallback, useMemo } from "react";
 
+import logger from "@/utils/logger";
+const minLog = logger.scope("minute");
 /**
  * NewMinuteForm - Formulario personalizado con combos dependientes
  * - Cliente -> Proyecto
@@ -984,7 +986,7 @@ const NewMinute = () => {
       content: (
         <NewMinuteForm
           onSubmit={(data) => {
-            console.log("✅ Minuta creada:", data);
+            minLog.log("Minuta creada:", data);
 
             ModalManager.success({
               title: "Minuta Creada",

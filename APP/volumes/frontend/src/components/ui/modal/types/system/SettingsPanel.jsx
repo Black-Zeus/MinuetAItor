@@ -11,6 +11,9 @@ import {
   Check, X, AlertTriangle, Info, ChevronRight
 } from 'lucide-react';
 
+import logger from '@/utils/logger';
+const modalLog = logger.scope("modal");
+
 // ====================================
 // ICONOS POR CATEGORÍA
 // ====================================
@@ -251,7 +254,7 @@ export const SettingsPanel = ({
       setSavedSettings(currentSettings);
       setHasChanges(false);
     } catch (error) {
-      console.error('Error saving settings:', error);
+      modalLog.error('Error saving settings:', error);
     } finally {
       setIsSaving(false);
     }

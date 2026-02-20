@@ -12,6 +12,9 @@ import ClientStats from './ClientStats';
 import ClientGrid from './ClientGrid';
 import PageLoadingSpinner from '@/components/ui/modal/types/system/PageLoadingSpinner';
 
+import logger from '@/utils/logger';
+const clientLog = logger.scope("client");
+
 const Client = () => {
   const [clients, setClients] = useState([]);
   const [filteredClients, setFilteredClients] = useState([]);
@@ -45,7 +48,7 @@ const Client = () => {
         setFilteredClients(clientsData.clients || []);
         calculateStats(clientsData.clients || []);
       } catch (error) {
-        console.error('[Clientes] Error loading clients:', error);
+        clientLog.error('[Clientes] Error loading clients:', error);
       } finally {
         setIsLoading(false);
       }
@@ -144,7 +147,7 @@ const Client = () => {
 
   const handleApplyFilters = () => {
     // Los filtros se aplican automáticamente vía useEffect
-    console.log('[Client] Filtros aplicados:', filters);
+    clientLog.log('[Client] Filtros aplicados:', filters);
   };
 
   if (isLoading) {

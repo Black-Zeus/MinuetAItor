@@ -12,6 +12,9 @@ import ProjectStats from './ProjectStats';
 import ProjectGrid from './ProjectGrid';
 import PageLoadingSpinner from '@/components/ui/modal/types/system/PageLoadingSpinner';
 
+import logger from '@/utils/logger';
+const projectLog = logger.scope("project");
+
 const Project = () => {
   const [projects, setProjects] = useState([]);
   const [filteredProjects, setFilteredProjects] = useState([]);
@@ -43,7 +46,7 @@ const Project = () => {
         setFilteredProjects(projectsData.projects || []);
         calculateStats(projectsData.projects || []);
       } catch (error) {
-        console.error('[Proyectos] Error loading projects:', error);
+        projectLog.error('[Proyectos] Error loading projects:', error);
       } finally {
         setIsLoading(false);
       }
@@ -115,7 +118,7 @@ const Project = () => {
   };
 
   const handleApplyFilters = () => {
-    console.log('[Project] Filtros aplicados:', filters);
+    projectLog.log('[Project] Filtros aplicados:', filters);
   };
 
   if (isLoading) {

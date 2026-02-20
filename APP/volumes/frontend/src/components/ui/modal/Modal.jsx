@@ -26,6 +26,10 @@ import { dataModalRenderers } from './types/DataModals.jsx';
 import { mediaModalRenderers } from './types/MediaModals.jsx';
 import { systemModalRenderers } from './types/SystemModals.jsx';
 
+
+import logger from '@/utils/logger';
+const modalLog = logger.scope("modal");
+
 // ====================================
 // MAPEO COMPLETO DE RENDERERS
 // ====================================
@@ -481,15 +485,15 @@ const validateModalProps = (props) => {
     const { type, size, position } = props;
 
     if (type && !ALL_MODAL_RENDERERS[type]) {
-      console.warn(`⚠️ Modal: Tipo "${type}" no implementado. Usando fallback.`);
+      modalLog.warn(`Modal: Tipo "${type}" no implementado. Usando fallback.`);
     }
 
     if (size && !['small', 'medium', 'large', 'xlarge', 'fullscreen', 'fullscreenWide'].includes(size)) {
-      console.warn(`⚠️ Modal: Tamaño "${size}" no válido. Usando "medium".`);
+      modalLog.warn(`Modal: Tamaño "${size}" no válido. Usando "medium".`);
     }
 
     if (position && !['center', 'top', 'top-left', 'top-right'].includes(position)) {
-      console.warn(`⚠️ Modal: Posición "${position}" no válida. Usando "center".`);
+      modalLog.warn(`Modal: Posición "${position}" no válida. Usando "center".`);
     }
   }
 };
