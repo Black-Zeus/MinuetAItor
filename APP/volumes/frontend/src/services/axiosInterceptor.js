@@ -7,18 +7,25 @@
  *  - NO leer/escribir localStorage directamente.
  *  - El refresh usa el access_token actual como Bearer (según la API).
  *  - Gateway wrapper: { success, status, result, error, meta }
+ *
+ * Logging:
+ *  - Prohibido console.* en este módulo.
+ *  - Usar SIEMPRE logger (sin dependencias circulares: logger -> environment, pero no al revés).
  */
 
 import axios from "axios";
-import { shouldLog } from "@/utils/environment";
 import { API_ENDPOINTS } from "@/constants";
 import { extractErrorMessage } from "@/utils/errors";
 import useAuthStore from "@/store/authStore";
+import logger from "@/utils/logger";
 
-// ─── Base URL ──────────────────────────────────────────────────────────────────
+// ─── Logger scope ─────────────────────────────────────────────────────────────
+const axiosLog = logger.scope("axios"); // o "axios" si prefieres separar scopes
+
+// ─── Base URL ────────────────────────────────────────────────────────────────
 const getBaseUrl = () => "/api";
 
-// ─── Toasts (lazy) ────────────────────────────────────────────────────────────
+// ─── Toasts (lazy) ───────────────────────────────────────────────────────────
 let toastModule;
 const loadToast = async () => {
   if (!toastModule) {
@@ -33,7 +40,7 @@ const notify = {
   info:    async (msg) => (await loadToast()).showInfoToast?.(msg),
 };
 
-// ─── Token Adapter — única fuente: authStore ──────────────────────────────────
+// ─── Token Adapter — única fuente: authStore ─────────────────────────────────
 const TokenAdapter = {
   get access() {
     return useAuthStore.getState?.()?.accessToken ?? null;
@@ -54,20 +61,22 @@ const TokenAdapter = {
   clearAll: (reason = "Auth clear (adapter)") => {
     const logout = useAuthStore.getState?.()?.logout;
     if (typeof logout === "function") logout(reason);
-    if (shouldLog()) console.warn(`🧹 TokenAdapter.clearAll: ${reason}`);
+
+    // No usar console.* nunca
+    axiosLog.warn("TokenAdapter.clearAll", { reason });
   },
 };
 
-// ─── Axios instance ────────────────────────────────────────────────────────────
+// ─── Axios instance ──────────────────────────────────────────────────────────
 const axiosInstance = axios.create({
   baseURL: getBaseUrl(),
   timeout: 30000,
   headers: { "Content-Type": "application/json" },
 });
 
-// ─── Cola anti-colisión ───────────────────────────────────────────────────────
+// ─── Cola anti-colisión ──────────────────────────────────────────────────────
 let isRefreshing = false;
-let failedQueue  = [];
+let failedQueue = [];
 
 const processQueue = (error, token = null) => {
   failedQueue.forEach(({ resolve, reject }) => {
@@ -77,7 +86,7 @@ const processQueue = (error, token = null) => {
   failedQueue = [];
 };
 
-// ─── JWT helpers ──────────────────────────────────────────────────────────────
+// ─── JWT helpers ─────────────────────────────────────────────────────────────
 const decodeExp = (token) => {
   try {
     const b64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
@@ -94,13 +103,13 @@ const isAccessTokenExpiringSoon = (token, minTTLSeconds) => {
   return exp - Math.floor(Date.now() / 1000) <= minTTLSeconds;
 };
 
-// ─── Refresh ──────────────────────────────────────────────────────────────────
+// ─── Refresh ─────────────────────────────────────────────────────────────────
 const refreshAccessToken = async () => {
   const currentToken = TokenAdapter.access;
   if (!currentToken) throw new Error("No access token available for refresh");
 
   try {
-    if (shouldLog()) console.log("🔄 Refreshing token…");
+    axiosLog.info("Refreshing token");
 
     const response = await axios.post(
       `${getBaseUrl()}${API_ENDPOINTS.AUTH.REFRESH}`,
@@ -114,22 +123,22 @@ const refreshAccessToken = async () => {
     if (!access_token) throw new Error("Invalid refresh response: missing access_token");
 
     TokenAdapter.updateTokens({ access_token });
+    axiosLog.info("Token refreshed");
 
-    if (shouldLog()) console.log("✅ Token refreshed");
     return access_token;
   } catch (error) {
-    if (shouldLog()) {
-      console.error("❌ Token refresh failed:", error?.message);
-      if (error.response) {
-        console.error("❌ Refresh details:", { status: error.response.status, data: error.response.data });
-      }
-    }
+    axiosLog.error("Token refresh failed", {
+      message: error?.message,
+      status: error?.response?.status,
+      data: error?.response?.data,
+    });
+
     TokenAdapter.clearAll("Refresh failed");
     throw error;
   }
 };
 
-// ─── Request interceptor ──────────────────────────────────────────────────────
+// ─── Request interceptor ─────────────────────────────────────────────────────
 axiosInstance.interceptors.request.use(
   (config) => {
     const accessToken = TokenAdapter.access;
@@ -137,25 +146,23 @@ axiosInstance.interceptors.request.use(
 
     config.metadata = { startTime: new Date() };
 
-    if (shouldLog()) {
-      console.group(`🔄 REQUEST: ${config.method?.toUpperCase()} ${getBaseUrl()}${config.url}`);
-      if (config.data)   console.log("📤 Data:", config.data);
-      if (config.params) console.log("🔗 Params:", config.params);
-      if (config.headers.Authorization) {
-        console.log("🔑 Token:", String(config.headers.Authorization).substring(0, 24) + "…");
-      }
-      console.groupEnd();
+    axiosLog.group(`REQUEST: ${String(config.method || "").toUpperCase()} ${getBaseUrl()}${config.url}`);
+    if (config.data) axiosLog.debug("Data", config.data);
+    if (config.params) axiosLog.debug("Params", config.params);
+    if (config.headers?.Authorization) {
+      axiosLog.debug("Token", String(config.headers.Authorization).substring(0, 24) + "…");
     }
+    axiosLog.groupEnd();
 
     return config;
   },
   (error) => {
-    if (shouldLog()) console.error("❌ Request interceptor error:", error);
+    axiosLog.error("Request interceptor error", { message: error?.message, error });
     return Promise.reject(error);
   }
 );
 
-// ─── Toast semántico por status ───────────────────────────────────────────────
+// ─── Toast semántico por status ──────────────────────────────────────────────
 const showToastBySemantics = async (status, code, message) => {
   const msg = message || "Ha ocurrido un error procesando tu solicitud.";
 
@@ -174,18 +181,19 @@ const showToastBySemantics = async (status, code, message) => {
   await notify.error(msg);
 };
 
-// ─── Response interceptor ─────────────────────────────────────────────────────
-const isAuthEndpoint = (url = "") =>
-  url.includes("/auth/refresh") || url.includes("/auth/login");
+// ─── Response interceptor ────────────────────────────────────────────────────
+const isAuthEndpoint = (url = "") => url.includes("/auth/refresh") || url.includes("/auth/login");
 
 axiosInstance.interceptors.response.use(
   (response) => {
     if (response?.config?.metadata?.startTime) {
       response.config.metadata.endTime = new Date();
-      if (shouldLog()) {
-        const ms = response.config.metadata.endTime - response.config.metadata.startTime;
-        console.log(`⏱️ ${response.config.url} ${response.status} in ${ms}ms`);
-      }
+      const ms = response.config.metadata.endTime - response.config.metadata.startTime;
+      axiosLog.debug("Response timing", {
+        url: response.config.url,
+        status: response.status,
+        ms,
+      });
     }
     return response;
   },
@@ -195,16 +203,14 @@ axiosInstance.interceptors.response.use(
       originalRequest.metadata.endTime = new Date();
     }
 
-    if (shouldLog()) {
-      console.group(
-        `❌ ERROR: ${originalRequest?.method?.toUpperCase()} ${originalRequest?.url} — ${
-          error.response?.status || "Network Error"
-        }`
-      );
-      if (error.response?.data) console.error("📥 Error Data:", error.response.data);
-      console.error("🔍 Full Error:", error);
-      console.groupEnd();
-    }
+    axiosLog.group(
+      `ERROR: ${String(originalRequest?.method || "").toUpperCase()} ${originalRequest?.url} — ${
+        error.response?.status || "Network Error"
+      }`
+    );
+    if (error.response?.data) axiosLog.error("Error Data", error.response.data);
+    axiosLog.error("Full Error", { message: error?.message, error });
+    axiosLog.groupEnd();
 
     // ── 401: intenta refresh salvo que sea endpoint de auth ──────────────────
     if (error.response?.status === 401 && !originalRequest?._retry) {
@@ -242,9 +248,9 @@ axiosInstance.interceptors.response.use(
     }
 
     // ── Otros errores: toast semántico ───────────────────────────────────────
-    const status  = error.response?.status;
+    const status = error.response?.status;
     const resData = error.response?.data;
-    const code    = resData?.error?.code || null;
+    const code = resData?.error?.code || null;
     const message = extractErrorMessage(resData, error.message);
 
     if (status !== 401) {
@@ -255,21 +261,21 @@ axiosInstance.interceptors.response.use(
   }
 );
 
-// ─── API Pública ──────────────────────────────────────────────────────────────
+// ─── API Pública ─────────────────────────────────────────────────────────────
 export const setAuthTokens = (accessToken) => {
   TokenAdapter.updateTokens({ access_token: accessToken });
-  if (shouldLog()) console.log("🔐 Auth token configured (store)");
+  axiosLog.info("Auth token configured (store)");
 };
 
 export const clearAuthTokens = () => {
   TokenAdapter.clearAll("Manual clearAuthTokens");
-  if (shouldLog()) console.log("🧹 Auth token cleared (store)");
+  axiosLog.info("Auth token cleared (store)");
 };
 
-export const hasAccessToken  = () => !!TokenAdapter.access;
-export const getAccessToken  = () => TokenAdapter.access;
+export const hasAccessToken = () => !!TokenAdapter.access;
+export const getAccessToken = () => TokenAdapter.access;
 export const hasRefreshToken = () => !!TokenAdapter.access;
-export const hasValidTokens  = () => !!TokenAdapter.access;
+export const hasValidTokens = () => !!TokenAdapter.access;
 
 export const reconnectSessionSilent = async (minTTLSeconds = 120) => {
   const access = TokenAdapter.access;
@@ -318,7 +324,7 @@ export const forceTokenRefresh = async () => {
   }
 };
 
-// ─── Logout callbacks (para componentes que necesiten reaccionar) ──────────────
+// ─── Logout callbacks (para componentes que necesiten reaccionar) ─────────────
 let logoutCallbacks = [];
 
 export const onLogoutRequired = (callback) => {
@@ -328,16 +334,23 @@ export const onLogoutRequired = (callback) => {
   };
 };
 
-// ─── Dev helpers ──────────────────────────────────────────────────────────────
+// ─── Dev helpers (sin console.*) ─────────────────────────────────────────────
 export const checkLogStatus = () => {
-  const logEnabled = shouldLog();
-  console.log(`🔍 Logging: ${logEnabled ? "✅ ON" : "❌ OFF"}`);
-  console.log(`📋 Env:     ${process.env.NODE_ENV || "unknown"}`);
-  console.log(`🌐 API:     ${getBaseUrl()}`);
-  return logEnabled;
+  const cfg = logger.config();
+  axiosLog.info("Logging status", cfg);
+  axiosLog.info("API base", { baseURL: getBaseUrl() });
+  return cfg.enabled;
 };
 
-export const enableLogging  = () => { if (process.env.NODE_ENV === "development") window.__FORCE_LOGGING__ = true; };
-export const disableLogging = () => { window.__FORCE_LOGGING__ = false; };
+// Mantengo helpers, pero sin process.env ni console.* (Vite => import.meta.env)
+export const enableLogging = () => {
+  if (import.meta?.env?.DEV) window.__FORCE_LOGGING__ = true;
+  axiosLog.info("FORCE_LOGGING enabled", { value: window.__FORCE_LOGGING__ });
+};
+
+export const disableLogging = () => {
+  window.__FORCE_LOGGING__ = false;
+  axiosLog.info("FORCE_LOGGING disabled", { value: window.__FORCE_LOGGING__ });
+};
 
 export default axiosInstance;
