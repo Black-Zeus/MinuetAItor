@@ -115,6 +115,8 @@ services:
       - ./APP/logs/frontend:/var/log/app
     ports:
       - "${FRONTEND_PORT:-5173}:5173"
+    env_file:
+      - ./APP/volumes/frontend/.env
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:5173/ >/dev/null || exit 1"]
       interval: 10s
