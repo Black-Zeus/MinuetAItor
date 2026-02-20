@@ -9,6 +9,12 @@ CREATE TABLE users (
   email           VARCHAR(200) NULL,
   password_hash   VARCHAR(255) NOT NULL,
   full_name       VARCHAR(200) NULL,
+  description     VARCHAR(500) NULL,
+  job_title       VARCHAR(250) NULL,
+
+  phone           VARCHAR(20) NULL,
+  area            VARCHAR(80) NULL,
+
   is_active       TINYINT(1) NOT NULL DEFAULT 1,
   last_login_at   DATETIME NULL,
 
