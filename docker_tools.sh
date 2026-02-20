@@ -5,10 +5,8 @@ read_project_name() {
     local env_file=".env"
     
     if [[ -f "$env_file" ]]; then
-        # Buscar la línea que contiene PROJECT_NAME y extraer el valor
         local project_line=$(grep "^PROJECT_NAME=" "$env_file" 2>/dev/null)
         if [[ -n "$project_line" ]]; then
-            # Extraer el valor después del =, removiendo espacios y comillas
             echo "$project_line" | cut -d'=' -f2 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//;s/^"//;s/"$//'
         else
             echo ""
@@ -34,13 +32,11 @@ CURRENT_IP=""
 ###                      Banners
 #############################################################
 banner_menu_ambiente(){
-  # Usar IP global si está disponible, sino detectarla
   local current_ip
   if [[ -n "$CURRENT_IP" ]]; then
     current_ip="$CURRENT_IP"
   else
     current_ip=$(get_current_ip)
-    # Si se detecta IP, guardarla globalmente para evitar futuras detecciones
     if [[ -n "$current_ip" ]]; then
       CURRENT_IP="$current_ip"
     else
@@ -48,7 +44,6 @@ banner_menu_ambiente(){
     fi
   fi
 
-  # Detectar rama de Git (si aplica)
   local git_branch="No es repositorio Git"
   if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     git_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
@@ -80,10 +75,11 @@ menu() {
   echo " 4. ⚙️  CONFIGURACIÓN DEL SISTEMA"
   echo " 5. 📱 HERRAMIENTAS EXPO"
   echo " 6. 📄 GESTIÓN DE TEMPLATES .ENV"
+  echo " 7. 🐳 ESTADO Y SERVICIOS DOCKER"
   echo ""
   echo " S. 🚪 Salir"
   echo "======================================="
-  read -p "👉 Seleccione una opción [1-6, S]: " choice
+  read -p "👉 Seleccione una opción [1-7, S]: " choice
 
   case "$choice" in
     1) menu_contenedores ;;
@@ -92,6 +88,7 @@ menu() {
     4) menu_configuracion ;;
     5) menu_expo ;;
     6) menu_templates ;;
+    7) menu_docker_services ;;
     [Ss]) exit_script ;;
     *)
       echo "❌ Opción inválida. Inténtelo de nuevo."
@@ -299,6 +296,41 @@ menu_templates() {
     esac
 }
 
+# Submenú: Estado y Servicios Docker
+menu_docker_services() {
+  clear
+  echo "======================================="
+  echo "🐳 ESTADO Y SERVICIOS DOCKER"
+  banner_menu_ambiente
+  echo "======================================="
+  echo ""
+  echo " 1. 🔍 Estado Docker Engine"
+  echo " 2. 🖥️  Estado Docker Desktop"
+  echo " 3. 🔄 Reiniciar Docker Engine"
+  echo " 4. 🔄 Reiniciar Docker Desktop"
+  echo " 5. ♻️  Reiniciar Ambos (Engine + Desktop)"
+  echo ""
+  echo " V. ⬅️  Volver al menú principal"
+  echo " S. 🚪 Salir"
+  echo "======================================="
+  read -p "👉 Seleccione una opción [1-5, V, S]: " choice
+
+  case "$choice" in
+    1) docker_status_engine ;;
+    2) docker_status_desktop ;;
+    3) docker_restart_engine ;;
+    4) docker_restart_desktop ;;
+    5) docker_restart_all ;;
+    [Vv]) menu ;;
+    [Ss]) exit_script ;;
+    *)
+      echo "❌ Opción inválida. Inténtelo de nuevo."
+      sleep 3
+      menu_docker_services
+      ;;
+  esac
+}
+
 
 #############################################################
 ###          Funciones - menu_contenedores
@@ -348,7 +380,6 @@ restart_single_container() {
   echo "======================================="
   echo ""
 
-  # Listar contenedores activos con la etiqueta del stack
   mapfile -t containers < <(docker ps --filter "label=$LABEL_FILTER" --format "{{.ID}} {{.Names}} {{.Image}} {{.Status}}")
 
   if [ ${#containers[@]} -eq 0 ]; then
@@ -362,7 +393,6 @@ restart_single_container() {
 
   for i in "${!containers[@]}"; do
     container=(${containers[$i]})
-    #printf "%2d | %-16s | %-31s | %-35s | %-10s\n" $((i+1)) "${container[0]}" "${container[1]}" "${container[2]}" "${container[3]}"
     printf "%2d | %-16s | %-31s | %-35s | %-10s\n" \
         $((i+1)) \
         "$(truncate_text "${container[0]}" 16)" \
@@ -428,7 +458,6 @@ ps() {
   echo "======================================="
   echo ""
 
-  # Obtener la lista de contenedores con el separador personalizado
   mapfile -t containers < <(docker ps --filter "label=$LABEL_FILTER" --format "{{.ID}}#{{.Names}}#{{.Image}}#{{.Ports}}#{{.Command}}")
 
   if [ ${#containers[@]} -eq 0 ]; then
@@ -437,22 +466,17 @@ ps() {
     menu_monitoreo
   fi
 
-  # Encabezado de la tabla
   echo " # | SERVICIO                 | IMAGEN                                | PUERTO(S)                 | COMANDO"
   echo "---|--------------------------|---------------------------------------|---------------------------|-------------------------------"
 
-  # Iterar sobre los contenedores y mostrarlos con índices
   for i in "${!containers[@]}"; do
-      # Dividir la información del contenedor usando el separador #
       IFS="#" read -r id name image ports command <<< "${containers[$i]}"
 
-      # Truncar los textos si exceden el tamaño máximo
       formatted_name=$(truncate_text "$name" 24)
       formatted_image=$(truncate_text "$image" 37)
       formatted_ports=$(truncate_text "$ports" 25)
       formatted_command=$(truncate_text "$command" 30)
 
-      # Imprimir fila formateada
       printf "%2d | %-24s | %-37s | %-25s | %-30s\n" \
         $((i+1)) "$formatted_name" "$formatted_image" "${formatted_ports:-"N/A"}" "${formatted_command:-"N/A"}"
   done
@@ -469,7 +493,6 @@ list_stack() {
   echo "======================================="
   echo ""
 
-  # Obtener la lista de contenedores en formato personalizado
   mapfile -t containers < <(docker ps --filter "label=$LABEL_FILTER" --format "{{.ID}} {{.Names}} {{.Image}} {{.Status}}")
 
   if [ ${#containers[@]} -eq 0 ]; then
@@ -478,15 +501,11 @@ list_stack() {
     menu_monitoreo
   fi
 
-  # Encabezado de la tabla
   echo "  # | ID               | NOMBRE                          | IMAGEN                              | ESTADO"
   echo "----|------------------|---------------------------------|-------------------------------------|------------"
 
-  # Iterar sobre los contenedores y mostrarlos con índices
   for i in "${!containers[@]}"; do
     container=(${containers[$i]})
-    #printf "%3d | %-16s | %-31s | %-35s | %-10s\n" $((i+1)) "${container[0]}" "${container[1]}" "${container[2]}" "${container[3]}"
-    # Aplicar truncamiento a cada campo según el tamaño definido en printf
     printf "%3d | %-16s | %-31s | %-35s | %-10s\n" \
         $((i+1)) \
         "$(truncate_text "${container[0]}" 16)" \
@@ -519,8 +538,6 @@ exec_stack() {
 
   for i in "${!containers[@]}"; do
     container=(${containers[$i]})
-
-    # Aplicar truncamiento a cada campo según el tamaño definido en printf
     printf "%2d | %-16s | %-31s | %-35s | %-10s\n" \
         $((i+1)) \
         "$(truncate_text "${container[0]}" 16)" \
@@ -529,14 +546,12 @@ exec_stack() {
         "$(truncate_text "${container[3]}" 10)"
   done
 
-  # Agregar opción para volver al menú con formato alineado
   exit_index=$(( ${#containers[@]} + 1 ))
   echo "-----------------------------------------------------------------------------------------------------------"
   printf "%2d | %-40s\n" "$exit_index"  "$(truncate_text "     << Volver al menú >>" 30) " 
   echo
   read -p "Seleccione el índice del contenedor (o $exit_index para volver): " index
 
-  # Si el usuario elige la opción de salir, volver al menú
   if [[ "$index" == "$exit_index" ]]; then
       menu_monitoreo
   fi
@@ -569,9 +584,6 @@ exec_stack() {
   menu_monitoreo
 }
 
-#############################################################
-###          Funciones - menu_limpieza
-#############################################################
 #############################################################
 ###          Funciones - menu_limpieza
 #############################################################
@@ -610,20 +622,18 @@ clean_images() {
   echo "======================================="
   echo ""
   
-  # Definir colores
   GREEN="\e[32m"
   YELLOW="\e[33m"
   RED="\e[31m"
   CYAN="\e[36m"
   BLUE="\e[34m"
-  NC="\e[0m"  # Reset color
+  NC="\e[0m"
 
   echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
   echo -e "${CYAN}LIMPIEZA DE IMÁGENES DOCKER${NC}"
   echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
   echo ""
 
-  # Contar imágenes de cada grupo
   local dangling_images_count=$(docker images --filter "dangling=true" -q | wc -l)
   mapfile -t base_images < <(docker images --format "{{.Repository}}:{{.Tag}}" | grep -v "^${PROJECT_NAME}/" | grep -v "<none>")
   mapfile -t project_images < <(docker images --format "{{.Repository}}:{{.Tag}}" | grep "^${PROJECT_NAME}/")
@@ -636,17 +646,11 @@ clean_images() {
   echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
   echo ""
 
-  # ====================================================================
-  # GRUPO 0: Imágenes huérfanas
-  # ====================================================================
   if [[ $dangling_images_count -gt 0 ]]; then
     echo -e "${YELLOW}🗑️  IMÁGENES HUÉRFANAS (<none>)${NC}"
     echo "   Imágenes sin nombre ni tag, generalmente restos de builds"
     echo ""
-    
-    # Mostrar imágenes huérfanas con detalles
     docker images --filter "dangling=true" --format "   * {{.ID}} ({{.Size}}, creada: {{.CreatedSince}})"
-    
     echo ""
     read -p "¿Deseas eliminar las imágenes huérfanas? (s/n): " clean_dangling
     if [[ "$clean_dangling" =~ ^[Ss]$ ]]; then
@@ -661,25 +665,17 @@ clean_images() {
     echo ""
   fi
 
-  # ====================================================================
-  # GRUPO 1: Imágenes Base (Externas)
-  # ====================================================================
   if [[ ${#base_images[@]} -gt 0 ]]; then
     echo -e "${YELLOW}📦 GRUPO 1: Imágenes Base (Externas)${NC}"
     echo "   Imágenes oficiales descargadas de registros públicos"
     echo "   Ejemplos: mariadb, minio, redis, nginx, node, etc."
     echo ""
-    
-    # Mostrar lista de imágenes base
     for image in "${base_images[@]}"; do
-      # Obtener tamaño de la imagen
       local size=$(docker images --format "{{.Size}}" "$image" 2>/dev/null | head -1)
       echo -e "   ${RED}*${NC} $image ${CYAN}(${size})${NC}"
     done
-    
     echo ""
     read -p "¿Deseas eliminar las imágenes BASE (Grupo 1)? (s/n): " confirm_base
-    
     if [[ "$confirm_base" =~ ^[Ss]$ ]]; then
       echo -e "${YELLOW}Eliminando imágenes base...${NC}"
       local deleted_count=0
@@ -701,25 +697,17 @@ clean_images() {
     echo ""
   fi
 
-  # ====================================================================
-  # GRUPO 2: Imágenes del Proyecto (Construidas)
-  # ====================================================================
   if [[ ${#project_images[@]} -gt 0 ]]; then
     echo -e "${YELLOW}🏗️  GRUPO 2: Imágenes del Proyecto (Construidas)${NC}"
     echo "   Imágenes construidas desde Dockerfiles locales"
     echo "   Prefijo del proyecto: ${PROJECT_NAME}/"
     echo ""
-    
-    # Mostrar lista de imágenes del proyecto
     for image in "${project_images[@]}"; do
-      # Obtener tamaño de la imagen
       local size=$(docker images --format "{{.Size}}" "$image" 2>/dev/null | head -1)
       echo -e "   ${RED}*${NC} $image ${CYAN}(${size})${NC}"
     done
-    
     echo ""
     read -p "¿Deseas eliminar las imágenes del PROYECTO (Grupo 2)? (s/n): " confirm_project
-    
     if [[ "$confirm_project" =~ ^[Ss]$ ]]; then
       echo -e "${YELLOW}Eliminando imágenes del proyecto...${NC}"
       local deleted_count=0
@@ -756,21 +744,18 @@ clean_all() {
   echo "======================================="
   echo ""
 
-  # Definir colores
   GREEN="\e[32m"
   YELLOW="\e[33m"
   RED="\e[31m"
   CYAN="\e[36m"
   BLUE="\e[34m"
-  NC="\e[0m"  # Reset color
+  NC="\e[0m"
 
-  # Limpiar contenedores, redes y volúmenes relacionados con el stack
   echo "======================================="
   echo "Limpiando contenedores, redes y volúmenes del stack..."
   echo "======================================="
   docker compose -f "$COMPOSE_FILE" --env-file .env --env-file .env.$ENV down --volumes --remove-orphans
 
-  # Verificar y eliminar volúmenes huérfanos
   echo "======================================="
   echo "Verificando volúmenes huérfanos relacionados con el stack..."
   echo "======================================="
@@ -781,8 +766,6 @@ clean_all() {
     for volume in "${stack_volumes[@]}"; do
       echo " - $volume"
     done
-
-    # Eliminar volúmenes relacionados con el stack
     for volume in "${stack_volumes[@]}"; do
       docker volume rm "$volume"
     done
@@ -790,14 +773,12 @@ clean_all() {
     echo "No se encontraron volúmenes huérfanos relacionados con el stack."
   fi
 
-  # Limpieza de imágenes con grupos
   echo ""
   echo "======================================="
   echo "Limpiando imágenes..."
   echo "======================================="
   echo ""
   
-  # Contar imágenes
   local dangling_images_count=$(docker images --filter "dangling=true" -q | wc -l)
   mapfile -t base_images < <(docker images --format "{{.Repository}}:{{.Tag}}" | grep -v "^${PROJECT_NAME}/" | grep -v "<none>")
   mapfile -t project_images < <(docker images --format "{{.Repository}}:{{.Tag}}" | grep "^${PROJECT_NAME}/")
@@ -808,7 +789,6 @@ clean_all() {
   echo "   🏗️  Imágenes del Proyecto: ${#project_images[@]}"
   echo ""
 
-  # Limpiar huérfanas
   if [[ $dangling_images_count -gt 0 ]]; then
     echo -e "${YELLOW}🗑️  IMÁGENES HUÉRFANAS${NC}"
     docker images --filter "dangling=true" --format "   * {{.ID}} ({{.Size}})"
@@ -823,7 +803,6 @@ clean_all() {
     echo ""
   fi
 
-  # Limpiar Grupo 1
   if [[ ${#base_images[@]} -gt 0 ]]; then
     echo -e "${YELLOW}📦 GRUPO 1: Imágenes Base (Externas)${NC}"
     echo "   Imágenes oficiales descargadas de registros públicos"
@@ -846,7 +825,6 @@ clean_all() {
     echo ""
   fi
 
-  # Limpiar Grupo 2
   if [[ ${#project_images[@]} -gt 0 ]]; then
     echo -e "${YELLOW}🏗️  GRUPO 2: Imágenes del Proyecto${NC}"
     echo "   Prefijo: ${PROJECT_NAME}/"
@@ -869,7 +847,6 @@ clean_all() {
     echo ""
   fi
 
-  # Eliminar caché de builds
   echo "======================================="
   echo "Limpiando caché de builds generadas..."
   echo "======================================="
@@ -901,21 +878,18 @@ drop_persistence() {
   echo " - frontend (node_modules, package-lock.json)"
   echo ""
 
-  # Definir colores
   GREEN="\e[32m"
   RED="\e[31m"
-  NC="\e[0m"  # Reset color
+  NC="\e[0m"
 
   read -p "¿Seguro que deseas continuar? (S/N): " confirm
   case "$confirm" in
     [sS]) 
       echo "Verificando contenedores en ejecución..."
       
-      # Obtener la lista de nombres de contenedores activos
       mapfile -t active_containers < <(docker ps --format "{{.Names}}")
 
       for service in mailpit mariadb minio rabbitmq redis redisinsight; do
-        # Buscar si hay algún contenedor cuyo nombre contenga el nombre del servicio
         if printf "%s\n" "${active_containers[@]}" | grep -q "$service"; then
           echo -e "⏳ ${service} está en ejecución. ${RED}[NO SE ELIMINA]${NC}"
         else
@@ -933,10 +907,8 @@ drop_persistence() {
         fi
       done
 
-      # Eliminar carpetas node_modules en todo el proyecto
       echo -n "Eliminando carpetas node_modules..."
       found=$(find . -type d -name "node_modules")
-
       if [ -n "$found" ]; then
         find . -type d -name "node_modules" -exec rm -rf {} + 2>/dev/null
         if [ $? -eq 0 ]; then
@@ -948,10 +920,8 @@ drop_persistence() {
         echo -e " ${RED}[No se encontraron]${NC}"
       fi
 
-      # Eliminar archivos package-lock.json en todo el proyecto
       echo -n "Eliminando archivos package-lock.json..."
       found=$(find . -type f -name "package-lock.json")
-
       if [ -n "$found" ]; then
         find . -type f -name "package-lock.json" -exec rm -f {} + 2>/dev/null
         if [ $? -eq 0 ]; then
@@ -963,11 +933,8 @@ drop_persistence() {
         echo -e " ${RED}[No se encontraron]${NC}"
       fi
 
-
-      # Eliminar carpetas __pycache__ en todo el proyecto
       echo -n "Eliminando carpetas __pycache__..."
       found=$(find . -type d -name "__pycache__")
-
       if [ -n "$found" ]; then
         find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null
         if [ $? -eq 0 ]; then
@@ -978,8 +945,6 @@ drop_persistence() {
       else
         echo -e " ${RED}[No se encontraron]${NC}"
       fi
-
-
 
       echo ""
       echo "======================================="
@@ -1032,7 +997,6 @@ update_ip_menu() {
   local current_ip=$(get_current_ip)
   local env_file=".env"
     
-  # Verificar que existe .env antes de continuar
   if [[ ! -f "$env_file" ]]; then
     echo "❌ El archivo $env_file no existe."
     echo "❌ OPERACIÓN DETENIDA: No se puede continuar sin el archivo .env"
@@ -1048,46 +1012,41 @@ update_ip_menu() {
     echo "Puede intentar configurarla manualmente."
     echo ""
     read -p "¿Desea ingresar la IP manualmente? (S/N): " manual_ip
-        
     if [[ $manual_ip =~ ^[Ss]$ ]]; then
-          read -p "Ingrese la IP: " manual_ip_value
-          if [[ -n "$manual_ip_value" ]]; then
-              update_ip_in_compose "$manual_ip_value"
-              if [[ $? -ne 0 ]]; then
-                  echo "❌ Error al actualizar la IP"
-              fi
-          else
-              echo "❌ IP vacía. Operación cancelada."
-          fi
-      fi
-  else
-      echo "🌐 IP actual detectada: $current_ip"
-      echo ""
-        
-      # Verificar IP actual en el .env usando función corregida
-      local compose_ip=$(get_ip_from_env)
-      echo "📄 IP en $env_file: ${compose_ip:-'No configurada'}"
-      echo ""
-        
-      if [[ -n "$compose_ip" && "$compose_ip" == "$current_ip" ]]; then
-          echo "✅ Las IPs coinciden. No es necesario actualizar."
+      read -p "Ingrese la IP: " manual_ip_value
+      if [[ -n "$manual_ip_value" ]]; then
+        update_ip_in_compose "$manual_ip_value"
+        if [[ $? -ne 0 ]]; then
+          echo "❌ Error al actualizar la IP"
+        fi
       else
-          if [[ -n "$compose_ip" ]]; then
-              echo "⚠️  Las IPs no coinciden."
-          else
-              echo "⚠️  IP no configurada en .env."
-          fi
-          read -p "¿Desea actualizar la IP en $env_file? (S/N): " confirm
-            
-          if [[ $confirm =~ ^[Ss]$ ]]; then
-              update_ip_in_compose "$current_ip"
-              if [[ $? -ne 0 ]]; then
-                  echo "❌ Error al actualizar la IP"
-              fi
-          else
-              echo "Operación cancelada."
-          fi
+        echo "❌ IP vacía. Operación cancelada."
       fi
+    fi
+  else
+    echo "🌐 IP actual detectada: $current_ip"
+    echo ""
+    local compose_ip=$(get_ip_from_env)
+    echo "📄 IP en $env_file: ${compose_ip:-'No configurada'}"
+    echo ""
+    if [[ -n "$compose_ip" && "$compose_ip" == "$current_ip" ]]; then
+      echo "✅ Las IPs coinciden. No es necesario actualizar."
+    else
+      if [[ -n "$compose_ip" ]]; then
+        echo "⚠️  Las IPs no coinciden."
+      else
+        echo "⚠️  IP no configurada en .env."
+      fi
+      read -p "¿Desea actualizar la IP en $env_file? (S/N): " confirm
+      if [[ $confirm =~ ^[Ss]$ ]]; then
+        update_ip_in_compose "$current_ip"
+        if [[ $? -ne 0 ]]; then
+          echo "❌ Error al actualizar la IP"
+        fi
+      else
+        echo "Operación cancelada."
+      fi
+    fi
   fi
     
   pause
@@ -1102,271 +1061,198 @@ validate_container_env() {
   banner_menu_ambiente
   echo "======================================="
 
-   # Listar contenedores activos del stack
-    mapfile -t containers < <(docker ps --filter "label=$LABEL_FILTER" --format "{{.ID}} {{.Names}}")
+  mapfile -t containers < <(docker ps --filter "label=$LABEL_FILTER" --format "{{.ID}} {{.Names}}")
 
-    if [ ${#containers[@]} -eq 0 ]; then
-        echo "❌ No se encontraron contenedores activos con la etiqueta $LABEL_FILTER."
-        pause
-        menu_configuracion
-        return 1
-    fi
-
-    local container_id
-    local container_name
-    local index
-
-    # Si hay solo 1 contenedor, seleccionarlo automáticamente
-    if [ ${#containers[@]} -eq 1 ]; then
-        container_id=$(echo ${containers[0]} | awk '{print $1}')
-        container_name=$(echo ${containers[0]} | awk '{print $2}')
-        echo "✅ Contenedor seleccionado automáticamente: $container_name"
-        echo ""
-    else
-        # Si hay múltiples contenedores, mostrar opciones
-        echo "Contenedores disponibles:"
-        for i in "${!containers[@]}"; do
-            container=(${containers[$i]})
-            printf "%2d | %-30s\n" $((i+1)) "$(truncate_text "${container[1]}" 30)"
-        done
-
-        echo
-        read -p "Seleccione el índice del contenedor: " index
-
-        if ! [[ "$index" =~ ^[0-9]+$ ]] || [ "$index" -lt 1 ] || [ "$index" -gt ${#containers[@]} ]; then
-            echo "❌ Índice inválido."
-            pause
-            menu_configuracion
-            return 1
-        fi
-
-        container_id=$(echo ${containers[$((index-1))]} | awk '{print $1}')
-        container_name=$(echo ${containers[$((index-1))]} | awk '{print $2}')
-    fi
-
-    echo "📋 Variables de entorno en: $container_name"
-    echo "============================================"
-    
-    # Obtener todas las variables, ordenarlas alfabéticamente y mostrarlas
-    local env_vars=$(docker exec "$container_id" env 2>/dev/null | sort)
-    local var_count=$(echo "$env_vars" | wc -l)
-    
-    if [[ -n "$env_vars" ]]; then
-        echo "Total de variables: $var_count"
-        echo ""
-        
-        # Mostrar todas las variables con numeración
-        local counter=1
-        while IFS= read -r line; do
-            printf "%3d | %s\n" "$counter" "$line"
-            ((counter++))
-        done <<< "$env_vars"
-    else
-        echo "❌ No se pudieron obtener las variables del contenedor"
-    fi
-
+  if [ ${#containers[@]} -eq 0 ]; then
+    echo "❌ No se encontraron contenedores activos con la etiqueta $LABEL_FILTER."
     pause
     menu_configuracion
+    return 1
+  fi
+
+  local container_id
+  local container_name
+  local index
+
+  if [ ${#containers[@]} -eq 1 ]; then
+    container_id=$(echo ${containers[0]} | awk '{print $1}')
+    container_name=$(echo ${containers[0]} | awk '{print $2}')
+    echo "✅ Contenedor seleccionado automáticamente: $container_name"
+    echo ""
+  else
+    echo "Contenedores disponibles:"
+    for i in "${!containers[@]}"; do
+      container=(${containers[$i]})
+      printf "%2d | %-30s\n" $((i+1)) "$(truncate_text "${container[1]}" 30)"
+    done
+    echo
+    read -p "Seleccione el índice del contenedor: " index
+    if ! [[ "$index" =~ ^[0-9]+$ ]] || [ "$index" -lt 1 ] || [ "$index" -gt ${#containers[@]} ]; then
+      echo "❌ Índice inválido."
+      pause
+      menu_configuracion
+      return 1
+    fi
+    container_id=$(echo ${containers[$((index-1))]} | awk '{print $1}')
+    container_name=$(echo ${containers[$((index-1))]} | awk '{print $2}')
+  fi
+
+  echo "📋 Variables de entorno en: $container_name"
+  echo "============================================"
+  
+  local env_vars=$(docker exec "$container_id" env 2>/dev/null | sort)
+  local var_count=$(echo "$env_vars" | wc -l)
+  
+  if [[ -n "$env_vars" ]]; then
+    echo "Total de variables: $var_count"
+    echo ""
+    local counter=1
+    while IFS= read -r line; do
+      printf "%3d | %s\n" "$counter" "$line"
+      ((counter++))
+    done <<< "$env_vars"
+  else
+    echo "❌ No se pudieron obtener las variables del contenedor"
+  fi
+
+  pause
+  menu_configuracion
 }
 
-# Función para obtener IP desde archivo .env
 get_ip_from_env() {
-    local env_file=".env"
-    
-    if [[ -f "$env_file" ]]; then
-        # Buscar la línea que contiene REACT_NATIVE_PACKAGER_HOSTNAME y extraer el valor
-        local ip_line=$(grep "^REACT_NATIVE_PACKAGER_HOSTNAME=" "$env_file" 2>/dev/null)
-        if [[ -n "$ip_line" ]]; then
-            # Extraer el valor después del =, removiendo espacios y comillas
-            echo "$ip_line" | cut -d'=' -f2 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//;s/^"//;s/"$//'
-        else
-            echo ""
-        fi
+  local env_file=".env"
+  if [[ -f "$env_file" ]]; then
+    local ip_line=$(grep "^REACT_NATIVE_PACKAGER_HOSTNAME=" "$env_file" 2>/dev/null)
+    if [[ -n "$ip_line" ]]; then
+      echo "$ip_line" | cut -d'=' -f2 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//;s/^"//;s/"$//'
     else
-        echo ""
+      echo ""
     fi
+  else
+    echo ""
+  fi
 }
 
-# Función para actualizar la IP en el archivo .env
 update_ip_in_compose() {
-    local new_ip="$1"
-    
-    if [[ -z "$new_ip" ]]; then
-        echo "❌ No se proporcionó una IP válida."
-        return 1
-    fi
-    
-    # Validar formato de IP
-    if [[ ! "$new_ip" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
-        echo "❌ Formato de IP inválido: $new_ip"
-        return 1
-    fi
-    
-    # Siempre usar el archivo .env (base) como prioridad
-    local env_file=".env"
-    
-    # Verificar si existe el archivo .env base - ERROR SI NO EXISTE
-    if [[ ! -f "$env_file" ]]; then
-        echo "❌ El archivo $env_file no existe."
-        echo "❌ OPERACIÓN DETENIDA: No se puede continuar sin el archivo .env"
-        return 1
-    fi
-    
-    # Crear backup del archivo original con timestamp
-    local backup_file="${env_file}.backup.$(date +%Y%m%d_%H%M%S)"
-    cp "$env_file" "$backup_file"
-    echo "📋 Backup creado: $backup_file"
-    
-    # Verificar si la variable ya existe en el archivo
-    if grep -q "^REACT_NATIVE_PACKAGER_HOSTNAME=" "$env_file" 2>/dev/null; then
-        # Actualizar la IP en el archivo
-        if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" || -n "$MSYSTEM" ]]; then
-            # Windows Git Bash
-            sed -i "s/^REACT_NATIVE_PACKAGER_HOSTNAME=.*/REACT_NATIVE_PACKAGER_HOSTNAME=$new_ip/" "$env_file"
-        else
-            # Linux
-            sed -i "s/^REACT_NATIVE_PACKAGER_HOSTNAME=.*/REACT_NATIVE_PACKAGER_HOSTNAME=$new_ip/" "$env_file"
-        fi
-        echo "✅ IP actualizada a $new_ip en $env_file"
-    else
-        # Agregar la variable al final del archivo
-        echo "REACT_NATIVE_PACKAGER_HOSTNAME=$new_ip" >> "$env_file"
-        echo "✅ Variable REACT_NATIVE_PACKAGER_HOSTNAME=$new_ip agregada a $env_file"
-    fi
-    
-    return 0
+  local new_ip="$1"
+  if [[ -z "$new_ip" ]]; then
+    echo "❌ No se proporcionó una IP válida."
+    return 1
+  fi
+  if [[ ! "$new_ip" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+    echo "❌ Formato de IP inválido: $new_ip"
+    return 1
+  fi
+  local env_file=".env"
+  if [[ ! -f "$env_file" ]]; then
+    echo "❌ El archivo $env_file no existe."
+    echo "❌ OPERACIÓN DETENIDA: No se puede continuar sin el archivo .env"
+    return 1
+  fi
+  local backup_file="${env_file}.backup.$(date +%Y%m%d_%H%M%S)"
+  cp "$env_file" "$backup_file"
+  echo "📋 Backup creado: $backup_file"
+  if grep -q "^REACT_NATIVE_PACKAGER_HOSTNAME=" "$env_file" 2>/dev/null; then
+    sed -i "s/^REACT_NATIVE_PACKAGER_HOSTNAME=.*/REACT_NATIVE_PACKAGER_HOSTNAME=$new_ip/" "$env_file"
+    echo "✅ IP actualizada a $new_ip en $env_file"
+  else
+    echo "REACT_NATIVE_PACKAGER_HOSTNAME=$new_ip" >> "$env_file"
+    echo "✅ Variable REACT_NATIVE_PACKAGER_HOSTNAME=$new_ip agregada a $env_file"
+  fi
+  return 0
 }
 
-# Función para mostrar interfaces de red disponibles
 show_network_interfaces() {
-    if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" || -n "$MSYSTEM" ]]; then
-        # Windows con Git Bash
-        if command -v powershell.exe &> /dev/null; then
-            # Usar PowerShell para obtener información detallada, omitiendo IPs que terminen en .1
-            powershell.exe -Command '
-            $adapters = Get-NetAdapter | Where-Object Status -eq "Up"
-            foreach ($adapter in $adapters) {
-                $ip = Get-NetIPAddress -InterfaceIndex $adapter.InterfaceIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object {$_.IPAddress -ne "127.0.0.1" -and $_.IPAddress -notlike "*.1"}
-                if ($ip) {
-                    $type = "Otro"
-                    if ($adapter.Name -like "*Wi-Fi*" -or $adapter.Name -like "*Wireless*") {
-                        $type = "WiFi"
-                    } elseif ($adapter.Name -like "*Ethernet*") {
-                        $type = "Ethernet"
-                    } elseif ($adapter.Name -like "*WSL*" -or $adapter.Name -like "*vEthernet*") {
-                        $type = "WSL/Virtual"
-                    }
-                    Write-Output "   [$type] $($ip.IPAddress) - $($adapter.Name)"
-                }
-            }' 2>/dev/null | tr -d '\r'
-        elif command -v ipconfig &> /dev/null; then
-            # Fallback con ipconfig - extraer solo las IPs que no terminen en .1
-            echo "   Interfaces detectadas:"
-            ipconfig 2>/dev/null | grep -a "IPv4" | grep -v "127.0.0.1" | while IFS= read -r line; do
-                local ip_addr=$(echo "$line" | sed 's/.*[: ]\([0-9]*\.[0-9]*\.[0-9]*\.[0-9]*\).*/\1/' | tr -d '\r')
-                # Verificar que sea una IP válida y no termine en .1
-                if [[ "$ip_addr" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]] && [[ ! "$ip_addr" =~ \.1$ ]]; then
-                    echo "   $ip_addr"
-                fi
-            done
-        else
-            echo "   No se pueden mostrar las interfaces de red en Windows"
+  if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" || -n "$MSYSTEM" ]]; then
+    if command -v powershell.exe &> /dev/null; then
+      powershell.exe -Command '
+      $adapters = Get-NetAdapter | Where-Object Status -eq "Up"
+      foreach ($adapter in $adapters) {
+          $ip = Get-NetIPAddress -InterfaceIndex $adapter.InterfaceIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object {$_.IPAddress -ne "127.0.0.1" -and $_.IPAddress -notlike "*.1"}
+          if ($ip) {
+              $type = "Otro"
+              if ($adapter.Name -like "*Wi-Fi*" -or $adapter.Name -like "*Wireless*") { $type = "WiFi" }
+              elseif ($adapter.Name -like "*Ethernet*") { $type = "Ethernet" }
+              elseif ($adapter.Name -like "*WSL*" -or $adapter.Name -like "*vEthernet*") { $type = "WSL/Virtual" }
+              Write-Output "   [$type] $($ip.IPAddress) - $($adapter.Name)"
+          }
+      }' 2>/dev/null | tr -d '\r'
+    elif command -v ipconfig &> /dev/null; then
+      echo "   Interfaces detectadas:"
+      ipconfig 2>/dev/null | grep -a "IPv4" | grep -v "127.0.0.1" | while IFS= read -r line; do
+        local ip_addr=$(echo "$line" | sed 's/.*[: ]\([0-9]*\.[0-9]*\.[0-9]*\.[0-9]*\).*/\1/' | tr -d '\r')
+        if [[ "$ip_addr" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]] && [[ ! "$ip_addr" =~ \.1$ ]]; then
+          echo "   $ip_addr"
         fi
+      done
     else
-        # Linux
-        if command -v ip &> /dev/null; then
-            # Usar ip addr para mostrar interfaces con nombres, omitiendo IPs que terminen en .1
-            ip addr show 2>/dev/null | grep 'inet ' | grep -v '127.0.0.1' | while read -r line; do
-                local ip_addr=$(echo "$line" | awk '{print $2}' | cut -d'/' -f1)
-                local interface=$(echo "$line" | awk '{print $NF}')
-                # Verificar que no termine en .1
-                if [[ ! "$ip_addr" =~ \.1$ ]]; then
-                    echo "   $ip_addr - $interface"
-                fi
-            done
-        elif command -v ifconfig &> /dev/null; then
-            # Fallback con ifconfig, omitiendo IPs que terminen en .1
-            ifconfig 2>/dev/null | grep 'inet ' | grep -v '127.0.0.1' | while read -r line; do
-                local ip_addr=$(echo "$line" | awk '{print $2}')
-                # Verificar que no termine en .1
-                if [[ ! "$ip_addr" =~ \.1$ ]]; then
-                    echo "   $ip_addr"
-                fi
-            done
-        else
-            echo "   No se pueden mostrar las interfaces de red"
-        fi
+      echo "   No se pueden mostrar las interfaces de red en Windows"
     fi
+  else
+    if command -v ip &> /dev/null; then
+      ip addr show 2>/dev/null | grep 'inet ' | grep -v '127.0.0.1' | while read -r line; do
+        local ip_addr=$(echo "$line" | awk '{print $2}' | cut -d'/' -f1)
+        local interface=$(echo "$line" | awk '{print $NF}')
+        if [[ ! "$ip_addr" =~ \.1$ ]]; then
+          echo "   $ip_addr - $interface"
+        fi
+      done
+    elif command -v ifconfig &> /dev/null; then
+      ifconfig 2>/dev/null | grep 'inet ' | grep -v '127.0.0.1' | while read -r line; do
+        local ip_addr=$(echo "$line" | awk '{print $2}')
+        if [[ ! "$ip_addr" =~ \.1$ ]]; then
+          echo "   $ip_addr"
+        fi
+      done
+    else
+      echo "   No se pueden mostrar las interfaces de red"
+    fi
+  fi
 }
 
 get_current_ip() {
-    local ip=""
-    local temp_ip=""
-    
-    # Detectar si estamos en Windows con Git Bash
-    if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" || -n "$MSYSTEM" ]]; then
-        # Windows con Git Bash
-        
-        # Método 1: Usar PowerShell
-        if command -v powershell.exe &> /dev/null; then
-            # Obtener múltiples IPs y filtrar las que no terminen en .1
-            temp_ip=$(powershell.exe -Command "Get-NetIPAddress -AddressFamily IPv4 | Where-Object {\$_.IPAddress -ne '127.0.0.1' -and \$_.IPAddress -notlike '*.1' -and \$_.PrefixOrigin -eq 'Dhcp'} | Select-Object -First 1 | ForEach-Object {\$_.IPAddress}" 2>/dev/null | tr -d '\r\n ')
-            if [[ -n "$temp_ip" ]]; then
-                ip="$temp_ip"
-            fi
-        fi
-        
-        # Método 2: Usar ipconfig como respaldo
-        if [[ -z "$ip" ]] && command -v ipconfig &> /dev/null; then
-            # Obtener todas las IPs y filtrar las que no terminen en .1
-            while IFS= read -r line; do
-                temp_ip=$(echo "$line" | sed 's/.*[: ]\([0-9]*\.[0-9]*\.[0-9]*\.[0-9]*\).*/\1/' | tr -d '\r')
-                # Verificar que sea una IP válida y no termine en .1
-                if [[ "$temp_ip" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]] && [[ ! "$temp_ip" =~ \.1$ ]]; then
-                    ip="$temp_ip"
-                    break
-                fi
-            done < <(ipconfig 2>/dev/null | grep -a "IPv4" | grep -v "127.0.0.1")
-        fi
-        
-    else
-        # Linux
-        
-        # Método 1: Usar ip route
-        if command -v ip &> /dev/null; then
-            temp_ip=$(ip route get 8.8.8.8 2>/dev/null | awk '{print $7; exit}')
-            # Verificar que no termine en .1
-            if [[ -n "$temp_ip" && ! "$temp_ip" =~ \.1$ ]]; then
-                ip="$temp_ip"
-            fi
-        fi
-        
-        # Método 2: Usar hostname como respaldo
-        if [[ -z "$ip" ]] && command -v hostname &> /dev/null; then
-            # Obtener todas las IPs y filtrar
-            while read -r temp_ip; do
-                if [[ -n "$temp_ip" && ! "$temp_ip" =~ \.1$ ]]; then
-                    ip="$temp_ip"
-                    break
-                fi
-            done < <(hostname -I 2>/dev/null | tr ' ' '\n')
-        fi
-        
-        # Método 3: Usar ifconfig como último recurso
-        if [[ -z "$ip" ]] && command -v ifconfig &> /dev/null; then
-            while read -r temp_ip; do
-                if [[ -n "$temp_ip" && ! "$temp_ip" =~ \.1$ ]]; then
-                    ip="$temp_ip"
-                    break
-                fi
-            done < <(ifconfig 2>/dev/null | grep 'inet ' | grep -v '127.0.0.1' | awk '{print $2}')
-        fi
+  local ip=""
+  local temp_ip=""
+  
+  if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" || -n "$MSYSTEM" ]]; then
+    if command -v powershell.exe &> /dev/null; then
+      temp_ip=$(powershell.exe -Command "Get-NetIPAddress -AddressFamily IPv4 | Where-Object {\$_.IPAddress -ne '127.0.0.1' -and \$_.IPAddress -notlike '*.1' -and \$_.PrefixOrigin -eq 'Dhcp'} | Select-Object -First 1 | ForEach-Object {\$_.IPAddress}" 2>/dev/null | tr -d '\r\n ')
+      if [[ -n "$temp_ip" ]]; then ip="$temp_ip"; fi
     fi
-    
-    # Limpiar y validar la IP final
-    ip=$(echo "$ip" | tr -d '\r\n ' | grep -o '^[0-9]*\.[0-9]*\.[0-9]*\.[0-9]*$')
-    
-    echo "$ip"
+    if [[ -z "$ip" ]] && command -v ipconfig &> /dev/null; then
+      while IFS= read -r line; do
+        temp_ip=$(echo "$line" | sed 's/.*[: ]\([0-9]*\.[0-9]*\.[0-9]*\.[0-9]*\).*/\1/' | tr -d '\r')
+        if [[ "$temp_ip" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]] && [[ ! "$temp_ip" =~ \.1$ ]]; then
+          ip="$temp_ip"
+          break
+        fi
+      done < <(ipconfig 2>/dev/null | grep -a "IPv4" | grep -v "127.0.0.1")
+    fi
+  else
+    if command -v ip &> /dev/null; then
+      temp_ip=$(ip route get 8.8.8.8 2>/dev/null | awk '{print $7; exit}')
+      if [[ -n "$temp_ip" && ! "$temp_ip" =~ \.1$ ]]; then ip="$temp_ip"; fi
+    fi
+    if [[ -z "$ip" ]] && command -v hostname &> /dev/null; then
+      while read -r temp_ip; do
+        if [[ -n "$temp_ip" && ! "$temp_ip" =~ \.1$ ]]; then
+          ip="$temp_ip"
+          break
+        fi
+      done < <(hostname -I 2>/dev/null | tr ' ' '\n')
+    fi
+    if [[ -z "$ip" ]] && command -v ifconfig &> /dev/null; then
+      while read -r temp_ip; do
+        if [[ -n "$temp_ip" && ! "$temp_ip" =~ \.1$ ]]; then
+          ip="$temp_ip"
+          break
+        fi
+      done < <(ifconfig 2>/dev/null | grep 'inet ' | grep -v '127.0.0.1' | awk '{print $2}')
+    fi
+  fi
+  
+  ip=$(echo "$ip" | tr -d '\r\n ' | grep -o '^[0-9]*\.[0-9]*\.[0-9]*\.[0-9]*$')
+  echo "$ip"
 }
 
 check_ip_menu() {
@@ -1378,59 +1264,51 @@ check_ip_menu() {
   echo "======================================="
   echo ""
     
-    local current_ip=$(get_current_ip)
-    
-    if [[ -n "$current_ip" ]]; then
-        echo "🌐 IP actual del equipo: $current_ip"
-        
-        # Mostrar información de red adicional
-        echo ""
-        echo "📡 Información de red:"
-        if command -v hostname &> /dev/null; then
-            echo "   Hostname: $(hostname 2>/dev/null || echo 'No disponible')"
-        fi
-        
-        # Verificar IP en archivo .env usando la función corregida
-        local env_file=".env"
-        if [[ -f "$env_file" ]]; then
-            local compose_ip=$(get_ip_from_env)
-            echo "📄 IP en $env_file: ${compose_ip:-'No configurada'}"
-            
-            if [[ -n "$compose_ip" && "$compose_ip" == "$current_ip" ]]; then
-                echo "✅ Estado: Las IPs coinciden"
-            elif [[ -n "$compose_ip" ]]; then
-                echo "⚠️  Estado: Las IPs NO coinciden"
-                echo "   Considere actualizar la IP usando la opción 2 del menú de configuración."
-            else
-                echo "⚠️  Estado: IP no configurada en .env"
-                echo "   Considere configurar la IP usando la opción 2 del menú de configuración."
-            fi
-        else
-            echo "❌ El archivo $env_file no existe."
-        fi
-        
-        # Mostrar interfaces de red disponibles
-        echo ""
-        echo "🔍 Interfaces de red disponibles:"
-        show_network_interfaces
-        
-    else
-        echo "❌ No se pudo detectar la IP actual del equipo."
-        echo ""
-        echo "💡 Métodos de detección probados:"
-        if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" || -n "$MSYSTEM" ]]; then
-            echo "   - ipconfig (Windows)"
-            echo "   - PowerShell Get-NetIPAddress"
-        else
-            echo "   - ip route"
-            echo "   - ifconfig"
-        fi
-        echo ""
-        echo "Puede configurar la IP manualmente usando la opción 2 del menú de configuración."
+  local current_ip=$(get_current_ip)
+  
+  if [[ -n "$current_ip" ]]; then
+    echo "🌐 IP actual del equipo: $current_ip"
+    echo ""
+    echo "📡 Información de red:"
+    if command -v hostname &> /dev/null; then
+      echo "   Hostname: $(hostname 2>/dev/null || echo 'No disponible')"
     fi
+    local env_file=".env"
+    if [[ -f "$env_file" ]]; then
+      local compose_ip=$(get_ip_from_env)
+      echo "📄 IP en $env_file: ${compose_ip:-'No configurada'}"
+      if [[ -n "$compose_ip" && "$compose_ip" == "$current_ip" ]]; then
+        echo "✅ Estado: Las IPs coinciden"
+      elif [[ -n "$compose_ip" ]]; then
+        echo "⚠️  Estado: Las IPs NO coinciden"
+        echo "   Considere actualizar la IP usando la opción 2 del menú de configuración."
+      else
+        echo "⚠️  Estado: IP no configurada en .env"
+        echo "   Considere configurar la IP usando la opción 2 del menú de configuración."
+      fi
+    else
+      echo "❌ El archivo $env_file no existe."
+    fi
+    echo ""
+    echo "🔍 Interfaces de red disponibles:"
+    show_network_interfaces
+  else
+    echo "❌ No se pudo detectar la IP actual del equipo."
+    echo ""
+    echo "💡 Métodos de detección probados:"
+    if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" || -n "$MSYSTEM" ]]; then
+      echo "   - ipconfig (Windows)"
+      echo "   - PowerShell Get-NetIPAddress"
+    else
+      echo "   - ip route"
+      echo "   - ifconfig"
+    fi
+    echo ""
+    echo "Puede configurar la IP manualmente usando la opción 2 del menú de configuración."
+  fi
     
-    pause
-    menu_configuracion
+  pause
+  menu_configuracion
 }
 
 #############################################################
@@ -1445,7 +1323,6 @@ iniciar_expo() {
   echo "======================================="
   echo ""
 
-  # Buscar contenedores relacionados con Expo
   mapfile -t containers < <(docker ps --filter "label=$LABEL_FILTER" --format "{{.ID}} {{.Names}} {{.Image}}" | grep -i "expo")
 
   if [ ${#containers[@]} -eq 0 ]; then
@@ -1454,7 +1331,6 @@ iniciar_expo() {
     menu_expo
   fi
 
-  # Si hay más de un contenedor, permitir selección
   if [ ${#containers[@]} -gt 1 ]; then
     echo "Se encontraron múltiples contenedores relacionados con Expo:"
     for i in "${!containers[@]}"; do
@@ -1464,13 +1340,11 @@ iniciar_expo() {
     done
     echo
     read -p "Seleccione el índice del contenedor: " index
-
     if ! [[ "$index" =~ ^[0-9]+$ ]] || [ "$index" -lt 1 ] || [ "$index" -gt ${#containers[@]} ]; then
       echo "❌ Índice inválido."
       pause
       menu_expo
     fi
-
     container_id=$(echo "${containers[$((index-1))]}" | awk '{print $1}')
     container_name=$(echo "${containers[$((index-1))]}" | awk '{print $2}')
   else
@@ -1514,7 +1388,6 @@ eas_build_expo() {
   echo "======================================="
   echo ""
 
-  # Buscar contenedores relacionados con Expo
   mapfile -t containers < <(docker ps --filter "label=$LABEL_FILTER" --format "{{.ID}} {{.Names}} {{.Image}}" | grep -i "expo")
 
   if [ ${#containers[@]} -eq 0 ]; then
@@ -1523,7 +1396,6 @@ eas_build_expo() {
     menu_expo
   fi
 
-  # Si hay más de un contenedor, permitir selección
   if [ ${#containers[@]} -gt 1 ]; then
     echo "Se encontraron múltiples contenedores relacionados con Expo:"
     for i in "${!containers[@]}"; do
@@ -1533,13 +1405,11 @@ eas_build_expo() {
     done
     echo
     read -p "Seleccione el índice del contenedor: " index
-
     if ! [[ "$index" =~ ^[0-9]+$ ]] || [ "$index" -lt 1 ] || [ "$index" -gt ${#containers[@]} ]; then
       echo "❌ Índice inválido."
       pause
       menu_expo
     fi
-
     container_id=$(echo "${containers[$((index-1))]}" | awk '{print $1}')
     container_name=$(echo "${containers[$((index-1))]}" | awk '{print $2}')
   else
@@ -1564,7 +1434,6 @@ eas_build_expo() {
   echo "✅ Shell detectada: $shell"
   echo
   
-  # Verificar que el script eas-build.sh existe
   if ! docker exec "$container_id" $shell -c "test -f /scripts/eas-build.sh" &>/dev/null; then
     echo "❌ El script /scripts/eas-build.sh no existe en el contenedor."
     echo "   Asegúrate de que el script esté montado en el volumen."
@@ -1572,7 +1441,6 @@ eas_build_expo() {
     menu_expo
   fi
 
-  # Verificar que EXPO_TOKEN esté configurado
   if ! docker exec "$container_id" $shell -c "test -n \"\$EXPO_TOKEN\"" &>/dev/null; then
     echo "⚠️  ADVERTENCIA: La variable EXPO_TOKEN no está configurada."
     echo "   El build podría fallar sin esta variable."
@@ -1591,7 +1459,6 @@ eas_build_expo() {
   echo "═══════════════════════════════════════════════════════════════════"
   echo
 
-  # Ejecutar el script de build
   docker exec -it "$container_id" $shell -c "bash /scripts/eas-build.sh"
   
   build_exit_code=$?
@@ -1615,7 +1482,6 @@ eas_build_expo() {
 #############################################################
 ###          Funciones - menu_templates
 #############################################################
-# Función para generar .env.template desde los archivos .env
 generate_env_template() {
   clear
   echo "======================================="
@@ -1623,113 +1489,93 @@ generate_env_template() {
   echo "Generar .env.template"
   banner_menu_ambiente
   echo "======================================="
-    echo ""
+  echo ""
 
-    local template_file=".env.template"
-    local ignore_file="ignore.json"
-    local env_files=(".env" ".env.dev" ".env.qa" ".env.prd")
-    
-    # Verificar que existen los archivos necesarios
-    local missing_files=()
-    for file in "${env_files[@]}"; do
-        if [[ ! -f "$file" ]]; then
-            missing_files+=("$file")
-        fi
+  local template_file=".env.template"
+  local ignore_file="ignore.json"
+  local env_files=(".env" ".env.dev" ".env.qa" ".env.prd")
+  
+  local missing_files=()
+  for file in "${env_files[@]}"; do
+    if [[ ! -f "$file" ]]; then
+      missing_files+=("$file")
+    fi
+  done
+  
+  if [[ ${#missing_files[@]} -gt 0 ]]; then
+    echo "❌ Los siguientes archivos no existen:"
+    for file in "${missing_files[@]}"; do
+      echo "   - $file"
     done
-    
-    if [[ ${#missing_files[@]} -gt 0 ]]; then
-        echo "❌ Los siguientes archivos no existen:"
-        for file in "${missing_files[@]}"; do
-            echo "   - $file"
-        done
-        echo ""
-        echo "💡 Cree los archivos faltantes antes de generar el template."
-        pause
-        return 1
-    fi
-
-    # Verificar si existe ignore.json
-    local sensitive_vars=()
-    if [[ -f "$ignore_file" ]]; then
-        echo "📋 Cargando variables sensibles desde $ignore_file..."
-        # Extraer variables sensibles del JSON (método simple)
-        mapfile -t sensitive_vars < <(grep -o '"[^"]*"' "$ignore_file" | grep -v "sensitive_variables\|description" | tr -d '"')
-        echo "✅ Variables sensibles encontradas: ${#sensitive_vars[@]}"
-    else
-        echo "⚠️  Archivo $ignore_file no encontrado. Se omitirán variables por defecto."
-        sensitive_vars=("API_SECRET_KEY" "API_SECRET_KEY_REFRESH" "BACKEND_API_SECRET_KEY" "BACKEND_API_SECRET_KEY_REFRESH" "EXPO_TOKEN")
-    fi
-
     echo ""
-    echo "🔨 Generando $template_file..."
-    
-    # Crear backup si existe el template
-    if [[ -f "$template_file" ]]; then
-        local backup_file="${template_file}.backup.$(date +%Y%m%d_%H%M%S)"
-        cp "$template_file" "$backup_file"
-        echo "📋 Backup creado: $backup_file"
-    fi
-
-    # Inicializar el archivo template
-    > "$template_file"
-
-    # Procesar cada archivo .env
-    for env_file in "${env_files[@]}"; do
-        echo "📄 Procesando $env_file..."
-        
-        # Agregar separador y header del archivo
-        if [[ "$env_file" != ".env" ]]; then
-            echo "## ================ Corte ======================" >> "$template_file"
-        fi
-        
-        # Procesar línea por línea
-        while IFS= read -r line || [[ -n "$line" ]]; do
-            # Si es una línea vacía o comentario, agregarla tal como está
-            if [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]]; then
-                echo "$line" >> "$template_file"
-                continue
-            fi
-            
-            # Si es una variable, verificar si es sensible
-            if [[ "$line" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]]; then
-                local var_name=$(echo "$line" | cut -d'=' -f1)
-                local is_sensitive=false
-                
-                # Verificar si la variable es sensible
-                for sensitive_var in "${sensitive_vars[@]}"; do
-                    if [[ "$var_name" == "$sensitive_var" ]]; then
-                        is_sensitive=true
-                        break
-                    fi
-                done
-                
-                # Si es sensible, omitir o limpiar el valor
-                if [[ "$is_sensitive" == true ]]; then
-                    echo "# $var_name= # Variable sensible omitida" >> "$template_file"
-                else
-                    echo "$line" >> "$template_file"
-                fi
-            else
-                # Línea que no es variable, agregarla
-                echo "$line" >> "$template_file"
-            fi
-        done < "$env_file"
-    done
-
-    echo ""
-    echo "✅ Template generado exitosamente: $template_file"
-    echo "📊 Resumen:"
-    echo "   - Archivos procesados: ${#env_files[@]}"
-    echo "   - Variables sensibles omitidas: ${#sensitive_vars[@]}"
-    
-    local total_lines=$(wc -l < "$template_file")
-    echo "   - Líneas totales en template: $total_lines"
-    
-    menu_templates
+    echo "💡 Cree los archivos faltantes antes de generar el template."
     pause
+    return 1
+  fi
+
+  local sensitive_vars=()
+  if [[ -f "$ignore_file" ]]; then
+    echo "📋 Cargando variables sensibles desde $ignore_file..."
+    mapfile -t sensitive_vars < <(grep -o '"[^"]*"' "$ignore_file" | grep -v "sensitive_variables\|description" | tr -d '"')
+    echo "✅ Variables sensibles encontradas: ${#sensitive_vars[@]}"
+  else
+    echo "⚠️  Archivo $ignore_file no encontrado. Se omitirán variables por defecto."
+    sensitive_vars=("API_SECRET_KEY" "API_SECRET_KEY_REFRESH" "BACKEND_API_SECRET_KEY" "BACKEND_API_SECRET_KEY_REFRESH" "EXPO_TOKEN")
+  fi
+
+  echo ""
+  echo "🔨 Generando $template_file..."
+  
+  if [[ -f "$template_file" ]]; then
+    local backup_file="${template_file}.backup.$(date +%Y%m%d_%H%M%S)"
+    cp "$template_file" "$backup_file"
+    echo "📋 Backup creado: $backup_file"
+  fi
+
+  > "$template_file"
+
+  for env_file in "${env_files[@]}"; do
+    echo "📄 Procesando $env_file..."
+    if [[ "$env_file" != ".env" ]]; then
+      echo "## ================ Corte ======================" >> "$template_file"
+    fi
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      if [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]]; then
+        echo "$line" >> "$template_file"
+        continue
+      fi
+      if [[ "$line" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]]; then
+        local var_name=$(echo "$line" | cut -d'=' -f1)
+        local is_sensitive=false
+        for sensitive_var in "${sensitive_vars[@]}"; do
+          if [[ "$var_name" == "$sensitive_var" ]]; then
+            is_sensitive=true
+            break
+          fi
+        done
+        if [[ "$is_sensitive" == true ]]; then
+          echo "# $var_name= # Variable sensible omitida" >> "$template_file"
+        else
+          echo "$line" >> "$template_file"
+        fi
+      else
+        echo "$line" >> "$template_file"
+      fi
+    done < "$env_file"
+  done
+
+  echo ""
+  echo "✅ Template generado exitosamente: $template_file"
+  echo "📊 Resumen:"
+  echo "   - Archivos procesados: ${#env_files[@]}"
+  echo "   - Variables sensibles omitidas: ${#sensitive_vars[@]}"
+  local total_lines=$(wc -l < "$template_file")
+  echo "   - Líneas totales en template: $total_lines"
+  
+  menu_templates
+  pause
 }
 
-# Función para generar archivos .env desde .env.template
 generate_env_from_template() {
   clear
   echo "======================================="
@@ -1738,125 +1584,106 @@ generate_env_from_template() {
   banner_menu_ambiente
   echo "======================================="
 
-    local template_file=".env.template"
-    
-    # Verificar que existe el template
-    if [[ ! -f "$template_file" ]]; then
-        echo "❌ El archivo $template_file no existe."
-        echo "💡 Genere primero el template usando la opción anterior."
-        pause
-        return 1
-    fi
-
-    echo "📋 Opciones de generación:"
-    echo " 1. Generar solo .env"
-    echo " 2. Generar solo .env.dev"
-    echo " 3. Generar solo .env.qa"
-    echo " 4. Generar solo .env.prd"
-    echo " 5. Generar todos los archivos"
-    echo ""
-    read -p "Seleccione una opción [1-5]: " choice
-
-    local files_to_generate=()
-    case "$choice" in
-        1) files_to_generate=(".env") ;;
-        2) files_to_generate=(".env.dev") ;;
-        3) files_to_generate=(".env.qa") ;;
-        4) files_to_generate=(".env.prd") ;;
-        5) files_to_generate=(".env" ".env.dev" ".env.qa" ".env.prd") ;;
-        *)
-            echo "❌ Opción inválida."
-            pause
-            return 1
-            ;;
-    esac
-
-    echo ""
-    echo "🔨 Generando archivos desde template..."
-
-    # Variables para el proceso
-    local current_section=""
-    local current_file=""
-    local line_count=0
-
-    # Leer el template línea por línea
-    while IFS= read -r line || [[ -n "$line" ]]; do
-        ((line_count++))
-        
-        # Detectar separadores de sección
-        if [[ "$line" =~ ^##[[:space:]]*=[[:space:]]*Corte[[:space:]]*=[[:space:]]*## ]]; then
-            current_section=""
-            current_file=""
-            continue
-        fi
-        
-        # Detectar headers de archivos
-        if [[ "$line" =~ ^#[[:space:]]*Archivo[[:space:]]*de[[:space:]]*configuración:[[:space:]]*(.env[^[:space:]]*) ]]; then
-            local detected_file=$(echo "$line" | sed 's/.*configuración:[[:space:]]*\([^[:space:]]*\).*/\1/')
-            current_section="$detected_file"
-            current_file=""
-            
-            # Verificar si este archivo debe ser generado
-            for target_file in "${files_to_generate[@]}"; do
-                if [[ "$target_file" == "$detected_file" ]]; then
-                    current_file="$target_file"
-                    break
-                fi
-            done
-            continue
-        fi
-        
-        # Si es la primera sección (antes del primer corte), corresponde a .env
-        if [[ -z "$current_section" && -n "$line" ]]; then
-            for target_file in "${files_to_generate[@]}"; do
-                if [[ "$target_file" == ".env" ]]; then
-                    current_file=".env"
-                    break
-                fi
-            done
-        fi
-        
-        # Escribir línea al archivo correspondiente si está en la lista
-        if [[ -n "$current_file" ]]; then
-            # Si es la primera línea del archivo, inicializarlo
-            if [[ ! -f "$current_file.new" ]]; then
-                > "$current_file.new"
-                echo "📄 Generando $current_file..."
-            fi
-            
-            echo "$line" >> "$current_file.new"
-        fi
-    done < "$template_file"
-
-    # Mover archivos temporales a definitivos
-    local generated_count=0
-    for target_file in "${files_to_generate[@]}"; do
-        if [[ -f "$target_file.new" ]]; then
-            # Crear backup si existe el archivo original
-            if [[ -f "$target_file" ]]; then
-                local backup_file="${target_file}.backup.$(date +%Y%m%d_%H%M%S)"
-                mv "$target_file" "$backup_file"
-                echo "📋 Backup creado: $backup_file"
-            fi
-            
-            mv "$target_file.new" "$target_file"
-            echo "✅ Generado: $target_file"
-            ((generated_count++))
-        else
-            echo "⚠️  No se pudo generar: $target_file (sección no encontrada en template)"
-        fi
-    done
-
-    echo ""
-    echo "✅ Proceso completado!"
-    echo "📊 Archivos generados: $generated_count de ${#files_to_generate[@]}"
-    echo ""
-    echo "⚠️  IMPORTANTE: Revise los archivos generados y configure las variables sensibles manualmente."
-    
+  local template_file=".env.template"
+  
+  if [[ ! -f "$template_file" ]]; then
+    echo "❌ El archivo $template_file no existe."
+    echo "💡 Genere primero el template usando la opción anterior."
     pause
+    return 1
+  fi
+
+  echo "📋 Opciones de generación:"
+  echo " 1. Generar solo .env"
+  echo " 2. Generar solo .env.dev"
+  echo " 3. Generar solo .env.qa"
+  echo " 4. Generar solo .env.prd"
+  echo " 5. Generar todos los archivos"
+  echo ""
+  read -p "Seleccione una opción [1-5]: " choice
+
+  local files_to_generate=()
+  case "$choice" in
+    1) files_to_generate=(".env") ;;
+    2) files_to_generate=(".env.dev") ;;
+    3) files_to_generate=(".env.qa") ;;
+    4) files_to_generate=(".env.prd") ;;
+    5) files_to_generate=(".env" ".env.dev" ".env.qa" ".env.prd") ;;
+    *)
+      echo "❌ Opción inválida."
+      pause
+      return 1
+      ;;
+  esac
+
+  echo ""
+  echo "🔨 Generando archivos desde template..."
+
+  local current_section=""
+  local current_file=""
+  local line_count=0
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    ((line_count++))
+    if [[ "$line" =~ ^##[[:space:]]*=[[:space:]]*Corte[[:space:]]*=[[:space:]]*## ]]; then
+      current_section=""
+      current_file=""
+      continue
+    fi
+    if [[ "$line" =~ ^#[[:space:]]*Archivo[[:space:]]*de[[:space:]]*configuración:[[:space:]]*(.env[^[:space:]]*) ]]; then
+      local detected_file=$(echo "$line" | sed 's/.*configuración:[[:space:]]*\([^[:space:]]*\).*/\1/')
+      current_section="$detected_file"
+      current_file=""
+      for target_file in "${files_to_generate[@]}"; do
+        if [[ "$target_file" == "$detected_file" ]]; then
+          current_file="$target_file"
+          break
+        fi
+      done
+      continue
+    fi
+    if [[ -z "$current_section" && -n "$line" ]]; then
+      for target_file in "${files_to_generate[@]}"; do
+        if [[ "$target_file" == ".env" ]]; then
+          current_file=".env"
+          break
+        fi
+      done
+    fi
+    if [[ -n "$current_file" ]]; then
+      if [[ ! -f "$current_file.new" ]]; then
+        > "$current_file.new"
+        echo "📄 Generando $current_file..."
+      fi
+      echo "$line" >> "$current_file.new"
+    fi
+  done < "$template_file"
+
+  local generated_count=0
+  for target_file in "${files_to_generate[@]}"; do
+    if [[ -f "$target_file.new" ]]; then
+      if [[ -f "$target_file" ]]; then
+        local backup_file="${target_file}.backup.$(date +%Y%m%d_%H%M%S)"
+        mv "$target_file" "$backup_file"
+        echo "📋 Backup creado: $backup_file"
+      fi
+      mv "$target_file.new" "$target_file"
+      echo "✅ Generado: $target_file"
+      ((generated_count++))
+    else
+      echo "⚠️  No se pudo generar: $target_file (sección no encontrada en template)"
+    fi
+  done
+
+  echo ""
+  echo "✅ Proceso completado!"
+  echo "📊 Archivos generados: $generated_count de ${#files_to_generate[@]}"
+  echo ""
+  echo "⚠️  IMPORTANTE: Revise los archivos generados y configure las variables sensibles manualmente."
+  
+  pause
 }
 
-# Función auxiliar para verificar archivos .env
 verify_env_files() {
   clear
   echo "======================================="
@@ -1865,46 +1692,380 @@ verify_env_files() {
   banner_menu_ambiente
   echo "======================================="
 
-    local env_files=(".env" ".env.dev" ".env.qa" ".env.prd" ".env.template")
-    
-    echo "📋 Estado de archivos .env:"
-    echo "================================"
-    
-    for file in "${env_files[@]}"; do
-        if [[ -f "$file" ]]; then
-            local size=$(du -h "$file" | cut -f1)
-            local lines=$(wc -l < "$file")
-            local vars=$(grep -c "^[A-Za-z_][A-Za-z0-9_]*=" "$file" 2>/dev/null || echo "0")
-            printf "✅ %-15s | %6s | %3d líneas | %2d variables\n" "$file" "$size" "$lines" "$vars"
-        else
-            printf "❌ %-15s | No existe\n" "$file"
-        fi
-    done
-    
-    echo ""
-    echo "📄 ignore.json:"
-    if [[ -f "ignore.json" ]]; then
-        local sensitive_count=$(grep -o '"[^"]*"' "ignore.json" | grep -v "sensitive_variables\|description" | wc -l)
-        echo "✅ ignore.json | Variables sensibles configuradas: $sensitive_count"
+  local env_files=(".env" ".env.dev" ".env.qa" ".env.prd" ".env.template")
+  
+  echo "📋 Estado de archivos .env:"
+  echo "================================"
+  
+  for file in "${env_files[@]}"; do
+    if [[ -f "$file" ]]; then
+      local size=$(du -h "$file" | cut -f1)
+      local lines=$(wc -l < "$file")
+      local vars=$(grep -c "^[A-Za-z_][A-Za-z0-9_]*=" "$file" 2>/dev/null || echo "0")
+      printf "✅ %-15s | %6s | %3d líneas | %2d variables\n" "$file" "$size" "$lines" "$vars"
     else
-        echo "❌ ignore.json | No existe"
+      printf "❌ %-15s | No existe\n" "$file"
     fi
-    
-    pause
-    menu_templates
+  done
+  
+  echo ""
+  echo "📄 ignore.json:"
+  if [[ -f "ignore.json" ]]; then
+    local sensitive_count=$(grep -o '"[^"]*"' "ignore.json" | grep -v "sensitive_variables\|description" | wc -l)
+    echo "✅ ignore.json | Variables sensibles configuradas: $sensitive_count"
+  else
+    echo "❌ ignore.json | No existe"
+  fi
+  
+  pause
+  menu_templates
+}
+
+#############################################################
+###          Funciones - menu_docker_services
+#############################################################
+
+# Helpers internos
+_docker_have() { command -v "$1" >/dev/null 2>&1; }
+
+_docker_sudo() {
+  if [[ "${EUID:-$(id -u)}" -ne 0 ]] && _docker_have sudo; then
+    echo "sudo"
+  else
+    echo ""
+  fi
+}
+
+_unit_exists_system() {
+  systemctl list-unit-files "$1" >/dev/null 2>&1
+}
+
+_unit_exists_user() {
+  systemctl --user list-unit-files "$1" >/dev/null 2>&1
+}
+
+# ---------- Estado Docker Engine ----------
+docker_status_engine() {
+  clear
+  echo "======================================="
+  echo "🐳 ESTADO Y SERVICIOS DOCKER"
+  echo "Estado Docker Engine"
+  banner_menu_ambiente
+  echo "======================================="
+  echo ""
+
+  local SUDO=$(_docker_sudo)
+
+  if ! _docker_have systemctl; then
+    echo "❌ systemctl no disponible en este sistema."
+    pause; menu_docker_services; return
+  fi
+
+  if _unit_exists_system docker.service; then
+    echo "📋 [System-wide] docker.service:"
+    $SUDO systemctl --no-pager --full status docker.service || true
+  elif _unit_exists_user docker.service; then
+    echo "📋 [Rootless/User] docker.service:"
+    systemctl --user --no-pager --full status docker.service || true
+  else
+    echo "⚠️  No se detectó docker.service (system-wide ni user)."
+  fi
+
+  echo ""
+  if _docker_have docker; then
+    echo "🔍 Verificación docker info:"
+    if docker info >/dev/null 2>&1; then
+      echo "✅ Docker responde correctamente."
+    else
+      echo "❌ docker info falló. Diagnóstico:"
+      echo "   sudo journalctl -u docker --no-pager -n 50"
+      echo "   ls -l /var/run/docker.sock"
+      echo "   docker context ls"
+    fi
+  else
+    echo "⚠️  docker CLI no está disponible en PATH."
+  fi
+
+  pause; menu_docker_services
+}
+
+# ---------- Estado Docker Desktop ----------
+docker_status_desktop() {
+  clear
+  echo "======================================="
+  echo "🐳 ESTADO Y SERVICIOS DOCKER"
+  echo "Estado Docker Desktop"
+  banner_menu_ambiente
+  echo "======================================="
+  echo ""
+
+  local SUDO=$(_docker_sudo)
+
+  if pgrep -f "docker-desktop" >/dev/null 2>&1; then
+    echo "✅ Proceso docker-desktop: EN EJECUCIÓN"
+    echo ""
+    echo "   PIDs detectados:"
+    pgrep -fa "docker-desktop" | head -10 | sed 's/^/   /'
+  else
+    echo "⚪ Proceso docker-desktop: NO está en ejecución."
+  fi
+
+  echo ""
+
+  if _docker_have systemctl; then
+    if _unit_exists_system docker-desktop.service; then
+      echo "📋 [System-wide] docker-desktop.service:"
+      $SUDO systemctl --no-pager --full status docker-desktop.service || true
+    elif _unit_exists_user docker-desktop.service; then
+      echo "📋 [User] docker-desktop.service:"
+      systemctl --user --no-pager --full status docker-desktop.service || true
+    else
+      echo "ℹ️  No se detectó unidad systemd docker-desktop.service."
+    fi
+  fi
+
+  echo ""
+
+  if _docker_have docker-desktop; then
+    echo "✅ Binario docker-desktop: disponible en PATH."
+  elif _docker_have flatpak && flatpak info com.docker.desktop >/dev/null 2>&1; then
+    echo "✅ Docker Desktop disponible vía Flatpak (com.docker.desktop)."
+  else
+    echo "⚠️  No se detectó docker-desktop (ni binario ni Flatpak)."
+  fi
+
+  pause; menu_docker_services
+}
+
+# ---------- Reiniciar Docker Engine ----------
+docker_restart_engine() {
+  clear
+  echo "======================================="
+  echo "🐳 ESTADO Y SERVICIOS DOCKER"
+  echo "Reiniciar Docker Engine"
+  banner_menu_ambiente
+  echo "======================================="
+  echo ""
+
+  local SUDO=$(_docker_sudo)
+
+  read -p "⚠️  ¿Confirma reinicio de Docker Engine? (S/N): " confirm
+  if [[ ! "$confirm" =~ ^[Ss]$ ]]; then
+    echo "Operación cancelada."
+    pause; menu_docker_services; return
+  fi
+
+  if ! _docker_have systemctl; then
+    echo "❌ systemctl no disponible."
+    pause; menu_docker_services; return
+  fi
+
+  if _unit_exists_system docker.service; then
+    echo "🔄 Reiniciando docker.service (system-wide)..."
+    $SUDO systemctl daemon-reload || true
+    $SUDO systemctl restart docker.service
+    if _unit_exists_system docker.socket; then
+      echo "🔄 Reiniciando docker.socket..."
+      $SUDO systemctl restart docker.socket || true
+    fi
+    echo ""
+    $SUDO systemctl --no-pager --full status docker.service || true
+
+  elif _unit_exists_user docker.service; then
+    echo "🔄 Reiniciando docker.service (rootless/user)..."
+    systemctl --user daemon-reload || true
+    systemctl --user restart docker.service
+    if _unit_exists_user docker.socket; then
+      echo "🔄 Reiniciando docker.socket (user)..."
+      systemctl --user restart docker.socket || true
+    fi
+    echo ""
+    systemctl --user --no-pager --full status docker.service || true
+
+  else
+    echo "⚠️  docker.service no detectado vía systemd."
+    if pgrep -x dockerd >/dev/null 2>&1; then
+      echo "   Intentando terminar dockerd (proceso directo)..."
+      $SUDO pkill -TERM dockerd || true
+      sleep 2
+    fi
+    echo "❌ Sin unidad systemd no es posible garantizar el reinicio del daemon."
+  fi
+
+  echo ""
+  if _docker_have docker; then
+    sleep 1
+    if docker info >/dev/null 2>&1; then
+      echo "✅ Docker Engine responde correctamente tras el reinicio."
+    else
+      echo "⚠️  docker info aún falla. Espera unos segundos y vuelve a verificar."
+    fi
+  fi
+
+  pause; menu_docker_services
+}
+
+# ---------- Reiniciar Docker Desktop ----------
+docker_restart_desktop() {
+  clear
+  echo "======================================="
+  echo "🐳 ESTADO Y SERVICIOS DOCKER"
+  echo "Reiniciar Docker Desktop"
+  banner_menu_ambiente
+  echo "======================================="
+  echo ""
+
+  local SUDO=$(_docker_sudo)
+
+  read -p "⚠️  ¿Confirma reinicio de Docker Desktop? (S/N): " confirm
+  if [[ ! "$confirm" =~ ^[Ss]$ ]]; then
+    echo "Operación cancelada."
+    pause; menu_docker_services; return
+  fi
+
+  if pgrep -f "docker-desktop" >/dev/null 2>&1; then
+    echo "🛑 Cerrando procesos docker-desktop..."
+    pkill -TERM -f "docker-desktop" || true
+    sleep 2
+    if pgrep -f "docker-desktop" >/dev/null 2>&1; then
+      echo "   Forzando cierre (SIGKILL)..."
+      pkill -KILL -f "docker-desktop" || true
+      sleep 1
+    fi
+    echo "✅ Procesos detenidos."
+  else
+    echo "ℹ️  No se detectaron procesos docker-desktop en ejecución."
+  fi
+
+  echo ""
+
+  if _docker_have systemctl; then
+    if _unit_exists_system docker-desktop.service; then
+      echo "🔄 Reiniciando docker-desktop.service (system-wide)..."
+      $SUDO systemctl restart docker-desktop.service || true
+      $SUDO systemctl --no-pager --full status docker-desktop.service || true
+      pause; menu_docker_services; return
+    elif _unit_exists_user docker-desktop.service; then
+      echo "🔄 Reiniciando docker-desktop.service (user)..."
+      systemctl --user restart docker-desktop.service || true
+      systemctl --user --no-pager --full status docker-desktop.service || true
+      pause; menu_docker_services; return
+    fi
+  fi
+
+  if _docker_have docker-desktop; then
+    echo "🚀 Iniciando Docker Desktop (binario) en background..."
+    nohup docker-desktop >/dev/null 2>&1 &
+    disown || true
+    echo "✅ Docker Desktop iniciado."
+  elif _docker_have flatpak && flatpak info com.docker.desktop >/dev/null 2>&1; then
+    echo "🚀 Iniciando Docker Desktop vía Flatpak en background..."
+    nohup flatpak run com.docker.desktop >/dev/null 2>&1 &
+    disown || true
+    echo "✅ Docker Desktop iniciado vía Flatpak."
+  else
+    echo "⚠️  No se encontró forma de iniciar Docker Desktop."
+    echo "   Métodos soportados: binario 'docker-desktop', Flatpak 'com.docker.desktop', systemd."
+  fi
+
+  pause; menu_docker_services
+}
+
+# ---------- Reiniciar ambos ----------
+docker_restart_all() {
+  clear
+  echo "======================================="
+  echo "🐳 ESTADO Y SERVICIOS DOCKER"
+  echo "Reiniciar Docker Engine + Docker Desktop"
+  banner_menu_ambiente
+  echo "======================================="
+  echo ""
+
+  read -p "⚠️  ¿Confirma reinicio de Docker Engine Y Docker Desktop? (S/N): " confirm
+  if [[ ! "$confirm" =~ ^[Ss]$ ]]; then
+    echo "Operación cancelada."
+    pause; menu_docker_services; return
+  fi
+
+  local SUDO=$(_docker_sudo)
+
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "🔄 [1/2] Reiniciando Docker Engine..."
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+  if _docker_have systemctl; then
+    if _unit_exists_system docker.service; then
+      $SUDO systemctl daemon-reload || true
+      $SUDO systemctl restart docker.service
+      _unit_exists_system docker.socket && $SUDO systemctl restart docker.socket || true
+      echo "✅ Docker Engine (system-wide) reiniciado."
+    elif _unit_exists_user docker.service; then
+      systemctl --user daemon-reload || true
+      systemctl --user restart docker.service
+      _unit_exists_user docker.socket && systemctl --user restart docker.socket || true
+      echo "✅ Docker Engine (rootless) reiniciado."
+    else
+      echo "⚠️  docker.service no detectado vía systemd."
+    fi
+  else
+    echo "⚠️  systemctl no disponible."
+  fi
+
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "🔄 [2/2] Reiniciando Docker Desktop..."
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+  if pgrep -f "docker-desktop" >/dev/null 2>&1; then
+    echo "   Cerrando procesos docker-desktop..."
+    pkill -TERM -f "docker-desktop" || true
+    sleep 2
+    pgrep -f "docker-desktop" >/dev/null 2>&1 && pkill -KILL -f "docker-desktop" || true
+    sleep 1
+    echo "   Procesos detenidos."
+  fi
+
+  if _docker_have systemctl; then
+    if _unit_exists_system docker-desktop.service; then
+      $SUDO systemctl restart docker-desktop.service || true
+      echo "✅ Docker Desktop (system-wide) reiniciado."
+    elif _unit_exists_user docker-desktop.service; then
+      systemctl --user restart docker-desktop.service || true
+      echo "✅ Docker Desktop (user) reiniciado."
+    elif _docker_have docker-desktop; then
+      nohup docker-desktop >/dev/null 2>&1 & disown || true
+      echo "✅ Docker Desktop (binario) iniciado en background."
+    elif _docker_have flatpak && flatpak info com.docker.desktop >/dev/null 2>&1; then
+      nohup flatpak run com.docker.desktop >/dev/null 2>&1 & disown || true
+      echo "✅ Docker Desktop (Flatpak) iniciado en background."
+    else
+      echo "⚠️  No se encontró forma de iniciar Docker Desktop."
+    fi
+  fi
+
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  sleep 2
+  if _docker_have docker && docker info >/dev/null 2>&1; then
+    echo "✅ Docker responde correctamente."
+  else
+    echo "⚠️  Docker aún no responde. Espera unos segundos y verifica el estado."
+  fi
+
+  pause; menu_docker_services
 }
 
 #############################################################
 ###       Funciones generales   
 #############################################################
 truncate_text() {
-    local text="$1"
-    local length="$2"
-    if [[ ${#text} -gt $length ]]; then
-        echo "${text:0:$(($length-3))}..."
-    else
-        printf "%-${length}s" "$text"
-    fi
+  local text="$1"
+  local length="$2"
+  if [[ ${#text} -gt $length ]]; then
+    echo "${text:0:$(($length-3))}..."
+  else
+    printf "%-${length}s" "$text"
+  fi
 }
 
 define_compose_file() {
