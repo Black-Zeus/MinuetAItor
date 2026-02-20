@@ -20,7 +20,7 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/docs" if settings.env_name != "prod" else None,
     redoc_url="/redoc" if settings.env_name != "prod" else None,
-    openapi_url="/openai" if settings.env_name != "prod" else None,
+    openapi_url="/openapi.json" if settings.env_name != "prod" else None,
     lifespan=lifespan,
 )
 
@@ -43,6 +43,9 @@ register_exception_handlers(app)
 from routers.v1.auth import router as auth_router
 app.include_router(auth_router, prefix="/v1")
 
+# ── Teams / Users ───────────────────────────────────────────
+from routers.v1.teams import router as teams_router
+app.include_router(teams_router, prefix="/v1")
 
 @app.get("/", tags=["System"])
 def root():
