@@ -107,7 +107,7 @@ const ReprocessModalContent = ({ onNoteChange }) => {
                     rows={3}
                     maxLength={300}
                     placeholder="Ej: Corrección de participantes y actualización de fechas en acuerdos AGR-001 y AGR-002"
-                    className={`w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-900 border text-sm
+                    className={`w-full px-3 py-2 rounded-xl border text-sm
             text-gray-900 dark:text-gray-100 transition-theme focus:outline-none focus:ring-2
             focus:ring-primary-500/40 resize-none
             ${touched && !note.trim()
@@ -481,7 +481,7 @@ const MinuteEditorHeader = () => {
     };
 
     return (
-        <header className="bg-white/80 dark:bg-gray-900/80 backdrop-blur border-b border-gray-200 dark:border-gray-800 transition-theme">
+        <header className="backdrop-blur border-b border-gray-200 dark:border-gray-800 transition-theme">
             <div className="max-w-7xl mx-auto px-4 py-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 {/* IZQUIERDA: Cliente + Asunto */}
                 <div className="min-w-0">

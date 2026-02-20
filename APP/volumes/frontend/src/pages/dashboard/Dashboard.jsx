@@ -1,16 +1,6 @@
 /**
  * Dashboard.jsx
- * Renderiza condicionalmente cada sección según dashboardStore → widgets.enabled
- *
- * Orden de secciones:
- *  1. Header
- *  2. Stats                        (widget: stats)
- *  3. Última conexión              (widget: ultima_conexion)
- *  4. Minutas pendientes           (widget: minutas_pendientes)
- *  5. Minutas donde participé      (widget: minutas_participadas)
- *  6. Clientes confidenciales      (widget: clientes_confidenciales)
- *  7. Proyectos confidenciales     (widget: proyectos_confidenciales)
- *  8. Etiquetas populares          (widget: tags_populares)
+ * Renderiza condicionalmente cada sección según baseSiteStore → dashboard.widgets.enabled
  */
 
 import React, { useEffect, useState, useMemo } from "react";
@@ -21,16 +11,15 @@ import minutesData   from "@/data/minutes.json";
 import clientsData   from "@/data/dataClientes.json";
 import projectsData  from "@/data/dataProjectos.json";
 
-import DashboardHeader from "./DashboardHeader";
-import MetricCard      from "./MetricCard";
-import PopularTags     from "./PopularTags";
+import DashboardHeader   from "./DashboardHeader";
+import MetricCard        from "./MetricCard";
+import PopularTags       from "./PopularTags";
 import LastConectionInfo from "./LastConectionInfo";
-
-import MinutesSection      from "./MinutesSection";
+import MinutesSection    from "./MinutesSection";
 import ConfidentialSection from "./ConfidentialSection";
+import PageLoadingSpinner  from "@/components/ui/modal/types/system/PageLoadingSpinner";
 
-import PageLoadingSpinner from "@/components/ui/modal/types/system/PageLoadingSpinner";
-import useDashboardStore  from "@store/dashboardStore";
+import useBaseSiteStore from "@store/baseSiteStore"; // ← FIX: era dashboardStore
 
 export const TXT_TITLE    = "text-gray-900 dark:text-white";
 export const TXT_SUBTITLE = "text-gray-700 dark:text-gray-200";
@@ -43,15 +32,16 @@ const randomN = (arr, n) => {
 };
 
 const Dashboard = () => {
-  const widgets = useDashboardStore((s) => s.widgets);
+  // FIX: widgets viven en baseSiteStore.dashboard.widgets (no en dashboardStore)
+  const widgets = useBaseSiteStore((s) => s.dashboard?.widgets ?? {});
   const w       = (key) => widgets[key]?.enabled ?? true;
 
   const [isLoading, setIsLoading] = useState(true);
   const [hasError,  setHasError]  = useState(false);
   const [tagsData,  setTagsData]  = useState([]);
 
-  const [pendingMinutes,      setPendingMinutes]      = useState([]);
-  const [participatedMinutes, setParticipatedMinutes] = useState([]);
+  const [pendingMinutes,       setPendingMinutes]       = useState([]);
+  const [participatedMinutes,  setParticipatedMinutes]  = useState([]);
   const [confidentialClients,  setConfidentialClients]  = useState([]);
   const [confidentialProjects, setConfidentialProjects] = useState([]);
 
@@ -86,24 +76,22 @@ const Dashboard = () => {
     load();
   }, []);
 
-  const handleUpdateClient  = (u) => setConfidentialClients((p) => p.map((c) => c.id === u.id ? u : c));
-  const handleDeleteClient  = (id) => setConfidentialClients((p) => p.filter((c) => c.id !== id));
+  const handleUpdateClient  = (u) => setConfidentialClients((p)  => p.map((c) => c.id === u.id ? u : c));
+  const handleDeleteClient  = (id) => setConfidentialClients((p)  => p.filter((c) => c.id !== id));
   const handleEditProject   = (u) => setConfidentialProjects((p) => p.map((c) => c.id === u.id ? u : c));
   const handleDeleteProject = (id) => setConfidentialProjects((p) => p.filter((c) => c.id !== id));
 
   if (isLoading) return <PageLoadingSpinner message="Cargando dashboard..." />;
-  if (hasError)  return <DashboardError message="Error al cargar los datos del dashboard." />;
+  if (hasError)  return <div>Error al cargar los datos del dashboard.</div>;
 
   return (
     <div className="space-y-6 p-6 bg-background-light dark:bg-background-dark transition-theme min-h-screen">
 
-      {/* 1 — Header — siempre visible */}
       <DashboardHeader
         userName={userName}
         subtitle="Resumen de tu actividad en MinuetAItor"
       />
 
-      {/* 2 — Stats */}
       {w("stats") && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <MetricCard
@@ -133,10 +121,8 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* 3 — Última conexión */}
       {w("ultima_conexion") && <LastConectionInfo />}
 
-      {/* 4 — Minutas pendientes de aprobación */}
       {w("minutas_pendientes") && (
         <MinutesSection
           title="Minutas pendientes de aprobación"
@@ -150,7 +136,6 @@ const Dashboard = () => {
         />
       )}
 
-      {/* 5 — Minutas donde participé */}
       {w("minutas_participadas") && (
         <MinutesSection
           title="Minutas donde participé"
@@ -164,7 +149,6 @@ const Dashboard = () => {
         />
       )}
 
-      {/* 6 — Clientes confidenciales */}
       {w("clientes_confidenciales") && (
         <ConfidentialSection
           type="clients"
@@ -181,7 +165,6 @@ const Dashboard = () => {
         />
       )}
 
-      {/* 7 — Proyectos confidenciales */}
       {w("proyectos_confidenciales") && (
         <ConfidentialSection
           type="projects"
@@ -199,7 +182,6 @@ const Dashboard = () => {
         />
       )}
 
-      {/* 8 — Etiquetas populares */}
       {w("tags_populares") && <PopularTags tags={tagsData} />}
 
     </div>

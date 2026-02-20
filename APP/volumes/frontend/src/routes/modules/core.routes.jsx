@@ -10,14 +10,6 @@ const GlobalSearch = lazy(() => import("@/pages/globalSearch/GlobalSearch"));
 
 export const coreRoutes = [
   {
-    path: "/",
-    // Redirige a /dashboard sin necesitar un componente completo
-    component: () => <Navigate to="/dashboard" replace />,
-    title: "Inicio",
-    requiresAuth: true,
-    roles: [],
-  },
-  {
     path: "/dashboard",
     component: Dashboard,
     title: "Dashboard",

@@ -39,7 +39,7 @@ const MinuteEditor = ({ iaResponse = null }) => {
 
   if (!isLoaded) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center transition-theme">
+      <div className="min-h-screen  flex items-center justify-center transition-theme">
         <div className="flex items-center gap-3 text-gray-500 dark:text-gray-400">
           <i className="fas fa-spinner fa-spin text-primary-500" />
           <span className="text-sm font-medium">Cargando editor…</span>
@@ -49,7 +49,7 @@ const MinuteEditor = ({ iaResponse = null }) => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-theme">
+    <div className="min-h-screen  transition-theme">
       {/* Top bar sticky */}
       <MinuteEditorHeader />
 

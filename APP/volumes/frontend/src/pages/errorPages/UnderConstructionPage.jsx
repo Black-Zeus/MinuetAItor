@@ -9,7 +9,7 @@ import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 const UnderConstructionPage = () => {
     const [mounted, setMounted] = useState(false);
 
-    const logoSrc = "/chinchinAItor.jpg";
+    const logoSrc = "/images/chinchinAItor.jpg";
 
     useDocumentTitle("Sección en Desarrollo");
 

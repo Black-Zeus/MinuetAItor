@@ -1,9 +1,6 @@
 /**
  * pages/auth/Login/LoginPage.jsx
  * Página de Login - MinuetAItor
- * - Integrado con baseSiteStore (toggleTheme / theme)
- * - Modo oscuro como default si no hay preferencia guardada
- * - Toggle sol/luna en la esquina superior-derecha del card
  */
 
 import React, { useState, useLayoutEffect } from 'react';
@@ -11,66 +8,66 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { FaSun, FaMoon, FaEye, FaEyeSlash, FaCircleExclamation } from 'react-icons/fa6';
 import useAuthStore from '@store/authStore';
 import useBaseSiteStore from '@store/baseSiteStore';
+import { login as apiLogin } from '@/services/authService';
 
-// ─── Versión ──────────────────────────────────────────────────────────────────
 const APP_VERSION = '1.0.0';
 
-// ─── Componente principal ─────────────────────────────────────────────────────
 const LoginPage = () => {
     const navigate = useNavigate();
     const location = useLocation();
 
-    // Auth
-    const { login, isLoading } = useAuthStore();
+    const { login: storeLogin, isLoading } = useAuthStore();
 
-    // Tema global — persiste en localStorage y aplica clase .dark en <html>
+    // ── CAMBIO 1: usar selector isSidebarCollapsed → theme desde nuevo schema ──
+    // theme, toggleTheme, setTheme siguen igual — no cambia la API pública
     const { theme, toggleTheme, setTheme } = useBaseSiteStore();
 
-    // Forzar dark si no hay preferencia guardada aún
+    // ── CAMBIO 2: la key de localStorage cambió de 'minuteAItor-base-site' → 'site-storage' ──
     useLayoutEffect(() => {
-        const stored = localStorage.getItem('minuteAItor-base-site');
-        if (!stored) {
-            setTheme('dark');
-        }
-        // Sincronizar clase en <html> con el valor actual del store
+        const stored = localStorage.getItem('site-storage'); // ← era 'minuteAItor-base-site'
+        if (!stored) setTheme('dark');
         document.documentElement.classList.toggle('dark', theme === 'dark');
     }, []);
 
-    // Re-aplicar clase cuando cambia el tema
     useLayoutEffect(() => {
         document.documentElement.classList.toggle('dark', theme === 'dark');
     }, [theme]);
 
-    // Form state
-    const [email,      setEmail]      = useState('');
-    const [password,   setPassword]   = useState('');
-    const [showPass,   setShowPass]   = useState(false);
-    const [rememberMe, setRememberMe] = useState(false);
-    const [error,      setError]      = useState('');
+    const [credential, setCredential] = useState('');
+    const [password, setPassword]     = useState('');
+    const [showPass, setShowPass]     = useState(false);
+    const [error, setError]           = useState('');
 
     const from = location.state?.from || '/';
 
-    // ── Submit ─────────────────────────────────────────────────────────────
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
 
-        if (!email || !password) {
+        if (!credential || !password) {
             setError('Por favor, completa todos los campos.');
             return;
         }
 
         try {
-            await login({ email, password, rememberMe });
+            const tokenResponse = await apiLogin({ credential, password });
+            // storeLogin ahora también dispara sessionStore.loadFromApi() automáticamente
+            storeLogin(tokenResponse);
             navigate(from, { replace: true });
         } catch (err) {
-            setError(err?.message || 'Credenciales incorrectas. Inténtalo de nuevo.');
+            const status = err?.status ?? 0;
+            if (status === 401) {
+                setError('Las credenciales ingresadas no son válidas. Por favor, inténtalo de nuevo.');
+            } else if (status === 0) {
+                setError('No se pudo conectar al servidor. Verifica tu conexión e intenta nuevamente.');
+            } else {
+                setError(err?.title || err?.message || 'Ocurrió un error al iniciar sesión.');
+            }
         }
     };
 
     const isDark = theme === 'dark';
 
-    // ── Render ─────────────────────────────────────────────────────────────
     return (
         <div className="
             min-h-screen grid place-items-center
@@ -80,13 +77,11 @@ const LoginPage = () => {
             from-slate-800 to-slate-900
             dark:from-slate-900 dark:to-black
         ">
-            {/* Blob decorativo izquierdo */}
             <div className="
                 pointer-events-none absolute -top-40 -left-40
                 w-[700px] h-[400px] rounded-full
                 bg-blue-500/20 dark:bg-blue-500/15 blur-[120px]
             " />
-            {/* Blob decorativo derecho */}
             <div className="
                 pointer-events-none absolute bottom-0 right-0
                 w-[500px] h-[400px] rounded-full
@@ -95,7 +90,6 @@ const LoginPage = () => {
 
             <div className="relative w-full flex justify-center">
 
-                {/* ══════════════ CARD ══════════════ */}
                 <div className="
                     w-full max-w-5xl relative
                     grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr]
@@ -107,11 +101,10 @@ const LoginPage = () => {
                     transition-colors duration-300
                 ">
 
-                    {/* ── Toggle tema (esquina superior-derecha del card) ── */}
                     <button
                         onClick={toggleTheme}
                         aria-label={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
-                        title={isDark  ? 'Modo claro' : 'Modo oscuro'}
+                        title={isDark ? 'Modo claro' : 'Modo oscuro'}
                         className="
                             absolute top-3.5 right-3.5 z-10
                             w-9 h-9 flex items-center justify-center
@@ -122,12 +115,11 @@ const LoginPage = () => {
                         "
                     >
                         {isDark
-                            ? <FaSun  className="w-[15px] h-[15px] text-amber-300" />
+                            ? <FaSun className="w-[15px] h-[15px] text-amber-300" />
                             : <FaMoon className="w-[15px] h-[15px] text-slate-300" />
                         }
                     </button>
 
-                    {/* ══════ PANEL IZQUIERDO — BRAND ══════ */}
                     <aside className="
                         p-7 sm:p-10
                         bg-[radial-gradient(800px_400px_at_20%_10%,rgba(59,130,246,0.18),transparent_60%),
@@ -135,9 +127,7 @@ const LoginPage = () => {
                     ">
                         <div className="h-full flex flex-col gap-6">
 
-                            {/* Logo + título */}
                             <div className="grid grid-cols-[160px_1fr] sm:grid-cols-[220px_1fr] gap-5 sm:gap-7 items-center">
-
                                 <div className="
                                     w-40 h-40 sm:w-[220px] sm:h-[220px]
                                     rounded-[24px] overflow-hidden flex-shrink-0
@@ -145,7 +135,7 @@ const LoginPage = () => {
                                     shadow-[0_12px_35px_rgba(0,0,0,0.35)]
                                 ">
                                     <img
-                                        src="/chinchinAItor.jpg"
+                                        src="/images/chinchinAItor.jpg"
                                         alt="Logo MinuetAItor"
                                         className="w-full h-full object-cover"
                                     />
@@ -161,7 +151,6 @@ const LoginPage = () => {
                                 </div>
                             </div>
 
-                            {/* Descripción */}
                             <p className="
                                 text-[0.97rem] leading-[1.6] text-center
                                 text-slate-300 max-w-[60ch] mx-auto
@@ -172,7 +161,6 @@ const LoginPage = () => {
                                 fechas comprometidas y trazabilidad continua.
                             </p>
 
-                            {/* Pill footer */}
                             <div className="mt-auto" aria-hidden="true">
                                 <span className="
                                     inline-flex items-center px-4 py-2.5
@@ -188,7 +176,6 @@ const LoginPage = () => {
                         </div>
                     </aside>
 
-                    {/* ══════ PANEL DERECHO — FORMULARIO ══════ */}
                     <section className="
                         p-7 sm:p-10
                         bg-slate-800/70 dark:bg-slate-900/80
@@ -197,7 +184,6 @@ const LoginPage = () => {
                     ">
                         <div className="flex flex-col h-full gap-4">
 
-                            {/* Cabecera */}
                             <header>
                                 <h2 className="text-[1.4rem] font-semibold text-white m-0">
                                     Acceso
@@ -207,20 +193,22 @@ const LoginPage = () => {
                                 </p>
                             </header>
 
-                            {/* Error global */}
                             {error && (
                                 <div className="
-                                    flex items-center gap-2 px-4 py-3
+                                    flex items-start gap-3 px-4 py-3.5
                                     rounded-xl text-sm
-                                    bg-red-900/30 border border-red-700/50
+                                    bg-red-500/10 border border-red-500/40
                                     text-red-300
+                                    animate-pulse-once
                                 ">
-                                    <FaCircleExclamation className="w-4 h-4 flex-shrink-0" />
-                                    <span>{error}</span>
+                                    <FaCircleExclamation className="w-4 h-4 mt-0.5 flex-shrink-0 text-red-400" />
+                                    <div>
+                                        <p className="font-medium text-red-200">Acceso denegado</p>
+                                        <p className="mt-0.5 text-red-300/80">{error}</p>
+                                    </div>
                                 </div>
                             )}
 
-                            {/* Form */}
                             <form
                                 id="loginForm"
                                 onSubmit={handleSubmit}
@@ -228,20 +216,19 @@ const LoginPage = () => {
                                 noValidate
                                 className="grid gap-3.5"
                             >
-                                {/* Email */}
                                 <div className="grid gap-2">
-                                    <label htmlFor="email" className="text-sm font-medium text-slate-300">
-                                        Correo electrónico
+                                    <label htmlFor="credential" className="text-sm font-medium text-slate-300">
+                                        Usuario o correo electrónico
                                     </label>
                                     <input
-                                        type="email"
-                                        id="email"
-                                        name="email"
-                                        autoComplete="email"
-                                        placeholder="usuario@dominio.cl"
+                                        type="text"
+                                        id="credential"
+                                        name="credential"
+                                        autoComplete="username"
+                                        placeholder="usuario o usuario@dominio.cl"
                                         required
-                                        value={email}
-                                        onChange={(e) => setEmail(e.target.value)}
+                                        value={credential}
+                                        onChange={(e) => setCredential(e.target.value)}
                                         className="
                                             px-3 py-3 rounded-[14px]
                                             border border-slate-600/50
@@ -253,7 +240,6 @@ const LoginPage = () => {
                                     />
                                 </div>
 
-                                {/* Contraseña */}
                                 <div className="grid gap-2">
                                     <label htmlFor="password" className="text-sm font-medium text-slate-300">
                                         Contraseña
@@ -292,24 +278,12 @@ const LoginPage = () => {
                                         >
                                             {showPass
                                                 ? <FaEyeSlash className="w-4 h-4" />
-                                                : <FaEye      className="w-4 h-4" />
+                                                : <FaEye className="w-4 h-4" />
                                             }
                                         </button>
                                     </div>
                                 </div>
 
-                                {/* Recordarme */}
-                                <label className="flex items-center gap-2 cursor-pointer select-none">
-                                    <input
-                                        type="checkbox"
-                                        checked={rememberMe}
-                                        onChange={(e) => setRememberMe(e.target.checked)}
-                                        className="w-4 h-4 rounded accent-blue-500"
-                                    />
-                                    <span className="text-sm text-slate-400">Recordarme</span>
-                                </label>
-
-                                {/* Submit */}
                                 <button
                                     type="submit"
                                     disabled={isLoading}
@@ -333,27 +307,25 @@ const LoginPage = () => {
                                 </button>
                             </form>
 
-                            {/* Footer links */}
                             <footer className="mt-auto pt-2">
-    <div className="flex items-center justify-center gap-2 text-sm text-slate-400 flex-wrap">
-        <span className="text-slate-600 select-none">·</span>
-        <a href="/forgot-password" className="font-medium text-blue-400 hover:text-blue-300 transition-colors">
-            ¿Olvidaste tu contraseña?
-        </a>
-        <span className="text-slate-600 select-none">·</span>
-        <a href="#" className="font-medium text-blue-400 hover:text-blue-300 transition-colors">
-            Solicitar alta
-        </a>
-        <span className="text-slate-600 select-none">·</span>
-    </div>
-</footer>
+                                <div className="flex items-center justify-center gap-2 text-sm text-slate-400 flex-wrap">
+                                    <span className="text-slate-600 select-none">·</span>
+                                    <a href="/forgot-password" className="font-medium text-blue-400 hover:text-blue-300 transition-colors">
+                                        ¿Olvidaste tu contraseña?
+                                    </a>
+                                    <span className="text-slate-600 select-none">·</span>
+                                    <a href="#" className="font-medium text-blue-400 hover:text-blue-300 transition-colors">
+                                        Solicitar alta
+                                    </a>
+                                    <span className="text-slate-600 select-none">·</span>
+                                </div>
+                            </footer>
 
                         </div>
                     </section>
 
                 </div>
 
-                {/* Badge versión */}
                 <span className="
                     absolute right-2 -bottom-7
                     text-[0.8rem] text-slate-500

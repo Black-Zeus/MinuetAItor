@@ -50,18 +50,6 @@ const getStatusConfig = (status) => {
   return map[status] || map.active;
 };
 
-const formatLastAccess = (isoDate) => {
-  if (!isoDate) return "—";
-  const d = new Date(isoDate);
-  return d.toLocaleString("es-CL", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-};
-
 // ─── Subcomponents ──────────────────────────────────────────────────────────
 
 const Badge = ({ icon, label, cls }) => (
@@ -83,7 +71,7 @@ const AvatarBlock = ({ profile, onChangeAvatar, onRemoveAvatar }) => {
       <div className="relative shrink-0">
         <div className="w-16 h-16 rounded-2xl overflow-hidden ring-4 ring-primary-500/20 bg-gradient-to-br from-primary-600 to-primary-700">
           <img
-            src={profile?.avatar || "/userProfile/demo.png"}
+            src={profile?.avatar || "/images/noImage.png"}
             alt={profile?.fullName || "Avatar"}
             className="w-full h-full object-cover"
             onError={(e) => {
@@ -196,7 +184,7 @@ const UserProfileHeader = ({
             Último acceso
           </p>
           <p className={`${TXT_TITLE} mt-1 font-medium transition-theme`}>
-            {formatLastAccess(profile?.lastAccess)}
+            {profile?.lastConection}
           </p>
         </div>
       </div>

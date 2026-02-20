@@ -2,46 +2,89 @@
  * UserProfileCustomization.jsx
  * Tab "Personalización" — controla qué widgets se muestran en el Dashboard.
  *
- * Lee y escribe directamente en dashboardStore (Zustand + localStorage).
- * Los cambios son inmediatos y persisten entre sesiones.
- *
- * Categorías:
- *  "resumen"  → Stats, Última conexión, Tags populares
- *  "minutas"  → Minutas pendientes, Minutas participadas
- *  "accesos"  → Clientes confidenciales, Proyectos confidenciales
+ * El store (baseSiteStore) solo persiste { enabled, order, category }.
+ * Los campos de presentación (label, icon, description) son metadata estática
+ * definida aquí — no se persisten en el store.
  */
 
 import React, { useState } from "react";
 import Icon from "@/components/ui/icon/iconManager";
 import ActionButton from "@/components/ui/button/ActionButton";
 import { ModalManager } from "@/components/ui/modal";
-import useDashboardStore, { DASHBOARD_WIDGETS_DEFAULT } from "@store/dashboardStore";
+import useBaseSiteStore from "@store/baseSiteStore";
 
 const TXT_TITLE = "text-gray-900 dark:text-white";
 const TXT_BODY  = "text-gray-600 dark:text-gray-300";
 const TXT_META  = "text-gray-500 dark:text-gray-400";
 
-// ─── Categorías de widgets ────────────────────────────────────────────────────
+// ─── Metadata estática de widgets ─────────────────────────────────────────────
+// El store solo guarda { enabled, order, category } — label/icon/description son UI-only
+const WIDGET_META = {
+  stats: {
+    label:       "Resumen estadístico",
+    icon:        "FaChartBar",
+    description: "KPIs principales: minutas, proyectos y clientes activos.",
+  },
+  ultima_conexion: {
+    label:       "Última conexión",
+    icon:        "FaClock",
+    description: "Información de tu sesión más reciente y dispositivo.",
+  },
+  minutas_pendientes: {
+    label:       "Minutas pendientes",
+    icon:        "FaClipboardCheck",
+    description: "Minutas en estado pendiente que requieren revisión.",
+  },
+  minutas_participadas: {
+    label:       "Minutas donde participé",
+    icon:        "FaUserCheck",
+    description: "Últimas minutas registradas con tu participación.",
+  },
+  clientes_confidenciales: {
+    label:       "Clientes confidenciales",
+    icon:        "FaUserShield",
+    description: "Clientes confidenciales a los que tienes visibilidad.",
+  },
+  proyectos_confidenciales: {
+    label:       "Proyectos confidenciales",
+    icon:        "FaFolderOpen",
+    description: "Proyectos confidenciales donde tienes permisos.",
+  },
+  tags_populares: {
+    label:       "Etiquetas populares",
+    icon:        "FaTag",
+    description: "Tags más usados en las minutas del sistema.",
+  },
+};
+
+// ─── Categorías ───────────────────────────────────────────────────────────────
 const CATEGORY_CONFIG = {
   resumen: {
-    label: "Resumen general",
-    icon: "FaChartLine",
-    iconBg: "bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400",
+    label:       "Resumen general",
+    icon:        "FaChartLine",
+    iconBg:      "bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400",
     description: "KPIs, última conexión y etiquetas del sistema.",
   },
   minutas: {
-    label: "Minutas",
-    icon: "FaFileAlt",
-    iconBg: "bg-purple-100 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400",
+    label:       "Minutas",
+    icon:        "FaFileAlt",
+    iconBg:      "bg-purple-100 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400",
     description: "Widgets relacionados con minutas y tu participación.",
   },
   accesos: {
-    label: "Accesos confidenciales",
-    icon: "FaUserShield",
-    iconBg: "bg-orange-100 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400",
+    label:       "Accesos confidenciales",
+    icon:        "FaUserShield",
+    iconBg:      "bg-orange-100 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400",
     description: "Clientes y proyectos confidenciales con acceso asignado.",
   },
 };
+
+// ─── Helpers — fusionar store con metadata ────────────────────────────────────
+// Produce { ...storeWidget, label, icon, description } para la UI
+const enrichWidget = (key, storeWidget) => ({
+  ...storeWidget,
+  ...(WIDGET_META[key] ?? { label: key, icon: "FaSquare", description: "" }),
+});
 
 // ─── Widget toggle row ────────────────────────────────────────────────────────
 const WidgetRow = ({ widgetKey, widget, onChange }) => (
@@ -87,8 +130,9 @@ const CategorySection = ({ categoryKey, widgets, onToggle }) => {
   const config = CATEGORY_CONFIG[categoryKey];
   if (!config) return null;
 
-  const enabledCount = Object.values(widgets).filter((w) => w.enabled).length;
-  const totalCount   = Object.values(widgets).length;
+  const entries      = Object.entries(widgets).sort(([, a], [, b]) => (a.order ?? 99) - (b.order ?? 99));
+  const enabledCount = entries.filter(([, w]) => w.enabled).length;
+  const totalCount   = entries.length;
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6 transition-theme">
@@ -114,21 +158,19 @@ const CategorySection = ({ categoryKey, widgets, onToggle }) => {
       <div className="border-t border-gray-100 dark:border-gray-700/60 mt-3 mb-0.5" />
 
       <div className="divide-y divide-gray-100 dark:divide-gray-700/60">
-        {Object.entries(widgets)
-          .sort(([, a], [, b]) => (a.order ?? 99) - (b.order ?? 99))
-          .map(([key, widget]) => (
-            <WidgetRow key={key} widgetKey={key} widget={widget} onChange={onToggle} />
-          ))}
+        {entries.map(([key, widget]) => (
+          <WidgetRow key={key} widgetKey={key} widget={widget} onChange={onToggle} />
+        ))}
       </div>
     </div>
   );
 };
 
 // ─── Preview ──────────────────────────────────────────────────────────────────
-const PreviewBadge = ({ widgets }) => {
-  const enabled = Object.values(widgets)
-    .filter((w) => w.enabled)
-    .sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
+const PreviewBadge = ({ enrichedWidgets }) => {
+  const enabled = Object.entries(enrichedWidgets)
+    .filter(([, w]) => w.enabled)
+    .sort(([, a], [, b]) => (a.order ?? 99) - (b.order ?? 99));
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-4 transition-theme">
@@ -141,9 +183,9 @@ const PreviewBadge = ({ widgets }) => {
             Sin secciones activas. El dashboard estará vacío.
           </span>
         ) : (
-          enabled.map((w) => (
+          enabled.map(([key, w]) => (
             <span
-              key={w.label}
+              key={key}
               className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 transition-theme"
             >
               <Icon name={w.icon} className="w-3 h-3" />
@@ -158,22 +200,22 @@ const PreviewBadge = ({ widgets }) => {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 const UserProfileCustomization = () => {
-  // Lee widgets del store
-  const widgets          = useDashboardStore((s) => s.widgets);
-  const setWidgetEnabled = useDashboardStore((s) => s.setWidgetEnabled);
-  const enableAllWidgets = useDashboardStore((s) => s.enableAllWidgets);
-  const disableAllWidgets = useDashboardStore((s) => s.disableAllWidgets);
-  const resetWidgets     = useDashboardStore((s) => s.resetWidgets);
+  const widgets           = useBaseSiteStore((s) => s.dashboard?.widgets ?? {});
+  const setWidgetEnabled  = useBaseSiteStore((s) => s.setWidgetEnabled);
+  const enableAllWidgets  = useBaseSiteStore((s) => s.enableAllWidgets);
+  const disableAllWidgets = useBaseSiteStore((s) => s.disableAllWidgets);
+  const resetWidgets      = useBaseSiteStore((s) => s.resetWidgets);
 
-  // Snapshot para detectar cambios vs defaults
-  const [snapshot] = useState(() => JSON.stringify(DASHBOARD_WIDGETS_DEFAULT));
-  const hasChanges = JSON.stringify(widgets) !== snapshot;
+  // Fusionar datos del store con metadata estática de presentación
+  const enrichedWidgets = Object.fromEntries(
+    Object.entries(widgets).map(([key, w]) => [key, enrichWidget(key, w)])
+  );
 
-  const enabledCount = Object.values(widgets).filter((w) => w.enabled).length;
-  const totalCount   = Object.values(widgets).length;
+  const enabledCount = Object.values(enrichedWidgets).filter((w) => w.enabled).length;
+  const totalCount   = Object.values(enrichedWidgets).length;
 
-  // Agrupa por categoría
-  const byCategory = Object.entries(widgets).reduce((acc, [key, widget]) => {
+  // Agrupar por categoría (con metadata enriquecida)
+  const byCategory = Object.entries(enrichedWidgets).reduce((acc, [key, widget]) => {
     const cat = widget.category || "resumen";
     if (!acc[cat]) acc[cat] = {};
     acc[cat][key] = widget;
@@ -183,10 +225,8 @@ const UserProfileCustomization = () => {
   const handleToggle = (key, value) => setWidgetEnabled(key, value);
 
   const handleSave = () => {
-    // Los cambios ya están persistidos en localStorage via store.
-    // Este botón es confirmación visual — en el futuro sincroniza con backend.
     ModalManager.success?.({
-      title: "Personalización guardada",
+      title:   "Personalización guardada",
       message: "La configuración del dashboard se actualizó correctamente.",
     });
   };
@@ -237,7 +277,7 @@ const UserProfileCustomization = () => {
       </div>
 
       {/* Preview */}
-      <PreviewBadge widgets={widgets} />
+      <PreviewBadge enrichedWidgets={enrichedWidgets} />
 
       {/* Categorías */}
       {Object.entries(byCategory).map(([catKey, catWidgets]) => (
