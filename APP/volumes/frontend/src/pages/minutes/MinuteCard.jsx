@@ -5,6 +5,9 @@ import ActionButton from "@/components/ui/button/ActionButton";
 import ModalManager from "@/components/ui/modal";
 import { useNavigate } from "react-router-dom";
 
+import logger from '@/utils/logger';
+const minuteLog = logger.scope("minute");
+
 const TXT_TITLE = "text-gray-900 dark:text-gray-50";
 const TXT_BODY = "text-gray-700 dark:text-gray-300";
 const TXT_META = "text-gray-500 dark:text-gray-400";
@@ -171,10 +174,10 @@ const showConfirmPublishModal = async ({ minuteId, onConfirm }) => {
     if (confirmed) {
       onConfirm?.(minuteId);
       // TODO: llamar API para actualizar estado a 'completed'
-      console.log("Minuta publicada:", minuteId);
+      minuteLog.log("Minuta publicada:", minuteId);
     }
   } catch (error) {
-    console.log("Modal cancelado", error);
+    minuteLog.log("Modal cancelado", error);
   }
 };
 
@@ -196,7 +199,7 @@ const showConfirmCancelModal = ({ minuteId, currentUser = "Usuario", onConfirm }
     }
     ModalManager.closeAll?.();
     onConfirm?.(minuteId, motivoValue.trim());
-    console.log("Minuta anulada:", minuteId, "| Motivo:", motivoValue.trim());
+    minuteLog.log("Minuta anulada:", minuteId, "| Motivo:", motivoValue.trim());
   };
 
   ModalManager.custom({

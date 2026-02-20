@@ -12,6 +12,10 @@ import ProfilesCatalogModal, { PROFILE_MODAL_MODES } from "./ProfilesCatalogModa
 // (DEV) Mock data - En PROD: reemplazar por service
 import profilesDataJSON from "@/data/analysisProfilesCatalog.json";
 
+
+import logger from '@/utils/logger';
+const profileLog = logger.scope("profile");
+
 // ============================================================
 // HELPERS
 // ============================================================
@@ -79,7 +83,7 @@ const ProfilesCatalog = () => {
                 setProfiles(transformed);
                 setFilteredProfiles(transformed);
             } catch (error) {
-                console.error("[ProfilesCatalog] Error loading profiles:", error);
+                profileLog.error("[ProfilesCatalog] Error loading profiles:", error);
             } finally {
                 setIsLoading(false);
             }
@@ -167,7 +171,7 @@ const ProfilesCatalog = () => {
     };
 
     const handleApplyFilters = () => {
-        console.log("[ProfilesCatalog] Filtros aplicados:", filters);
+        profileLog.log("[ProfilesCatalog] Filtros aplicados:", filters);
     };
 
     // ============================================================

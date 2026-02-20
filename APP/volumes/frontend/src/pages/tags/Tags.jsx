@@ -18,6 +18,9 @@ import ModalManager from "@/components/ui/modal";
 
 import TagsModal, { TAGS_MODAL_MODES } from "@/pages/tags/TagsModal";
 
+import logger from '@/utils/logger';
+const tagLog = logger.scope("tag");
+
 const STORAGE_KEY = "minuetaitor_tag_catalog_v2"; // ✅ cambia versión por migración a id numérico
 
 // ============================
@@ -124,7 +127,7 @@ const Tags = () => {
           saveToStorage(baseCatalog);
         }
       } catch (error) {
-        console.error("[Tags] Error loading tags:", error);
+        tagLog.error("[Tags] Error loading tags:", error);
         setTags(baseCatalog);
         setFilteredTags(baseCatalog);
         calculateStats(baseCatalog);
@@ -172,7 +175,7 @@ const Tags = () => {
   };
 
   const handleApplyFilters = () => {
-    console.log("[Tags] Filtros aplicados:", filters);
+    tagLog.log("[Tags] Filtros aplicados:", filters);
   };
 
   // ============================

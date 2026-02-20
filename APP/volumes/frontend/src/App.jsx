@@ -1,17 +1,13 @@
-/**
- * App.jsx
- * Punto de entrada — MinuetAItor
- *
- * Responsabilidades únicas:
- *  - Aplicar el tema dark/light al <html>
- *  - Montar el AppRouter (que gestiona toda la navegación)
- *
- * Todo lo demás (rutas, guards, layout, lazy loading) vive en /routes
- */
-
 import React, { useLayoutEffect } from "react";
 import AppRouter from "@/routes/AppRouter";
 import useBaseSiteStore from "@store/baseSiteStore";
+import { isDev, isQA } from "@/utils/environment";
+import { exposeViteEnvToWindow } from "./utils/exposeEnv";
+
+// Solo exponer en desarrollo o QA, nunca en producción
+if (isDev() || isQA()) {
+  exposeViteEnvToWindow();
+}
 
 function App() {
   const { theme } = useBaseSiteStore();

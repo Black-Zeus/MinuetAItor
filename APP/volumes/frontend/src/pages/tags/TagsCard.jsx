@@ -14,6 +14,9 @@ import ActionButton from "@/components/ui/button/ActionButton";
 
 import TagsModal, { TAGS_MODAL_MODES } from "@/pages/tags/TagsModal";
 
+import logger from '@/utils/logger';
+const tagLog = logger.scope("tag");
+
 const TXT_TITLE = "text-gray-900 dark:text-gray-50";
 const TXT_BODY = "text-gray-700 dark:text-gray-300";
 const TXT_META = "text-gray-500 dark:text-gray-400";
@@ -117,7 +120,7 @@ const TagsCard = ({ tag, onEdit, onDelete, onToggleStatus }) => {
 
       if (confirmed) onDelete?.(tag?.id);
     } catch (error) {
-      console.log("[TagsCard] Eliminación cancelada");
+      tagLog.log("[TagsCard] Eliminación cancelada");
     }
   };
 

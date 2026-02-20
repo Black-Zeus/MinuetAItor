@@ -17,6 +17,9 @@ import useSessionStore from "@store/sessionStore";
 
 import { formatDateTimeTechnical } from "@/utils/formats"
 
+import logger from '@/utils/logger';
+const usrProfLog = logger.scope("user-profile");
+
 // ─── Mapeo store → shape que espera el form ───────────────────────────────────
 // El form usa camelCase y nombres propios del UI.
 // El store usa snake_case igual que el backend.
@@ -87,7 +90,7 @@ const UserProfile = () => {
   
   const handleSave = async () => {
     const body = formToRequest(formData);
-    console.log("[UserProfile] PATCH /users/me →", body);
+    usrProfLog.log("[UserProfile] PATCH /users/me →", body);
     // TODO: await userService.updateMe(body)
     // TODO: await useSessionStore.getState().loadFromApi(true) para refrescar
     ModalManager.success?.({

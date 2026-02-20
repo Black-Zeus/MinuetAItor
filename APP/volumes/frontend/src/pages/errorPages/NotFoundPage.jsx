@@ -5,6 +5,9 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 
+import logger from '@/utils/logger';
+const erNotFoundLog = logger.scope("error-page");
+
 const NotFoundPage = () => {
   const navigate = useNavigate();
   const [mounted, setMounted] = useState(false);
@@ -29,7 +32,7 @@ const NotFoundPage = () => {
     // Simular búsqueda
     setTimeout(() => {
       // Aquí podrías implementar una búsqueda real o sugerencias
-      console.info("Búsqueda realizada");
+      erNotFoundLog.info("Búsqueda realizada");
     }, 500);
   };
 

@@ -11,6 +11,10 @@ import ModalManager from '@/components/ui/modal';
 // Import del componente único
 import ClientModal, { CLIENT_MODAL_MODES } from '@/pages/clientes/ClientModal';
 
+//Manejador de Logs
+import logger from "@/utils/logger";
+const clientLog = logger.scope("client");
+
 // Botón que abre el modal
 const showClientWizard = () => {
   ModalManager.show({
@@ -22,7 +26,7 @@ const showClientWizard = () => {
       <ClientModal
         mode={CLIENT_MODAL_MODES.CREATE}
         onSubmit={(data) => {
-          console.log('✅ Nuevo cliente:', data);
+          clientLog.info("Nuevo cliente:", { data });
 
           ModalManager.success({
             title: 'Cliente Creado',

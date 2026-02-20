@@ -14,6 +14,9 @@ import ActionButton from "@/components/ui/button/ActionButton";
 
 import ProfilesCatalogModal, { PROFILE_MODAL_MODES } from "./ProfilesCatalogModal";
 
+import logger from '@/utils/logger';
+const profileLog = logger.scope("profile");
+
 const TXT_TITLE = "text-gray-900 dark:text-gray-50";
 const TXT_BODY = "text-gray-700 dark:text-gray-300";
 const TXT_META = "text-gray-500 dark:text-gray-400";
@@ -126,7 +129,7 @@ const ProfilesCatalogCard = ({ profile, categories = [], onEdit, onDelete }) => 
 
       if (confirmed) onDelete?.(profile.id);
     } catch (e) {
-      console.log("[ProfilesCatalogCard] Eliminación cancelada");
+      profileLog.log("[ProfilesCatalogCard] Eliminación cancelada");
     }
   };
 

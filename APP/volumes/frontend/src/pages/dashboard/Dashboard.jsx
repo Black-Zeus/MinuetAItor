@@ -21,6 +21,9 @@ import PageLoadingSpinner  from "@/components/ui/modal/types/system/PageLoadingS
 
 import useBaseSiteStore from "@store/baseSiteStore"; // ← FIX: era dashboardStore
 
+import logger from '@/utils/logger';
+const dashboardLog = logger.scope("dashboard");
+
 export const TXT_TITLE    = "text-gray-900 dark:text-white";
 export const TXT_SUBTITLE = "text-gray-700 dark:text-gray-200";
 export const TXT_BODY     = "text-gray-600 dark:text-gray-300";
@@ -67,7 +70,7 @@ const Dashboard = () => {
           randomN((projectsData?.projects || []).filter((p) => p.isconfidential === true), 5)
         );
       } catch (err) {
-        console.error("[Dashboard] Error loading data:", err);
+        dashboardLog.error("[Dashboard] Error loading data:", err);
         setHasError(true);
       } finally {
         setIsLoading(false);
@@ -130,7 +133,7 @@ const Dashboard = () => {
           titleIcon="FaClipboardCheck"
           actionLabel="Ver todas"
           actionIcon="FaList"
-          onAction={() => console.log("[Dashboard] Ver minutas pendientes")}
+          onAction={() => dashboardLog.log("[Dashboard] Ver minutas pendientes")}
           minutes={pendingMinutes}
           emptyMessage="No hay minutas pendientes de aprobación."
         />
@@ -143,7 +146,7 @@ const Dashboard = () => {
           titleIcon="FaUserCheck"
           actionLabel="Historial"
           actionIcon="history"
-          onAction={() => console.log("[Dashboard] Ver historial de participación")}
+          onAction={() => dashboardLog.log("[Dashboard] Ver historial de participación")}
           minutes={participatedMinutes}
           emptyMessage="No hay minutas registradas con tu participación."
         />
@@ -157,7 +160,7 @@ const Dashboard = () => {
           titleIcon="FaUserShield"
           actionLabel="Administrar accesos"
           actionIcon="FaKey"
-          onAction={() => console.log("[Dashboard] Administrar accesos")}
+          onAction={() => dashboardLog.log("[Dashboard] Administrar accesos")}
           items={confidentialClients}
           emptyMessage="No tienes acceso a clientes confidenciales."
           onUpdate={handleUpdateClient}
@@ -173,7 +176,7 @@ const Dashboard = () => {
           titleIcon="FaFolderClosed"
           actionLabel="Ver proyectos"
           actionIcon="folder"
-          onAction={() => console.log("[Dashboard] Ver proyectos confidenciales")}
+          onAction={() => dashboardLog.log("[Dashboard] Ver proyectos confidenciales")}
           items={confidentialProjects}
           emptyMessage="No tienes acceso a proyectos confidenciales."
           clients={allClients}

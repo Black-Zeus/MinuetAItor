@@ -11,6 +11,10 @@ import {
     getModalConfig
 } from '../modalTypes.js';
 
+
+import logger from '@/utils/logger';
+const modalLog = logger.scope("modal");
+
 // ====================================
 // COMPONENTE DE BÚSQUEDA AVANZADA
 // ====================================
@@ -47,7 +51,7 @@ const SearchModalContent = ({
                 filters: activeFilters
             });
         } catch (error) {
-            console.error('Error searching:', error);
+            modalLog.error('Error searching:', error);
         } finally {
             setIsSearching(false);
         }

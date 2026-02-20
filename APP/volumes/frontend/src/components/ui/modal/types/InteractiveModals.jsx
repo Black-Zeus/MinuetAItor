@@ -11,6 +11,11 @@ import {
   getModalConfig
 } from '../modalTypes.js';
 
+
+import logger from '@/utils/logger';
+const modalLog = logger.scope("modal");
+
+
 // ====================================
 // MODAL DE CONFIRMACIÓN
 // ====================================
@@ -183,7 +188,7 @@ const FormModal = ({
     try {
       await onSubmit?.(formData);
     } catch (error) {
-      console.error('Error submitting form:', error);
+      modalLog.error('Error submitting form:', error);
       // Aquí podrías mostrar un error global
     } finally {
       setIsSubmitting(false);
@@ -383,7 +388,7 @@ const WizardModal_v1 = ({
     try {
       await onComplete?.(formData);
     } catch (error) {
-      console.error('Error completing wizard:', error);
+      modalLog.error('Error completing wizard:', error);
     } finally {
       setIsSubmitting(false);
     }
@@ -643,7 +648,7 @@ const WizardModal_v2 = ({
     try {
       await onComplete?.(formData);
     } catch (error) {
-      console.error('Error completing wizard:', error);
+      modalLog.error('Error completing wizard:', error);
     } finally {
       setIsSubmitting(false);
     }
@@ -1003,7 +1008,7 @@ const WizardModal_v3 = ({
     try {
       await onComplete?.(formData);
     } catch (error) {
-      console.error('Error completing wizard:', error);
+      modalLog.error('Error completing wizard:', error);
     } finally {
       setIsSubmitting(false);
     }
@@ -1403,7 +1408,7 @@ const handleComplete = useCallback(async () => {
     
     await onComplete?.(completeData);
   } catch (error) {
-    console.error('Error completing wizard:', error);
+    modalLog.error('Error completing wizard:', error);
   } finally {
     setIsSubmitting(false);
   }
@@ -1835,7 +1840,7 @@ const handleComplete = useCallback(async () => {
     
     await onComplete?.(completeData);
   } catch (error) {
-    console.error('Error completing wizard:', error);
+    modalLog.error('Error completing wizard:', error);
   } finally {
     setIsSubmitting(false);
   }
@@ -2205,7 +2210,7 @@ const LoginModal = ({
     try {
       await onSubmit?.(formData);
     } catch (error) {
-      console.error('Error logging in:', error);
+      modalLog.error('Error logging in:', error);
       setErrors({ general: 'Error al iniciar sesión. Verifique sus credenciales.' });
     } finally {
       setIsSubmitting(false);

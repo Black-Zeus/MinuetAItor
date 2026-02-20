@@ -11,8 +11,8 @@ import ModalManager from "@/components/ui/modal";
 // Import del componente modal (wizard)
 import TeamsModal, { TEAMS_MODAL_MODES } from "@/pages/teams/TeamsModal"; // <-- ajusta ruta si corresponde
 
-// (DEV) Catálogo de usuarios/team members. En PROD: reemplazar por service (GET /users)
-import teamsData from "@/data/dataTeams.json";
+import logger from '@/utils/logger';
+const teamsLog = logger.scope("teams");
 
 // Botón que abre el modal
 const showTeamsWizard = () => {
@@ -46,7 +46,7 @@ const showTeamsWizard = () => {
           //   createdAt,
           //   lastActivity
           // }
-          console.log("✅ Nuevo usuario:", data);
+          teamsLog.log("Nuevo usuario:", data);
 
           // Aquí luego iría TeamService.create(data) / UserService.create(data)
           ModalManager.success({

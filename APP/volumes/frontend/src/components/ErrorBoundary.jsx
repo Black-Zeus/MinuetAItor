@@ -5,6 +5,9 @@
  */
 
 import React from "react";
+import logger from "@/utils/logger";
+
+const ebLog = logger.scope("error-boundary");
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -36,19 +39,19 @@ class ErrorBoundary extends React.Component {
     // Log detallado para desarrollo
     const errorDetails = {
       id: this.state.errorId,
-      message: error.message,
-      stack: error.stack,
-      componentStack: errorInfo.componentStack,
+      message: error?.message,
+      stack: error?.stack,
+      componentStack: errorInfo?.componentStack,
       timestamp: new Date().toISOString(),
       userAgent: navigator.userAgent,
       url: window.location.href,
     };
 
-    console.group(`🔴 ERROR BOUNDARY [${this.state.errorId}]`);
-    console.error("Error:", error);
-    console.error("Error Info:", errorInfo);
-    console.error("Full Details:", errorDetails);
-    console.groupEnd();
+    ebLog.group(`🔴 ERROR BOUNDARY [${this.state.errorId}]`, { collapsed: false });
+    ebLog.error("Error", { errorId: this.state.errorId, error });
+    ebLog.error("Error Info", { errorId: this.state.errorId, errorInfo });
+    ebLog.error("Full Details", { errorId: this.state.errorId, errorDetails });
+    ebLog.groupEnd();
 
     // Aquí podrías enviar a un servicio de logging
     // this.logErrorToService(errorDetails);
@@ -82,7 +85,12 @@ class ErrorBoundary extends React.Component {
     navigator.clipboard
       .writeText(JSON.stringify(errorDetails, null, 2))
       .then(() => alert("Detalles del error copiados al portapapeles"))
-      .catch(() => console.error("Error al copiar al portapapeles"));
+      .catch((err) =>
+        ebLog.error("Error al copiar al portapapeles", {
+          errorId: this.state.errorId,
+          err,
+        })
+      );
   };
 
   getErrorSeverity = () => {
@@ -140,14 +148,10 @@ class ErrorBoundary extends React.Component {
         <div className="h-screen bg-gradient-to-br from-background-light to-background via-background-warm-light dark:from-background-dark dark:to-secondary-800 dark:via-secondary-900 flex items-center justify-center p-container-padding">
           <div className="bg-background-card-light dark:bg-background-card-dark shadow-modal rounded-3xl max-w-7xl w-full h-[96vh] my-[2vh] overflow-hidden border border-border dark:border-border-dark transition-smooth flex flex-col">
             {/* Header con severidad */}
-            <div
-              className={`${severity.colorClass} px-6 py-4 text-white relative overflow-hidden`}
-            >
+            <div className={`${severity.colorClass} px-6 py-4 text-white relative overflow-hidden`}>
               {/* Gradiente de fondo dinámico */}
               <div className="absolute inset-0 opacity-40">
-                <div
-                  className={`w-full h-full bg-gradient-to-r ${severity.gradientClass}`}
-                ></div>
+                <div className={`w-full h-full bg-gradient-to-r ${severity.gradientClass}`}></div>
               </div>
 
               {/* Patrón adicional para más impacto visual */}
@@ -157,25 +161,17 @@ class ErrorBoundary extends React.Component {
 
               <div className="relative flex items-center justify-between">
                 <div className="flex items-center space-x-3">
-                  <div className="text-2xl animate-gentle-pulse">
-                    {severity.icon}
-                  </div>
+                  <div className="text-2xl animate-gentle-pulse">{severity.icon}</div>
                   <div>
-                    <h1 className="text-xl font-bold text-shadow">
-                      Error Detectado
-                    </h1>
-                    <p className="text-sm opacity-90 font-mono">
-                      ID: {this.state.errorId}
-                    </p>
+                    <h1 className="text-xl font-bold text-shadow">Error Detectado</h1>
+                    <p className="text-sm opacity-90 font-mono">ID: {this.state.errorId}</p>
                   </div>
                 </div>
                 <div className="text-right">
                   <p className="text-sm opacity-90 font-medium">
                     Severidad: {severity.level.toUpperCase()}
                   </p>
-                  <p className="text-xs opacity-75 font-mono">
-                    {new Date().toLocaleString()}
-                  </p>
+                  <p className="text-xs opacity-75 font-mono">{new Date().toLocaleString()}</p>
                 </div>
               </div>
             </div>
@@ -185,17 +181,12 @@ class ErrorBoundary extends React.Component {
               {/* COLUMNA IZQUIERDA - Información Base */}
               <div className="lg:w-2/5 flex flex-col bg-background-warm-light dark:bg-secondary-800/50 border-r border-border dark:border-border-dark">
                 {/* Contenido principal con altura fija */}
-                <div
-                  className="flex-1 p-6"
-                  style={{ height: "400px", overflowY: "auto" }}
-                >
+                <div className="flex-1 p-6" style={{ height: "400px", overflowY: "auto" }}>
                   {/* Diagnóstico rápido */}
                   <div className="state-info border-l-4 border-info-500 p-4 mb-6 rounded-r-lg transition-smooth hover-lift">
                     <div className="flex items-start">
                       <div className="flex-shrink-0">
-                        <span className="text-info-500 text-lg animate-breathe">
-                          💡
-                        </span>
+                        <span className="text-info-500 text-lg animate-breathe">💡</span>
                       </div>
                       <div className="ml-3">
                         <h3 className="text-sm font-medium text-info-800 dark:text-info-300">
@@ -230,27 +221,21 @@ class ErrorBoundary extends React.Component {
 
                     <div className="space-y-3 text-sm bg-background dark:bg-secondary-700 rounded-lg p-4 transition-smooth">
                       <div className="flex-between">
-                        <span className="text-text-muted-light dark:text-text-muted-dark">
-                          Timestamp:
-                        </span>
+                        <span className="text-text-muted-light dark:text-text-muted-dark">Timestamp:</span>
                         <span className="text-text dark:text-text-dark font-mono text-xs">
                           {new Date().toISOString()}
                         </span>
                       </div>
 
                       <div className="flex-between">
-                        <span className="text-text-muted-light dark:text-text-muted-dark">
-                          URL:
-                        </span>
+                        <span className="text-text-muted-light dark:text-text-muted-dark">URL:</span>
                         <span className="text-text dark:text-text-dark font-mono text-xs truncate max-w-48">
                           {window.location.pathname}
                         </span>
                       </div>
 
                       <div className="flex-between">
-                        <span className="text-text-muted-light dark:text-text-muted-dark">
-                          User Agent:
-                        </span>
+                        <span className="text-text-muted-light dark:text-text-muted-dark">User Agent:</span>
                         <span className="text-text dark:text-text-dark font-mono text-xs truncate max-w-48">
                           {navigator.userAgent.split(" ")[0]}...
                         </span>
@@ -295,26 +280,15 @@ class ErrorBoundary extends React.Component {
                 </div>
 
                 {/* Área de contenido expandible con altura fija */}
-                <div
-                  className="flex-1 px-6 overflow-y-auto"
-                  style={{ height: "400px" }}
-                >
+                <div className="flex-1 px-6 overflow-y-auto" style={{ height: "400px" }}>
                   <div className="h-full flex flex-col">
                     {/* SECCIÓN 1 - Stack Trace */}
-                    <div
-                      className={
-                        this.state.showStackTrace
-                          ? "flex-1 flex flex-col"
-                          : "flex-shrink-0"
-                      }
-                    >
+                    <div className={this.state.showStackTrace ? "flex-1 flex flex-col" : "flex-shrink-0"}>
                       <button
                         onClick={() => {
                           this.setState({
                             showStackTrace: !this.state.showStackTrace,
-                            showComponentStack: this.state.showStackTrace
-                              ? this.state.showComponentStack
-                              : false,
+                            showComponentStack: this.state.showStackTrace ? this.state.showComponentStack : false,
                           });
                         }}
                         className="flex items-center justify-between w-full text-text-secondary-light dark:text-text-secondary-dark hover:text-text dark:hover:text-text-dark transition-natural group focus-ring rounded-md px-2 py-2 mb-3"
@@ -347,8 +321,7 @@ class ErrorBoundary extends React.Component {
                         <div className="animate-fade-in flex-1">
                           <div className="bg-secondary-900 dark:bg-secondary-800 rounded-lg p-4 h-full overflow-auto border border-border-strong-light dark:border-border-strong-dark scrollbar-custom shadow-soft">
                             <pre className="text-xs text-success-400 dark:text-success-300 font-mono whitespace-pre-wrap">
-                              {this.state.error?.stack ||
-                                "No stack trace available"}
+                              {this.state.error?.stack || "No stack trace available"}
                             </pre>
                           </div>
                         </div>
@@ -356,26 +329,15 @@ class ErrorBoundary extends React.Component {
                     </div>
 
                     {/* Espaciado entre secciones */}
-                    {!this.state.showStackTrace &&
-                      !this.state.showComponentStack && (
-                        <div className="h-6"></div>
-                      )}
+                    {!this.state.showStackTrace && !this.state.showComponentStack && <div className="h-6"></div>}
 
                     {/* SECCIÓN 2 - Component Stack */}
-                    <div
-                      className={
-                        this.state.showComponentStack
-                          ? "flex-1 flex flex-col"
-                          : "flex-shrink-0"
-                      }
-                    >
+                    <div className={this.state.showComponentStack ? "flex-1 flex flex-col" : "flex-shrink-0"}>
                       <button
                         onClick={() => {
                           this.setState({
                             showComponentStack: !this.state.showComponentStack,
-                            showStackTrace: this.state.showComponentStack
-                              ? this.state.showStackTrace
-                              : false,
+                            showStackTrace: this.state.showComponentStack ? this.state.showStackTrace : false,
                           });
                         }}
                         className="flex items-center justify-between w-full text-text-secondary-light dark:text-text-secondary-dark hover:text-text dark:hover:text-text-dark transition-natural group focus-ring rounded-md px-2 py-2 mb-3"
@@ -400,9 +362,7 @@ class ErrorBoundary extends React.Component {
                           </span>
                         </div>
                         <span className="text-xs bg-secondary-200 dark:bg-secondary-700 px-2 py-1 rounded-full">
-                          {this.state.showComponentStack
-                            ? "Ocultar"
-                            : "Mostrar"}
+                          {this.state.showComponentStack ? "Ocultar" : "Mostrar"}
                         </span>
                       </button>
 
@@ -410,8 +370,7 @@ class ErrorBoundary extends React.Component {
                         <div className="animate-fade-in flex-1">
                           <div className="bg-secondary-900 dark:bg-secondary-800 rounded-lg p-4 h-full overflow-auto border border-border-strong-light dark:border-border-strong-dark scrollbar-custom shadow-soft">
                             <pre className="text-xs text-warning-400 dark:text-warning-300 font-mono whitespace-pre-wrap">
-                              {this.state.errorInfo?.componentStack ||
-                                "No component stack available"}
+                              {this.state.errorInfo?.componentStack || "No component stack available"}
                             </pre>
                           </div>
                         </div>
@@ -434,11 +393,7 @@ class ErrorBoundary extends React.Component {
                     <button
                       onClick={() =>
                         window.open(
-                          `mailto:dev@tuapp.com?subject=Error Report [${
-                            this.state.errorId
-                          }]&body=Error ID: ${
-                            this.state.errorId
-                          }%0A%0AError: ${encodeURIComponent(
+                          `mailto:dev@tuapp.com?subject=Error Report [${this.state.errorId}]&body=Error ID: ${this.state.errorId}%0A%0AError: ${encodeURIComponent(
                             this.state.error?.toString() || ""
                           )}`
                         )
@@ -459,11 +414,10 @@ class ErrorBoundary extends React.Component {
                 <span className="flex items-center space-x-1">
                   <span>🛡️</span>
                   <span>ErrorBoundary</span>
+
                   {import.meta.env.VITE_FRONTEND_NAME && (
                     <>
-                      <span className="text-text-muted-light dark:text-text-muted-dark">
-                        •
-                      </span>
+                      <span className="text-text-muted-light dark:text-text-muted-dark">•</span>
                       <span className="font-medium">
                         <span className="uppercase">Sistema: </span>
                         <span className=" text-warm-600 dark:text-warm-400">
@@ -472,11 +426,10 @@ class ErrorBoundary extends React.Component {
                       </span>
                     </>
                   )}
+
                   {import.meta.env.VITE_FRONTEND_VERSION && (
                     <>
-                      <span className="text-text-muted-light dark:text-text-muted-dark">
-                        •
-                      </span>
+                      <span className="text-text-muted-light dark:text-text-muted-dark">•</span>
                       <span className="font-medium">
                         <span className="uppercase">Version: </span>
                         <span className=" text-primary-600 dark:text-primary-400">
@@ -485,11 +438,10 @@ class ErrorBoundary extends React.Component {
                       </span>
                     </>
                   )}
+
                   {import.meta.env.VITE_FRONTEND_ENV && (
                     <>
-                      <span className="text-text-muted-light dark:text-text-muted-dark">
-                        •
-                      </span>
+                      <span className="text-text-muted-light dark:text-text-muted-dark">•</span>
                       <span className="font-medium">
                         <span className="uppercase">Entorno: </span>
                         <span className=" text-info-600 dark:text-info-400">
@@ -499,9 +451,8 @@ class ErrorBoundary extends React.Component {
                     </>
                   )}
                 </span>
-                <span className="font-mono">
-                  {new Date().toLocaleTimeString()}
-                </span>
+
+                <span className="font-mono">{new Date().toLocaleTimeString()}</span>
               </div>
             </div>
           </div>

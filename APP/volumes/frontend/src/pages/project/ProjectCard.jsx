@@ -13,6 +13,9 @@ import ActionButton from "@/components/ui/button/ActionButton";
 
 import ProjectModal, { PROJECT_MODAL_MODES } from "@/pages/project/ProjectModal";
 
+import logger from '@/utils/logger';
+const projectLog = logger.scope("project");
+
 const TXT_TITLE = "text-gray-900 dark:text-gray-50";
 const TXT_BODY = "text-gray-700 dark:text-gray-300";
 const TXT_META = "text-gray-500 dark:text-gray-400";
@@ -113,7 +116,7 @@ const ProjectCard = ({ project, clients = [], onEdit, onDelete }) => {
 
       if (confirmed) onDelete?.(project.id);
     } catch (error) {
-      console.log("[ProjectCard] Eliminación cancelada");
+      projectLog.log("[ProjectCard] Eliminación cancelada");
     }
   };
 
