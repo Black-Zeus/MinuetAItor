@@ -41,7 +41,7 @@ def mark_logout(db: Session, jti: str) -> None:
         db.commit()
 
 
-def get_user_sessions(db: Session, user_id: str, limit: int = 10) -> list[UserSession]:
+def get_user_sessions(db: Session, user_id: str, limit: int = 5) -> list[UserSession]:
     return (
         db.query(UserSession)
         .filter(UserSession.user_id == user_id)
