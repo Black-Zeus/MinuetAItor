@@ -20,8 +20,10 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/docs" if settings.env_name != "prod" else None,
     redoc_url="/redoc" if settings.env_name != "prod" else None,
+    openapi_url="/openai" if settings.env_name != "prod" else None,
     lifespan=lifespan,
 )
+
 
 # ── Middlewares ───────────────────────────────────────
 # Orden importante: se apilan de abajo hacia arriba

@@ -12,6 +12,10 @@ class User(Base, TimestampMixin):
     email         = Column(String(200), nullable=True, unique=True)
     password_hash = Column(String(255), nullable=False)
     full_name     = Column(String(200), nullable=True)
+    description   = Column(String(500), nullable=True)
+    phone         = Column(String(20), nullable=True)
+    area          = Column(String(80), nullable=True)
+    job_title     = Column(String(250), nullable=True)
     is_active     = Column(Boolean, nullable=False, default=True)
     last_login_at = Column(DateTime, nullable=True)
 

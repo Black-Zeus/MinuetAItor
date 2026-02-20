@@ -48,6 +48,10 @@ class MeResponse(BaseModel):
     user_id:           str
     username:          str
     full_name:         str | None
+    description:       str | None
+    job_title:         str | None
+    phone:         str | None
+    area:         str | None
     email:             str | None
     roles:             list[str]
     permissions:       list[str]
