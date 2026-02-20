@@ -1,51 +1,45 @@
 /**
  * useBreadcrumb.js
- * Deriva el breadcrumb desde la URL actual.
- * Fuente de verdad: sidebarConfig + STANDALONE_ROUTES + DYNAMIC_ROUTES.
+ * Deriva el breadcrumb desde la URL actual y registra en navigationHistory.
  *
- * ✅ Funciona con cualquier tipo de navegación:
- *    sidebar click, link interno, URL directa, búsqueda, navegación programática.
- * ✅ Soporta 3 niveles: Inicio > Módulo padre > Submódulo hijo.
- * ✅ Soporta rutas dinámicas con parámetros: /minutes/process/:id
- * ✅ Agregar un módulo en sidebarConfig lo refleja automáticamente en el breadcrumb.
+ * Para rutas estáticas (sidebar, standalone) → registra automáticamente.
+ * Para rutas dinámicas (/minutes/process/:id) → registra nombre genérico "Edición"
+ *   PERO si la página llama useNavEntryUpdate({ label, meta }) sobrescribe la entry
+ *   con el título real de la minuta y los metadatos (id, etc.)
+ *
+ * Configuración:
+ *   NAV_HISTORY_MAX — entradas que persiste el store (default 10)
+ *   HeaderBreadcrumb tiene su propio prop maxHistory (cuántas muestra la UI)
  */
 
+import { useEffect }   from 'react';
 import { useLocation } from 'react-router-dom';
 import { SIDEBAR_MODULES } from '@config/sidebarConfig';
+import useBaseSiteStore    from '@store/baseSiteStore';
 
-// ====================================
-// RUTAS STANDALONE
-// Páginas fijas que NO tienen entrada en sidebarConfig.
-// ====================================
+// ─── Configuración ────────────────────────────────────────────────────────────
+const NAV_HISTORY_MAX = 10;
+
+// ─── Rutas standalone ─────────────────────────────────────────────────────────
 const STANDALONE_ROUTES = [
   { path: '/globalSearch',         name: 'Búsqueda Global', icon: 'FaMagnifyingGlass' },
   { path: '/settings/userProfile', name: 'Mi Perfil',       icon: 'FaPerson'          },
   { path: '/help',                 name: 'Ayuda & Soporte', icon: 'FaCircleInfo'      },
 ];
 
-// ====================================
-// RUTAS DINÁMICAS
-// Rutas con parámetros (:id, :slug, etc.)
-// pattern: regex que matchea el pathname
-// parent: módulo padre (debe existir en sidebarConfig como path)
-// name: label que se muestra en el breadcrumb
-// ====================================
+// ─── Rutas dinámicas ──────────────────────────────────────────────────────────
+// nameResolver(pathname) → nombre a mostrar antes de que la página sobreescriba con metadatos reales
 const DYNAMIC_ROUTES = [
   {
-    pattern: /^\/minutes\/process\/[^/]+$/,
-    name: 'Edición',
-    icon: 'FaPenToSquare',
-    parentPath: '/minutes',
+    pattern:      /^\/minutes\/process\/([^/]+)$/,
+    name:         'Edición',           // fallback hasta que la página llame useNavEntryUpdate
+    icon:         'FaPenToSquare',
+    parentPath:   '/minutes',
+    extractId:    (pathname) => pathname.split('/').pop(), // extrae el id del path
   },
 ];
 
-// ====================================
-// HELPERS
-// ====================================
-
-/**
- * Busca un módulo por path exacto dentro de SIDEBAR_MODULES (con children).
- */
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 const findModuleByPath = (modules, pathname) => {
   for (const module of modules) {
     if (module.path === pathname) return { module, parent: null };
@@ -58,10 +52,6 @@ const findModuleByPath = (modules, pathname) => {
   return null;
 };
 
-/**
- * Busca un módulo por path exacto (solo módulos planos, sin children).
- * Usado para resolver el padre de rutas dinámicas.
- */
 const findModuleFlat = (modules, path) => {
   for (const module of modules) {
     if (module.path === path) return module;
@@ -74,10 +64,6 @@ const findModuleFlat = (modules, path) => {
   return null;
 };
 
-/**
- * Convierte un array de segmentos en items para HeaderBreadcrumb.
- * El último segmento no lleva href (es la página activa).
- */
 const buildItems = (segments) =>
   segments.map((seg, index) =>
     index < segments.length - 1
@@ -85,62 +71,109 @@ const buildItems = (segments) =>
       : { label: seg.name }
   );
 
-// Segmento raíz, siempre el primero
 const INICIO = { name: 'Inicio', path: '/dashboard' };
 
-// ====================================
-// HOOK
-// ====================================
+// ─── Hook principal ───────────────────────────────────────────────────────────
 const useBreadcrumb = () => {
   const { pathname } = useLocation();
+  const addToNavigationHistory = useBaseSiteStore((s) => s.addToNavigationHistory);
 
-  // 1️⃣ Buscar en sidebarConfig — match exacto (módulos y submódulos)
+  let resolved = null;
+
+  // 1. sidebarConfig — match exacto
   const found = findModuleByPath(SIDEBAR_MODULES, pathname);
   if (found) {
     const { module, parent } = found;
-    const segments = parent
-      ? [INICIO, parent, module]   // Inicio > Padre > Hijo
-      : [INICIO, module];          // Inicio > Módulo
-
-    return {
-      title: module.name,
+    const segments = parent ? [INICIO, parent, module] : [INICIO, module];
+    resolved = {
+      name:  module.name,
+      icon:  module.icon ?? null,
       items: buildItems(segments),
+      meta:  null,
     };
   }
 
-  // 2️⃣ Buscar en rutas dinámicas — match por regex
-  const dynamic = DYNAMIC_ROUTES.find((r) => r.pattern.test(pathname));
-  if (dynamic) {
-    const segments = [INICIO];
-
-    // Resolver módulo padre si tiene parentPath
-    if (dynamic.parentPath) {
-      const parentModule = findModuleFlat(SIDEBAR_MODULES, dynamic.parentPath);
-      if (parentModule) segments.push(parentModule);
+  // 2. Rutas dinámicas — match por regex
+  if (!resolved) {
+    const dynamic = DYNAMIC_ROUTES.find((r) => r.pattern.test(pathname));
+    if (dynamic) {
+      const segments = [INICIO];
+      if (dynamic.parentPath) {
+        const parentModule = findModuleFlat(SIDEBAR_MODULES, dynamic.parentPath);
+        if (parentModule) segments.push(parentModule);
+      }
+      segments.push({ name: dynamic.name, path: pathname });
+      resolved = {
+        name: dynamic.name,
+        icon: dynamic.icon ?? null,
+        items: buildItems(segments),
+        // meta inicial con id extraído del path — se completa con useNavEntryUpdate
+        meta: dynamic.extractId
+          ? { id: dynamic.extractId(pathname) }
+          : null,
+      };
     }
-
-    segments.push({ name: dynamic.name, path: pathname });
-
-    return {
-      title: dynamic.name,
-      items: buildItems(segments),
-    };
   }
 
-  // 3️⃣ Buscar en rutas standalone — startsWith para tolerar query params
-  const standalone = STANDALONE_ROUTES.find((r) => pathname.startsWith(r.path));
-  if (standalone) {
-    return {
-      title: standalone.name,
-      items: buildItems([INICIO, standalone]),
-    };
+  // 3. Rutas standalone
+  if (!resolved) {
+    const standalone = STANDALONE_ROUTES.find((r) => pathname.startsWith(r.path));
+    if (standalone) {
+      resolved = {
+        name:  standalone.name,
+        icon:  standalone.icon ?? null,
+        items: buildItems([INICIO, standalone]),
+        meta:  null,
+      };
+    }
   }
 
-  // 4️⃣ Fallback al dashboard
+  // 4. Fallback
+  if (!resolved) {
+    resolved = { name: 'Inicio', icon: null, items: buildItems([INICIO]), meta: null };
+  }
+
+  // Registrar en historial al cambiar pathname
+  useEffect(() => {
+    addToNavigationHistory({
+      name: resolved.name,
+      path: pathname,
+      icon: resolved.icon,
+      meta: resolved.meta,  // { id } para rutas dinámicas — label se actualiza con useNavEntryUpdate
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+
   return {
-    title: 'Inicio',
-    items: buildItems([INICIO]),
+    title: resolved.name,
+    items: resolved.items,
   };
+};
+
+/**
+ * useNavEntryUpdate
+ * Se llama desde páginas con rutas dinámicas para enriquecer la entry de historial
+ * con el título real del recurso y metadatos adicionales.
+ *
+ * Uso en la página de edición de minutas:
+ *
+ *   useNavEntryUpdate({
+ *     label: minute.title,          // reemplaza "Edición" con el asunto real
+ *     meta: { id: minute.id }       // persiste el id para poder volver
+ *   });
+ *
+ * Se llama cuando `label` esté disponible (post-fetch).
+ * El pathname actual se usa como key para encontrar la entry en el historial.
+ */
+export const useNavEntryUpdate = ({ label, meta = {} }) => {
+  const { pathname } = useLocation();
+  const updateNavigationEntry = useBaseSiteStore((s) => s.updateNavigationEntry);
+
+  useEffect(() => {
+    if (!label) return; // esperar a que el dato esté disponible
+    updateNavigationEntry(pathname, { name: label, meta });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [label, pathname]);
 };
 
 export default useBreadcrumb;
