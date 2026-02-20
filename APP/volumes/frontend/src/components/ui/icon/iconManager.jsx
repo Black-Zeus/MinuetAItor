@@ -131,6 +131,10 @@ import {
   FaArrowUpRightFromSquare,
   FaArrowRight,
   FaMoon,
+
+    FaMobile,
+  FaChartBar,
+
 } from "react-icons/fa6";
 
 const kebabToCamel = (str) =>
@@ -388,6 +392,15 @@ const ICON_REGISTRY = {
   FaMoon: FaMoon,
   moon: FaMoon,
 
+  // =========================
+  // FIX warnings (FaMobile / FaChartBar)
+  // =========================
+  FaMobile: FaMobile,
+  FaChartBar: FaChartBar,
+
+  // aliases simples recomendados
+  mobile: FaMobile,
+  chartBar: FaChartBar,
 
 };
 
