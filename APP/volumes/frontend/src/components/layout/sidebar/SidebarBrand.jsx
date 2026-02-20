@@ -8,7 +8,7 @@ import AboutModal from "@/components/common/aboutModal/AboutModal";
 
 const SidebarBrand = ({
   isCollapsed = false,
-  logoSrc = "/chinchinAItor.jpg",
+  logoSrc = "/images/chinchinAItor.jpg",
   appName = "MinuetAItor",
   tagline = "Gestión de Minutas",
 }) => {

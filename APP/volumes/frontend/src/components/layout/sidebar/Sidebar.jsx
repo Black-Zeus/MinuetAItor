@@ -61,7 +61,7 @@ const Sidebar = ({
 
       <SidebarBrand
         isCollapsed={isSidebarCollapsed}
-        logoSrc="/chinchinAItor.jpg"
+        logoSrc="/images/chinchinAItor.jpg"
         appName="MinuetAItor"
         tagline="Gestión de Minutas"
       />

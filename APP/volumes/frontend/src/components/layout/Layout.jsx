@@ -1,23 +1,37 @@
+/**
+ * Layout.jsx
+ * Shell principal de la aplicación autenticada.
+ */
+
 import React from 'react';
 import { Outlet } from 'react-router-dom';
+import Sidebar        from './sidebar/Sidebar';
+import Header         from './header/Header';
+import useAuthStore   from '@store/authStore';
+import useSessionStore from '@store/sessionStore';
 
-import Sidebar from './sidebar/Sidebar';
-import Header from './header/Header';
+const Layout = ({ children }) => {
+  const logout         = useAuthStore((s) => s.logout);
+  const getDisplayData = useSessionStore((s) => s.getDisplayData);
+  const userDisplay    = getDisplayData();
+  const authz          = useSessionStore((s) => s.authz);
 
-const Layout = () => {
+  const sidebarUser = {
+    initials: userDisplay?.initials  || '?',
+    name:     userDisplay?.fullName  || userDisplay?.username || 'Usuario',
+    role:     userDisplay?.position  || authz?.roles?.[0] || 'Sin rol',
+    isAdmin:  authz?.roles?.includes('ADMIN') ?? false,
+  };
+
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Sidebar */}
-      <Sidebar />
+      <Sidebar user={sidebarUser} />
 
-      {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
         <Header />
 
-        {/* Content */}
         <main className="flex-1 overflow-y-auto bg-white dark:bg-gray-800 p-6">
-          <Outlet />
+          {children ?? <Outlet />}
         </main>
       </div>
     </div>
