@@ -10,7 +10,10 @@ from fastapi import HTTPException, status
 from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 
-from models.user import Role, User, UserProfile, UserRole
+from models.user import User
+from models.user_profiles import UserProfile
+from models.user_roles import UserRole
+from models.roles import Role
 from schemas.teams import (
     TeamCreateRequest,
     TeamFilterRequest,

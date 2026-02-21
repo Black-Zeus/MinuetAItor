@@ -1,6 +1,11 @@
 # repositories/auth_repository.py
 from sqlalchemy.orm import Session, joinedload
-from models.user import User, UserRole, Role, RolePermission, Permission, UserProfile
+from models.user import User
+from models.user_profiles import UserProfile
+from models.roles import Role
+from models.permissions import Permission
+from models.user_roles import UserRole
+from models.role_permissions import RolePermission
 
 
 def get_user_by_credential(db: Session, credential: str) -> User | None:
