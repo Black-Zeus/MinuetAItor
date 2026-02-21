@@ -326,7 +326,7 @@ CREATE TABLE user_profiles (
   department     VARCHAR(80) NULL,
   notes          VARCHAR(600) NULL,
   last_activity  DATE NULL,
-
+  assignment_mode VARCHAR(50) DEFAULT 'specific',
   CONSTRAINT fk_up_user FOREIGN KEY (user_id) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
