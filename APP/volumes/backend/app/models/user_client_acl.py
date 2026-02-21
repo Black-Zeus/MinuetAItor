@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import enum
+from datetime import datetime, timezone
+
 from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, Index, String, func
 from sqlalchemy.orm import relationship
 
@@ -9,36 +11,49 @@ from db.base import Base
 
 
 class UserClientAclPermission(str, enum.Enum):
-    read = "read"
-    edit = "edit"
+    read  = "read"
+    edit  = "edit"
     owner = "owner"
 
 
 class UserClientAcl(Base):
+    """
+    Permisos granulares usuario-cliente (ACL).
+    No usa TimestampMixin para gestionar created_at/updated_at manualmente
+    y ser consistente con el SQL de la tabla.
+    """
     __tablename__ = "user_client_acl"
 
-    user_id = Column(String(36), ForeignKey("users.id"), primary_key=True)
+    user_id   = Column(String(36), ForeignKey("users.id"), primary_key=True)
     client_id = Column(String(36), ForeignKey("clients.id"), primary_key=True)
 
     permission = Column(
         Enum(UserClientAclPermission, name="uca_permission_enum"),
         nullable=False,
+        default=UserClientAclPermission.read,
         server_default=UserClientAclPermission.read.value,
     )
-    is_active = Column(Boolean, nullable=False, server_default="1")
+    is_active = Column(Boolean, nullable=False, default=True, server_default="1")
 
-    created_at = Column(DateTime, nullable=False, server_default=func.current_timestamp())
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        server_default=func.now(),
+    )
     created_by = Column(String(36), ForeignKey("users.id"), nullable=True)
-    updated_at = Column(DateTime, nullable=True)
+
+    updated_at = Column(DateTime, nullable=True, onupdate=lambda: datetime.now(timezone.utc))
     updated_by = Column(String(36), ForeignKey("users.id"), nullable=True)
+
     deleted_at = Column(DateTime, nullable=True)
     deleted_by = Column(String(36), ForeignKey("users.id"), nullable=True)
 
     # Relaciones de dominio
-    user = relationship("User", foreign_keys=[user_id], lazy="select")
+    user   = relationship("User",   foreign_keys=[user_id],   lazy="select")
     client = relationship("Client", foreign_keys=[client_id], lazy="select")
 
-    # Relaciones auditoría
+    # Relaciones de auditoría
     created_by_user = relationship("User", foreign_keys=[created_by], lazy="select")
     updated_by_user = relationship("User", foreign_keys=[updated_by], lazy="select")
     deleted_by_user = relationship("User", foreign_keys=[deleted_by], lazy="select")

@@ -12,15 +12,13 @@ from schemas.audit_logs import (
     AuditLogFilterRequest,
     AuditLogListResponse,
     AuditLogResponse,
-    AuditLogUpdateRequest,
+    # AuditLogUpdateRequest eliminado — audit_log es inmutable (no expone PUT)
 )
 from services.auth_service import get_current_user
 from services.audit_logs_service import (
     create_audit_log,
-    delete_audit_log,
     get_audit_log,
     list_audit_logs,
-    update_audit_log,
 )
 
 router = APIRouter(prefix="/audit-logs", tags=["AuditLogs"])
@@ -60,21 +58,5 @@ def create_endpoint(
     return create_audit_log(db, body, created_by_id=session.user_id)
 
 
-@router.put("/{id}", response_model=AuditLogResponse, status_code=status.HTTP_200_OK)
-def update_endpoint(
-    id: int,
-    body: AuditLogUpdateRequest,
-    db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
-):
-    return update_audit_log(db, id, body, updated_by_id=session.user_id)
-
-
-@router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_endpoint(
-    id: int,
-    db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
-):
-    delete_audit_log(db, id)
-    return None
+# PUT eliminado — el audit_log es un registro de auditoría inmutable.
+# DELETE eliminado — los registros de auditoría no se borran.

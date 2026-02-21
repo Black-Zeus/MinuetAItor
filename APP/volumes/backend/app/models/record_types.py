@@ -1,8 +1,7 @@
 # models/record_types.py
-
 from __future__ import annotations
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, SmallInteger, String
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 from db.base import Base, TimestampMixin
@@ -11,17 +10,16 @@ from db.base import Base, TimestampMixin
 class RecordType(Base, TimestampMixin):
     __tablename__ = "record_types"
 
-    id = Column(SmallInteger, primary_key=True, autoincrement=True)
+    # CORRECCIÓN: Integer estándar (agnóstico de BD)
+    id = Column(Integer, primary_key=True, autoincrement=True)
 
-    code = Column(String(50), nullable=False, unique=True, index=False)
-    name = Column(String(120), nullable=False)
+    code        = Column(String(50), nullable=False, unique=True)
+    name        = Column(String(120), nullable=False)
     description = Column(String(255), nullable=True)
-
-    is_active = Column(Boolean, nullable=False, default=True)
+    is_active   = Column(Boolean, nullable=False, default=True)
 
     created_by = Column(String(36), ForeignKey("users.id"), nullable=True)
     updated_by = Column(String(36), ForeignKey("users.id"), nullable=True)
-
     deleted_at = Column(DateTime, nullable=True)
     deleted_by = Column(String(36), ForeignKey("users.id"), nullable=True)
 

@@ -13,8 +13,13 @@ class RecordVersion(Base, TimestampMixin):
     id = Column(String(36), primary_key=True)
 
     record_id   = Column(String(36), ForeignKey("records.id"), nullable=False)
-    version_num = Column(Integer, nullable=False)  # INT UNSIGNED
-    status_id   = Column(SmallInteger, ForeignKey("version_statuses.id"), nullable=False)  # SMALLINT UNSIGNED
+
+    # CORRECCIÓN: Integer estándar (agnóstico de BD). Semánticamente es un número de versión
+    # positivo, la restricción de unsigned se aplica a nivel de migración/BD si se desea.
+    version_num = Column(Integer, nullable=False)
+
+    # CORRECCIÓN: Integer estándar para FK a tabla de catálogo (version_statuses)
+    status_id   = Column(Integer, ForeignKey("version_statuses.id"), nullable=False)
 
     published_at = Column(DateTime, nullable=False, server_default=func.now())
     published_by = Column(String(36), ForeignKey("users.id"), nullable=False)
@@ -22,11 +27,11 @@ class RecordVersion(Base, TimestampMixin):
     schema_version   = Column(String(40), nullable=False)
     template_version = Column(String(40), nullable=False)
 
-    summary_text     = Column(Text, nullable=True)
-    decisions_text   = Column(Text, nullable=True)
-    agreements_text  = Column(Text, nullable=True)
-    risks_text       = Column(Text, nullable=True)
-    next_steps_text  = Column(Text, nullable=True)
+    summary_text    = Column(Text, nullable=True)
+    decisions_text  = Column(Text, nullable=True)
+    agreements_text = Column(Text, nullable=True)
+    risks_text      = Column(Text, nullable=True)
+    next_steps_text = Column(Text, nullable=True)
 
     ai_provider = Column(String(40), nullable=True)
     ai_model    = Column(String(80), nullable=True)
@@ -37,7 +42,6 @@ class RecordVersion(Base, TimestampMixin):
 
     # ── Relaciones ─────────────────────────────────────────────────────────────
     record = relationship("Record", lazy="select")
-
     status = relationship("VersionStatus", lazy="select")
 
     published_by_user = relationship(

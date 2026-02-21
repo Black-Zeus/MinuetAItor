@@ -3,9 +3,8 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey
+from sqlalchemy import DateTime, ForeignKey, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.dialects.mysql import SMALLINT, INTEGER  # ✅
 
 from db.base import Base
 
@@ -13,13 +12,14 @@ from db.base import Base
 class RolePermission(Base):
     __tablename__ = "role_permissions"
 
+    # CORRECCIÓN: Integer estándar (agnóstico de BD) para ambas FKs
     role_id: Mapped[int] = mapped_column(
-        SMALLINT(unsigned=True),  # ✅
+        Integer,
         ForeignKey("roles.id"),
         primary_key=True,
     )
     permission_id: Mapped[int] = mapped_column(
-        INTEGER(unsigned=True),   # ✅
+        Integer,
         ForeignKey("permissions.id"),
         primary_key=True,
     )
@@ -34,8 +34,11 @@ class RolePermission(Base):
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     deleted_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
 
-    role = relationship("Role", lazy="select")
-    permission = relationship("Permission", lazy="select")
-
+    # Relaciones
+    role            = relationship("Role", lazy="select")
+    permission      = relationship("Permission", lazy="select")
     created_by_user = relationship("User", foreign_keys=[created_by], lazy="select")
     deleted_by_user = relationship("User", foreign_keys=[deleted_by], lazy="select")
+
+    def __repr__(self) -> str:
+        return f"<RolePermission role_id={self.role_id} permission_id={self.permission_id}>"
