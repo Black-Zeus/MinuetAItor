@@ -12,7 +12,6 @@ from schemas.record_version_ai_tags import (
     RecordVersionAiTagFilterRequest,
     RecordVersionAiTagListResponse,
     RecordVersionAiTagResponse,
-    RecordVersionAiTagUpdateRequest,
 )
 from services.auth_service import get_current_user
 from services.record_version_ai_tags_service import (
@@ -20,7 +19,6 @@ from services.record_version_ai_tags_service import (
     delete_record_version_ai_tag,
     get_record_version_ai_tag,
     list_record_version_ai_tags,
-    update_record_version_ai_tag,
 )
 
 router = APIRouter(prefix="/record-version-ai-tags", tags=["RecordVersionAiTags"])
@@ -31,6 +29,16 @@ async def current_user_dep(
     credentials: HTTPAuthorizationCredentials = Depends(bearer),
 ) -> UserSession:
     return await get_current_user(credentials.credentials)
+
+
+# CRÍTICO: /list antes que rutas con path params
+@router.post("/list", response_model=RecordVersionAiTagListResponse, status_code=status.HTTP_200_OK)
+def list_endpoint(
+    body: RecordVersionAiTagFilterRequest,
+    db: Session = Depends(get_db),
+    session: UserSession = Depends(current_user_dep),
+):
+    return list_record_version_ai_tags(db, body)
 
 
 @router.get(
@@ -47,45 +55,13 @@ def get_endpoint(
     return get_record_version_ai_tag(db, record_version_id, ai_tag_id)
 
 
-@router.post(
-    "/list",
-    response_model=RecordVersionAiTagListResponse,
-    status_code=status.HTTP_200_OK,
-)
-def list_endpoint(
-    body: RecordVersionAiTagFilterRequest,
-    db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
-):
-    return list_record_version_ai_tags(db, body)
-
-
-@router.post(
-    "",
-    response_model=RecordVersionAiTagResponse,
-    status_code=status.HTTP_201_CREATED,
-)
+@router.post("", response_model=RecordVersionAiTagResponse, status_code=status.HTTP_201_CREATED)
 def create_endpoint(
     body: RecordVersionAiTagCreateRequest,
     db: Session = Depends(get_db),
     session: UserSession = Depends(current_user_dep),
 ):
     return create_record_version_ai_tag(db, body)
-
-
-@router.put(
-    "/{record_version_id}/{ai_tag_id}",
-    response_model=RecordVersionAiTagResponse,
-    status_code=status.HTTP_200_OK,
-)
-def update_endpoint(
-    record_version_id: str,
-    ai_tag_id: str,
-    body: RecordVersionAiTagUpdateRequest,
-    db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
-):
-    return update_record_version_ai_tag(db, record_version_id, ai_tag_id, body)
 
 
 @router.delete(
@@ -100,3 +76,6 @@ def delete_endpoint(
 ):
     delete_record_version_ai_tag(db, record_version_id, ai_tag_id)
     return None
+
+# PUT eliminado — la relación versión ↔ AI tag no tiene campos mutables;
+# su única operación válida es existir o no existir (POST / DELETE).
