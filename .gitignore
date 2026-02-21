@@ -23,6 +23,12 @@ build/
 *.key
 **/secrets.*
 
+# --- Excepción: permitir .env dentro de APP/volumes ---
+!APP/
+!APP/volumes/
+!APP/volumes/**/
+!APP/volumes/**/.env
+
 # Data runtime
 APP/data/*_data/
 APP/data/mariadb_data/
