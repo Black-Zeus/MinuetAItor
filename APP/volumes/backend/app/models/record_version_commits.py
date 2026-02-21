@@ -1,12 +1,21 @@
 # models/record_version_commits.py
+from __future__ import annotations
 
-from sqlalchemy import BigInteger, Column, DateTime, ForeignKey, String, Text, UniqueConstraint, Index
+from datetime import datetime, timezone
+
+from sqlalchemy import BigInteger, Column, DateTime, ForeignKey, String, Text, UniqueConstraint, Index, func
 from sqlalchemy.orm import relationship
 
-from db.base import Base, TimestampMixin
+from db.base import Base
 
 
-class RecordVersionCommit(Base, TimestampMixin):
+class RecordVersionCommit(Base):
+    """
+    Commit de auditoría de versión. Es inmutable por naturaleza:
+    solo tiene created_at, no updated_at.
+    CORRECCIÓN: se reemplazó TimestampMixin (que agrega updated_at innecesariamente)
+    por created_at manual.
+    """
     __tablename__ = "record_version_commits"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
@@ -14,10 +23,18 @@ class RecordVersionCommit(Base, TimestampMixin):
     record_version_id = Column(String(36), ForeignKey("record_versions.id"), nullable=False)
     parent_version_id = Column(String(36), ForeignKey("record_versions.id"), nullable=True)
 
-    commit_title = Column(String(160), nullable=False)
-    commit_body = Column(Text, nullable=True)
+    commit_title  = Column(String(160), nullable=False)
+    commit_body   = Column(Text, nullable=True)
 
     actor_user_id = Column(String(36), ForeignKey("users.id"), nullable=False)
+
+    # Solo created_at — los commits no se modifican
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        server_default=func.now(),
+    )
 
     deleted_at = Column(DateTime, nullable=True)
     deleted_by = Column(String(36), ForeignKey("users.id"), nullable=True)
@@ -40,7 +57,6 @@ class RecordVersionCommit(Base, TimestampMixin):
         foreign_keys=[parent_version_id],
         lazy="select",
     )
-
     actor_user = relationship(
         "User",
         foreign_keys=[actor_user_id],

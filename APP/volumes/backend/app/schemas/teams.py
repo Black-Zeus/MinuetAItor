@@ -1,9 +1,10 @@
 # schemas/teams.py
 from __future__ import annotations
 
+from datetime import datetime
 from enum import Enum
 from typing import Any
-from datetime import datetime
+
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
@@ -13,15 +14,19 @@ class TeamStatus(str, Enum):
     active   = "active"
     inactive = "inactive"
 
+
 class TeamSystemRole(str, Enum):
     """Mapea a códigos en la tabla roles."""
     admin = "admin"
     write = "write"
     read  = "read"
 
+
 class TeamAssignmentMode(str, Enum):
+    """Mapea a AssignmentModeEnum en user_profiles."""
     all      = "all"
     specific = "specific"
+
 
 class TeamDepartment(str, Enum):
     operations = "operations"
@@ -38,7 +43,6 @@ class TeamCreateRequest(BaseModel):
     """
     Crea un User + UserProfile + asigna rol.
     Sin password: se genera hash temporal internamente.
-    clients/projects: ignorados por ahora (arrays vacíos).
     """
     # ── User fields ──
     username:  str      = Field(..., min_length=3, max_length=80)
@@ -47,15 +51,16 @@ class TeamCreateRequest(BaseModel):
     phone:     str | None = Field(None, max_length=20)
 
     # ── UserProfile fields ──
-    position:   str            = Field(..., max_length=120)
-    department: TeamDepartment
-    initials:   str            = Field(..., min_length=1, max_length=10)
-    color:      str            = Field(..., max_length=20)
-    notes:      str | None     = Field(None, max_length=600)
+    position:        str            = Field(..., max_length=120)
+    department:      TeamDepartment
+    initials:        str            = Field(..., min_length=1, max_length=10)
+    color:           str            = Field(..., max_length=20)
+    notes:           str | None     = Field(None, max_length=600)
 
     # ── Sistema ──
     status:          TeamStatus         = TeamStatus.active
     system_role:     TeamSystemRole     = Field(TeamSystemRole.read, alias="systemRole")
+    # CORRECCIÓN: assignment_mode ahora se persiste en user_profiles
     assignment_mode: TeamAssignmentMode = Field(TeamAssignmentMode.specific, alias="assignmentMode")
 
     # ── Ignorados por ahora ──
@@ -71,10 +76,7 @@ class TeamCreateRequest(BaseModel):
 
 
 class TeamUpdateRequest(BaseModel):
-    """
-    Actualiza User y/o UserProfile.
-    Solo se modifican los campos presentes en el body.
-    """
+    """Actualiza User y/o UserProfile. Solo campos presentes en el body."""
     # ── User fields ──
     username:  str | None      = Field(None, min_length=3, max_length=80)
     email:     EmailStr | None = None
@@ -90,6 +92,7 @@ class TeamUpdateRequest(BaseModel):
 
     # ── Sistema ──
     system_role:     TeamSystemRole | None     = Field(None, alias="systemRole")
+    # CORRECCIÓN: assignment_mode actualizable
     assignment_mode: TeamAssignmentMode | None = Field(None, alias="assignmentMode")
 
     # ── Ignorados por ahora ──
@@ -110,7 +113,7 @@ class TeamStatusRequest(BaseModel):
 
 class TeamFilterRequest(BaseModel):
     """Filtros en body del POST /teams/list."""
-    search:      str | None            = None   # busca en full_name, email, username, position
+    search:      str | None            = None
     department:  TeamDepartment | None = None
     system_role: TeamSystemRole | None = Field(None, alias="systemRole")
     status:      TeamStatus | None     = None
@@ -135,13 +138,13 @@ class TeamResponse(BaseModel):
     system_role:     str        = Field(serialization_alias="systemRole")
     initials:        str | None
     color:           str | None
+    # CORRECCIÓN: assignment_mode ahora tiene valor real desde user_profiles
     assignment_mode: str        = Field(serialization_alias="assignmentMode")
     clients:         list[Any]  # siempre []
     projects:        list[Any]  # siempre []
     notes:           str | None
     created_at:      str        = Field(serialization_alias="createdAt")
     last_activity:   datetime | None = Field(None, serialization_alias="lastActivity")
-
 
     model_config = {"populate_by_name": True}
 

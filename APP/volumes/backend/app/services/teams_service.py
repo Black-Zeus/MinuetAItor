@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import secrets
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 import bcrypt
 from fastapi import HTTPException, status
@@ -11,7 +11,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 
 from models.user import User
-from models.user_profiles import UserProfile
+from models.user_profiles import UserProfile, AssignmentModeEnum
 from models.user_roles import UserRole
 from models.roles import Role
 from schemas.teams import (
@@ -21,12 +21,6 @@ from schemas.teams import (
     TeamSystemRole,
     TeamUpdateRequest,
 )
-
-
-# ── Constantes ────────────────────────────────────────
-
-# Rol por defecto si no existe ninguno asignado
-_DEFAULT_ASSIGNMENT_MODE = "specific"
 
 
 # ── Helpers privados ──────────────────────────────────
@@ -73,7 +67,7 @@ def _check_unique_username(db: Session, username: str, exclude_id: str | None = 
 
 def _get_role(db: Session, role_code: str) -> Role:
     """Obtiene el Role por código. Lanza 500 si no existe (error de configuración)."""
-    role = db.query(Role).filter(Role.code == role_code, Role.is_active == True).first()
+    role = db.query(Role).filter(Role.code == role_code, Role.is_active.is_(True)).first()
     if not role:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -87,14 +81,22 @@ def _get_current_role_code(user: User) -> str:
     active_roles = [ur for ur in (user.roles or []) if ur.deleted_at is None]
     if not active_roles:
         return TeamSystemRole.read.value
-    # toma el primero (un usuario tiene un rol en este sistema)
     return active_roles[0].role.code if active_roles[0].role else TeamSystemRole.read.value
 
 
 def _get_assignment_mode(user: User) -> str:
-    """Extrae assignment_mode del perfil. Por ahora campo no existe → retorna default."""
-    # TODO: agregar campo assignment_mode a user_profiles cuando se migre el schema
-    return _DEFAULT_ASSIGNMENT_MODE
+    """
+    CORRECCIÓN: Lee assignment_mode real desde user_profiles.
+    Retorna 'specific' como fallback si el perfil no existe.
+    """
+    profile = user.profile
+    if not profile:
+        return AssignmentModeEnum.specific.value
+    mode = profile.assignment_mode
+    if mode is None:
+        return AssignmentModeEnum.specific.value
+    # Soporta tanto el enum como el string
+    return mode.value if hasattr(mode, "value") else str(mode)
 
 
 def _build_temp_password_hash() -> str:
@@ -106,8 +108,8 @@ def _build_temp_password_hash() -> str:
 
 def _user_to_dict(user: User) -> dict:
     """Serializa User + UserProfile + Role al shape del frontend."""
-    profile = user.profile
-    role_code = _get_current_role_code(user)
+    profile         = user.profile
+    role_code       = _get_current_role_code(user)
     assignment_mode = _get_assignment_mode(user)
 
     return {
@@ -115,17 +117,17 @@ def _user_to_dict(user: User) -> dict:
         "name":            user.full_name or "",
         "username":        user.username,
         "email":           user.email or "",
-        "position":        profile.position      if profile else None,
+        "position":        profile.position   if profile else None,
         "phone":           user.phone,
-        "department":      profile.department    if profile else None,
+        "department":      profile.department if profile else None,
         "status":          "active" if user.is_active else "inactive",
         "system_role":     role_code,
-        "initials":        profile.initials      if profile else None,
-        "color":           profile.color         if profile else None,
+        "initials":        profile.initials   if profile else None,
+        "color":           profile.color      if profile else None,
         "assignment_mode": assignment_mode,
         "clients":         [],   # pendiente implementación
         "projects":        [],   # pendiente implementación
-        "notes":           profile.notes         if profile else None,
+        "notes":           profile.notes      if profile else None,
         "created_at":      str(user.created_at.date()) if user.created_at else "",
         "last_activity":   user.last_login_at,
     }
@@ -148,17 +150,14 @@ def list_team_members(db: Session, filters: TeamFilterRequest) -> dict:
         .filter(User.deleted_at.is_(None))
     )
 
-    # filtro status
     if filters.status:
         q = q.filter(User.is_active == (filters.status == TeamStatus.active))
 
-    # filtro department → en user_profiles
     if filters.department:
         q = q.join(UserProfile, UserProfile.user_id == User.id).filter(
             UserProfile.department == filters.department.value
         )
 
-    # filtro system_role → en roles via user_roles
     if filters.system_role:
         q = (
             q.join(UserRole, UserRole.user_id == User.id)
@@ -166,10 +165,8 @@ def list_team_members(db: Session, filters: TeamFilterRequest) -> dict:
              .filter(Role.code == filters.system_role.value, UserRole.deleted_at.is_(None))
         )
 
-    # filtro search
     if filters.search:
         term = f"%{filters.search}%"
-        # join profile si no se hizo antes
         if not filters.department:
             q = q.outerjoin(UserProfile, UserProfile.user_id == User.id)
         q = q.filter(
@@ -201,7 +198,7 @@ def create_team_member(
     _check_unique_username(db, payload.username)
 
     role = _get_role(db, payload.system_role.value)
-    now  = datetime.utcnow()
+    now  = datetime.now(timezone.utc)
 
     # 1. Crear User
     user = User(
@@ -217,14 +214,15 @@ def create_team_member(
     db.add(user)
     db.flush()  # obtener user.id sin commitear aún
 
-    # 2. Crear UserProfile
+    # 2. Crear UserProfile — CORRECCIÓN: incluye assignment_mode real
     profile = UserProfile(
-        user_id    = user.id,
-        position   = payload.position,
-        department = payload.department.value,
-        initials   = payload.initials,
-        color      = payload.color,
-        notes      = payload.notes,
+        user_id         = user.id,
+        position        = payload.position,
+        department      = payload.department.value,
+        initials        = payload.initials,
+        color           = payload.color,
+        notes           = payload.notes,
+        assignment_mode = AssignmentModeEnum(payload.assignment_mode.value),
     )
     db.add(profile)
 
@@ -240,7 +238,6 @@ def create_team_member(
     db.commit()
     db.refresh(user)
 
-    # recargar con relaciones
     return _user_to_dict(_get_user_or_404(db, user.id))
 
 
@@ -273,12 +270,12 @@ def update_team_member(
     user.updated_by = updated_by_id
 
     # ── Actualizar UserProfile ──
-    profile_fields = {"position", "department", "initials", "color", "notes"}
     profile = user.profile
     if not profile:
         profile = UserProfile(user_id=user_id)
         db.add(profile)
 
+    profile_fields = {"position", "department", "initials", "color", "notes"}
     for field in profile_fields & update_data.keys():
         value = update_data[field]
         if hasattr(value, "value"):
@@ -288,12 +285,19 @@ def update_team_member(
     if "initials" in update_data and update_data["initials"]:
         profile.initials = update_data["initials"].upper()
 
+    # CORRECCIÓN: assignment_mode se persiste en user_profiles
+    if "assignment_mode" in update_data and update_data["assignment_mode"]:
+        raw = update_data["assignment_mode"]
+        profile.assignment_mode = AssignmentModeEnum(
+            raw.value if hasattr(raw, "value") else raw
+        )
+
     # ── Cambio de rol ──
     if "system_role" in update_data:
-        new_role = _get_role(db, update_data["system_role"].value
-                             if hasattr(update_data["system_role"], "value")
-                             else update_data["system_role"])
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
+        raw_role = update_data["system_role"]
+        role_code = raw_role.value if hasattr(raw_role, "value") else raw_role
+        new_role = _get_role(db, role_code)
 
         # soft-delete roles actuales
         for ur in (user.roles or []):
@@ -301,7 +305,6 @@ def update_team_member(
                 ur.deleted_at = now
                 ur.deleted_by = updated_by_id
 
-        # asignar nuevo rol
         db.add(UserRole(
             user_id    = user_id,
             role_id    = new_role.id,
@@ -333,9 +336,8 @@ def delete_team_member(
     deleted_by_id: str | None = None,
 ) -> None:
     user = _get_user_or_404(db, user_id)
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
-    # soft-delete
     user.deleted_at = now
     user.deleted_by = deleted_by_id
     user.is_active  = False
