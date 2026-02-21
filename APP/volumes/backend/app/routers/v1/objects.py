@@ -12,7 +12,6 @@ from schemas.objects import (
     ObjectFilterRequest,
     ObjectListResponse,
     ObjectResponse,
-    ObjectUpdateRequest,
 )
 from services.auth_service import get_current_user
 from services.objects_service import (
@@ -20,7 +19,6 @@ from services.objects_service import (
     delete_object,
     get_object,
     list_objects,
-    update_object,
 )
 
 router = APIRouter(prefix="/objects", tags=["Objects"])
@@ -33,15 +31,7 @@ async def current_user_dep(
     return await get_current_user(credentials.credentials)
 
 
-@router.get("/{id}", response_model=ObjectResponse, status_code=status.HTTP_200_OK)
-def get_endpoint(
-    id: str,
-    db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
-):
-    return get_object(db, id)
-
-
+# CRÍTICO: /list antes que GET /{id}
 @router.post("/list", response_model=ObjectListResponse, status_code=status.HTTP_200_OK)
 def list_endpoint(
     body: ObjectFilterRequest,
@@ -49,6 +39,15 @@ def list_endpoint(
     session: UserSession = Depends(current_user_dep),
 ):
     return list_objects(db, body)
+
+
+@router.get("/{id}", response_model=ObjectResponse, status_code=status.HTTP_200_OK)
+def get_endpoint(
+    id: str,
+    db: Session = Depends(get_db),
+    session: UserSession = Depends(current_user_dep),
+):
+    return get_object(db, id)
 
 
 @router.post("", response_model=ObjectResponse, status_code=status.HTTP_201_CREATED)
@@ -60,16 +59,6 @@ def create_endpoint(
     return create_object(db, body, created_by_id=session.user_id)
 
 
-@router.put("/{id}", response_model=ObjectResponse, status_code=status.HTTP_200_OK)
-def update_endpoint(
-    id: str,
-    body: ObjectUpdateRequest,
-    db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
-):
-    return update_object(db, id, body, updated_by_id=session.user_id)
-
-
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_endpoint(
     id: str,
@@ -78,3 +67,6 @@ def delete_endpoint(
 ):
     delete_object(db, id, deleted_by_id=session.user_id)
     return None
+
+# PUT eliminado — un objeto de storage es inmutable una vez creado.
+# Si el archivo cambia, se crea un nuevo objeto con su propio registro.

@@ -1,4 +1,5 @@
 # routers/v1/record_version_commits.py
+from __future__ import annotations
 
 from fastapi import APIRouter, Depends, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -11,15 +12,12 @@ from schemas.record_version_commits import (
     RecordVersionCommitFilterRequest,
     RecordVersionCommitListResponse,
     RecordVersionCommitResponse,
-    RecordVersionCommitUpdateRequest,
 )
 from services.auth_service import get_current_user
 from services.record_version_commits_service import (
     create_record_version_commit,
-    delete_record_version_commit,
     get_record_version_commit,
     list_record_version_commits,
-    update_record_version_commit,
 )
 
 router = APIRouter(prefix="/record-version-commits", tags=["RecordVersionCommits"])
@@ -41,6 +39,7 @@ def get_endpoint(
     return get_record_version_commit(db, id)
 
 
+# CRÍTICO: /list antes que POST ""
 @router.post("/list", response_model=RecordVersionCommitListResponse, status_code=status.HTTP_200_OK)
 def list_endpoint(
     body: RecordVersionCommitFilterRequest,
@@ -58,22 +57,5 @@ def create_endpoint(
 ):
     return create_record_version_commit(db, body, actor_user_id=session.user_id)
 
-
-@router.put("/{id}", response_model=RecordVersionCommitResponse, status_code=status.HTTP_200_OK)
-def update_endpoint(
-    id: int,
-    body: RecordVersionCommitUpdateRequest,
-    db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
-):
-    return update_record_version_commit(db, id, body)
-
-
-@router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_endpoint(
-    id: int,
-    db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
-):
-    delete_record_version_commit(db, id, deleted_by_id=session.user_id)
-    return None
+# PUT eliminado — los commits son registros históricos inmutables.
+# DELETE eliminado — los commits no se eliminan; son parte del historial de auditoría.

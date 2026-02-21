@@ -1,4 +1,12 @@
 # routers/v1/user_client_acl.py
+#
+# Propósito: gestiona los PERMISOS GRANULARES de un usuario sobre un cliente.
+# Requiere que el usuario ya esté asignado al cliente en user_clients.
+#
+# Diferencia con user_clients:
+#   - user_clients  → ¿este usuario pertenece a este cliente? (is_active)
+#   - user_client_acl → ¿qué puede hacer ese usuario dentro del cliente? (read/edit/owner)
+#
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, status
@@ -35,6 +43,7 @@ async def current_user_dep(
     return await get_current_user(credentials.credentials)
 
 
+# CRÍTICO: /list antes que rutas con path params
 @router.post("/list", response_model=UserClientAclListResponse, status_code=status.HTTP_200_OK)
 def list_endpoint(
     body: UserClientAclFilterRequest,
@@ -44,18 +53,14 @@ def list_endpoint(
     return list_user_client_acls(db, body)
 
 
-@router.get(
-    "/{user_id}/{client_id}",
-    response_model=UserClientAclResponse,
-    status_code=status.HTTP_200_OK,
-)
+@router.get("/{user_id}/{client_id}", response_model=UserClientAclResponse, status_code=status.HTTP_200_OK)
 def get_endpoint(
     user_id: str,
     client_id: str,
     db: Session = Depends(get_db),
     session: UserSession = Depends(current_user_dep),
 ):
-    return get_user_client_acl(db, user_id=user_id, client_id=client_id)
+    return get_user_client_acl(db, user_id, client_id)
 
 
 @router.post("", response_model=UserClientAclResponse, status_code=status.HTTP_201_CREATED)
@@ -67,11 +72,7 @@ def create_endpoint(
     return create_user_client_acl(db, body, created_by_id=session.user_id)
 
 
-@router.put(
-    "/{user_id}/{client_id}",
-    response_model=UserClientAclResponse,
-    status_code=status.HTTP_200_OK,
-)
+@router.put("/{user_id}/{client_id}", response_model=UserClientAclResponse, status_code=status.HTTP_200_OK)
 def update_endpoint(
     user_id: str,
     client_id: str,
@@ -79,6 +80,8 @@ def update_endpoint(
     db: Session = Depends(get_db),
     session: UserSession = Depends(current_user_dep),
 ):
+    # PUT se mantiene aquí porque el campo 'permission' (read/edit/owner) sí es mutable
+    # y es el campo central de esta tabla — distinto a user_clients donde no había nada editable.
     return update_user_client_acl(db, user_id, client_id, body, updated_by_id=session.user_id)
 
 
@@ -90,32 +93,23 @@ def update_endpoint(
 def status_endpoint(
     user_id: str,
     client_id: str,
+    body: UserClientAclStatusRequest,
     db: Session = Depends(get_db),
     session: UserSession = Depends(current_user_dep),
-    body: UserClientAclStatusRequest | None = None,
 ):
-    # Permite llamar con body o solo path + is_active en body (estándar del proyecto)
-    if body is None:
-        # si no viene body, FastAPI igual debería invalidar; este guard es defensivo
-        raise ValueError("Body requerido")
     return change_user_client_acl_status(
-        db,
-        user_id=user_id,
-        client_id=client_id,
+        db, user_id, client_id,
         is_active=body.is_active,
         updated_by_id=session.user_id,
     )
 
 
-@router.delete(
-    "/{user_id}/{client_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-)
+@router.delete("/{user_id}/{client_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_endpoint(
     user_id: str,
     client_id: str,
     db: Session = Depends(get_db),
     session: UserSession = Depends(current_user_dep),
 ):
-    delete_user_client_acl(db, user_id=user_id, client_id=client_id, deleted_by_id=session.user_id)
+    delete_user_client_acl(db, user_id, client_id, deleted_by_id=session.user_id)
     return None
