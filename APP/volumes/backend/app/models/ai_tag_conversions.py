@@ -17,7 +17,9 @@ class AiTagConversion(Base):
     converted_at = Column(DateTime, nullable=False, server_default=func.now())
     converted_by = Column(String(36), ForeignKey("users.id"), nullable=True)
 
-    ai_tag = relationship("AiTag", lazy="select")
+    #ai_tag = relationship("AITag", lazy="select")
+    ai_tag = relationship("AITag", lazy="select")   # mayúsculas correctas
+
     tag    = relationship("Tag", lazy="select")
 
     converted_by_user = relationship(

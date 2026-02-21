@@ -1,0 +1,11 @@
+{
+  "connections": [
+    {
+      "name": "MinuetAItor Dev",
+      "host": "redis",
+      "port": 6379,
+      "password": "",
+      "tls": false
+    }
+  ]
+}

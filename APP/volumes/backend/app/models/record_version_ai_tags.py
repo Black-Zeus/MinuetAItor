@@ -27,7 +27,7 @@ class RecordVersionAiTag(Base):
 
     # Relaciones (FK targets deben existir en tu proyecto)
     record_version = relationship("RecordVersion", lazy="select")
-    ai_tag = relationship("AiTag", lazy="select")
+    ai_tag = relationship("AITag", lazy="select")
 
     def __repr__(self) -> str:
         return (
