@@ -36,19 +36,7 @@ class RecordVersionParticipant(Base, TimestampMixin):
     title = Column(String(160), nullable=True)
     email = Column(String(200), nullable=True)
 
-    record_version = relationship(
-        "RecordVersion",
-        lazy="select",
-        back_populates="participants",
-    )
-
-    participants = relationship(
-        "RecordVersionParticipant",
-        lazy="select",
-        back_populates="record_version",
-        cascade="all, delete-orphan",
-    )
-
+    record_version = relationship("RecordVersion", lazy="select", back_populates="participants")
 
     def __repr__(self) -> str:
         return f"<RecordVersionParticipant id={self.id} record_version_id={self.record_version_id} display_name={self.display_name!r}>"

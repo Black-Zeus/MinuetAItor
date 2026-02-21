@@ -9,7 +9,10 @@ sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 from db.session import SessionLocal
 from core.security import hash_password
-from models.user import User, UserRole, UserProfile, Role
+from models.user import User
+from models.user_roles import UserRole
+from models.user_profiles import UserProfile
+from models.roles import Role
 
 # ── Configuración del admin a crear ──────────────────
 ADMIN_USERNAME = "admin"

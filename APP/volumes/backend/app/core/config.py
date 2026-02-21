@@ -23,7 +23,7 @@ class Settings(BaseSettings):
 
     # Geo
     geo_db_path: str = "/app/assets/dbGeo/dbip-city-lite.mmdb"
-    geo_block_enabled: bool = True          # False en dev si quieres
+    geo_block_enabled: bool = True 
     geo_allowed_countries: list[str] = ["CL"]
 
     @property
@@ -35,6 +35,6 @@ class Settings(BaseSettings):
 
     class Config:
         env_file = ".env"
-        extra = "ignore"  # ignora VITE_* y otras vars del .env global
+        extra = "ignore" 
 
 settings = Settings()

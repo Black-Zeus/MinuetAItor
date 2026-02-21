@@ -49,10 +49,18 @@ class RecordVersion(Base, TimestampMixin):
         foreign_keys=[published_by],
         lazy="select",
     )
+    
     deleted_by_user = relationship(
         "User",
         foreign_keys=[deleted_by],
         lazy="select",
+    )
+
+    participants = relationship(
+        "RecordVersionParticipant",
+        lazy="select",
+        back_populates="record_version",
+        cascade="all, delete-orphan",
     )
 
     def __repr__(self) -> str:

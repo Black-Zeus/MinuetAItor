@@ -4,6 +4,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from fastapi.openapi.docs import get_swagger_ui_html
+from fastapi.responses import HTMLResponse
+
 from core.config import settings
 from core.middleware import ResponseContractMiddleware, GeoBlockMiddleware, register_exception_handlers
 from db.redis import close_redis
@@ -18,9 +21,10 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="MinuetAItor API",
     version="1.0.0",
-    docs_url="/docs" if settings.env_name != "prod" else None,
-    redoc_url="/redoc" if settings.env_name != "prod" else None,
-    openapi_url="/openapi.json" if settings.env_name != "prod" else None,
+    docs_url=None,
+    redoc_url="/v1/redoc" if settings.env_name != "prod" else None,
+    openapi_url="/v1/openapi.json" if settings.env_name != "prod" else None,
+    servers=[{"url": "/api", "description": "API Gateway (nginx)"}],  # ← agregar esto
     lifespan=lifespan,
 )
 
@@ -282,3 +286,10 @@ def root():
 @app.get("/health", tags=["System"])
 def health():
     return {"env": settings.env_name, "status": "running"}
+
+@app.get("/v1/docs", include_in_schema=False)
+async def custom_swagger_ui():
+    return get_swagger_ui_html(
+        openapi_url="/api/v1/openapi.json",
+        title="MinuetAItor API - Swagger UI",
+    )

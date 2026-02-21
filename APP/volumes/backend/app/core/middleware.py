@@ -35,9 +35,21 @@ def _json_response(status_code: int, body: dict) -> JSONResponse:
 # ── GeoBlock ──────────────────────────────────────────
 
 class GeoBlockMiddleware(BaseHTTPMiddleware):
-    EXCLUDE = {"/health", "/docs", "/redoc", "/openapi.json", "/favicon.ico"}
+    EXCLUDE = {
+        "/health",
+        "/docs",         "/v1/docs",
+        "/redoc",        "/v1/redoc",
+        "/openapi.json", "/v1/openapi.json",
+        "/favicon.ico",
+    }
 
     async def dispatch(self, request: Request, call_next) -> Response:
+
+        # import logging
+        # logging.warning(f"[GEO DEBUG] client.host={request.client.host if request.client else 'None'}")
+        # logging.warning(f"[GEO DEBUG] X-Forwarded-For={request.headers.get('X-Forwarded-For')}")
+        # logging.warning(f"[GEO DEBUG] X-Real-IP={request.headers.get('X-Real-IP')}")
+
         if request.url.path in self.EXCLUDE:
             return await call_next(request)
 
@@ -63,6 +75,11 @@ class GeoBlockMiddleware(BaseHTTPMiddleware):
                     code="GEO_BLOCKED",
                     status=status.HTTP_403_FORBIDDEN,
                     meta=meta,
+                    details=[
+                        ErrorDetail(field="ip",           issue=ip),
+                        ErrorDetail(field="country_code", issue=country_code),
+                        ErrorDetail(field="country_name", issue=geo.get("country_name") or "Desconocido"),
+                    ],
                 ).model_dump()
                 return _json_response(status.HTTP_403_FORBIDDEN, body)
 
@@ -72,7 +89,12 @@ class GeoBlockMiddleware(BaseHTTPMiddleware):
 # ── Contract ──────────────────────────────────────────
 
 class ResponseContractMiddleware(BaseHTTPMiddleware):
-    EXCLUDE = {"/docs", "/redoc", "/openapi.json", "/favicon.ico"}
+    EXCLUDE = {
+        "/docs",         "/v1/docs",
+        "/redoc",        "/v1/redoc",
+        "/openapi.json", "/v1/openapi.json",
+        "/favicon.ico",
+    }
 
     async def dispatch(self, request: Request, call_next) -> Response:
         if request.url.path in self.EXCLUDE:
