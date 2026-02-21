@@ -187,10 +187,46 @@ services:
       ENV_NAME: ${ENV_NAME:-dev}
       REDIS_HOST: ${REDIS_HOST:-redis}
       REDIS_PORT: ${REDIS_PORT:-6379}
+      # SMTP ↓
+      SMTP_HOST:       ${SMTP_HOST:-mailpit}
+      SMTP_PORT:       ${SMTP_PORT:-1025}
+      SMTP_USER:       ${SMTP_USER}
+      SMTP_PASSWORD:   ${SMTP_PASSWORD:-}
+      SMTP_FROM_NAME:  ${SMTP_FROM_NAME:-MinuetAItor}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL}
+      SMTP_USE_TLS:    ${SMTP_USE_TLS:-false}
+      SMTP_USE_SSL:    ${SMTP_USE_SSL:-false}
+      SMTP_TIMEOUT:    ${SMTP_TIMEOUT:-10}
     volumes:
       - ./APP/volumes/worker/app:/app
       - ./APP/logs/worker:/var/log/app
     command: ["python", "-u", "worker.py"]
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - internal
+    restart: unless-stopped
+    logging: *default-logging
+    <<: *resources-small
+
+  scheduler:
+    container_name: ${PROJECT_NAME}-scheduler
+    labels:
+      - stack=${PROJECT_NAME}
+    build:
+      context: .
+      dockerfile: ./Data/dokerFile/dev_qa/Dockerfile.scheduler
+    image: ${PROJECT_NAME}/scheduler:dev
+    environment:
+      ENV_NAME:    ${ENV_NAME:-dev}
+      REDIS_HOST:  ${REDIS_HOST:-redis}
+      REDIS_PORT:  ${REDIS_PORT:-6379}
+      TZ:          America/Santiago        # ← crítico para que los crons corran a la hora correcta
+    volumes:
+      - ./APP/volumes/scheduler/app:/app
+      - ./APP/logs/scheduler:/var/log/app
+    command: ["python", "-u", "scheduler.py"]
     depends_on:
       redis:
         condition: service_healthy
@@ -267,11 +303,11 @@ services:
     <<: *resources-small
 
   mailpit:
-    image: axllent/mailpit:latest
+    image: axllent/mailpit:v1.29
     container_name: ${PROJECT_NAME}-mailpit
     labels:
       - stack=${PROJECT_NAME}
-    profiles: ["tools"]
+    # profiles: ["tools"]     ← comentar o eliminar para dev
     ports:
       - "${MAILPIT_UI_PORT:-8025}:8025"
       - "${MAILPIT_SMTP_PORT:-1025}:1025"
