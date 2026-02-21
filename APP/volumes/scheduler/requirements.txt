@@ -1,0 +1,4 @@
+apscheduler>=3.10.0,<4.0.0
+redis>=5.0.0
+tzlocal>=4.0
+tzdata>=2024.1
