@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
-from models.user_session import UserSession
+from models.user_sessions import UserSession
 
 
 def create_session(db: Session, *, user_id: str, jti: str, ip_v4: str | None,

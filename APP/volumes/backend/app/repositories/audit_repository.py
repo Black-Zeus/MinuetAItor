@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
-from models.audit_log import AuditLog
+from models.audit_logs import AuditLog
 
 
 def write_audit(
