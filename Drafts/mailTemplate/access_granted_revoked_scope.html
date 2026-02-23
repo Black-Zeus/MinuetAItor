@@ -1,0 +1,185 @@
+<!--
+Archivo sugerido: 03_access_granted_revoked_scope.html
+Versión: v1
+Propósito: Notificar cambios de acceso (otorgado/revocado) sobre Cliente/Proyecto y/o Minuta confidencial
+-->
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="x-apple-disable-message-reformatting" />
+    <meta name="format-detection" content="telephone=no,address=no,email=no,date=no,url=no" />
+    <title>Cambio de acceso</title>
+    <!--[if mso]>
+      <style type="text/css">
+        body, table, td { font-family: Arial, Helvetica, sans-serif !important; }
+      </style>
+    <![endif]-->
+  </head>
+
+  <body style="margin:0;padding:0;background:#060b18;color:#e7eefc;">
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">
+      Se registró un cambio de permisos sobre un recurso (cliente/proyecto/minuta).
+    </div>
+
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#060b18;">
+      <tr>
+        <td align="center" style="padding:28px 12px;">
+          <table role="presentation" width="640" cellspacing="0" cellpadding="0" border="0"
+            style="width:640px;max-width:640px;border-collapse:separate;border-spacing:0;">
+
+            <!-- Header -->
+            <tr>
+              <td style="background: linear-gradient(180deg,#0a1633 0%, #081127 100%);
+                border:1px solid rgba(255,255,255,0.08);border-bottom:none;border-radius:16px 16px 0 0;padding:18px 20px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                  <tr>
+                    <td valign="middle" style="width:56px;padding-right:14px;">
+                      <img src="cid:minuetaitor-logo"
+                                            onerror="this.onerror=null;this.src='http://localhost:5501/Drafts/htmlTemplate/content/img/chinchinAItor.jpg';"
+                                            width="48" height="48" alt="MinuetAItor"
+                                            style="display:block;border:0;border-radius:12px;" />
+                    </td>
+                    <td valign="middle">
+                      <div style="font-size:18px;line-height:22px;font-weight:700;color:#f1f6ff;">
+                        {{APP_NAME}}
+                        <span style="display:inline-block;margin-left:8px;padding:3px 8px;border:1px solid rgba(255,255,255,0.14);
+                          border-radius:999px;font-size:12px;font-weight:600;color:#cfe0ff;vertical-align:middle;">
+                          v{{APP_VERSION}}
+                        </span>
+                      </div>
+                      <div style="font-size:12px;line-height:16px;color:#a7b7d8;margin-top:4px;">
+                        Gobernanza de acceso · RBAC · Auditoría
+                      </div>
+                    </td>
+                    <td align="right" valign="middle">
+                      <div style="font-size:12px;line-height:16px;color:#9fb2d6;border:1px solid rgba(255,255,255,0.10);
+                        padding:6px 10px;border-radius:999px;display:inline-block;">
+                        Acceso: {{ACCESS_ACTION}}
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Body -->
+            <tr>
+              <td style="background:#07122a;border:1px solid rgba(255,255,255,0.08);border-top:none;border-bottom:none;
+                padding:22px 20px 10px 20px;">
+                <div style="font-size:16px;line-height:22px;font-weight:800;color:#f1f6ff;">
+                  Cambio de acceso registrado
+                </div>
+
+                <div style="font-size:13px;line-height:20px;color:#c9d7f2;margin-top:10px;">
+                  Se registró un cambio de permisos sobre un recurso administrado por <b style="color:#f1f6ff;">{{APP_NAME}}</b>.
+                  Si no reconoces esta modificación, contacta a soporte inmediatamente.
+                </div>
+
+                <!-- Bloque de seguridad -->
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:14px;">
+                  <tr>
+                    <td style="background: rgba(9, 22, 52, 0.9);border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:16px;">
+                      <div style="font-size:12px;line-height:16px;color:#9fb2d6;margin-bottom:10px;">DETALLE DE ACCESO</div>
+
+                      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                        <tr>
+                          <td style="font-size:12px;line-height:18px;color:#c9d7f2;">
+                            <b style="color:#f1f6ff;">Acción:</b> {{ACCESS_ACTION}}
+                            &nbsp;·&nbsp;
+                            <b style="color:#f1f6ff;">Rol/Permiso:</b> {{ROLE_OR_PERMISSION}}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td style="font-size:12px;line-height:18px;color:#c9d7f2;padding-top:6px;">
+                            <b style="color:#f1f6ff;">Usuario afectado:</b> {{TARGET_USER}}
+                            &nbsp;·&nbsp;
+                            <b style="color:#f1f6ff;">Ejecutado por:</b> {{ACTOR_USER}}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td style="font-size:12px;line-height:18px;color:#c9d7f2;padding-top:6px;">
+                            <b style="color:#f1f6ff;">Fecha/Hora:</b> {{CHANGED_AT}} ({{TZ}})
+                          </td>
+                        </tr>
+                      </table>
+
+                      <div style="height:1px;background:rgba(255,255,255,0.08);margin:14px 0;"></div>
+
+                      <div style="font-size:12px;line-height:18px;color:#c9d7f2;">
+                        <b style="color:#f1f6ff;">Alcance:</b> {{SCOPE_TYPE}}
+                        <span style="color:#8fa6cc;">(clasificación: {{DATA_CLASSIFICATION}})</span>
+                      </div>
+
+                      <!-- Scope detail -->
+                      <div style="font-size:12px;line-height:18px;color:#c9d7f2;margin-top:8px;">
+                        <b style="color:#f1f6ff;">Cliente:</b> {{CLIENT_NAME}}<br/>
+                        <b style="color:#f1f6ff;">Proyecto:</b> {{PROJECT_NAME}}<br/>
+                        <b style="color:#f1f6ff;">Minuta (opcional):</b> {{MINUTE_ID}} · {{MINUTE_TITLE}}
+                      </div>
+
+                      <div style="font-size:12px;line-height:18px;color:#c9d7f2;margin-top:10px;">
+                        <b style="color:#f1f6ff;">Motivo (opcional):</b> {{REASON}}
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+
+                <!-- CTA -->
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:16px;">
+                  <tr>
+                    <td align="center" style="padding: 6px 0 10px 0;">
+                      <a href="{{ACCESS_URL}}" target="_blank" rel="noopener"
+                        style="display:inline-block;background:#1f5bff;color:#ffffff;text-decoration:none;
+                          font-size:14px;line-height:18px;font-weight:800;padding:12px 18px;border-radius:12px;
+                          border:1px solid rgba(255,255,255,0.10);">
+                        Revisar accesos y permisos
+                      </a>
+                      <div style="font-size:12px;line-height:18px;color:#8fa6cc;margin-top:10px;">
+                        Enlace alternativo:
+                      </div>
+                      <div style="font-size:12px;line-height:18px;color:#c9d7f2;word-break:break-all;border:1px solid rgba(255,255,255,0.10);
+                        background:rgba(255,255,255,0.03);padding:10px 12px;border-radius:12px;margin-top:8px;">
+                        {{ACCESS_URL}}
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+
+                <!-- Advertencia -->
+                <div style="font-size:11px;line-height:16px;color:#8fa6cc;margin-top:10px;">
+                  Evento auditado: {{AUDIT_EVENT_ID}} · Origen: {{REQUEST_ORIGIN}} · IP: {{REQUEST_IP}} · UA: {{REQUEST_UA}}
+                </div>
+              </td>
+            </tr>
+
+            <!-- Footer -->
+            <tr>
+              <td style="background:#07122a;border:1px solid rgba(255,255,255,0.08);border-top:none;border-radius:0 0 16px 16px;
+                padding:16px 20px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                  <tr>
+                    <td style="font-size:12px;line-height:18px;color:#8fa6cc;">
+                      {{APP_NAME}} · Gobernanza y auditoría de accesos
+                    </td>
+                    <td align="right" style="font-size:12px;line-height:18px;color:#8fa6cc;">
+                      Soporte: {{SUPPORT_EMAIL}}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td colspan="2" style="padding-top:10px;font-size:11px;line-height:16px;color:#6f86ad;">
+                      Si no reconoces este cambio, responde este correo o contacta a soporte de inmediato.
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

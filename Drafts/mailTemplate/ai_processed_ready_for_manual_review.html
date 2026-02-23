@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="x-apple-disable-message-reformatting" />
+    <meta name="format-detection" content="telephone=no,address=no,email=no,date=no,url=no" />
+    <title>Minuta procesada por IA · Revisión manual requerida</title>
+
+    <!--[if mso]>
+      <style type="text/css">
+        body, table, td { font-family: Arial, Helvetica, sans-serif !important; }
+      </style>
+    <![endif]-->
+  </head>
+
+  <body style="margin:0;padding:0;background:#060b18;color:#e7eefc;">
+    <!-- Preheader (oculto) -->
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">
+      La minuta fue procesada por IA y está lista para revisión manual antes de ser presentada para aprobación.
+    </div>
+
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"
+      style="background:#060b18;margin:0;padding:0;">
+      <tr>
+        <td align="center" style="padding:28px 12px;">
+          <!-- Contenedor -->
+          <table role="presentation" width="640" cellspacing="0" cellpadding="0" border="0"
+            style="width:640px;max-width:640px;border-collapse:separate;border-spacing:0;">
+
+            <!-- Header -->
+            <tr>
+              <td style="
+                background: linear-gradient(180deg,#0a1633 0%, #081127 100%);
+                border:1px solid rgba(255,255,255,0.08);
+                border-bottom:none;
+                border-radius:16px 16px 0 0;
+                padding:18px 20px;
+              ">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                  <tr>
+                    <td valign="middle" style="width:56px;padding-right:14px;">
+                      <!-- Logo: preferir CID (inline attachment) -->
+                     <img src="cid:minuetaitor-logo"
+                                            onerror="this.onerror=null;this.src='http://localhost:5501/Drafts/htmlTemplate/content/img/chinchinAItor.jpg';"
+                                            width="48" height="48" alt="MinuetAItor"
+                                            style="display:block;border:0;border-radius:12px;" />
+                    </td>
+
+                    <td valign="middle">
+                      <div style="font-size:18px;line-height:22px;font-weight:700;color:#f1f6ff;">
+                        {{APP_NAME}}
+                        <span style="
+                          display:inline-block;margin-left:8px;padding:3px 8px;
+                          border:1px solid rgba(255,255,255,0.14);
+                          border-radius:999px;font-size:12px;font-weight:600;color:#cfe0ff;
+                          vertical-align:middle;
+                        ">
+                          v{{APP_VERSION}}
+                        </span>
+                      </div>
+                      <div style="font-size:12px;line-height:16px;color:#a7b7d8;margin-top:4px;">
+                        Minuta procesada por IA · Pendiente de validación humana
+                      </div>
+                    </td>
+
+                    <td align="right" valign="middle">
+                      <div style="
+                        font-size:12px;line-height:16px;color:#9fb2d6;
+                        border:1px solid rgba(255,255,255,0.10);
+                        padding:6px 10px;border-radius:999px;display:inline-block;
+                      ">
+                        Acción requerida
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Body -->
+            <tr>
+              <td style="
+                background:#07122a;
+                border:1px solid rgba(255,255,255,0.08);
+                border-top:none;
+                border-bottom:none;
+                padding:22px 20px 10px 20px;
+              ">
+                <div style="font-size:16px;line-height:22px;font-weight:800;color:#f1f6ff;">
+                  IA completó el procesamiento · Revisión manual requerida
+                </div>
+
+                <div style="font-size:13px;line-height:20px;color:#c9d7f2;margin-top:10px;">
+                  La minuta asociada a la reunión
+                  <span style="color:#f1f6ff;font-weight:700;">{{MEETING_TITLE}}</span>
+                  fue <b>procesada automáticamente</b> y está disponible como <b>borrador IA</b>.
+                  Antes de enviarla a participantes para aprobación, se requiere <b>validación y ajustes manuales</b>.
+                </div>
+
+                <!-- Resumen contextual -->
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:14px;">
+                  <tr>
+                    <td style="
+                      background: rgba(9, 22, 52, 0.9);
+                      border: 1px solid rgba(255,255,255,0.12);
+                      border-radius: 14px;
+                      padding: 16px 16px;
+                    ">
+                      <div style="font-size:12px;line-height:16px;color:#9fb2d6;margin-bottom:10px;">
+                        CONTEXTO DE REUNIÓN
+                      </div>
+
+                      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                        <tr>
+                          <td style="font-size:12px;line-height:18px;color:#c9d7f2;">
+                            <b style="color:#f1f6ff;">Fecha/Hora:</b> {{MEETING_DATETIME}} ({{TZ}})
+                          </td>
+                        </tr>
+                        <tr>
+                          <td style="font-size:12px;line-height:18px;color:#c9d7f2;padding-top:6px;">
+                            <b style="color:#f1f6ff;">Cliente/Proyecto:</b> {{CLIENT_NAME}} · {{PROJECT_NAME}}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td style="font-size:12px;line-height:18px;color:#c9d7f2;padding-top:6px;">
+                            <b style="color:#f1f6ff;">ID Minuta:</b> {{MINUTE_ID}} · <b style="color:#f1f6ff;">Versión (borrador):</b> {{DRAFT_VERSION}}
+                          </td>
+                        </tr>
+                      </table>
+
+                      <div style="height:1px;background:rgba(255,255,255,0.08);margin:14px 0;"></div>
+
+                      <div style="font-size:13px;line-height:20px;color:#c9d7f2;">
+                        {{MEETING_SUMMARY}}
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+
+                <!-- Bloque IA -->
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:14px;">
+                  <tr>
+                    <td style="
+                      border:1px solid rgba(255,255,255,0.10);
+                      background: rgba(255,255,255,0.03);
+                      border-radius: 14px;
+                      padding: 14px 14px;
+                    ">
+                      <div style="font-size:12px;line-height:16px;color:#9fb2d6;margin-bottom:10px;">
+                        METADATOS DE PROCESAMIENTO IA
+                      </div>
+
+                      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                        <tr>
+                          <td style="font-size:12px;line-height:18px;color:#c9d7f2;">
+                            <b style="color:#f1f6ff;">Estado:</b>
+                            <span style="
+                              display:inline-block;margin-left:6px;padding:2px 8px;
+                              border:1px solid rgba(255,255,255,0.14);
+                              border-radius:999px;font-size:11px;font-weight:700;color:#cfe0ff;
+                              vertical-align:middle;
+                            ">
+                              BORRADOR IA · PENDIENTE VALIDACIÓN
+                            </span>
+                          </td>
+                        </tr>
+
+                        <tr>
+                          <td style="font-size:12px;line-height:18px;color:#c9d7f2;padding-top:6px;">
+                            <b style="color:#f1f6ff;">Perfil IA:</b> {{AI_PROFILE_NAME}}
+                            <span style="color:#8fa6cc;">({{AI_PROFILE_CATEGORY}})</span>
+                          </td>
+                        </tr>
+
+                        <tr>
+                          <td style="font-size:12px;line-height:18px;color:#c9d7f2;padding-top:6px;">
+                            <b style="color:#f1f6ff;">Procesado en:</b> {{AI_PROCESSED_AT}} ({{TZ}})
+                            · <b style="color:#f1f6ff;">Motor:</b> {{AI_ENGINE}}
+                          </td>
+                        </tr>
+
+                        <tr>
+                          <td style="font-size:12px;line-height:18px;color:#c9d7f2;padding-top:6px;">
+                            <b style="color:#f1f6ff;">Confianza estimada:</b> {{AI_CONFIDENCE}}%
+                            · <b style="color:#f1f6ff;">Tiempo:</b> {{AI_LATENCY_MS}} ms
+                          </td>
+                        </tr>
+
+                        <tr>
+                          <td style="font-size:12px;line-height:18px;color:#c9d7f2;padding-top:6px;">
+                            <b style="color:#f1f6ff;">Referencia:</b> {{AI_RUN_ID}}
+                            <span style="color:#8fa6cc;">(traza/auditoría)</span>
+                          </td>
+                        </tr>
+                      </table>
+
+                      <!-- Hallazgos / advertencias -->
+                      <div style="height:1px;background:rgba(255,255,255,0.08);margin:14px 0;"></div>
+
+                      <div style="font-size:12px;line-height:18px;color:#c9d7f2;">
+                        <b style="color:#f1f6ff;">Observaciones IA (revisar):</b>
+                      </div>
+                      <ul style="margin:8px 0 0 18px;padding:0;color:#c9d7f2;font-size:12px;line-height:18px;">
+                        <li>{{AI_NOTE_1}}</li>
+                        <li>{{AI_NOTE_2}}</li>
+                        <li>{{AI_NOTE_3}}</li>
+                      </ul>
+                    </td>
+                  </tr>
+                </table>
+
+                <!-- Solicitud de acción -->
+                <div style="
+                  margin-top:14px;padding:16px 16px;
+                  border:1px solid rgba(255,255,255,0.10);
+                  border-radius:14px;background:rgba(255,255,255,0.02);
+                ">
+                  <div style="font-size:13px;line-height:18px;color:#f1f6ff;font-weight:800;">
+                    Acción requerida: Validación y edición manual
+                  </div>
+
+                  <div style="font-size:12px;line-height:18px;color:#c9d7f2;margin-top:10px;">
+                    Recomendación operativa:
+                    <ul style="margin:8px 0 0 18px;padding:0;">
+                      <li>Verificar asistentes, acuerdos, responsables y fechas compromiso.</li>
+                      <li>Corregir nomenclatura técnica, siglas, nombres propios y alcance.</li>
+                      <li>Confirmar que no exista contenido sensible mal clasificado.</li>
+                    </ul>
+                  </div>
+
+                  <div style="font-size:12px;line-height:18px;color:#c9d7f2;margin-top:10px;">
+                    Una vez validada, la minuta puede ser <b style="color:#f1f6ff;">publicada para revisión</b> y posteriormente
+                    <b style="color:#f1f6ff;">enviada a aprobación</b> (según el flujo configurado).
+                  </div>
+                </div>
+
+                <!-- CTA principal + secundario -->
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:16px;">
+                  <tr>
+                    <td align="center" style="padding: 6px 0 8px 0;">
+                      <a href="{{EDIT_URL}}" target="_blank" rel="noopener"
+                        style="
+                          display:inline-block;background:#1f5bff;color:#ffffff;text-decoration:none;
+                          font-size:14px;line-height:18px;font-weight:800;
+                          padding:12px 18px;border-radius:12px;
+                          border:1px solid rgba(255,255,255,0.10);
+                        ">
+                        Abrir borrador IA para edición
+                      </a>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td align="center" style="padding: 0 0 10px 0;">
+                      <a href="{{VIEW_URL}}" target="_blank" rel="noopener"
+                        style="
+                          display:inline-block;background:rgba(255,255,255,0.06);color:#cfe0ff;text-decoration:none;
+                          font-size:13px;line-height:18px;font-weight:700;
+                          padding:10px 14px;border-radius:12px;
+                          border:1px solid rgba(255,255,255,0.10);
+                        ">
+                        Ver borrador (solo lectura)
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+
+                <!-- Link fallback -->
+                <div style="font-size:12px;line-height:18px;color:#8fa6cc;margin-top:8px;">
+                  Si el botón no funciona, copia y pega este enlace:
+                </div>
+                <div style="
+                  font-size:12px;line-height:18px;color:#c9d7f2;word-break:break-all;
+                  border:1px solid rgba(255,255,255,0.10);
+                  background:rgba(255,255,255,0.03);
+                  padding:10px 12px;border-radius:12px;margin-top:8px;
+                ">
+                  {{EDIT_URL}}
+                </div>
+
+                <!-- Auditoría opcional -->
+                <div style="font-size:11px;line-height:16px;color:#8fa6cc;margin-top:12px;">
+                  Emisión: {{ISSUED_AT}} ({{TZ}}) · {{REQUEST_ID}} · Origen: {{REQUEST_ORIGIN}} · Actor: {{ACTOR_USER}}
+                </div>
+
+              </td>
+            </tr>
+
+            <!-- Footer -->
+            <tr>
+              <td style="
+                background:#07122a;
+                border:1px solid rgba(255,255,255,0.08);
+                border-top:none;
+                border-radius:0 0 16px 16px;
+                padding:16px 20px;
+              ">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                  <tr>
+                    <td style="font-size:12px;line-height:18px;color:#8fa6cc;">
+                      {{APP_NAME}} · Flujo IA → Validación humana → Publicación
+                    </td>
+                    <td align="right" style="font-size:12px;line-height:18px;color:#8fa6cc;">
+                      Soporte: {{SUPPORT_EMAIL}}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td colspan="2" style="padding-top:10px;font-size:11px;line-height:16px;color:#6f86ad;">
+                      Este mensaje fue generado automáticamente. Evitar compartir enlaces y/o contenido fuera del equipo autorizado.
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+          </table>
+          <!-- /Contenedor -->
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
