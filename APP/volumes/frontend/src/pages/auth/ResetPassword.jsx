@@ -143,7 +143,7 @@ const ResetPasswordPage = () => {
             Solicita uno nuevo desde la página de recuperación.
           </p>
           <Link
-            to="/auth/forgot-password"
+            to="/forgot-password"
             className="inline-flex items-center gap-2 py-2.5 px-5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors"
           >
             <Icon name="redo" className="text-xs" />

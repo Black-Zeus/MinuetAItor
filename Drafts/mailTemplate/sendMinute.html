@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="x-apple-disable-message-reformatting" />
+    <meta name="format-detection" content="telephone=no,address=no,email=no,date=no,url=no" />
+    <title>Minuta lista para revisión</title>
+
+    <!--[if mso]>
+      <style type="text/css">
+        body, table, td { font-family: Arial, Helvetica, sans-serif !important; }
+      </style>
+    <![endif]-->
+  </head>
+
+  <body style="margin:0;padding:0;background:#060b18;color:#e7eefc;">
+    <!-- Preheader (oculto) -->
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">
+      Minuta procesada disponible. Se adjunta archivo para revisión y aprobación.
+    </div>
+
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"
+      style="background:#060b18;margin:0;padding:0;">
+      <tr>
+        <td align="center" style="padding:28px 12px;">
+          <!-- Contenedor -->
+          <table role="presentation" width="640" cellspacing="0" cellpadding="0" border="0"
+            style="width:640px;max-width:640px;border-collapse:separate;border-spacing:0;">
+
+            <!-- Header -->
+            <tr>
+              <td style="
+                background: linear-gradient(180deg,#0a1633 0%, #081127 100%);
+                border:1px solid rgba(255,255,255,0.08);
+                border-bottom:none;
+                border-radius:16px 16px 0 0;
+                padding:18px 20px;
+              ">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                  <tr>
+                    <td valign="middle" style="width:56px;padding-right:14px;">
+                      <!-- Logo: preferir CID (inline attachment) -->
+                      <img src="cid:minuetaitor-logo"
+                                            onerror="this.onerror=null;this.src='http://localhost:5501/Drafts/htmlTemplate/content/img/chinchinAItor.jpg';"
+                                            width="48" height="48" alt="MinuetAItor"
+                                            style="display:block;border:0;border-radius:12px;" />
+                    </td>
+                    <td valign="middle">
+                      <div style="font-size:18px;line-height:22px;font-weight:700;color:#f1f6ff;">
+                        {{APP_NAME}}
+                        <span style="
+                          display:inline-block;margin-left:8px;padding:3px 8px;
+                          border:1px solid rgba(255,255,255,0.14);
+                          border-radius:999px;font-size:12px;font-weight:600;color:#cfe0ff;
+                          vertical-align:middle;
+                        ">
+                          v{{APP_VERSION}}
+                        </span>
+                      </div>
+                      <div style="font-size:12px;line-height:16px;color:#a7b7d8;margin-top:4px;">
+                        Gestión de minutas · Trazabilidad · Estandarización
+                      </div>
+                    </td>
+                    <td align="right" valign="middle">
+                      <div style="
+                        font-size:12px;line-height:16px;color:#9fb2d6;
+                        border:1px solid rgba(255,255,255,0.10);
+                        padding:6px 10px;border-radius:999px;display:inline-block;
+                      ">
+                        Notificación
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Body -->
+            <tr>
+              <td style="
+                background:#07122a;
+                border:1px solid rgba(255,255,255,0.08);
+                border-top:none;
+                border-bottom:none;
+                padding:22px 20px 10px 20px;
+              ">
+                <div style="font-size:16px;line-height:22px;font-weight:800;color:#f1f6ff;">
+                  Minuta lista para revisión y aprobación
+                </div>
+
+                <div style="font-size:13px;line-height:20px;color:#c9d7f2;margin-top:10px;">
+                  Se ha procesado y generado la minuta correspondiente a la reunión
+                  <span style="color:#f1f6ff;font-weight:700;">{{MEETING_TITLE}}</span>.
+                  Se adjunta el documento para revisión.
+                </div>
+
+                <!-- Resumen de reunión -->
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:14px;">
+                  <tr>
+                    <td style="
+                      background: rgba(9, 22, 52, 0.9);
+                      border: 1px solid rgba(255,255,255,0.12);
+                      border-radius: 14px;
+                      padding: 16px 16px;
+                    ">
+                      <div style="font-size:12px;line-height:16px;color:#9fb2d6;margin-bottom:10px;">
+                        RESUMEN DE REUNIÓN
+                      </div>
+
+                      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                        <tr>
+                          <td style="font-size:12px;line-height:18px;color:#c9d7f2;">
+                            <b style="color:#f1f6ff;">Fecha/Hora:</b> {{MEETING_DATETIME}} ({{TZ}})
+                          </td>
+                        </tr>
+                        <tr>
+                          <td style="font-size:12px;line-height:18px;color:#c9d7f2;padding-top:6px;">
+                            <b style="color:#f1f6ff;">Cliente/Proyecto:</b> {{CLIENT_NAME}} · {{PROJECT_NAME}}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td style="font-size:12px;line-height:18px;color:#c9d7f2;padding-top:6px;">
+                            <b style="color:#f1f6ff;">Participantes:</b> {{ATTENDEES_INLINE}}
+                          </td>
+                        </tr>
+                      </table>
+
+                      <div style="height:1px;background:rgba(255,255,255,0.08);margin:14px 0;"></div>
+
+                      <div style="font-size:13px;line-height:20px;color:#c9d7f2;">
+                        {{MEETING_SUMMARY}}
+                      </div>
+
+                      <!-- Puntos clave (opcional) -->
+                      <div style="margin-top:12px;">
+                        <div style="font-size:12px;line-height:16px;color:#9fb2d6;margin-bottom:8px;">
+                          PUNTOS CLAVE
+                        </div>
+                        <ul style="margin:0 0 0 18px;padding:0;color:#c9d7f2;font-size:12px;line-height:18px;">
+                          <li>{{KEY_POINT_1}}</li>
+                          <li>{{KEY_POINT_2}}</li>
+                          <li>{{KEY_POINT_3}}</li>
+                        </ul>
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+
+                <!-- Adjuntos / Documento -->
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:14px;">
+                  <tr>
+                    <td style="
+                      border:1px solid rgba(255,255,255,0.10);
+                      background: rgba(255,255,255,0.03);
+                      border-radius: 14px;
+                      padding: 14px 14px;
+                    ">
+                      <div style="font-size:12px;line-height:16px;color:#9fb2d6;margin-bottom:8px;">
+                        DOCUMENTO ADJUNTO
+                      </div>
+                      <div style="font-size:13px;line-height:20px;color:#c9d7f2;">
+                        <b style="color:#f1f6ff;">Archivo:</b> {{ATTACHMENT_NAME}}
+                        <span style="color:#8fa6cc;">({{ATTACHMENT_TYPE}} · {{ATTACHMENT_SIZE}})</span><br/>
+                        <b style="color:#f1f6ff;">ID Minuta:</b> {{MINUTE_ID}} · <b style="color:#f1f6ff;">Versión:</b> {{MINUTE_VERSION}}
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+
+                <!-- Solicitud de revisión -->
+                <div style="
+                  margin-top:14px;padding:16px 16px;
+                  border:1px solid rgba(255,255,255,0.10);
+                  border-radius:14px;background:rgba(255,255,255,0.02);
+                ">
+                  <div style="font-size:13px;line-height:18px;color:#f1f6ff;font-weight:800;">
+                    Solicitud de revisión y confirmación
+                  </div>
+
+                  <div style="font-size:12px;line-height:18px;color:#c9d7f2;margin-top:10px;">
+                    Por favor:
+                    <ul style="margin:8px 0 0 18px;padding:0;">
+                      <li>
+                        <b>Confirma aprobación</b> si el contenido es correcto, o
+                      </li>
+                      <li>
+                        <b>Indica ajustes</b> (adiciones/correcciones) respondiendo este correo con los puntos específicos a modificar.
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div style="font-size:12px;line-height:18px;color:#c9d7f2;margin-top:10px;">
+                    <b style="color:#f1f6ff;">Política de cierre:</b> si no existe respuesta dentro de
+                    <b style="color:#f1f6ff;">{{APPROVAL_DAYS}} días</b> desde la emisión de este correo, la minuta se considerará
+                    <b style="color:#f1f6ff;">aprobada</b> y pasará a estado <b style="color:#f1f6ff;">oficializada</b> para efectos de trazabilidad y auditoría.
+                  </div>
+                </div>
+
+                <!-- CTA -->
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:16px;">
+                  <tr>
+                    <td align="center" style="padding: 6px 0 10px 0;">
+                      <a href="{{MINUTE_URL}}" target="_blank" rel="noopener"
+                        style="
+                          display:inline-block;background:#1f5bff;color:#ffffff;text-decoration:none;
+                          font-size:14px;line-height:18px;font-weight:800;
+                          padding:12px 18px;border-radius:12px;
+                          border:1px solid rgba(255,255,255,0.10);
+                        ">
+                        Abrir minuta en {{APP_NAME}}
+                      </a>
+                      <div style="font-size:12px;line-height:18px;color:#8fa6cc;margin-top:10px;">
+                        Si el botón no funciona, copia y pega este enlace:
+                      </div>
+                      <div style="
+                        font-size:12px;line-height:18px;color:#c9d7f2;word-break:break-all;
+                        border:1px solid rgba(255,255,255,0.10);
+                        background:rgba(255,255,255,0.03);
+                        padding:10px 12px;border-radius:12px;margin-top:8px;
+                      ">
+                        {{MINUTE_URL}}
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+
+                <!-- Metadata opcional -->
+                <div style="font-size:11px;line-height:16px;color:#8fa6cc;margin-top:10px;">
+                  Emisión: {{ISSUED_AT}} ({{TZ}}) · {{REQUEST_ID}} · Origen: {{REQUEST_ORIGIN}}
+                </div>
+
+              </td>
+            </tr>
+
+            <!-- Footer -->
+            <tr>
+              <td style="
+                background:#07122a;
+                border:1px solid rgba(255,255,255,0.08);
+                border-top:none;
+                border-radius:0 0 16px 16px;
+                padding:16px 20px;
+              ">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                  <tr>
+                    <td style="font-size:12px;line-height:18px;color:#8fa6cc;">
+                      Desarrollado por {{DEVELOPER_NAME}} · {{DEVELOPER_EMAIL}}
+                    </td>
+                    <td align="right" style="font-size:12px;line-height:18px;color:#8fa6cc;">
+                      Gestión · Trazabilidad · Estandarización
+                    </td>
+                  </tr>
+                  <tr>
+                    <td colspan="2" style="padding-top:10px;font-size:11px;line-height:16px;color:#6f86ad;">
+                      Este mensaje fue generado automáticamente. Para solicitar cambios, responde este correo indicando los puntos específicos.
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+          </table>
+          <!-- /Contenedor -->
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
