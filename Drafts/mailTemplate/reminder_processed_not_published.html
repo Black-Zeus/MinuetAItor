@@ -1,0 +1,174 @@
+<!--
+Archivo sugerido: 02_reminder_processed_not_published.html
+Versión: v1
+Propósito: Recordatorio operativo: minutas procesadas sin publicar/oficializar (draft pendiente)
+-->
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="x-apple-disable-message-reformatting" />
+    <meta name="format-detection" content="telephone=no,address=no,email=no,date=no,url=no" />
+    <title>Recordatorio · Minuta pendiente</title>
+    <!--[if mso]>
+      <style type="text/css">
+        body, table, td { font-family: Arial, Helvetica, sans-serif !important; }
+      </style>
+    <![endif]-->
+  </head>
+
+  <body style="margin:0;padding:0;background:#060b18;color:#e7eefc;">
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">
+      Recordatorio: existe una minuta procesada pendiente de publicación/oficialización.
+    </div>
+
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#060b18;">
+      <tr>
+        <td align="center" style="padding:28px 12px;">
+          <table role="presentation" width="640" cellspacing="0" cellpadding="0" border="0"
+            style="width:640px;max-width:640px;border-collapse:separate;border-spacing:0;">
+
+            <!-- Header -->
+            <tr>
+              <td style="background: linear-gradient(180deg,#0a1633 0%, #081127 100%);
+                border:1px solid rgba(255,255,255,0.08);border-bottom:none;border-radius:16px 16px 0 0;padding:18px 20px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                  <tr>
+                    <td valign="middle" style="width:56px;padding-right:14px;">
+                      <img src="cid:minuetaitor-logo"
+                                            onerror="this.onerror=null;this.src='http://localhost:5501/Drafts/htmlTemplate/content/img/chinchinAItor.jpg';"
+                                            width="48" height="48" alt="MinuetAItor"
+                                            style="display:block;border:0;border-radius:12px;" />
+                    </td>
+                    <td valign="middle">
+                      <div style="font-size:18px;line-height:22px;font-weight:700;color:#f1f6ff;">
+                        {{APP_NAME}}
+                        <span style="display:inline-block;margin-left:8px;padding:3px 8px;border:1px solid rgba(255,255,255,0.14);
+                          border-radius:999px;font-size:12px;font-weight:600;color:#cfe0ff;vertical-align:middle;">
+                          v{{APP_VERSION}}
+                        </span>
+                      </div>
+                      <div style="font-size:12px;line-height:16px;color:#a7b7d8;margin-top:4px;">
+                        Control operativo · Pendientes de publicación
+                      </div>
+                    </td>
+                    <td align="right" valign="middle">
+                      <div style="font-size:12px;line-height:16px;color:#9fb2d6;border:1px solid rgba(255,255,255,0.10);
+                        padding:6px 10px;border-radius:999px;display:inline-block;">
+                        Recordatorio
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Body -->
+            <tr>
+              <td style="background:#07122a;border:1px solid rgba(255,255,255,0.08);border-top:none;border-bottom:none;
+                padding:22px 20px 10px 20px;">
+                <div style="font-size:16px;line-height:22px;font-weight:800;color:#f1f6ff;">
+                  Minuta procesada pendiente de publicación
+                </div>
+
+                <div style="font-size:13px;line-height:20px;color:#c9d7f2;margin-top:10px;">
+                  Se detectó una minuta en estado <b style="color:#f1f6ff;">{{CURRENT_STATUS}}</b> que aún no ha sido publicada/oficializada.
+                  Para mantener trazabilidad y cumplimiento, se recomienda completar el flujo de revisión y emisión.
+                </div>
+
+                <!-- Detalles -->
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:14px;">
+                  <tr>
+                    <td style="background: rgba(9, 22, 52, 0.9);border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:16px;">
+                      <div style="font-size:12px;line-height:16px;color:#9fb2d6;margin-bottom:10px;">DETALLE DEL PENDIENTE</div>
+                      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                        <tr>
+                          <td style="font-size:12px;line-height:18px;color:#c9d7f2;">
+                            <b style="color:#f1f6ff;">Minuta:</b> {{MEETING_TITLE}}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td style="font-size:12px;line-height:18px;color:#c9d7f2;padding-top:6px;">
+                            <b style="color:#f1f6ff;">Fecha/Hora reunión:</b> {{MEETING_DATETIME}} ({{TZ}})
+                          </td>
+                        </tr>
+                        <tr>
+                          <td style="font-size:12px;line-height:18px;color:#c9d7f2;padding-top:6px;">
+                            <b style="color:#f1f6ff;">Cliente/Proyecto:</b> {{CLIENT_NAME}} · {{PROJECT_NAME}}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td style="font-size:12px;line-height:18px;color:#c9d7f2;padding-top:6px;">
+                            <b style="color:#f1f6ff;">Responsable:</b> {{OWNER_USER}}
+                            &nbsp;·&nbsp;
+                            <b style="color:#f1f6ff;">Última actualización:</b> {{LAST_UPDATED_AT}}
+                          </td>
+                        </tr>
+                      </table>
+
+                      <div style="height:1px;background:rgba(255,255,255,0.08);margin:14px 0;"></div>
+
+                      <div style="font-size:12px;line-height:18px;color:#c9d7f2;">
+                        <b style="color:#f1f6ff;">Acción recomendada:</b> {{RECOMMENDED_ACTION}}
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+
+                <!-- CTA -->
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:16px;">
+                  <tr>
+                    <td align="center" style="padding: 6px 0 10px 0;">
+                      <a href="{{MINUTE_DRAFT_URL}}" target="_blank" rel="noopener"
+                        style="display:inline-block;background:#1f5bff;color:#ffffff;text-decoration:none;
+                          font-size:14px;line-height:18px;font-weight:800;padding:12px 18px;border-radius:12px;
+                          border:1px solid rgba(255,255,255,0.10);">
+                        Continuar edición / publicación
+                      </a>
+                      <div style="font-size:12px;line-height:18px;color:#8fa6cc;margin-top:10px;">
+                        Enlace alternativo:
+                      </div>
+                      <div style="font-size:12px;line-height:18px;color:#c9d7f2;word-break:break-all;border:1px solid rgba(255,255,255,0.10);
+                        background:rgba(255,255,255,0.03);padding:10px 12px;border-radius:12px;margin-top:8px;">
+                        {{MINUTE_DRAFT_URL}}
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+
+                <div style="font-size:11px;line-height:16px;color:#8fa6cc;margin-top:10px;">
+                  Emisión: {{ISSUED_AT}} ({{TZ}}) · {{REQUEST_ID}} · Regla: {{REMINDER_RULE}}
+                </div>
+              </td>
+            </tr>
+
+            <!-- Footer -->
+            <tr>
+              <td style="background:#07122a;border:1px solid rgba(255,255,255,0.08);border-top:none;border-radius:0 0 16px 16px;
+                padding:16px 20px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                  <tr>
+                    <td style="font-size:12px;line-height:18px;color:#8fa6cc;">
+                      {{APP_NAME}} · Control de pendientes y trazabilidad
+                    </td>
+                    <td align="right" style="font-size:12px;line-height:18px;color:#8fa6cc;">
+                      Soporte: {{SUPPORT_EMAIL}}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td colspan="2" style="padding-top:10px;font-size:11px;line-height:16px;color:#6f86ad;">
+                      Mensaje automático. Si ya gestionaste este pendiente, puedes ignorar este recordatorio.
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
