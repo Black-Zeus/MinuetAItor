@@ -175,7 +175,7 @@ CREATE TABLE clients (
   CONSTRAINT fk_clients_updated_by FOREIGN KEY (updated_by) REFERENCES users(id),
   CONSTRAINT fk_clients_deleted_by FOREIGN KEY (deleted_by) REFERENCES users(id)
 
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ----------------------------------------------------------------------------
 -- 3.1) Projects (1..N por client)
