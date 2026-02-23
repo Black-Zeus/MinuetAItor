@@ -128,32 +128,54 @@ ALTER TABLE role_permissions
 -- 3) Clients + relación user_clients (feature flag backend)
 -- ----------------------------------------------------------------------------
 CREATE TABLE clients (
-  id            CHAR(36) PRIMARY KEY,
-  name          VARCHAR(200) NOT NULL,
-  code          VARCHAR(50) NULL,
-  description   VARCHAR(600) NULL,
-  industry      VARCHAR(120) NULL,
-  is_confidential TINYINT(1) NOT NULL DEFAULT 0,
-  is_active     TINYINT(1) NOT NULL DEFAULT 1,
+  id                  CHAR(36)        NOT NULL,
 
-  created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  created_by    CHAR(36) NULL,
-  updated_at    DATETIME NULL ON UPDATE CURRENT_TIMESTAMP,
-  updated_by    CHAR(36) NULL,
-
-  deleted_at    DATETIME NULL,
-  deleted_by    CHAR(36) NULL,
-
+  name                VARCHAR(200)    NOT NULL,
+  legal_name          VARCHAR(200)    NULL,
+  description         VARCHAR(600)    NULL,
+  industry            VARCHAR(120)    NULL,
+  email               VARCHAR(254)    NULL,
+  phone               VARCHAR(30)     NULL,
+  website             VARCHAR(500)    NULL,
+  address             VARCHAR(400)    NULL,
+  
+  contact_name        VARCHAR(200)    NULL,
+  contact_email       VARCHAR(254)    NULL,
+  contact_phone       VARCHAR(30)     NULL,
+  contact_position    VARCHAR(120)    NULL,
+  contact_department  VARCHAR(120)    NULL,
+  
+  status              VARCHAR(20)     NULL        DEFAULT 'activo',
+  priority            VARCHAR(20)     NULL        DEFAULT 'media',
+  
+  notes               TEXT            NULL,
+  tags                VARCHAR(500)    NULL,
+  
+  is_confidential     TINYINT(1)      NOT NULL    DEFAULT 0,
+  is_active           TINYINT(1)      NOT NULL    DEFAULT 1,
+  
+  created_at          DATETIME        NOT NULL    DEFAULT CURRENT_TIMESTAMP,
+  created_by          CHAR(36)        NULL,
+  updated_at          DATETIME        NULL        ON UPDATE CURRENT_TIMESTAMP,
+  updated_by          CHAR(36)        NULL,
+  deleted_at          DATETIME        NULL,
+  deleted_by          CHAR(36)        NULL,
+  
+  PRIMARY KEY (id),
+  
   UNIQUE KEY uq_clients_name (name),
-  UNIQUE KEY uq_clients_code (code),
-  KEY idx_clients_confidential (is_confidential),
-  KEY idx_clients_active (is_active),
-  KEY idx_clients_deleted_at (deleted_at),
-
+  
+  KEY idx_clients_status          (status),
+  KEY idx_clients_priority        (priority),
+  KEY idx_clients_confidential    (is_confidential),
+  KEY idx_clients_active          (is_active),
+  KEY idx_clients_deleted_at      (deleted_at),
+  
   CONSTRAINT fk_clients_created_by FOREIGN KEY (created_by) REFERENCES users(id),
   CONSTRAINT fk_clients_updated_by FOREIGN KEY (updated_by) REFERENCES users(id),
   CONSTRAINT fk_clients_deleted_by FOREIGN KEY (deleted_by) REFERENCES users(id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------------------------------------------------------
 -- 3.1) Projects (1..N por client)
