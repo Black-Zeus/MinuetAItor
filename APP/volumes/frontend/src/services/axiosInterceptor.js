@@ -35,9 +35,9 @@ const loadToast = async () => {
 };
 
 const notify = {
-  error:   async (msg) => (await loadToast()).showErrorToast?.(msg),
+  error: async (msg) => (await loadToast()).showErrorToast?.(msg),
   warning: async (msg) => (await loadToast()).showWarningToast?.(msg),
-  info:    async (msg) => (await loadToast()).showInfoToast?.(msg),
+  info: async (msg) => (await loadToast()).showInfoToast?.(msg),
 };
 
 // ─── Token Adapter — única fuente: authStore ─────────────────────────────────
@@ -62,7 +62,13 @@ const TokenAdapter = {
     const logout = useAuthStore.getState?.()?.logout;
     if (typeof logout === "function") logout(reason);
 
-    // No usar console.* nunca
+    // Notificar a subscriptores (UI / servicios)
+    try {
+      logoutCallbacks.forEach((cb) => {
+        try { cb?.(reason); } catch { }
+      });
+    } catch { }
+
     axiosLog.warn("TokenAdapter.clearAll", { reason });
   },
 };
@@ -104,7 +110,7 @@ const isAccessTokenExpiringSoon = (token, minTTLSeconds) => {
 };
 
 // ─── Refresh ─────────────────────────────────────────────────────────────────
-const refreshAccessToken = async () => {
+const refreshAccessToken_old = async () => {
   const currentToken = TokenAdapter.access;
   if (!currentToken) throw new Error("No access token available for refresh");
 
@@ -125,6 +131,39 @@ const refreshAccessToken = async () => {
     TokenAdapter.updateTokens({ access_token });
     axiosLog.info("Token refreshed");
 
+    return access_token;
+  } catch (error) {
+    axiosLog.error("Token refresh failed", {
+      message: error?.message,
+      status: error?.response?.status,
+      data: error?.response?.data,
+    });
+
+    TokenAdapter.clearAll("Refresh failed");
+    throw error;
+  }
+};
+
+const refreshAccessToken = async () => {
+  const currentToken = TokenAdapter.access;
+  if (!currentToken) throw new Error("No access token available for refresh");
+
+  try {
+    axiosLog.info("Refreshing token");
+
+    const response = await axiosInstance.post(
+      API_ENDPOINTS.AUTH.REFRESH, // "/v1/auth/refresh"
+      {},
+      { headers: { Authorization: `Bearer ${currentToken}` } }
+    );
+
+    const data = response.data?.result ?? response.data;
+    const access_token = data?.access_token;
+
+    if (!access_token) throw new Error("Invalid refresh response: missing access_token");
+
+    TokenAdapter.updateTokens({ access_token });
+    axiosLog.info("Token refreshed");
     return access_token;
   } catch (error) {
     axiosLog.error("Token refresh failed", {
@@ -182,7 +221,14 @@ const showToastBySemantics = async (status, code, message) => {
 };
 
 // ─── Response interceptor ────────────────────────────────────────────────────
-const isAuthEndpoint = (url = "") => url.includes("/auth/refresh") || url.includes("/auth/login");
+//const isAuthEndpoint = (url = "") => url.includes("/auth/refresh") || url.includes("/auth/login");
+const isAuthEndpoint = (url = "") => {
+  const u = String(url);
+  return (
+    u.includes(API_ENDPOINTS.AUTH.REFRESH) ||
+    u.includes(API_ENDPOINTS.AUTH.LOGIN)
+  );
+};
 
 axiosInstance.interceptors.response.use(
   (response) => {
@@ -204,8 +250,7 @@ axiosInstance.interceptors.response.use(
     }
 
     axiosLog.group(
-      `ERROR: ${String(originalRequest?.method || "").toUpperCase()} ${originalRequest?.url} — ${
-        error.response?.status || "Network Error"
+      `ERROR: ${String(originalRequest?.method || "").toUpperCase()} ${originalRequest?.url} — ${error.response?.status || "Network Error"
       }`
     );
     if (error.response?.data) axiosLog.error("Error Data", error.response.data);
@@ -328,7 +373,9 @@ export const forceTokenRefresh = async () => {
 let logoutCallbacks = [];
 
 export const onLogoutRequired = (callback) => {
-  logoutCallbacks.push(callback);
+  if (typeof callback !== "function") return () => { };
+  if (!logoutCallbacks.includes(callback)) logoutCallbacks.push(callback);
+
   return () => {
     logoutCallbacks = logoutCallbacks.filter((cb) => cb !== callback);
   };

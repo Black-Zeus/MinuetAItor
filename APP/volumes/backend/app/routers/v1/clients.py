@@ -35,6 +35,18 @@ async def current_user_dep(
     return await get_current_user(credentials.credentials)
 
 
+@router.get("/industries", response_model=list[str], status_code=status.HTTP_200_OK)
+def industries_endpoint(
+    db: Session = Depends(get_db),
+    session: UserSession = Depends(current_user_dep),
+):
+    """
+    Devuelve todas las industrias distintas presentes en clientes,
+    normalizadas a title case español.
+    """
+    from services.clients_service import list_industries
+    return list_industries(db)
+
 @router.get("/{id}", response_model=ClientResponse, status_code=status.HTTP_200_OK)
 def get_endpoint(
     id: str,

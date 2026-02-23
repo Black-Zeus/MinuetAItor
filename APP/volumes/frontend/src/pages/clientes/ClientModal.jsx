@@ -1,24 +1,6 @@
-/**
- * ClientModal.jsx
- * Wizard consistente con NewMinuteForm (paso a paso + confirmación)
- *
- * mode:
- * - "createNewClient"  (sin data)
- * - "viewDetailClient" (requiere data JSON)
- * - "editCurrentClient" (requiere data JSON)
- *
- * onSubmit(payload) => payload normalizado:
- * {
- *   companyName, companyLegalName, companyEmail, companyPhone, companyWebsite,
- *   isConfidential,
- *   contactName, contactEmail, contactPhone, contactPosition, contactDepartment,
- *   notes, tags
- * }
- */
-
 import React, { useMemo, useState } from 'react';
-import Icon from '@/components/ui/icon/iconManager';
 import { ModalManager } from '@/components/ui/modal';
+import { toastSuccess, toastError } from "@/components/common/toast/toastHelpers"
 
 const MODES = {
   CREATE: 'createNewClient',
@@ -28,23 +10,26 @@ const MODES = {
 
 const normalizeClient = (data = {}) => ({
   // Empresa
-  companyName: data.companyName ?? data.company ?? '',
+  companyName: data.companyName ?? data.name ?? '',
   companyLegalName: data.companyLegalName ?? data.legalName ?? '',
-  companyEmail: data.companyEmail ?? '',
-  companyPhone: data.companyPhone ?? '',
+  description: data.description ?? '',             // ← nuevo
+  industry: data.industry ?? '',             // ← nuevo
+  companyEmail: data.companyEmail ?? data.email ?? '',
+  companyPhone: data.companyPhone ?? data.phone ?? '',
   companyWebsite: data.companyWebsite ?? data.website ?? '',
-  isConfidential: Boolean(data.isConfidential ?? data.confidential ?? false),
+  address: data.address ?? '',             // ← nuevo
+  isConfidential: Boolean(data.isConfidential ?? false),
 
-  // Contacto principal
-  contactName: data.contactName ?? data.name ?? '',
-  contactEmail: data.contactEmail ?? data.email ?? '',
-  contactPhone: data.contactPhone ?? data.phone ?? '',
-  contactPosition: data.contactPosition ?? data.position ?? '',
-  contactDepartment: data.contactDepartment ?? data.department ?? '',
+  // Contacto
+  contactName: data.contactName ?? '',
+  contactEmail: data.contactEmail ?? '',
+  contactPhone: data.contactPhone ?? '',
+  contactPosition: data.contactPosition ?? '',
+  contactDepartment: data.contactDepartment ?? '',
 
-  // Notas
+  // Contenido libre
   notes: data.notes ?? '',
-  tags: data.tags ?? ''
+  tags: data.tags ?? '',
 });
 
 const ClientModal = ({
@@ -73,13 +58,10 @@ const ClientModal = ({
 
   const closeModal = () => {
     // 1) callback del padre
-    try { onClose?.(); } catch (_) {}
+    try { onClose?.(); } catch (_) { }
 
-    // 2) fallback robusto
-    try { ModalManager.hide?.(); } catch (_) {}
-    try { ModalManager.close?.(); } catch (_) {}
-    try { ModalManager.dismiss?.(); } catch (_) {}
-    try { ModalManager.closeAll?.(); } catch (_) {}
+    // 2) fallback robusto    
+    try { ModalManager.closeAll?.(); } catch (_) { }
   };
 
   const handleChange = (name, value) => {
@@ -106,6 +88,7 @@ const ClientModal = ({
     switch (step) {
       case 0: // Empresa
         if (!formData.companyName.trim()) newErrors.companyName = 'Nombre comercial es requerido';
+        if (!formData.industry.trim()) newErrors.industry = 'Industria es requerido';
         break;
 
       case 1: // Contacto
@@ -137,9 +120,34 @@ const ClientModal = ({
     if (currentStep > 0) setCurrentStep(currentStep - 1);
   };
 
-  const handleSubmit = () => {
+
+  const handleSubmit = async () => {
     if (isView) return;
-    onSubmit?.({ ...formData });
+
+    try {
+      // 1) Backend OK => onSubmit ejecuta create/update
+      await onSubmit?.({ ...formData });
+
+      // 2) Feedback OK
+      toastSuccess(
+        "Guardado",
+        isCreate ? "Cliente creado correctamente." : "Cliente actualizado correctamente.",
+        { autoClose: 3000 }
+      );
+
+      // 3) Cierre cascada
+      ModalManager.closeAll?.();
+
+    } catch (err) {
+      // Si quieres feedback de error aquí (opcional si el padre ya lo hace)
+      const msg =
+        err?.response?.data?.error?.message ||
+        err?.response?.data?.message ||
+        err?.message ||
+        "No fue posible completar la operación.";
+
+      toastError("Error", msg, { autoClose: 3000 });
+    }
   };
 
   // Helpers UI para view
@@ -281,6 +289,61 @@ const ClientModal = ({
               )}
             </div>
 
+            {/* Descripción */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Descripción (opcional)
+              </label>
+              {isView ? (
+                <div className="text-sm text-gray-600 dark:text-gray-400 whitespace-pre-line">
+                  {formData.description || <span className="italic text-gray-500 dark:text-gray-500">Sin información</span>}
+                </div>
+              ) : (
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => handleChange('description', e.target.value)}
+                  rows={3}
+                  className="
+        w-full px-3 py-2 border rounded-lg
+        bg-white dark:bg-gray-800
+        text-gray-900 dark:text-gray-100
+        border-gray-300 dark:border-gray-600
+        focus:outline-none focus:ring-2 focus:ring-blue-500
+        resize-none
+      "
+                />
+              )}
+            </div>
+
+            {/* Industria */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Industria  <span className="text-red-500">*</span>
+              </label>
+              {isView ? (
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  {formData.industry || <span className="italic text-gray-500 dark:text-gray-500">Sin información</span>}
+                </div>
+              ) : (
+                <>
+                <input
+                  type="text"
+                  value={formData.industry}
+                  onChange={(e) => handleChange('industry', e.target.value)}
+                  placeholder="Ej: Tecnología, Minería, Retail..."
+                   className={`
+                      w-full px-3 py-2 border rounded-lg
+                      bg-white dark:bg-gray-800
+                      text-gray-900 dark:text-gray-100
+                      ${errors.industry ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-600 focus:ring-blue-500'}
+                      focus:outline-none focus:ring-2
+                    `}
+                  />
+                  {errors.industry && <p className="mt-1 text-sm text-red-500">{errors.industry}</p>}
+                  </>
+              )}
+            </div>
+
             {/* Email / Teléfono */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -356,6 +419,32 @@ const ClientModal = ({
                     border-gray-300 dark:border-gray-600
                     focus:outline-none focus:ring-2 focus:ring-blue-500
                   "
+                />
+              )}
+            </div>
+
+            {/* Dirección */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Dirección (opcional)
+              </label>
+              {isView ? (
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  {formData.address || <span className="italic text-gray-500 dark:text-gray-500">Sin información</span>}
+                </div>
+              ) : (
+                <input
+                  type="text"
+                  value={formData.address}
+                  onChange={(e) => handleChange('address', e.target.value)}
+                  placeholder="Ej: Av. Apoquindo 4700, Las Condes, Santiago"
+                  className="
+        w-full px-3 py-2 border rounded-lg
+        bg-white dark:bg-gray-800
+        text-gray-900 dark:text-gray-100
+        border-gray-300 dark:border-gray-600
+        focus:outline-none focus:ring-2 focus:ring-blue-500
+      "
                 />
               )}
             </div>
@@ -678,38 +767,38 @@ const ClientModal = ({
           <button
             type="button"
             onClick={currentStep === 0 ? closeModal : handlePrevious}
-            className="
-              px-4 py-2 text-sm font-medium
-              text-gray-700 dark:text-gray-300
-              bg-white dark:bg-gray-800
-              border border-gray-300 dark:border-gray-600
-              rounded-lg
-              hover:bg-gray-50 dark:hover:bg-gray-700
-              focus:outline-none focus:ring-2 focus:ring-blue-500
-              transition-colors
-            "
+            className=" px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors "
           >
             {currentStep === 0 ? 'Cancelar' : 'Anterior'}
           </button>
 
-          <button
-            type="button"
-            onClick={handleNext}
-            className="
-              px-4 py-2 text-sm font-medium
-              text-white
-              bg-blue-600
-              rounded-lg
-              hover:bg-blue-700
-              focus:outline-none focus:ring-2 focus:ring-blue-500
-              transition-colors
-            "
-          >
-            {currentStep === steps.length - 1
-              ? (isView ? 'Cerrar' : (isCreate ? 'Crear' : 'Guardar'))
-              : 'Siguiente'
-            }
-          </button>
+          {currentStep === steps.length - 1 ? (
+            isView ? (
+              <button
+                type="button"
+                onClick={closeModal}
+                className=" px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors "
+              >
+                Cerrar
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleNext}
+                className=" px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors "
+              >
+                {isCreate ? 'Crear' : 'Actualizar'}
+              </button>
+            )
+          ) : (
+            <button
+              type="button"
+              onClick={handleNext}
+              className=" px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors "
+            >
+              Siguiente
+            </button>
+          )}
         </div>
       </div>
     </div>
