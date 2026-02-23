@@ -10,14 +10,14 @@
 import React, { Suspense } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
-import Layout          from "@/components/layout/Layout";
-import ProtectedRoute  from "./guards/ProtectedRoute";
-import PublicRoute     from "./guards/PublicRoute";
-import { allRoutes }   from "./modules";
+import Layout from "@/components/layout/Layout";
+import ProtectedRoute from "./guards/ProtectedRoute";
+import PublicRoute from "./guards/PublicRoute";
+import { allRoutes } from "./modules";
 
-import NotFoundPage    from "@/pages/errorPages/NotFoundPage";
+import NotFoundPage from "@/pages/errorPages/NotFoundPage";
 import ServerErrorPage from "@/pages/errorPages/ServerErrorPage";
-import ForbiddenPage   from "@/pages/errorPages/ForbiddenPage";
+import ForbiddenPage from "@/pages/errorPages/ForbiddenPage";
 
 // ─── Fallbacks ────────────────────────────────────────────────────────────────
 
@@ -84,7 +84,7 @@ const AppRouter = () => {
         })}
 
         {/* ── Páginas de error ──────────────────────────────────────────── */}
-        <Route path="/forbidden"    element={<ForbiddenPage />} />
+        <Route path="/forbidden" element={<ForbiddenPage />} />
         <Route path="/server-error" element={<ServerErrorPage />} />
 
         {/* ── 404 — siempre al final ────────────────────────────────────── */}

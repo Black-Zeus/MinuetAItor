@@ -1,30 +1,28 @@
 /**
  * ClientFilters.jsx
- * Componente de filtros para el módulo de clientes
+ * Filtros de clientes — industrias cargadas desde API
  */
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Icon from "@/components/ui/icon/iconManager";
 import ActionButton from "@/components/ui/button/ActionButton";
+import clientService from "@/services/clientService";
+
+import logger from "@/utils/logger";
+const clientLog = logger.scope("client");
 
 const TXT_TITLE = "text-gray-900 dark:text-gray-50";
-const TXT_META = "text-gray-500 dark:text-gray-400";
+const TXT_META  = "text-gray-500 dark:text-gray-400";
 
 const FILTER_LABELS = {
-  search: "Búsqueda",
-  status: "Estado",
+  search:   "Búsqueda",
+  status:   "Estado",
   industry: "Industria",
   priority: "Prioridad",
 };
 
-const FILTER_ICONS = {
-  search: "FaSearch",
-  status: "FaCheckCircle",
-  industry: "FaIndustry",
-  priority: "FaStar",
-};
+// ─── FilterDropdown ───────────────────────────────────────────────────────────
 
-// Subcomponente: FilterDropdown
 const FilterDropdown = ({ visibleFilters, onToggleVisibility, onClose }) => (
   <>
     <div className="fixed inset-0 z-40" onClick={onClose} />
@@ -50,31 +48,31 @@ const FilterDropdown = ({ visibleFilters, onToggleVisibility, onClose }) => (
   </>
 );
 
-// Subcomponente: FilterField
-const FilterField = ({ type, label, icon, value, onChange, options, placeholder, name }) => (
+// ─── FilterField ──────────────────────────────────────────────────────────────
+
+const FilterField = ({ type, label, icon, value, onChange, options = [], placeholder }) => (
   <div className="flex flex-col gap-2">
     <label className={`text-sm font-semibold ${TXT_META} flex items-center gap-2 transition-theme`}>
       <Icon name={icon} className="text-primary-500 dark:text-primary-400 text-sm" />
       {label}
     </label>
+
     {type === "select" ? (
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className={`w-full px-4 py-2.5 border border-secondary-200 dark:border-secondary-700 rounded-xl bg-white dark:bg-gray-800 ${TXT_TITLE} text-sm focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-theme hover:border-secondary-300 dark:hover:border-secondary-600`}
       >
-        <option value="" className="bg-white dark:bg-gray-800">
-          {placeholder}
-        </option>
-        {options.map((option) => (
-          <option key={option.value} value={option.value} className="bg-white dark:bg-gray-800">
-            {option.label}
+        <option value="" className="bg-white dark:bg-gray-800">{placeholder}</option>
+        {options.map((opt) => (
+          <option key={opt.value} value={opt.value} className="bg-white dark:bg-gray-800">
+            {opt.label}
           </option>
         ))}
       </select>
-    ) : type === "search" ? (
+    ) : (
       <div className="relative">
-        <Icon name="FaSearch" className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm" />
+        <Icon name="FaSearch" className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
         <input
           type="text"
           value={value}
@@ -83,60 +81,71 @@ const FilterField = ({ type, label, icon, value, onChange, options, placeholder,
           className={`w-full pl-10 pr-4 py-2.5 border border-secondary-200 dark:border-secondary-700 rounded-xl bg-white dark:bg-gray-800 ${TXT_TITLE} text-sm placeholder-gray-400 focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-theme hover:border-secondary-300 dark:hover:border-secondary-600`}
         />
       </div>
-    ) : (
-      <input
-        type="date"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className={`w-full px-4 py-2.5 border border-secondary-200 dark:border-secondary-700 rounded-xl bg-white dark:bg-gray-800 ${TXT_TITLE} text-sm focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-theme hover:border-secondary-300 dark:hover:border-secondary-600`}
-      />
     )}
   </div>
 );
 
-// Componente principal
-const ClientFilters = ({ filters, onFilterChange, onClearFilters, onApplyFilters, data }) => {
+// ─── ClientFilters ────────────────────────────────────────────────────────────
+
+const ClientFilters = ({ filters, onFilterChange, onClearFilters, onApplyFilters }) => {
   const [visibleFilters, setVisibleFilters] = useState({
-    search: true,
-    status: true,
+    search:   true,
+    status:   true,
     industry: false,
     priority: false,
   });
 
   const [showFiltersDropdown, setShowFiltersDropdown] = useState(false);
-  const [filtersExpanded, setFiltersExpanded] = useState(false);
+  const [filtersExpanded, setFiltersExpanded]         = useState(false);
+
+  // ─── Industrias desde API ───────────────────────────────────────────────────
+  const [industryOptions, setIndustryOptions] = useState([]);
+
+  useEffect(() => {
+    const loadIndustries = async () => {
+      try {
+        const industries = await clientService.getIndustries();
+        // API devuelve string[] → convertir a { value, label }
+        // value: lowercase para filtro, label: ya viene en title case del backend
+        setIndustryOptions(
+          industries.map((ind) => ({
+            value: ind.toLowerCase(),
+            label: ind,
+          }))
+        );
+      } catch (err) {
+        clientLog.error("[ClientFilters] Error cargando industrias:", err);
+        setIndustryOptions([]);
+      }
+    };
+
+    loadIndustries();
+  }, []);
+
+  // ─── Opciones estáticas ─────────────────────────────────────────────────────
+
+  const statusOptions = [
+    { value: "activo",    label: "Activo"    },
+    { value: "inactivo",  label: "Inactivo"  },
+    { value: "prospecto", label: "Prospecto" },
+  ];
+
+  const priorityOptions = [
+    { value: "baja",    label: "Baja"    },
+    { value: "media",   label: "Media"   },
+    { value: "alta",    label: "Alta"    },
+    { value: "critica", label: "Crítica" },
+  ];
 
   const toggleFilterVisibility = (filterName) => {
     setVisibleFilters((prev) => ({ ...prev, [filterName]: !prev[filterName] }));
   };
 
-  // Opciones para los filtros
-  const statusOptions = [
-    { value: 'activo', label: 'Activo' },
-    { value: 'inactivo', label: 'Inactivo' },
-    { value: 'prospecto', label: 'Prospecto' }
-  ];
-
-  const industryOptions = [
-    { value: 'tecnologia', label: 'Tecnología' },
-    { value: 'finanzas', label: 'Finanzas' },
-    { value: 'salud', label: 'Salud' },
-    { value: 'educacion', label: 'Educación' },
-    { value: 'retail', label: 'Retail' },
-    { value: 'manufactura', label: 'Manufactura' },
-    { value: 'servicios', label: 'Servicios' },
-    { value: 'otra', label: 'Otra' }
-  ];
-
-  const priorityOptions = [
-    { value: 'baja', label: 'Baja' },
-    { value: 'media', label: 'Media' },
-    { value: 'alta', label: 'Alta' },
-    { value: 'critica', label: 'Crítica' }
-  ];
+  // ─── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <div className="bg-surface shadow-card rounded-2xl p-6 mb-6 border border-secondary-200 dark:border-secondary-700/60 dark:ring-1 dark:ring-white/5 transition-theme">
+
       {/* Header */}
       <div className="flex justify-between items-center pb-4 border-b border-secondary-200 dark:border-secondary-700/60 transition-theme">
         <button
@@ -173,6 +182,7 @@ const ClientFilters = ({ filters, onFilterChange, onClearFilters, onApplyFilters
       {/* Filters Grid */}
       {filtersExpanded && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 items-end mt-6">
+
           {visibleFilters.search && (
             <div className="lg:col-span-2">
               <FilterField
@@ -206,7 +216,7 @@ const ClientFilters = ({ filters, onFilterChange, onClearFilters, onApplyFilters
               value={filters.industry}
               onChange={(value) => onFilterChange("industry", value)}
               options={industryOptions}
-              placeholder="Todas las industrias"
+              placeholder={industryOptions.length === 0 ? "Cargando..." : "Todas las industrias"}
             />
           )}
 
@@ -240,6 +250,7 @@ const ClientFilters = ({ filters, onFilterChange, onClearFilters, onApplyFilters
               className="w-full"
             />
           </div>
+
         </div>
       )}
     </div>

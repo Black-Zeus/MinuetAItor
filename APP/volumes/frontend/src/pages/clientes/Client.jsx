@@ -1,11 +1,17 @@
 /**
  * Client.jsx
- * Componente monolítico para gestión de clientes - 100% Tailwind CSS
- * Patrón: Componente autocontenido sin layout, solo importa lo esencial
+ * Gestión de clientes — migrado de JSON mock a API real
+ *
+ * Correcciones:
+ * - loadClients sale del useEffect (scope correcto).
+ * - loadClients memoizado con useCallback para poder invocarlo desde handlers.
+ * - handlers CRUD refrescan de forma consistente (optimista + refresh real).
+ * - manejo de estado de loading/error sin “colgar” el componente.
  */
 
-import React, { useState, useEffect } from 'react';
-import clientsData from '@/data/dataClientes.json';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import clientService from '@/services/clientService';
+
 import ClientHeader from './ClientHeader';
 import ClientFilters from './ClientFilters';
 import ClientStats from './ClientStats';
@@ -13,171 +19,183 @@ import ClientGrid from './ClientGrid';
 import PageLoadingSpinner from '@/components/ui/modal/types/system/PageLoadingSpinner';
 
 import logger from '@/utils/logger';
-const clientLog = logger.scope("client");
+
+const clientLog = logger.scope('client');
 
 const Client = () => {
   const [clients, setClients] = useState([]);
-  const [filteredClients, setFilteredClients] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  
-  // Filters
+  const [error, setError] = useState(null);
+
   const [filters, setFilters] = useState({
     search: '',
     status: '',
     industry: '',
-    priority: ''
+    priority: '',
   });
-  
-  // Sort
+
   const [sortBy, setSortBy] = useState('recent');
 
-  // Stats
-  const [stats, setStats] = useState({
-    total: 0,
-    activos: 0,
-    prospectos: 0,
-    inactivos: 0
-  });
+  // ─── Loader (API) ───────────────────────────────────────────────────────────
 
-  // Load data
-  useEffect(() => {
-    const loadClients = async () => {
-      try {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        setClients(clientsData.clients || []);
-        setFilteredClients(clientsData.clients || []);
-        calculateStats(clientsData.clients || []);
-      } catch (error) {
-        clientLog.error('[Clientes] Error loading clients:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    loadClients();
+  const loadClients = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const { items } = await clientService.list({ skip: 0, limit: 100, isActive: true });
+      setClients(Array.isArray(items) ? items : []);
+    } catch (err) {
+      clientLog.error('[Client] Error cargando clientes:', err);
+      setError('No se pudieron cargar los clientes. Intenta de nuevo.');
+      setClients([]);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
-  // Calculate stats
-  const calculateStats = (clientsList) => {
-    const stats = {
-      total: clientsList.length,
-      activos: clientsList.filter(c => c.status === 'activo').length,
-      prospectos: clientsList.filter(c => c.status === 'prospecto').length,
-      inactivos: clientsList.filter(c => c.status === 'inactivo').length
-    };
-    setStats(stats);
-  };
+  // ─── Carga inicial ──────────────────────────────────────────────────────────
 
-  // Filter clients
   useEffect(() => {
-    let filtered = [...clients];
+    loadClients();
+  }, [loadClients]);
 
-    // Search
+  // ─── Stats ──────────────────────────────────────────────────────────────────
+
+  const stats = useMemo(() => ({
+    total: clients.length,
+    activos: clients.filter(c => !!c.isActive).length,
+    prospectos: 0,
+    inactivos: clients.filter(c => !c.isActive).length,
+  }), [clients]);
+
+  // ─── Filtrado + sort ────────────────────────────────────────────────────────
+
+  const filteredClients = useMemo(() => {
+    let result = [...clients];
+
     if (filters.search) {
       const term = filters.search.toLowerCase();
-      filtered = filtered.filter(client =>
-        client.name.toLowerCase().includes(term) ||
-        client.email.toLowerCase().includes(term) ||
-        client.company.toLowerCase().includes(term)
+      result = result.filter(c =>
+        String(c.name ?? '').toLowerCase().includes(term) ||
+        String(c.description ?? '').toLowerCase().includes(term) ||
+        String(c.industry ?? '').toLowerCase().includes(term)
       );
     }
 
-    // Status filter
     if (filters.status) {
-      filtered = filtered.filter(client => client.status === filters.status);
+      // Si tu API maneja "status" como string (activo/inactivo/etc.)
+      // ajusta la condición según tu modelo real
+      result = result.filter(c =>
+        String(c.status ?? '').toLowerCase() === String(filters.status).toLowerCase()
+      );
     }
 
-    // Industry filter
     if (filters.industry) {
-      filtered = filtered.filter(client => client.industry === filters.industry);
+      result = result.filter(c =>
+        String(c.industry ?? '').toLowerCase() === filters.industry.toLowerCase()
+      );
     }
 
-    // Priority filter
     if (filters.priority) {
-      filtered = filtered.filter(client => client.priority === filters.priority);
+      result = result.filter(c =>
+        String(c.priority ?? '').toLowerCase() === filters.priority.toLowerCase()
+      );
     }
 
-    // Sort
     switch (sortBy) {
       case 'name':
-        filtered.sort((a, b) => a.name.localeCompare(b.name));
+        result.sort((a, b) => String(a.name ?? '').localeCompare(String(b.name ?? '')));
         break;
-      case 'company':
-        filtered.sort((a, b) => a.company.localeCompare(b.company));
-        break;
-      case 'projects':
-        filtered.sort((a, b) => b.projects - a.projects);
-        break;
+
       case 'recent':
-      default:
-        filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      default: {
+        const toTime = (v) => {
+          const t = new Date(v ?? 0).getTime();
+          return Number.isFinite(t) ? t : 0;
+        };
+        result.sort((a, b) => toTime(b.createdAt) - toTime(a.createdAt));
+        break;
+      }
     }
 
-    setFilteredClients(filtered);
-  }, [filters, sortBy, clients]);
+    return result;
+  }, [clients, filters, sortBy]);
 
-  // Client handlers
-  // Nota: este handler representa una *actualización* del registro (no solo "editar")
-  const handleUpdateClient = (updatedClient) => {
-    const updatedClients = clients.map(c =>
-      c.id === updatedClient.id ? updatedClient : c
-    );
-    setClients(updatedClients);
-    calculateStats(updatedClients);
-  };
+  // ─── Handlers CRUD ──────────────────────────────────────────────────────────
+  // Nota: refresco real (API) NO debe depender del cierre de modales.
 
-  const handleDeleteClient = (clientId) => {
-    const updatedClients = clients.filter(c => c.id !== clientId);
-    setClients(updatedClients);
-    calculateStats(updatedClients);
-  };
+  const handleCreateClient = useCallback(async (newClient) => {
+    // Optimista (opcional)
+    if (newClient) setClients(prev => [newClient, ...prev]);
 
-  // Filter handlers
-  const handleFilterChange = (filterName, value) => {
+    // Refresco real (asegura consistencia)
+    await loadClients();
+  }, [loadClients]);
+
+  const handleUpdateClient = useCallback(async (updatedClient) => {
+    if (updatedClient?.id) {
+      setClients(prev => prev.map(c => (c.id === updatedClient.id ? updatedClient : c)));
+    }
+    await loadClients();
+  }, [loadClients]);
+
+  const handleDeleteClient = useCallback(async (clientId) => {
+    if (clientId) {
+      setClients(prev => prev.filter(c => c.id !== clientId));
+    }
+    await loadClients();
+  }, [loadClients]);
+
+  // ─── Handlers filtros ───────────────────────────────────────────────────────
+
+  const handleFilterChange = useCallback((filterName, value) => {
     setFilters(prev => ({ ...prev, [filterName]: value }));
-  };
+  }, []);
 
-  const handleClearFilters = () => {
-    setFilters({
-      search: '',
-      status: '',
-      industry: '',
-      priority: ''
-    });
-  };
+  const handleClearFilters = useCallback(() => {
+    setFilters({ search: '', status: '', industry: '', priority: '' });
+  }, []);
 
-  const handleApplyFilters = () => {
-    // Los filtros se aplican automáticamente vía useEffect
-    clientLog.log('[Client] Filtros aplicados:', filters);
-  };
+  // ─── Render ─────────────────────────────────────────────────────────────────
 
-  if (isLoading) {
-    return <PageLoadingSpinner message="Cargando Clientes..." />;
+  if (isLoading) return <PageLoadingSpinner message="Cargando Clientes..." />;
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-red-500 dark:text-red-400 text-sm">{error}</p>
+      </div>
+    );
   }
+
+  const hasFilters = !!(filters.search || filters.status || filters.industry || filters.priority);
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <ClientHeader />
 
-      {/* Filters */}
+      {/* IMPORTANT: onCreated ahora siempre refresca vía loadClients */}
+      <ClientHeader onCreated={handleCreateClient} />
+
       <ClientFilters
         filters={filters}
         onFilterChange={handleFilterChange}
         onClearFilters={handleClearFilters}
-        onApplyFilters={handleApplyFilters}
-        data={{}} // Datos para opciones de filtros si necesitas
+        onApplyFilters={() => clientLog.log('[Client] Filtros:', filters)}
       />
 
-      {/* Stats Cards */}
       <ClientStats stats={stats} />
 
-      {/* Clients Grid */}
       <ClientGrid
         clients={filteredClients}
         onUpdate={handleUpdateClient}
         onDelete={handleDeleteClient}
-        hasFilters={!!(filters.search || filters.status || filters.industry || filters.priority)}
+        hasFilters={hasFilters}
       />
+
+      {/* Si tienes UI de sort, conéctala a setSortBy */}
+      {/* <SortSelector value={sortBy} onChange={setSortBy} /> */}
+
     </div>
   );
 };

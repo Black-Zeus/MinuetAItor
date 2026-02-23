@@ -3,6 +3,7 @@ import AppRouter from "@/routes/AppRouter";
 import useBaseSiteStore from "@store/baseSiteStore";
 import { isDev, isQA } from "@/utils/environment";
 import { exposeViteEnvToWindow } from "./utils/exposeEnv";
+import ToasterManager from "./components/common/toast/ToasterManager";
 
 // Solo exponer en desarrollo o QA, nunca en producción
 if (isDev() || isQA()) {
@@ -20,7 +21,12 @@ function App() {
     }
   }, [theme]);
 
-  return <AppRouter />;
+  return (
+    <>
+      <AppRouter />
+      <ToasterManager />
+    </>
+  );
 }
 
 export default App;

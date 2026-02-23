@@ -132,8 +132,9 @@ import {
   FaArrowRight,
   FaMoon,
 
-    FaMobile,
+  FaMobile,
   FaChartBar,
+  FaRightToBracket
 
 } from "react-icons/fa6";
 
@@ -384,7 +385,7 @@ const ICON_REGISTRY = {
   FaGear: FaGear,
 
   // extra (por si lo usas directo)
-  FaCalendarDays: FaCalendarDays,  
+  FaCalendarDays: FaCalendarDays,
 
   // arrows
   arrowRight: FaArrowRight,
@@ -404,6 +405,15 @@ const ICON_REGISTRY = {
   mobile: FaMobile,
   chartBar: FaChartBar,
 
+  // =========================
+  // FIX warning (FaRightToBracket)
+  // =========================
+  FaRightToBracket: FaRightToBracket,
+
+  // alias simple recomendado
+  rightToBracket: FaRightToBracket,
+  login: FaRightToBracket,
+  signIn: FaRightToBracket,
 };
 
 export const Icon = ({ name, className = "", ...rest }) => {
