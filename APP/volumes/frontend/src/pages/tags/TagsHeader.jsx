@@ -1,19 +1,16 @@
 /**
- * TagsHeader.jsx (alineado a ProjectHeader template)
- * - Título + subtítulo con constantes TXT_*
- * - Layout flex con acciones a la derecha
- * - Botones normalizados con ActionButton (misma línea visual del sistema)
+ * TagsHeader.jsx
+ * Header del módulo Tags — patrón ProjectHeader
  */
 
 import React from "react";
-import Icon from "@/components/ui/icon/iconManager";
-import ActionButton from "@/components/ui/button/ActionButton";
+import Icon   from "@/components/ui/icon/iconManager";
 import NewTag from "@/components/ui/button/NewTag";
 
 const TXT_TITLE = "text-gray-900 dark:text-white";
-const TXT_META = "text-gray-600 dark:text-gray-300";
+const TXT_META  = "text-gray-600 dark:text-gray-300";
 
-export default function TagsHeader({ onCreateTag, onResetCatalog }) {
+export default function TagsHeader({ onCreated, categories = [] }) {
   return (
     <div className="flex items-center justify-between mb-8">
       <div>
@@ -22,12 +19,12 @@ export default function TagsHeader({ onCreateTag, onResetCatalog }) {
           Tags
         </h1>
         <p className={`${TXT_META} mt-2 transition-theme`}>
-          Catálogo de tags (name + description) para clasificación y análisis
+          Catálogo de etiquetas para clasificación y análisis de minutas
         </p>
       </div>
 
       <div className="flex items-center gap-2">
-        <NewTag />
+        <NewTag onCreated={onCreated} categories={categories} />
       </div>
     </div>
   );

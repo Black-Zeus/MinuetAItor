@@ -121,7 +121,7 @@ const TeamsFilters = ({ filters, onFilterChange, onClearFilters, onApplyFilters,
 
   const systemRoleOptions = [
     { value: "admin", label: "Administrador" },
-    { value: "write", label: "Escritura" },
+    { value: "EDITOR", label: "Escritura" },
     { value: "read", label: "Lectura" },
   ];
 

@@ -1,16 +1,17 @@
 /**
  * TeamsHeader.jsx
- * Header del módulo de equipo con título y botón de creación
+ * Header del módulo de equipo con título y botón de creación.
+ * Recibe onCreated y lo propaga hacia NewTeams → TeamsModal.
  */
 
 import React from "react";
-import Icon from "@/components/ui/icon/iconManager";
-import NewTeams from "@/components/ui/button/NewTeams";
+import Icon      from "@/components/ui/icon/iconManager";
+import NewTeams  from "@/components/ui/button/NewTeams";
 
 const TXT_TITLE = "text-gray-900 dark:text-white";
 const TXT_META  = "text-gray-600 dark:text-gray-300";
 
-const TeamsHeader = () => {
+const TeamsHeader = ({ onCreated }) => {
   return (
     <div className="flex items-center justify-between">
       <div>
@@ -18,13 +19,12 @@ const TeamsHeader = () => {
           <Icon name="FaUsers" className="text-primary-600 dark:text-primary-400 w-8 h-8" />
           Equipo
         </h1>
-
         <p className={`${TXT_META} mt-2 transition-theme`}>
           Gestión de usuarios y permisos del sistema
         </p>
       </div>
 
-      <NewTeams />
+      <NewTeams onCreated={onCreated} />
     </div>
   );
 };

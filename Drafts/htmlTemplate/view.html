@@ -16,558 +16,1450 @@
 
 <!doctype html>
 <html lang="es">
+
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <meta name="x-apple-disable-message-reformatting" />
-  <meta name="format-detection" content="telephone=no,address=no,email=no,date=no,url=no" />
-  <title>Módulo de Visitas</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="x-apple-disable-message-reformatting" />
+    <meta name="format-detection" content="telephone=no,address=no,email=no,date=no,url=no" />
+    <title>Módulo de Visitas</title>
 
-  <style>
-    :root{
-      --bg: #020617;        /* slate-950 */
-      --panel: #0b1220;     /* cercano slate-900 */
-      --panel2: #0f172a;    /* slate-900 */
-      --border: #1f2937;    /* slate-800 */
-      --text: #e2e8f0;      /* slate-200 */
-      --muted: #94a3b8;     /* slate-400 */
-      --muted2:#64748b;     /* slate-500 */
-      --accent:#4f46e5;     /* indigo-600 */
-      --accent2:#6366f1;    /* indigo-500 */
-      --danger:#f87171;     /* red-400 */
-      --shadow: 0 20px 50px rgba(0,0,0,.45);
-      --radius: 16px;
-      --header-h: 64px;
-      --footer-h: 40px;
-      --pad: 16px;
-      --font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
-    }
+    <style>
+        :root {
+            --bg: #020617;
+            /* slate-950 */
+            --panel: #0b1220;
+            /* cercano slate-900 */
+            --panel2: #0f172a;
+            /* slate-900 */
+            --border: #1f2937;
+            /* slate-800 */
+            --text: #e2e8f0;
+            /* slate-200 */
+            --muted: #94a3b8;
+            /* slate-400 */
+            --muted2: #64748b;
+            /* slate-500 */
+            --accent: #4f46e5;
+            /* indigo-600 */
+            --accent2: #6366f1;
+            /* indigo-500 */
+            --danger: #f87171;
+            /* red-400 */
+            --shadow: 0 20px 50px rgba(0, 0, 0, .45);
+            --radius: 16px;
+            --header-h: 64px;
+            --footer-h: 40px;
+            --pad: 16px;
+            --font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
 
-    *{ box-sizing: border-box; }
-    html, body{ height: 100%; }
-    body{
-      margin:0;
-      background: var(--bg);
-      color: var(--text);
-      font-family: var(--font);
-      overflow: hidden; /* evita scroll del body; el scroll lo gestiona el visor si aplica */
-    }
+            --z-header: 40;
+            --z-footer: 40;
+            --z-drawer: 55;
+            --z-about: 60;
+            --z-modal: 80;
+        }
 
-    .layout{
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-      min-height: 0;
-    }
+        header,
+        footer {
+            z-index: var(--z-header);
+        }
 
-    /* HEADER fijo */
-    header{
-      height: var(--header-h);
-      flex: 0 0 var(--header-h);
-      position: sticky;
-      top: 0;
-      z-index: 40;
-      background: rgba(15, 23, 42, 0.75);
-      backdrop-filter: blur(10px);
-      border-bottom: 1px solid var(--border);
-    }
-    .header-inner{
-      height: 100%;
-      padding: 0 var(--pad);
-      display:flex;
-      align-items:center;
-      justify-content: space-between;
-      gap: 12px;
-      min-width: 0;
-    }
-    .brand{
-      display:flex;
-      align-items:center;
-      gap: 12px;
-      min-width: 0;
-    }
-    .logo{
-      width: 36px;
-      height: 36px;
-      border-radius: 12px;
-      padding: 6px;
-      background: rgba(31,41,55,.7);
-      border: 1px solid var(--border);
-      object-fit: contain;
-      flex: 0 0 auto;
-    }
-    .crumbs{
-      min-width: 0;
-      display:flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-    .crumb-row{
-      display:flex;
-      align-items:center;
-      gap: 8px;
-      font-size: 13px;
-      min-width: 0;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .crumb{
-      max-width: 28vw;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .sep{ color: var(--muted2); }
-    .subline{
-      font-size: 12px;
-      color: var(--muted);
-      max-width: 55vw;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
+        .drawer {
+            z-index: var(--z-drawer);
+        }
 
-    .actions{
-      display:flex;
-      align-items:center;
-      gap: 10px;
-      flex: 0 0 auto;
-    }
-    .user{
-      display:none;
-      text-align:right;
-      line-height: 1.15;
-    }
-    .user .name{ font-size: 13px; font-weight: 600; color: var(--text); }
-    .user .mail{ font-size: 12px; color: var(--muted); }
+        .about-modal {
+            z-index: var(--z-about);
+        }
 
-    @media (min-width: 900px){
-      .user{ display:block; }
-      .crumb{ max-width: 320px; }
-    }
+        .modal {
+            z-index: var(--z-modal);
+        }
 
-    button{
-      border: 1px solid var(--border);
-      background: rgba(31,41,55,.65);
-      color: var(--text);
-      border-radius: 12px;
-      padding: 10px 12px;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: transform .05s ease, background .15s ease, border-color .15s ease, opacity .15s ease;
-    }
-    button:hover{ background: rgba(51,65,85,.65); }
-    button:active{ transform: translateY(1px); }
-    button:disabled{ opacity: .7; cursor: not-allowed; }
+        * {
+            box-sizing: border-box;
+        }
 
-    .btn-accent{
-      background: rgba(79,70,229,.9);
-      border-color: rgba(99,102,241,.55);
-    }
-    .btn-accent:hover{ background: rgba(99,102,241,.95); }
+        html,
+        body {
+            height: 100%;
+        }
 
-    /* BODY */
-    main{
-      flex: 1 1 auto;
-      min-height: 0;
-      overflow: hidden;
-    }
-    .body-pad{
-      height: 100%;
-      padding: 12px;
-    }
-    .pdf-frame{
-      height: 100%;
-      width: 100%;
-      border-radius: var(--radius);
-      overflow: hidden;
-      background: rgba(15,23,42,.6);
-      border: 1px solid var(--border);
-    }
-    iframe{
-      width: 100%;
-      height: 100%;
-      border: 0;
-      display:block;
-      background: #0b1220;
-    }
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--font);
+            overflow: hidden;
+            /* evita scroll del body; el scroll lo gestiona el visor si aplica */
+        }
 
-    .empty{
-      height: 100%;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding: 24px;
-    }
-    .empty-card{
-      width: min(680px, 100%);
-      border-radius: 20px;
-      border: 1px dashed rgba(148,163,184,.35);
-      background: rgba(15,23,42,.35);
-      padding: 18px;
-      text-align:center;
-    }
-    .empty-title{ font-size: 16px; font-weight: 700; margin: 0; }
-    .empty-sub{ margin: 10px 0 0; font-size: 13px; color: var(--muted); }
-    code{
-      background: rgba(31,41,55,.6);
-      border: 1px solid var(--border);
-      padding: 2px 6px;
-      border-radius: 10px;
-      color: var(--text);
-      font-size: 12px;
-    }
+        .layout {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
 
-    /* FOOTER fijo */
-    footer{
-      height: var(--footer-h);
-      flex: 0 0 var(--footer-h);
-      position: sticky;
-      bottom: 0;
-      z-index: 40;
-      background: rgba(15, 23, 42, 0.75);
-      backdrop-filter: blur(10px);
-      border-top: 1px solid var(--border);
-    }
-    .footer-inner{
-      height: 100%;
-      padding: 0 var(--pad);
-      display:flex;
-      align-items:center;
-      justify-content: space-between;
-      font-size: 12px;
-      color: var(--muted);
-      gap: 12px;
-      min-width: 0;
-    }
-    .truncate{
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      min-width: 0;
-    }
+        /* HEADER fijo */
+        header {
+            height: var(--header-h);
+            flex: 0 0 var(--header-h);
+            position: sticky;
+            top: 0;
+            z-index: 40;
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border);
+        }
 
-    /* MODAL */
-    .modal{
-      position: fixed;
-      inset: 0;
-      z-index: 50;
-      display:none;
-    }
-    .modal.open{ display:block; }
-    .overlay{
-      position:absolute;
-      inset:0;
-      background: rgba(0,0,0,.6);
-    }
-    .dialog-wrap{
-      position:absolute;
-      inset:0;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding: 16px;
-    }
-    .dialog{
-      width: min(640px, 100%);
-      border-radius: 20px;
-      border: 1px solid var(--border);
-      background: rgba(2,6,23,.95);
-      box-shadow: var(--shadow);
-      overflow:hidden;
-    }
-    .dialog-head{
-      display:flex;
-      align-items:flex-start;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 14px 16px;
-      border-bottom: 1px solid var(--border);
-      background: rgba(15,23,42,.55);
-    }
-    .dialog-title{
-      margin:0;
-      font-size: 15px;
-      font-weight: 800;
-      color: var(--text);
-    }
-    .dialog-desc{
-      margin: 4px 0 0;
-      font-size: 12px;
-      color: var(--muted);
-    }
-    .dialog-body{
-      padding: 16px;
-    }
-    label{
-      display:block;
-      font-size: 13px;
-      font-weight: 700;
-      margin-bottom: 8px;
-      color: var(--text);
-    }
-    textarea{
-      width: 100%;
-      border-radius: 16px;
-      border: 1px solid rgba(148,163,184,.35);
-      background: rgba(15,23,42,.75);
-      color: var(--text);
-      padding: 10px 12px;
-      outline: none;
-      resize: none;
-      font-size: 13px;
-      line-height: 1.35;
-      transition: border-color .15s ease, box-shadow .15s ease;
-    }
-    textarea:focus{
-      border-color: rgba(99,102,241,.65);
-      box-shadow: 0 0 0 3px rgba(99,102,241,.18);
-    }
-    .error{
-      margin-top: 10px;
-      font-size: 13px;
-      color: var(--danger);
-    }
-    .dialog-actions{
-      display:flex;
-      justify-content:flex-end;
-      gap: 10px;
-      padding: 0 16px 16px;
-    }
-  </style>
+        .header-inner {
+            height: 100%;
+            padding: 0 var(--pad);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            min-width: 0;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+        }
+
+        .logo {
+            width: 36px;
+            height: 36px;
+            border-radius: 12px;
+            padding: 6px;
+            background: rgba(31, 41, 55, .7);
+            border: 1px solid var(--border);
+            object-fit: contain;
+            flex: 0 0 auto;
+        }
+
+        .crumbs {
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .crumb-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            min-width: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .crumb {
+            max-width: 28vw;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .sep {
+            color: var(--muted2);
+        }
+
+        .subline {
+            font-size: 12px;
+            color: var(--muted);
+            max-width: 55vw;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 0 0 auto;
+        }
+
+        .user {
+            display: none;
+            text-align: right;
+            line-height: 1.15;
+        }
+
+        .user .name {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .user .mail {
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        @media (min-width: 900px) {
+            .user {
+                display: block;
+            }
+
+            .crumb {
+                max-width: 320px;
+            }
+        }
+
+        button {
+            border: 1px solid var(--border);
+            background: rgba(31, 41, 55, .65);
+            color: var(--text);
+            border-radius: 12px;
+            padding: 10px 12px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform .05s ease, background .15s ease, border-color .15s ease, opacity .15s ease;
+        }
+
+        button:hover {
+            background: rgba(51, 65, 85, .65);
+        }
+
+        button:active {
+            transform: translateY(1px);
+        }
+
+        button:disabled {
+            opacity: .7;
+            cursor: not-allowed;
+        }
+
+        .btn-accent {
+            background: rgba(79, 70, 229, .9);
+            border-color: rgba(99, 102, 241, .55);
+        }
+
+        .btn-accent:hover {
+            background: rgba(99, 102, 241, .95);
+        }
+
+        /* BODY */
+        main {
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        .body-pad {
+            height: 100%;
+            padding: 12px;
+        }
+
+        .pdf-frame {
+            height: 100%;
+            width: 100%;
+            border-radius: var(--radius);
+            overflow: hidden;
+            background: rgba(15, 23, 42, .6);
+            border: 1px solid var(--border);
+        }
+
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: 0;
+            display: block;
+            background: #0b1220;
+        }
+
+        .empty {
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+
+        .empty-card {
+            width: min(680px, 100%);
+            border-radius: 20px;
+            border: 1px dashed rgba(148, 163, 184, .35);
+            background: rgba(15, 23, 42, .35);
+            padding: 18px;
+            text-align: center;
+        }
+
+        .empty-title {
+            font-size: 16px;
+            font-weight: 700;
+            margin: 0;
+        }
+
+        .empty-sub {
+            margin: 10px 0 0;
+            font-size: 13px;
+            color: var(--muted);
+        }
+
+        code {
+            background: rgba(31, 41, 55, .6);
+            border: 1px solid var(--border);
+            padding: 2px 6px;
+            border-radius: 10px;
+            color: var(--text);
+            font-size: 12px;
+        }
+
+        /* FOOTER fijo */
+        footer {
+            height: var(--footer-h);
+            flex: 0 0 var(--footer-h);
+            position: sticky;
+            bottom: 0;
+            z-index: 40;
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid var(--border);
+        }
+
+        .footer-inner {
+            height: 100%;
+            padding: 0 var(--pad);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 12px;
+            color: var(--muted);
+            gap: 12px;
+            min-width: 0;
+        }
+
+        .truncate {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            min-width: 0;
+        }
+
+        /* MODAL */
+        .modal {
+            position: fixed;
+            inset: 0;
+            z-index: 80;
+            /* > drawer(55) y > about(60) */
+            display: none;
+        }
+
+        .modal.open {
+            display: block;
+        }
+
+        .overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, .6);
+        }
+
+        .dialog-wrap {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+
+        .dialog {
+            width: min(640px, 100%);
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            background: rgba(2, 6, 23, .95);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+
+        .dialog-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border);
+            background: rgba(15, 23, 42, .55);
+        }
+
+        .dialog-title {
+            margin: 0;
+            font-size: 15px;
+            font-weight: 800;
+            color: var(--text);
+        }
+
+        .dialog-desc {
+            margin: 4px 0 0;
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .dialog-body {
+            padding: 16px;
+        }
+
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: var(--text);
+        }
+
+        textarea {
+            width: 100%;
+            border-radius: 16px;
+            border: 1px solid rgba(148, 163, 184, .35);
+            background: rgba(15, 23, 42, .75);
+            color: var(--text);
+            padding: 10px 12px;
+            outline: none;
+            resize: none;
+            font-size: 13px;
+            line-height: 1.35;
+            transition: border-color .15s ease, box-shadow .15s ease;
+        }
+
+        textarea:focus {
+            border-color: rgba(99, 102, 241, .65);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, .18);
+        }
+
+        .error {
+            margin-top: 10px;
+            font-size: 13px;
+            color: var(--danger);
+        }
+
+        .dialog-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            padding: 0 16px 16px;
+        }
+
+        /* Estilos Modal */
+        /* Logo como botón */
+        .logo-btn {
+            appearance: none;
+            border: 0;
+            padding: 0;
+            background: transparent;
+            border-radius: 14px;
+            cursor: pointer;
+            line-height: 0;
+        }
+
+        .logo-btn:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, .22);
+            border-radius: 14px;
+        }
+
+        /* Modal tipo “About” (similar a la captura) */
+        .about-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 60;
+            display: none;
+        }
+
+        .about-modal.open {
+            display: block;
+        }
+
+        .about-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, .65);
+        }
+
+        .about-wrap {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 18px;
+        }
+
+        .about-card {
+            width: min(980px, 100%);
+            border-radius: 18px;
+            border: 1px solid var(--border);
+            background: rgba(2, 6, 23, .92);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+
+        /* Header superior del modal */
+        .about-topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 14px 16px;
+            border-bottom: 1px solid rgba(31, 41, 55, .7);
+            background: rgba(15, 23, 42, .55);
+        }
+
+        .about-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+        }
+
+        .about-title {
+            font-size: 18px;
+            font-weight: 800;
+            color: var(--text);
+            margin: 0;
+        }
+
+        .about-badge {
+            font-size: 12px;
+            color: var(--muted);
+            border: 1px solid rgba(148, 163, 184, .25);
+            padding: 3px 8px;
+            border-radius: 999px;
+            white-space: nowrap;
+        }
+
+        .about-close {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(31, 41, 55, .55);
+            border: 1px solid rgba(148, 163, 184, .22);
+            cursor: pointer;
+        }
+
+        .about-close:hover {
+            background: rgba(51, 65, 85, .55);
+        }
+
+        /* Cuerpo principal (2 columnas) */
+        .about-body {
+            display: grid;
+            grid-template-columns: 360px 1fr;
+            gap: 18px;
+            padding: 18px;
+        }
+
+        @media (max-width: 860px) {
+            .about-body {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .about-figure {
+            border-radius: 14px;
+            overflow: hidden;
+            border: 1px solid rgba(148, 163, 184, .18);
+            background: rgba(15, 23, 42, .35);
+        }
+
+        .about-figure img {
+            width: 100%;
+            height: 100%;
+            display: block;
+            object-fit: cover;
+            aspect-ratio: 1 / 1;
+        }
+
+        /* Texto */
+        .about-section h4 {
+            margin: 0 0 8px;
+            font-size: 14px;
+            font-weight: 800;
+            color: var(--text);
+        }
+
+        .about-desc {
+            margin: 0 0 14px;
+            font-size: 13px;
+            color: var(--muted);
+            line-height: 1.45;
+        }
+
+        .about-list {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px 16px;
+            padding-left: 18px;
+            margin: 0;
+            color: var(--text);
+            font-size: 13px;
+        }
+
+        @media (max-width: 860px) {
+            .about-list {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .about-list li {
+            margin: 0;
+            color: var(--text);
+        }
+
+        .about-list b {
+            font-weight: 800;
+        }
+
+        /* Footer inferior del modal */
+        .about-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 12px 16px;
+            border-top: 1px solid rgba(31, 41, 55, .7);
+            background: rgba(15, 23, 42, .55);
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        /* ===================== DRAWER Observaciones ===================== */
+        .drawer {
+            position: fixed;
+            inset: 0;
+            z-index: 55;
+            display: none;
+        }
+
+        .drawer.open {
+            display: block;
+        }
+
+        .drawer-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, .55);
+        }
+
+        .drawer-panel {
+            position: absolute;
+            top: 0;
+            right: 0;
+            height: 100%;
+            width: min(720px, 92vw);
+            background: rgba(2, 6, 23, .96);
+            border-left: 1px solid var(--border);
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .drawer-head {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border);
+            background: rgba(15, 23, 42, .55);
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .drawer-title {
+            margin: 0;
+            font-size: 15px;
+            font-weight: 800;
+        }
+
+        .drawer-sub {
+            margin: 4px 0 0;
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .drawer-body {
+            padding: 12px 16px;
+            overflow: auto;
+            min-height: 0;
+        }
+
+        .drawer-tools {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            border: 1px solid rgba(148, 163, 184, .18);
+            border-radius: 14px;
+            overflow: hidden;
+        }
+
+        .table th,
+        .table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid rgba(148, 163, 184, .14);
+            vertical-align: top;
+            font-size: 13px;
+        }
+
+        .table th {
+            text-align: left;
+            color: var(--muted);
+            font-weight: 800;
+            background: rgba(15, 23, 42, .55);
+        }
+
+        .table td {
+            color: var(--text);
+        }
+
+        .table tr:last-child td {
+            border-bottom: 0;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 8px;
+            border-radius: 999px;
+            border: 1px solid rgba(148, 163, 184, .22);
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .mono {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .drawer-empty {
+            border: 1px dashed rgba(148, 163, 184, .25);
+            border-radius: 14px;
+            padding: 14px;
+            color: var(--muted);
+            background: rgba(15, 23, 42, .35);
+        }
+    </style>
 </head>
 
 <body>
-  <div class="layout">
-    <!-- ===================== HEADER ===================== -->
-    <header>
-      <div class="header-inner">
-        <div class="brand">
-          <!-- Logo -->
-          <img class="logo" src="./content/img/chinchinAItor.jpg" alt="{{APP_NAME}}" />
+    <div class="layout">
+        <!-- ===================== HEADER ===================== -->
+        <header>
+            <div class="header-inner">
+                <div class="brand">
+                    <!-- Logo -->
+                    <!-- Logo clickeable (abre modal informativo) -->
+                    <button type="button" class="logo-btn" id="btnOpenAbout" aria-label="Abrir información del módulo">
+                        <img class="logo" src="./content/img/chinchinAItor.jpg" alt="ChinchinAItor" />
+                    </button>
 
-          <!-- Cliente / Proyecto / Minuta -->
-          <div class="crumbs">
-            <div class="crumb-row" title="{{CLIENT_NAME}} / {{PROJECT_NAME}} / {{MINUTE_NAME}}">
-              <span class="crumb" id="clientName">{{CLIENT_NAME}}</span>
-              <span class="sep">/</span>
-              <span class="crumb" id="projectName">{{PROJECT_NAME}}</span>
-              <span class="sep">/</span>
-              <span class="crumb" id="minuteName" style="font-weight:700;color:var(--text);">
-                {{MINUTE_NAME}}
-              </span>
+                    <!-- Cliente / Proyecto / Minuta -->
+                    <div class="crumbs">
+                        <div class="crumb-row" title="{{CLIENT_NAME}} / {{PROJECT_NAME}} / {{MINUTE_NAME}}">
+                            <span class="crumb" id="clientName">{{CLIENT_NAME}}</span>
+                            <span class="sep">/</span>
+                            <span class="crumb" id="projectName">{{PROJECT_NAME}}</span>
+                            <span class="sep">/</span>
+                            <span class="crumb" id="minuteName" style="font-weight:700;color:var(--text);">
+                                {{MINUTE_NAME}}
+                            </span>
+                        </div>
+                        <div class="subline">
+                            Visualización de minuta en PDF para revisión y observaciones
+                        </div>
+                    </div>
+                </div>
+
+                <div class="actions">
+                    <!-- Usuario -->
+                    <div class="user">
+                        <div class="name" id="userFullName">{{USER_FULL_NAME}}</div>
+                        <div class="mail" id="userEmail">{{USER_EMAIL}}</div>
+                    </div>
+
+                    <!-- Listar Observación -->
+                    <button type="button" class="btn-accent" id="btnOpenObsList" style="width: 200px;">
+                        Observaciones
+                    </button>
+                    <!-- Logout -->
+                    <button type="button" id="btnLogout" style="width: 150px;">
+                        Cerrar sesión
+                    </button>
+                </div>
             </div>
-            <div class="subline">
-              Visualización de minuta en PDF para revisión y observaciones
+        </header>
+
+        <!-- ===================== BODY (PDF Viewer) ===================== -->
+        <main>
+            <div class="body-pad" id="pdfContainer">
+                <!-- Visor PDF -->
+                <div class="pdf-frame" id="pdfFrameWrap">
+                    <iframe id="pdfFrame" title="Visor PDF" src="./content/demo.pdf" loading="eager"></iframe>
+                </div>
+
+                <!-- Estado vacío (se habilita por JS si PDF_URL está vacío) -->
+                <div class="empty" id="emptyState" style="display:none;">
+                    <div class="empty-card">
+                        <p class="empty-title">No hay PDF cargado</p>
+                        <p class="empty-sub">
+                            Proporcione <code>PDF_URL</code> para visualizar el documento.
+                        </p>
+                    </div>
+                </div>
             </div>
-          </div>
-        </div>
+        </main>
 
-        <div class="actions">
-          <!-- Usuario -->
-          <div class="user">
-            <div class="name" id="userFullName">{{USER_FULL_NAME}}</div>
-            <div class="mail" id="userEmail">{{USER_EMAIL}}</div>
-          </div>
-
-          <!-- Botón Observación -->
-          <button type="button" class="btn-accent" id="btnOpenObs">
-            Agregar observación
-          </button>
-
-          <!-- Logout -->
-          <button type="button" id="btnLogout">
-            Cerrar sesión
-          </button>
-        </div>
-      </div>
-    </header>
-
-    <!-- ===================== BODY (PDF Viewer) ===================== -->
-    <main>
-      <div class="body-pad" id="pdfContainer">
-        <!-- Visor PDF -->
-        <div class="pdf-frame" id="pdfFrameWrap">
-          <iframe
-            id="pdfFrame"
-            title="Visor PDF"
-            src="./content/demo.pdf"
-            loading="eager"
-          ></iframe>
-        </div>
-
-        <!-- Estado vacío (se habilita por JS si PDF_URL está vacío) -->
-        <div class="empty" id="emptyState" style="display:none;">
-          <div class="empty-card">
-            <p class="empty-title">No hay PDF cargado</p>
-            <p class="empty-sub">
-              Proporcione <code>PDF_URL</code> para visualizar el documento.
-            </p>
-          </div>
-        </div>
-      </div>
-    </main>
-
-    <!-- ===================== FOOTER ===================== -->
-    <footer>
-      <div class="footer-inner">
-        <span class="truncate" id="footerLeft">{{FOOTER_LEFT}}</span>
-        <span class="truncate" id="footerRight">{{FOOTER_RIGHT}}</span>
-      </div>
-    </footer>
-  </div>
-
-  <!-- ===================== MODAL Observaciones ===================== -->
-  <div class="modal" id="obsModal" aria-modal="true" role="dialog">
-    <div class="overlay" id="obsOverlay"></div>
-
-    <div class="dialog-wrap" role="document">
-      <div class="dialog">
-        <div class="dialog-head">
-          <div>
-            <h3 class="dialog-title">Agregar observación</h3>
-            <p class="dialog-desc">Registre una observación asociada a la revisión actual.</p>
-          </div>
-          <button type="button" id="btnCloseObs">Cerrar</button>
-        </div>
-
-        <div class="dialog-body">
-          <label for="obsText">Observación (texto)</label>
-          <textarea id="obsText" rows="6" placeholder="Ingrese su observación…"></textarea>
-          <div class="error" id="obsError" style="display:none;"></div>
-        </div>
-
-        <div class="dialog-actions">
-          <button type="button" id="btnCancelObs">Cancelar</button>
-          <button type="button" class="btn-accent" id="btnSaveObs">Guardar</button>
-        </div>
-      </div>
+        <!-- ===================== FOOTER ===================== -->
+        <footer>
+            <div class="footer-inner">
+                <span class="truncate" id="footerLeft">{{FOOTER_LEFT}}</span>
+                <span class="truncate" id="footerRight">{{FOOTER_RIGHT}}</span>
+            </div>
+        </footer>
     </div>
-  </div>
 
-  <script>
-    /**
-     * Implementación mínima (sin frameworks):
-     * - Modal: abrir/cerrar + ESC + click overlay
-     * - Validación: textarea requerido
-     * - Hooks: logout y guardado (stubs a reemplazar)
-     */
+    <!-- ===================== MODAL Observaciones ===================== -->
+    <div class="modal" id="obsModal" aria-modal="true" role="dialog">
+        <div class="overlay" id="obsOverlay"></div>
 
-    // ======== Placeholders (si no usas motor de templates, setea aquí) ========
-    // const CONFIG = {
-    //   pdfUrl: "/api/v1/files/123/view",
-    //   logoutUrl: "/api/v1/auth/logout",
-    //   saveObservationUrl: "/api/v1/visits/observations",
-    // };
+        <div class="dialog-wrap" role="document">
+            <div class="dialog">
+                <div class="dialog-head">
+                    <div>
+                        <h3 class="dialog-title">Agregar observación</h3>
+                        <p class="dialog-desc">Registre una observación asociada a la revisión actual.</p>
+                    </div>
+                    <button type="button" id="btnCloseObs">Cerrar</button>
+                </div>
 
-    const elModal = document.getElementById("obsModal");
-    const elOverlay = document.getElementById("obsOverlay");
-    const elOpen = document.getElementById("btnOpenObs");
-    const elClose = document.getElementById("btnCloseObs");
-    const elCancel = document.getElementById("btnCancelObs");
-    const elSave = document.getElementById("btnSaveObs");
-    const elText = document.getElementById("obsText");
-    const elError = document.getElementById("obsError");
+                <div class="dialog-body">
+                    <label for="obsText">Observación (texto)</label>
+                    <textarea id="obsText" rows="6" placeholder="Ingrese su observación…"></textarea>
+                    <div class="error" id="obsError" style="display:none;"></div>
+                </div>
 
-    const elLogout = document.getElementById("btnLogout");
+                <div class="dialog-actions">
+                    <button type="button" id="btnCancelObs">Cancelar</button>
+                    <button type="button" class="btn-accent" id="btnSaveObs">Guardar</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
-    const elPdfFrame = document.getElementById("pdfFrame");
-    const elPdfWrap = document.getElementById("pdfFrameWrap");
-    const elEmpty = document.getElementById("emptyState");
+    <!-- ===================== MODAL About (Presentación del sistema) ===================== -->
+    <div class="about-modal" id="aboutModal" aria-modal="true" role="dialog">
+        <div class="about-overlay" id="aboutOverlay"></div>
 
-    function openModal() {
-      elError.style.display = "none";
-      elError.textContent = "";
-      elText.value = "";
-      elModal.classList.add("open");
-      // enfoque diferido
-      setTimeout(() => elText.focus(), 50);
-    }
+        <div class="about-wrap" role="document">
+            <div class="about-card">
+                <div class="about-topbar">
+                    <div class="about-brand">
+                        <h3 class="about-title">MinuetAItor</h3>
+                        <span class="about-badge">Presentación del sistema</span>
+                    </div>
 
-    function closeModal() {
-      elModal.classList.remove("open");
-      elError.style.display = "none";
-      elError.textContent = "";
-      elText.value = "";
-    }
+                    <button type="button" class="about-close" id="btnCloseAbout" aria-label="Cerrar">
+                        ✕
+                    </button>
+                </div>
 
-    function showError(msg) {
-      elError.textContent = msg;
-      elError.style.display = "block";
-    }
+                <div class="about-body">
+                    <!-- Imagen -->
+                    <div class="about-figure">
+                        <img src="./content/img/chinchinAItor.jpg" alt="ChinchinAItor" />
+                    </div>
 
-    // ======== PDF: si PDF_URL está vacío, mostrar estado vacío ========
-    (function initPdf() {
-      const src = (elPdfFrame.getAttribute("src") || "").trim();
-      if (!src || src.includes("{{PDF_URL}}")) {
-        elPdfWrap.style.display = "none";
-        elEmpty.style.display = "flex";
-      } else {
-        elPdfWrap.style.display = "block";
-        elEmpty.style.display = "none";
-      }
-    })();
+                    <!-- Contenido -->
+                    <div class="about-section">
+                        <h4>Descripción</h4>
 
-    // ======== Eventos Modal ========
-    elOpen.addEventListener("click", openModal);
-    elClose.addEventListener("click", closeModal);
-    elCancel.addEventListener("click", closeModal);
-    elOverlay.addEventListener("click", closeModal);
+                        <p class="about-desc">
+                            MinuetAItor centraliza la gestión de minutas, acuerdos y compromisos, habilitando
+                            trazabilidad
+                            extremo a extremo y estandarización del registro. Automatiza la extracción de puntos clave,
+                            normaliza formatos y optimiza el seguimiento de acciones, reduciendo fricción operativa y
+                            error
+                            manual. Su foco es mejorar control, visibilidad y eficiencia operativa: desde la captura de
+                            información hasta la auditoría de decisiones, con continuidad y mejora continua de procesos.
+                        </p>
 
-    window.addEventListener("keydown", (ev) => {
-      if (ev.key === "Escape" && elModal.classList.contains("open")) closeModal();
-    });
+                        <!-- Texto específico del módulo (sin UL) -->
+                        <div style="margin-top:12px;border-top:1px solid rgba(31,41,55,.7);padding-top:12px;">
+                            <h4 style="margin:0 0 8px;font-size:14px;font-weight:800;color:var(--text);">
+                                Módulo de visualización de minutas
+                            </h4>
+                            <p class="about-desc" style="margin:0;">
+                                Este módulo corresponde a la <b>visualización de minutas</b> para revisión controlada.
+                                Permite consultar el PDF asociado a la minuta activa y registrar observaciones de forma
+                                trazable, facilitando la validación operativa y el control documental.
+                            </p>
+                        </div>
+                    </div>
+                </div>
 
-    // ======== Guardar Observación (stub) ========
-    elSave.addEventListener("click", async () => {
-      const text = (elText.value || "").trim();
-      if (!text) {
-        showError("Debe ingresar una observación.");
-        return;
-      }
+                <div class="about-footer">
+                    <span class="truncate">Desarrollado por Zeus · zeus@tudominio.cl</span>
+                    <span class="truncate">Gestión · Trazabilidad · Estandarización</span>
+                </div>
+            </div>
+        </div>
+    </div>
 
-      elSave.disabled = true;
-      elSave.textContent = "Guardando…";
+    <!-- ===================== DRAWER Lista Observaciones ===================== -->
+    <div class="drawer" id="obsListDrawer" aria-modal="true" role="dialog">
+        <div class="drawer-overlay" id="obsListOverlay"></div>
 
-      try {
+        <div class="drawer-panel" role="document" aria-label="Listado de observaciones">
+            <div class="drawer-head">
+                <div>
+                    <h3 class="drawer-title">Observaciones registradas</h3>
+                    <p class="drawer-sub">Listado simple por fecha/hora. Fuente: backend (o mock).</p>
+                </div>
+
+                <div style="display:flex;gap:10px;align-items:center;">
+                    <span class="badge" id="obsCount" style="width: 80px; text-align: center; display: block;">0</span>
+                    <!-- Botón Observación -->
+                    <button type="button" class="btn-accent" id="btnOpenObs" style="width: 200px;">
+                        Agregar observación
+                    </button>
+                    <button type="button" id="btnCloseObsList" style="width: 150px;">Cerrar</button>
+                </div>
+            </div>
+
+            <div class="drawer-body">
+
+                <div id="obsListEmpty" class="drawer-empty" style="display:none;">
+                    No existen observaciones para la minuta actual.
+                </div>
+
+                <table class="table" id="obsTable" style="display:none;">
+                    <thead>
+                        <tr>
+                            <th style="width: 180px;">Fecha/Hora</th>
+                            <th>Mensaje</th>
+                            <th style="width: 120px; text-align:center;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="obsTbody"></tbody>
+                </table>
+
+                <div class="error" id="obsListError" style="display:none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================== 2) AGREGA ESTE MODAL (al final del <body>, antes de </body>) ===================== -->
+    <div class="modal" id="confirmDeleteModal" aria-modal="true" role="dialog">
+        <div class="overlay" id="confirmDeleteOverlay"></div>
+
+        <div class="dialog-wrap" role="document">
+            <div class="dialog" style="width:min(520px,100%);">
+                <div class="dialog-head">
+                    <div>
+                        <h3 class="dialog-title">Confirmar eliminación</h3>
+                        <p class="dialog-desc">Esta acción eliminará la observación seleccionada.</p>
+                    </div>
+                    <button type="button" id="btnCloseConfirmDelete">Cerrar</button>
+                </div>
+
+                <div class="dialog-body">
+                    <p style="margin:0;font-size:13px;color:var(--text);line-height:1.45;">
+                        ¿Está seguro que desea eliminar esta observación?
+                    </p>
+                    <div class="error" id="confirmDeleteError" style="display:none;"></div>
+                </div>
+
+                <div class="dialog-actions">
+                    <button type="button" id="btnCancelConfirmDelete">Cancelar</button>
+                    <button type="button" class="btn-accent" id="btnConfirmDelete">Eliminar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
         /**
-         * Reemplazar por tu integración real:
-         * - fetch POST a tu backend con { text, clientId, projectId, minuteId }
-         * - manejo de headers Bearer/token si aplica
+         * Implementación mínima (sin frameworks):
+         * - Modal: abrir/cerrar + ESC + click overlay
+         * - Validación: textarea requerido
+         * - Hooks: logout y guardado (stubs a reemplazar)
          */
-        // await fetch(CONFIG.saveObservationUrl, {
-        //   method: "POST",
-        //   headers: { "Content-Type": "application/json" },
-        //   body: JSON.stringify({ text }),
-        // });
 
-        // Simulación OK
-        await new Promise((r) => setTimeout(r, 350));
+        // ======== Placeholders (si no usas motor de templates, setea aquí) ========
+        // const CONFIG = {
+        //   pdfUrl: "/api/v1/files/123/view",
+        //   logoutUrl: "/api/v1/auth/logout",
+        //   saveObservationUrl: "/api/v1/visits/observations",
+        // };
 
-        closeModal();
-      } catch (e) {
-        showError(e?.message || "No fue posible guardar la observación.");
-      } finally {
-        elSave.disabled = false;
-        elSave.textContent = "Guardar";
+        const elModal = document.getElementById("obsModal");
+        const elOverlay = document.getElementById("obsOverlay");
+        const elOpen = document.getElementById("btnOpenObs");
+        const elClose = document.getElementById("btnCloseObs");
+        const elCancel = document.getElementById("btnCancelObs");
+        const elSave = document.getElementById("btnSaveObs");
+        const elText = document.getElementById("obsText");
+        const elError = document.getElementById("obsError");
+
+        const elLogout = document.getElementById("btnLogout");
+
+        const elPdfFrame = document.getElementById("pdfFrame");
+        const elPdfWrap = document.getElementById("pdfFrameWrap");
+        const elEmpty = document.getElementById("emptyState");
+
+        function openModal() {
+            elError.style.display = "none";
+            elError.textContent = "";
+            elText.value = "";
+            elModal.classList.add("open");
+            // enfoque diferido
+            setTimeout(() => elText.focus(), 50);
+        }
+
+        function closeModal() {
+            elModal.classList.remove("open");
+            elError.style.display = "none";
+            elError.textContent = "";
+            elText.value = "";
+        }
+
+        function showError(msg) {
+            elError.textContent = msg;
+            elError.style.display = "block";
+        }
+
+        // ======== PDF: si PDF_URL está vacío, mostrar estado vacío ========
+        (function initPdf() {
+            const src = (elPdfFrame.getAttribute("src") || "").trim();
+            if (!src || src.includes("{{PDF_URL}}")) {
+                elPdfWrap.style.display = "none";
+                elEmpty.style.display = "flex";
+            } else {
+                elPdfWrap.style.display = "block";
+                elEmpty.style.display = "none";
+            }
+        })();
+
+        // ======== About modal (icono chinchilla) ========
+        const elAboutModal = document.getElementById("aboutModal");
+        const elAboutOverlay = document.getElementById("aboutOverlay");
+        const elOpenAbout = document.getElementById("btnOpenAbout");
+        const elCloseAbout = document.getElementById("btnCloseAbout");
+
+        function openAbout() {
+            elAboutModal.classList.add("open");
+        }
+
+        function closeAbout() {
+            elAboutModal.classList.remove("open");
+        }
+
+        if (elOpenAbout) elOpenAbout.addEventListener("click", openAbout);
+        if (elCloseAbout) elCloseAbout.addEventListener("click", closeAbout);
+        if (elAboutOverlay) elAboutOverlay.addEventListener("click", closeAbout);
+
+        window.addEventListener("keydown", (ev) => {
+            if (ev.key === "Escape" && elAboutModal?.classList.contains("open")) closeAbout();
+        });
+
+        // ======== Eventos Modal ========
+        elOpen.addEventListener("click", openModal);
+        elClose.addEventListener("click", closeModal);
+        elCancel.addEventListener("click", closeModal);
+        elOverlay.addEventListener("click", closeModal);
+
+        window.addEventListener("keydown", (ev) => {
+            if (ev.key === "Escape" && elModal.classList.contains("open")) closeModal();
+        });
+
+        // ======== Guardar Observación (stub) ========
+        elSave.addEventListener("click", async () => {
+            const text = (elText.value || "").trim();
+            if (!text) {
+                showError("Debe ingresar una observación.");
+                return;
+            }
+
+            elSave.disabled = true;
+            elSave.textContent = "Guardando…";
+
+            try {
+                /**
+                 * Reemplazar por tu integración real:
+                 * - fetch POST a tu backend con { text, clientId, projectId, minuteId }
+                 * - manejo de headers Bearer/token si aplica
+                 */
+                // await fetch(CONFIG.saveObservationUrl, {
+                //   method: "POST",
+                //   headers: { "Content-Type": "application/json" },
+                //   body: JSON.stringify({ text }),
+                // });
+
+                // Simulación OK
+                await new Promise((r) => setTimeout(r, 350));
+
+                closeModal();
+            } catch (e) {
+                showError(e?.message || "No fue posible guardar la observación.");
+            } finally {
+                elSave.disabled = false;
+                elSave.textContent = "Guardar";
+            }
+        });
+
+        // ======== Logout (stub) ========
+        elLogout.addEventListener("click", async () => {
+            /**
+             * Reemplazar por tu flujo real:
+             * - llamada a /auth/logout
+             * - limpiar tokens/estado
+             * - redirigir a /login
+             */
+            // await fetch(CONFIG.logoutUrl, { method: "POST" });
+            // window.location.href = "/login";
+
+            // Simulación: redirección local
+            window.location.href = "/login";
+        });
+    </script>
+
+    <script>
+        // ===================== DRAWER: Lista Observaciones (SIN buscador) =====================
+        const elObsListDrawer = document.getElementById("obsListDrawer");
+        const elObsListOverlay = document.getElementById("obsListOverlay");
+        const elBtnOpenObsList = document.getElementById("btnOpenObsList");
+        const elBtnCloseObsList = document.getElementById("btnCloseObsList");
+
+        const elObsCount = document.getElementById("obsCount");
+
+
+        const elObsTable = document.getElementById("obsTable");
+        const elObsTbody = document.getElementById("obsTbody");
+        const elObsListEmpty = document.getElementById("obsListEmpty");
+        const elObsListError = document.getElementById("obsListError");
+
+        let OBS_CACHE = [];
+
+        function openObsList() {
+            elObsListError.style.display = "none";
+            elObsListError.textContent = "";
+            elObsListDrawer.classList.add("open");
+            loadObservations(); // carga automática
+        }
+
+        function closeObsList() {
+            elObsListDrawer.classList.remove("open");
+        }
+
+        function setObsListError(msg) {
+            elObsListError.textContent = msg;
+            elObsListError.style.display = "block";
+        }
+
+        function formatDateTime(isoOrDate) {
+            const d = (isoOrDate instanceof Date) ? isoOrDate : new Date(isoOrDate);
+            if (Number.isNaN(d.getTime())) return String(isoOrDate || "");
+            const pad = (n) => String(n).padStart(2, "0");
+            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+        }
+
+        function escapeHtml(str) {
+            return String(str || "")
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;")
+                .replaceAll("'", "&#039;");
+        }
+
+        function renderObservations(list) {
+            elObsTbody.innerHTML = "";
+            elObsCount.textContent = `${Array.isArray(list) ? list.length : 0} obs.`;
+
+            if (!list || !list.length) {
+                elObsTable.style.display = "none";
+                elObsListEmpty.style.display = "block";
+                return;
+            }
+
+            elObsListEmpty.style.display = "none";
+            elObsTable.style.display = "table";
+
+            for (const item of list) {
+                const tr = document.createElement("tr");
+
+                const tdDt = document.createElement("td");
+                tdDt.innerHTML = `<span class="mono">${escapeHtml(formatDateTime(item.created_at || item.createdAt || item.date))}</span>`;
+                // Mantener display por defecto (table-cell)
+                tdDt.style.verticalAlign = "middle";
+                tdDt.style.textAlign = "center";
+                tdDt.style.whiteSpace = "nowrap";   // evita cortes raros en la fecha
+
+                const tdMsg = document.createElement("td");
+                tdMsg.textContent = item.message || item.text || "";
+                tdMsg.style.textAlign = "justify";
+                tdMsg.style.textJustify = "inter-word";
+                tdMsg.style.hyphens = "auto";
+                tdMsg.style.whiteSpace = "normal";
+                tdMsg.style.lineHeight = "1.35";
+
+                tr.appendChild(tdDt);
+                tr.appendChild(tdMsg);
+                elObsTbody.appendChild(tr);
+            }
+        }
+
+        async function loadObservations() {
+            elObsListError.style.display = "none";
+            elObsListError.textContent = "";
+
+            try {
+                // ===================== INTEGRACIÓN REAL (reemplazar) =====================
+                // Recomendación: filtrar por minuteId (y opcionalmente por userId)
+                //
+                // const minuteId = "{{MINUTE_ID}}";
+                // const resp = await fetch(`${CONFIG.listObservationUrl}?minute_id=${encodeURIComponent(minuteId)}`, {
+                //   headers: { "Accept": "application/json" }
+                // });
+                // if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                // const data = await resp.json();
+                // OBS_CACHE = data?.result || data || [];
+
+                // ===================== MOCK temporal =====================
+                OBS_CACHE = [
+                    {
+                        created_at: new Date(Date.now() - 86400000).toISOString(),
+                        message: "Se solicita validar detalladamente la coherencia entre los acuerdos documentados en la presente minuta y el plan de acción definido, asegurando que cada compromiso cuente con responsable asignado, fecha comprometida y que no existan discrepancias que puedan afectar el seguimiento operativo o la correcta ejecución de las actividades comprometidas."
+                    },
+                    {
+                        created_at: new Date(Date.now() - 3600000).toISOString(),
+                        message: "Favor adjuntar la evidencia formal de cumplimiento asociada al punto número 3, incluyendo respaldos verificables como correos de confirmación, documentos firmados, capturas de sistema u otro medio que permita acreditar de forma objetiva que la actividad fue ejecutada conforme a lo acordado en la sesión correspondiente."
+                    },
+                    {
+                        created_at: new Date().toISOString(),
+                        message: "Se detecta una inconsistencia en la fecha registrada dentro de la sección de responsables, por lo que se requiere revisar y corregir este antecedente para asegurar la integridad de la información, mantener la trazabilidad histórica correcta y evitar posibles confusiones en futuras revisiones o procesos de auditoría asociados a esta minuta."
+                    },
+                ];
+
+                // Orden descendente por fecha (más reciente primero)
+                OBS_CACHE.sort((a, b) => new Date(b.created_at || b.createdAt || 0) - new Date(a.created_at || a.createdAt || 0));
+
+                renderObservations(OBS_CACHE);
+            } catch (e) {
+                setObsListError(e?.message || "No fue posible cargar observaciones.");
+                renderObservations([]); // mantiene estado consistente
+            }
+        }
+
+        // ===================== Listeners =====================
+        if (elBtnOpenObsList) elBtnOpenObsList.addEventListener("click", openObsList);
+        if (elBtnCloseObsList) elBtnCloseObsList.addEventListener("click", closeObsList);
+        if (elObsListOverlay) elObsListOverlay.addEventListener("click", closeObsList);
+
+
+        window.addEventListener("keydown", (ev) => {
+            if (ev.key === "Escape" && elObsListDrawer?.classList.contains("open")) closeObsList();
+        });
+
+        // ===================== Opcional: refrescar al guardar observación =====================
+        // En tu handler de "Guardar Observación" (btnSaveObs), tras POST OK:
+        // if (elObsListDrawer?.classList.contains("open")) await loadObservations();
+    </script>
+
+    <script>
+        /* ===================== 3) CSS MINIMO (inyectado por JS, sin tocar tu <style>) ===================== */
+        (function ensureDangerBtnStyle() {
+            const css = `
+      .btn-danger{
+        background: rgba(248,113,113,.16);
+        border-color: rgba(248,113,113,.35);
+        color: #fecaca;
       }
-    });
+      .btn-danger:hover{
+        background: rgba(248,113,113,.22);
+      }
+      .btn-icon{
+        width: 44px;
+        height: 36px;
+        padding: 0;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        border-radius: 12px;
+      }
+    `;
+            const style = document.createElement("style");
+            style.textContent = css;
+            document.head.appendChild(style);
+        })();
 
-    // ======== Logout (stub) ========
-    elLogout.addEventListener("click", async () => {
-      /**
-       * Reemplazar por tu flujo real:
-       * - llamada a /auth/logout
-       * - limpiar tokens/estado
-       * - redirigir a /login
-       */
-      // await fetch(CONFIG.logoutUrl, { method: "POST" });
-      // window.location.href = "/login";
+        /* ===================== 4) LÓGICA: DELETE CON CONFIRMACIÓN ===================== */
 
-      // Simulación: redirección local
-      window.location.href = "/login";
-    });
-  </script>
+        // Modal confirmación
+        const elConfirmDeleteModal = document.getElementById("confirmDeleteModal");
+        const elConfirmDeleteOverlay = document.getElementById("confirmDeleteOverlay");
+        const elCloseConfirmDelete = document.getElementById("btnCloseConfirmDelete");
+        const elCancelConfirmDelete = document.getElementById("btnCancelConfirmDelete");
+        const elConfirmDeleteBtn = document.getElementById("btnConfirmDelete");
+        const elConfirmDeleteError = document.getElementById("confirmDeleteError");
+
+        // Estado de la fila a eliminar
+        let PENDING_DELETE_ID = null;
+
+        function openConfirmDelete(id) {
+            PENDING_DELETE_ID = id;
+            elConfirmDeleteError.style.display = "none";
+            elConfirmDeleteError.textContent = "";
+            elConfirmDeleteModal.classList.add("open");
+        }
+        function closeConfirmDelete() {
+            elConfirmDeleteModal.classList.remove("open");
+            elConfirmDeleteError.style.display = "none";
+            elConfirmDeleteError.textContent = "";
+            PENDING_DELETE_ID = null;
+        }
+        function setConfirmDeleteError(msg) {
+            elConfirmDeleteError.textContent = msg;
+            elConfirmDeleteError.style.display = "block";
+        }
+
+        if (elConfirmDeleteOverlay) elConfirmDeleteOverlay.addEventListener("click", closeConfirmDelete);
+        if (elCloseConfirmDelete) elCloseConfirmDelete.addEventListener("click", closeConfirmDelete);
+        if (elCancelConfirmDelete) elCancelConfirmDelete.addEventListener("click", closeConfirmDelete);
+
+        window.addEventListener("keydown", (ev) => {
+            if (ev.key === "Escape" && elConfirmDeleteModal?.classList.contains("open")) closeConfirmDelete();
+        });
+
+        /**
+         * Integra aquí tu endpoint real:
+         * - Recomendado: DELETE /api/v1/visits/observations/{id}
+         * - O: DELETE con body { id, minuteId }
+         */
+        async function deleteObservationById(id) {
+            // ======== INTEGRACIÓN REAL (reemplazar) ========
+            // const resp = await fetch(`${CONFIG.deleteObservationUrl}/${encodeURIComponent(id)}`, { method: "DELETE" });
+            // if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            // return true;
+
+            // ======== MOCK: borrado local ========
+            await new Promise((r) => setTimeout(r, 250));
+            OBS_CACHE = (OBS_CACHE || []).filter(x => String(x.id) !== String(id));
+            return true;
+        }
+
+        // Confirmar eliminación
+        if (elConfirmDeleteBtn) {
+            elConfirmDeleteBtn.addEventListener("click", async () => {
+                if (!PENDING_DELETE_ID) return;
+
+                elConfirmDeleteBtn.disabled = true;
+                const prevText = elConfirmDeleteBtn.textContent;
+                elConfirmDeleteBtn.textContent = "Eliminando…";
+
+                try {
+                    await deleteObservationById(PENDING_DELETE_ID);
+
+                    // Si el drawer está abierto, re-render con cache actual
+                    // (si estás usando backend real, aquí conviene llamar loadObservations())
+                    // await loadObservations();
+                    renderObservations(OBS_CACHE);
+
+                    closeConfirmDelete();
+                } catch (e) {
+                    setConfirmDeleteError(e?.message || "No fue posible eliminar la observación.");
+                } finally {
+                    elConfirmDeleteBtn.disabled = false;
+                    elConfirmDeleteBtn.textContent = prevText || "Eliminar";
+                }
+            });
+        }
+
+        /* ===================== 5) MODIFICA renderObservations PARA INCLUIR LA COLUMNA ===================== */
+        // REEMPLAZA tu función renderObservations(...) por esta versión (misma firma)
+        function renderObservations(list) {
+            elObsTbody.innerHTML = "";
+            elObsCount.textContent = `${Array.isArray(list) ? list.length : 0} obs.`;
+
+            if (!list || !list.length) {
+                elObsTable.style.display = "none";
+                elObsListEmpty.style.display = "block";
+                return;
+            }
+
+            elObsListEmpty.style.display = "none";
+            elObsTable.style.display = "table";
+
+            for (const item of list) {
+                // Asegurar id (si backend no entrega, puedes mapear a UUID)
+                const id = item.id ?? item.observation_id ?? item.observationId ?? item._id ?? `${item.created_at || item.createdAt || ""}::${item.message || item.text || ""}`.slice(0, 120);
+
+                const tr = document.createElement("tr");
+
+                const tdDt = document.createElement("td");
+                tdDt.innerHTML = `<span class="mono">${escapeHtml(formatDateTime(item.created_at || item.createdAt || item.date))}</span>`;
+                tdDt.style.verticalAlign = "middle";
+                tdDt.style.textAlign = "center";
+                tdDt.style.whiteSpace = "nowrap";
+
+                const tdMsg = document.createElement("td");
+                tdMsg.textContent = item.message || item.text || "";
+                tdMsg.style.textAlign = "justify";
+                tdMsg.style.textJustify = "inter-word";
+                tdMsg.style.hyphens = "auto";
+                tdMsg.style.whiteSpace = "normal";
+                tdMsg.style.lineHeight = "1.35";
+
+                const tdAct = document.createElement("td");
+                tdAct.style.textAlign = "center";
+                tdAct.style.verticalAlign = "middle";
+
+                const btnDel = document.createElement("button");
+                btnDel.type = "button";
+                btnDel.className = "btn-icon btn-danger";
+                btnDel.title = "Eliminar observación";
+                btnDel.setAttribute("aria-label", "Eliminar observación");
+                btnDel.textContent = "🗑️";
+                btnDel.addEventListener("click", () => openConfirmDelete(id));
+
+                tdAct.appendChild(btnDel);
+
+                tr.appendChild(tdDt);
+                tr.appendChild(tdMsg);
+                tr.appendChild(tdAct);
+
+                elObsTbody.appendChild(tr);
+
+                // Normaliza el cache para mantener id consistente
+                item.id = id;
+            }
+        }
+
+        /* ===================== 6) AJUSTE MOCK PARA INCLUIR id (opcional pero recomendado) ===================== */
+        // Si quieres evitar ids derivados, agrega id explícito a tu mock donde creas OBS_CACHE:
+        // OBS_CACHE = [
+        //   { id: "obs-1", created_at: "...", message: "..." },
+        //   ...
+        // ];
+    </script>
 </body>
+
 </html>

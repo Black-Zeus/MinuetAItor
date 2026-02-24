@@ -67,11 +67,12 @@ class ProjectFilterRequest(BaseModel):
 class ProjectResponse(BaseModel):
     id: str
     client_id: str = Field(..., serialization_alias="clientId")
+    client_name: str | None = Field(None, serialization_alias="clientName")  # ← NUEVO
 
     name: str
     code: str | None = None
     description: str | None = None
-    status: str
+    # status: str   ← ELIMINADO
 
     is_confidential: bool = Field(..., serialization_alias="isConfidential")
     is_active: bool = Field(..., serialization_alias="isActive")
