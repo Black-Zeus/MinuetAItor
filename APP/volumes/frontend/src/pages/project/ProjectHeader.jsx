@@ -1,6 +1,7 @@
 /**
  * ProjectHeader.jsx
- * Header del módulo de proyectos con título y botón de nuevo proyecto
+ * Header del módulo de proyectos.
+ * Recibe onCreated y clientCatalog desde Project.jsx y los pasa a NewProject.
  */
 
 import React from 'react';
@@ -8,9 +9,9 @@ import Icon from '@/components/ui/icon/iconManager';
 import NewProject from '@/components/ui/button/NewProject';
 
 const TXT_TITLE = "text-gray-900 dark:text-white";
-const TXT_META = "text-gray-600 dark:text-gray-300";
+const TXT_META  = "text-gray-600 dark:text-gray-300";
 
-const ProjectHeader = () => {
+const ProjectHeader = ({ onCreated, clientCatalog = [] }) => {
   return (
     <div className="flex items-center justify-between">
       <div>
@@ -22,7 +23,11 @@ const ProjectHeader = () => {
           Gestiona todos tus proyectos y sus minutas asociadas
         </p>
       </div>
-      <NewProject />
+
+      <NewProject
+        onCreated={onCreated}
+        clientCatalog={clientCatalog}
+      />
     </div>
   );
 };

@@ -15,9 +15,12 @@ class UserRefResponse(BaseModel):
 
 
 class ProjectCreateRequest(BaseModel):
+    """
+    El campo `code` NO se incluye aquí.
+    El backend genera un UUID v4 automáticamente en create_project().
+    """
     client_id: str
     name: str
-    code: str | None = None
     description: str | None = None
     status: str = "activo"
     is_confidential: bool = False
@@ -27,6 +30,9 @@ class ProjectCreateRequest(BaseModel):
 
 
 class ProjectUpdateRequest(BaseModel):
+    """
+    En update sí se permite enviar `code` para cambiarlo.
+    """
     client_id: str | None = None
     name: str | None = None
     code: str | None = None
@@ -53,7 +59,6 @@ class ProjectFilterRequest(BaseModel):
     q: str | None = None
     status: str | None = None
     is_confidential: bool | None = None
-
     is_active: bool | None = None
 
     model_config = {"populate_by_name": True}
