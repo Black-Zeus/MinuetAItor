@@ -17,9 +17,9 @@ class TeamStatus(str, Enum):
 
 class TeamSystemRole(str, Enum):
     """Mapea a códigos en la tabla roles."""
-    admin = "admin"
-    write = "write"
-    read  = "read"
+    admin = "ADMIN"
+    write = "EDITOR"
+    read  = "READ"
 
 
 class TeamAssignmentMode(str, Enum):

@@ -171,7 +171,7 @@ const SessionExpiryModal = () => {
                         {/* Logo */}
                         <div className="mb-5 w-16 h-16 rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-700 shadow-sm flex-shrink-0">
                             <img
-                                src="/content/img/chinchinAItor.jpg"
+                                src="/images/chinchinAItor.jpg"
                                 alt="MinuetAItor"
                                 className="w-full h-full object-cover"
                             />

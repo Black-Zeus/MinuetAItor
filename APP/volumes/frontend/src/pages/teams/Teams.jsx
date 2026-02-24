@@ -1,85 +1,83 @@
 /**
  * Teams.jsx
- * Listado + filtros livianos (sin depender de detalle)
+ * Página principal del módulo Equipos
+ * Patrón: loadAll con useCallback, calcStats runtime, applyLocalFilters, mutación optimista
  */
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import teamsService from "@/services/teamsService";
 
-import TeamsHeader from "./TeamsHeader";
+import TeamsHeader  from "./TeamsHeader";
 import TeamsFilters from "./TeamsFilters";
-import TeamsStats from "./TeamsStats";
-import TeamsGrid from "./TeamsGrid";
+import TeamsStats   from "./TeamsStats";
+import TeamsGrid    from "./TeamsGrid";
 
 import PageLoadingSpinner from "@/components/ui/modal/types/system/PageLoadingSpinner";
 
 import logger from "@/utils/logger";
 const teamsLog = logger.scope("teams");
 
-// Normaliza ADMIN -> admin para que tus filtros/stats no fallen
-const normalizeRole = (role) => (role ? String(role).toLowerCase() : "");
+// ─── helpers ─────────────────────────────────────────────────────────────────
+
+const normalizeRole = (role) =>
+  role ? String(role).toLowerCase() : "";
+
+const calcStats = (users) => ({
+  total:    users.length,
+  active:   users.filter((u) => u.status === "active").length,
+  inactive: users.filter((u) => u.status === "inactive").length,
+  admins:   users.filter((u) => u.systemRole === "admin").length,
+});
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 const Teams = () => {
-  const [users, setUsers] = useState([]);          // DTO mínimo
+  const [users,         setUsers]         = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [stats,         setStats]         = useState(calcStats([]));
+  const [isLoading,     setIsLoading]     = useState(true);
 
   const [filters, setFilters] = useState({
-    search: "",
-    status: "",
+    search:     "",
+    status:     "",
     systemRole: "",
-    // client: ""  // ⚠️ si list no trae clients, este filtro debe ir al backend o deshabilitarse
   });
 
   const [sortBy, setSortBy] = useState("name-asc");
 
-  useEffect(() => {
-    const loadTeams = async () => {
-      try {
-        await new Promise((r) => setTimeout(r, 150));
+  // ── 1. Carga inicial ──────────────────────────────────────────────────────
 
-        // Si quieres filtros server-side: pásalos aquí
-        const { teams } = await teamsService.list({ skip: 0, limit: 50 });
-
-        // Normaliza solo lo necesario para UI
-        const normalized = (teams || []).map((t) => ({
-          ...t,
-          systemRole: normalizeRole(t.systemRole),
-        }));
-
-        setUsers(normalized);
-        setFilteredUsers(normalized);
-      } catch (error) {
-        teamsLog.error("[Teams] Error loading teams:", error);
-        setUsers([]);
-        setFilteredUsers([]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadTeams();
+  const loadAll = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const { teams } = await teamsService.list({ skip: 0, limit: 200 });
+      const normalized = (teams || []).map((t) => ({
+        ...t,
+        systemRole: normalizeRole(t.systemRole),
+      }));
+      setUsers(normalized);
+      setStats(calcStats(normalized));
+    } catch (error) {
+      teamsLog.error("[Teams] Error cargando equipos:", error);
+      setUsers([]);
+      setStats(calcStats([]));
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
-  // Stats basados en list mínimo
-  const stats = useMemo(() => {
-    return {
-      total: users.length,
-      active: users.filter((u) => u.status === "active").length,
-      inactive: users.filter((u) => u.status === "inactive").length,
-      admins: users.filter((u) => u.systemRole === "admin").length,
-    };
-  }, [users]);
+  useEffect(() => { loadAll(); }, [loadAll]);
 
-  // Filtering local (solo campos disponibles en list)
+  // ── 2. Filtrado local reactivo ────────────────────────────────────────────
+
   useEffect(() => {
     let filtered = [...users];
 
     if (filters.search) {
       const term = filters.search.toLowerCase();
       filtered = filtered.filter((u) =>
-        String(u.name || "").toLowerCase().includes(term) ||
-        String(u.email || "").toLowerCase().includes(term) ||
+        String(u.name     || "").toLowerCase().includes(term) ||
+        String(u.email    || "").toLowerCase().includes(term) ||
         String(u.position || "").toLowerCase().includes(term) ||
         String(u.username || "").toLowerCase().includes(term)
       );
@@ -93,7 +91,7 @@ const Teams = () => {
       filtered = filtered.filter((u) => u.systemRole === filters.systemRole);
     }
 
-    // Sort (sin fechas si no vienen en list)
+    // Ordenamiento
     const sorted = [...filtered];
     switch (sortBy) {
       case "name-asc":
@@ -109,45 +107,66 @@ const Teams = () => {
     setFilteredUsers(sorted);
   }, [filters, users, sortBy]);
 
-  const handleFilterChange = (patch) => setFilters((prev) => ({ ...prev, ...patch }));
+  // ── 3. Handlers CRUD con mutación optimista ───────────────────────────────
 
-  const handleClearFilters = () => {
-    setFilters({
-      search: "",
-      status: "",
-      systemRole: "",
+  const handleCreated = useCallback((created) => {
+    const normalized = { ...created, systemRole: normalizeRole(created.systemRole) };
+    setUsers((prev) => {
+      const next = [normalized, ...prev];
+      setStats(calcStats(next));
+      return next;
     });
-  };
+  }, []);
 
-  const handleApplyFilters = () => teamsLog.log("[Teams] Filtros aplicados:", filters);
+  const handleUpdated = useCallback((updated) => {
+    const normalized = { ...updated, systemRole: normalizeRole(updated.systemRole) };
+    setUsers((prev) => {
+      const next = prev.map((u) => (u.id === normalized.id ? normalized : u));
+      setStats(calcStats(next));
+      return next;
+    });
+  }, []);
 
-  const handleSortChange = (value) => setSortBy(value);
+  const handleDeleted = useCallback((id) => {
+    setUsers((prev) => {
+      const next = prev.filter((u) => u.id !== id);
+      setStats(calcStats(next));
+      return next;
+    });
+  }, []);
 
-  if (isLoading) return <PageLoadingSpinner message="Cargando equipos..." />;
+  // ── 4. Filter helpers ─────────────────────────────────────────────────────
+
+  const handleFilterChange  = (patch) => setFilters((prev) => ({ ...prev, ...patch }));
+  const handleClearFilters  = () => setFilters({ search: "", status: "", systemRole: "" });
+  const handleSortChange    = (value) => setSortBy(value);
 
   const hasFilters = !!(filters.search || filters.status || filters.systemRole);
 
+  // ── Render ────────────────────────────────────────────────────────────────
+
+  if (isLoading) return <PageLoadingSpinner message="Cargando equipos..." />;
+
   return (
     <div className="space-y-6">
-      <TeamsHeader />
+      <TeamsHeader onCreated={handleCreated} />
 
       <TeamsFilters
         filters={filters}
         onFilterChange={handleFilterChange}
         onClearFilters={handleClearFilters}
-        onApplyFilters={handleApplyFilters}
         data={users}
-        // ⚠️ Si tu TeamsFilters muestra "client", debes ocultarlo o moverlo a server-side
       />
 
       <TeamsStats stats={stats} />
 
       <TeamsGrid
-        // ✅ aquí NO transformes clients/projects/createdAt, porque la card (por id) hará GET on-demand
         users={filteredUsers}
         sortBy={sortBy}
         onSortChange={handleSortChange}
         hasFilters={hasFilters}
+        onUpdated={handleUpdated}
+        onDeleted={handleDeleted}
       />
     </div>
   );

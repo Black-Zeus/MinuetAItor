@@ -26,10 +26,11 @@ def _build_response_dict(obj: Project) -> dict:
     return {
         "id": str(obj.id),
         "client_id": str(obj.client_id),
+        "client_name": getattr(obj.client, "name", None),   # ← NUEVO
         "name": obj.name,
         "code": obj.code,
         "description": obj.description,
-        "status": obj.status,
+        # "status": obj.status,   ← ELIMINADO (redundante con is_active)
         "is_confidential": bool(obj.is_confidential),
         "is_active": bool(obj.is_active),
         "created_at": obj.created_at.isoformat() if obj.created_at else None,

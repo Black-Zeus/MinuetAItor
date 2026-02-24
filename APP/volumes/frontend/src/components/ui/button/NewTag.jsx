@@ -1,59 +1,69 @@
 /**
  * NewTag.jsx
- * Botón que abre el modal para crear tag usando TagsModal (modo createNewTag)
+ * Botón para crear un nuevo Tag via TagsModal + tagService.create
+ * Patrón: NewProject.jsx / NewClient.jsx
  */
 
 import React from "react";
 import ActionButton from "@/components/ui/button/ActionButton";
-import { FaPlus } from "react-icons/fa";
+import Icon         from "@/components/ui/icon/iconManager";
 import ModalManager from "@/components/ui/modal";
-
-// Import del componente único
+import tagService   from "@/services/tagService";
 import TagsModal, { TAGS_MODAL_MODES } from "@/pages/tags/TagsModal";
+import { toastSuccess, toastError } from "@/components/common/toast/toastHelpers";
 
-import logger from '@/utils/logger';
-const tagLog = logger.scope("tag");
+import logger from "@/utils/logger";
+const tagLog = logger.scope("new-tag");
 
-// Botón que abre el modal
-const showTagWizard = () => {
-  ModalManager.show({
-    type: "custom",
-    title: "Crear Nuevo Tag",
-    size: "large",
-    showFooter: false,
-    content: (
-      <TagsModal
-        mode={TAGS_MODAL_MODES.CREATE}
-        data={null}
-        onSubmit={(payload) => {
-          // payload normalizado desde TagsModal:
-          // { tagName, tagDescription, tagStatus, id? }
-          tagLog.log("Nuevo tag:", payload);
+/**
+ * Mapea el formData del modal (camelCase) al payload snake_case del backend.
+ * Campos auto-generados por el backend (id, created_at, etc.) → NUNCA incluir.
+ */
+const toApiPayload = (formData) => ({
+  category_id: Number(formData.categoryId),
+  name:        formData.tagName?.trim() ?? "",
+  description: formData.tagDescription?.trim() || null,
+  source:      "user",
+  status:      formData.tagStatus ?? "activo",
+  is_active:   formData.tagStatus !== "inactivo",
+});
 
-          // Ejemplo DEV (opcional): agregar a catálogo local en memoria (no persistente)
-          // En PROD: TagsService.create(payload)
+const NewTag = ({ onCreated, categories = [] }) => {
 
-          ModalManager.success({
-            title: "Tag Creado",
-            message: "El tag ha sido creado exitosamente.",
-          });
-        }}
-        onDelete={() => {}}
-        onClose={() => {
-          // cierre automático por ModalManager
-        }}
-      />
-    ),
-  });
-};
+  const handleSubmit = async (payload) => {
+    const apiPayload = toApiPayload(payload);
+    tagLog.log("Creating tag:", apiPayload);
 
-const NewTag = () => {
+    const created = await tagService.create(apiPayload);
+    toastSuccess("Tag creado exitosamente");
+    ModalManager.closeAll();
+    onCreated?.(created);
+  };
+
+  const handleClick = () => {
+    ModalManager.show({
+      type:        "custom",
+      title:       "Nuevo Tag",
+      size:        "large",
+      showFooter:  false,
+      content: (
+        <TagsModal
+          mode={TAGS_MODAL_MODES.CREATE}
+          data={null}
+          categories={categories}
+          onSubmit={handleSubmit}
+          onClose={() => ModalManager.closeAll()}
+        />
+      ),
+    });
+  };
+
   return (
     <ActionButton
       label="Nuevo Tag"
-      onClick={showTagWizard}
+      onClick={handleClick}
       variant="primary"
-      icon={<FaPlus />}
+      icon={<Icon name="FaPlus" />}
     />
   );
 };

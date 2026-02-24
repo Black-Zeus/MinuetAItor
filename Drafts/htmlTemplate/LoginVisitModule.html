@@ -1,0 +1,521 @@
+<!--
+  LoginReadOnlyVisit.html
+  Acceso SOLO LECTURA (sin contraseña / sin sesión / sin recuperación)
+-->
+
+<!doctype html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>MinuetAItor · Acceso de solo lectura</title>
+
+    <style>
+        :root {
+            --bg0: #050b18;
+            --bg1: #0a1022;
+
+            --panel: rgba(2, 6, 23, .52);
+            --panel2: rgba(2, 6, 23, .38);
+
+            --border: rgba(148, 163, 184, .14);
+            --border2: rgba(148, 163, 184, .22);
+
+            --text: #e7eefc;
+            --muted: #a7b4c8;
+            --muted2: #7b8aa3;
+
+            --accent: #3b82f6;
+            --accentHover: #2f74f0;
+
+            --shadow: 0 28px 72px rgba(0, 0, 0, .55);
+            --radius: 26px;
+
+            --font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            height: 100%;
+        }
+
+        body {
+            margin: 0;
+            font-family: var(--font);
+            color: var(--text);
+
+            background:
+                radial-gradient(1200px 650px at 16% 10%, rgba(59, 130, 246, .26), transparent 58%),
+                radial-gradient(900px 520px at 82% 18%, rgba(99, 102, 241, .18), transparent 60%),
+                radial-gradient(900px 650px at 50% 95%, rgba(14, 165, 233, .12), transparent 60%),
+                linear-gradient(180deg, var(--bg0), var(--bg1));
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 22px;
+        }
+
+        .shell {
+            width: min(1180px, 100%);
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            background: linear-gradient(180deg, rgba(2, 6, 23, .52), rgba(2, 6, 23, .38));
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* sutil overlay tipo "glass" */
+        .shell:before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(900px 520px at 15% 12%, rgba(255, 255, 255, .06), transparent 60%),
+                radial-gradient(820px 520px at 85% 18%, rgba(255, 255, 255, .04), transparent 62%);
+            pointer-events: none;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1.25fr .75fr;
+            /* izquierda más ancha, derecha más angosta */
+            min-height: 640px;
+        }
+
+        @media (max-width: 980px) {
+            body {
+                padding: 14px;
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* ===== Left panel ===== */
+        .left {
+            padding: 34px 36px 24px;
+            background: rgba(2, 6, 23, .12);
+            border-right: 1px solid rgba(148, 163, 184, .14);
+            z-index: 1;
+        }
+
+        @media (max-width: 980px) {
+            .left {
+                border-right: 0;
+                border-bottom: 1px solid rgba(148, 163, 184, .14);
+            }
+        }
+
+        .brandRow {
+            display: flex;
+            gap: 18px;
+            align-items: flex-start;
+        }
+
+        .brandImg {
+            width: 110px;
+            height: 110px;
+            border-radius: 20px;
+            border: 1px solid var(--border2);
+            background: rgba(15, 23, 42, .32);
+            overflow: hidden;
+            flex: 0 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
+        }
+
+        .brandImg img {
+            width: 100%;
+            height: 100%;
+            display: block;
+            object-fit: cover;
+            border-radius: 14px;
+        }
+
+        .brandText {
+            min-width: 0;
+            padding-top: 10px;
+        }
+
+        .appTitle {
+            margin: 0;
+            font-size: 54px;
+            letter-spacing: -0.9px;
+            font-weight: 900;
+            line-height: 1.02;
+        }
+
+        .tagline {
+            margin: 10px 0 0;
+            font-size: 15px;
+            color: rgba(167, 180, 200, .92);
+            max-width: 460px;
+            line-height: 1.45;
+        }
+
+        /* Minuta context card */
+        .minuteCard {
+            margin-top: 22px;
+            border-radius: 18px;
+            border: 1px solid rgba(148, 163, 184, .14);
+            background: rgba(15, 23, 42, .26);
+            padding: 16px;
+            backdrop-filter: blur(6px);
+        }
+
+        .minuteHead {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .minuteHead h4 {
+            margin: 0;
+            font-size: 14px;
+            font-weight: 900;
+            color: var(--text);
+            letter-spacing: .2px;
+        }
+
+        .minuteBadge {
+            font-size: 12px;
+            color: rgba(167, 180, 200, .95);
+            border: 1px solid rgba(148, 163, 184, .18);
+            background: rgba(2, 6, 23, .25);
+            padding: 6px 12px;
+            border-radius: 999px;
+            white-space: nowrap;
+        }
+
+        .kvGrid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px 14px;
+        }
+
+        @media (max-width: 520px) {
+            .kvGrid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .kv {
+            border: 1px solid rgba(148, 163, 184, .12);
+            background: rgba(2, 6, 23, .20);
+            border-radius: 14px;
+            padding: 12px 12px 10px;
+            min-width: 0;
+        }
+
+        .k {
+            font-size: 11px;
+            color: rgba(123, 138, 163, .95);
+            margin: 0 0 6px;
+            letter-spacing: .34px;
+            text-transform: uppercase;
+        }
+
+        .v {
+            margin: 0;
+            font-size: 13px;
+            color: var(--text);
+            font-weight: 800;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .footerLeft {
+            margin-top: 18px;
+            padding-top: 14px;
+            border-top: 1px solid rgba(148, 163, 184, .10);
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            color: rgba(123, 138, 163, .95);
+            font-size: 12px;
+        }
+
+        .truncate {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            min-width: 0;
+        }
+
+        /* ===== Right panel ===== */
+        .right {
+            padding: 34px 36px 24px;
+            background: rgba(2, 6, 23, .18);
+            z-index: 1;
+        }
+
+        /* contenedor para simular el “bloque” centrado/alto como en la captura */
+        .rightInner {
+            max-width: 450px;
+            margin: 0 auto;
+            padding-top: 92px;
+        }
+
+        /* ✅ reduce el formulario ~1/3 del panel derecho */
+        .formNarrow {
+            max-width: 320px;
+            /* ~1/3 visual */
+            width: 100%;
+            margin: 0 auto;
+            /* centrado */
+        }
+
+        @media (max-width: 980px) {
+            .rightInner {
+                padding-top: 26px;
+            }
+        }
+
+        .rightTitle {
+            margin: 0;
+            font-size: 30px;
+            font-weight: 900;
+            letter-spacing: .2px;
+        }
+
+        .rightSub {
+            margin: 10px 0 0;
+            color: rgba(167, 180, 200, .92);
+            font-size: 14px;
+            line-height: 1.45;
+        }
+
+        form {
+            margin-top: 24px;
+        }
+
+        .field {
+            margin-top: 16px;
+        }
+
+        .label {
+            display: block;
+            font-size: 12px;
+            color: rgba(231, 238, 252, .92);
+            margin-bottom: 8px;
+            font-weight: 800;
+        }
+
+        .input {
+            width: 100%;
+            height: 56px;
+            border-radius: 16px;
+            border: 1px solid rgba(148, 163, 184, .18);
+            background: rgba(226, 232, 240, .92);
+            color: #0b1220;
+            padding: 0 16px;
+            font-size: 14px;
+            outline: none;
+            transition: box-shadow .15s ease, border-color .15s ease, transform .05s ease;
+        }
+
+        .input:focus {
+            border-color: rgba(96, 165, 250, .75);
+            box-shadow: 0 0 0 5px rgba(59, 130, 246, .18);
+        }
+
+        .btnPrimary {
+            width: 100%;
+            height: 56px;
+            margin-top: 18px;
+            border-radius: 16px;
+            border: 1px solid rgba(96, 165, 250, .45);
+            background: var(--accent);
+            color: #fff;
+            font-weight: 900;
+            font-size: 15px;
+            cursor: pointer;
+            transition: transform .05s ease, background .15s ease, opacity .15s ease;
+        }
+
+        .btnPrimary:hover {
+            background: var(--accentHover);
+        }
+
+        .btnPrimary:active {
+            transform: translateY(1px);
+        }
+
+        .btnPrimary:disabled {
+            opacity: .75;
+            cursor: not-allowed;
+        }
+
+        .msg {
+            margin-top: 12px;
+            font-size: 13px;
+            color: #fca5a5;
+            display: none;
+        }
+
+        .rightFoot {
+            margin-top: 22px;
+            padding-top: 14px;
+            border-top: 1px solid rgba(148, 163, 184, .10);
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            font-size: 12px;
+            color: rgba(123, 138, 163, .95);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="shell">
+        <div class="grid">
+
+            <!-- ===================== LEFT ===================== -->
+            <section class="left">
+                <div class="brandRow">
+                    <div class="brandImg">
+                        <img src="./content/img/chinchinAItor.jpg" alt="ChinchinAItor" />
+                    </div>
+
+                    <div class="brandText">
+                        <h1 class="appTitle">MinuetAItor</h1>
+                        <p class="tagline">Estandariza acuerdos y transforma reuniones en ejecución operativa.</p>
+                    </div>
+                </div>
+
+                <div class="minuteCard" aria-label="Datos de la minuta">
+                    <div class="minuteHead">
+                        <h4>Minuta en revisión</h4>
+                        <span class="minuteBadge">Acceso de solo lectura</span>
+                    </div>
+
+                    <div class="kvGrid">
+                        <div class="kv" style="grid-column: 1 / -1;">
+                            <p class="k">Cliente</p>
+                            <p class="v" id="minuteClient">{{MINUTE_CLIENT}}</p>
+                        </div>
+
+                        <div class="kv" style="grid-column: 1 / -1;">
+                            <p class="k">Proyecto</p>
+                            <p class="v" id="minuteProject">{{MINUTE_PROJECT}}</p>
+                        </div>
+
+                        <div class="kv" style="grid-column: 1 / -1;">
+                            <p class="k">Asunto</p>
+                            <p class="v" id="minuteSubject">{{MINUTE_SUBJECT}}</p>
+                        </div>
+
+                        <div class="kv">
+                            <p class="k">Fecha</p>
+                            <p class="v" id="minuteDate">{{MINUTE_DATE}}</p>
+                        </div>
+
+                        <div class="kv">
+                            <p class="k">Hora</p>
+                            <p class="v" id="minuteTime">{{MINUTE_TIME}}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="footerLeft">
+                    <span class="truncate">Entorno corporativo · Control y trazabilidad</span>
+                    <span class="truncate">MinuetAItor · Visualización</span>
+                </div>
+            </section>
+
+            <!-- ===================== RIGHT ===================== -->
+            <section class="right">
+                <div class="rightInner">
+                    <h2 class="rightTitle">Acceso</h2>
+                    <div class="rightSub">Ingrese sus datos para poder acceder a la Minuta</div>
+
+                    <form id="loginForm" class="formNarrow" novalidate>
+                        <div class="field">
+                            <label class="label" for="email">Correo electrónico</label>
+                            <input class="input" id="email" name="email" type="email" placeholder="usuario@dominio.cl"
+                                value="{{LOGIN_EMAIL}}" required />
+                        </div>
+
+                        <div class="field">
+                            <label class="label" for="fullName">Nombre</label>
+                            <input class="input" id="fullName" name="fullName" type="text" placeholder="Nombre Apellido"
+                                value="{{LOGIN_FULL_NAME}}" required />
+                        </div>
+
+                        <button class="btnPrimary" type="submit" id="btnSubmit">Continuar</button>
+                        <div class="msg" id="formMsg"></div>
+
+                        <div class="rightFoot">
+                            <span class="truncate">Acceso controlado · Auditoría</span>
+                            <span class="truncate">Solo lectura</span>
+                        </div>
+                    </form>
+                </div>
+            </section>
+
+        </div>
+    </div>
+
+    <script>
+        // Validación mínima + stub de continuidad (solo lectura)
+        const form = document.getElementById("loginForm");
+        const msg = document.getElementById("formMsg");
+        const btn = document.getElementById("btnSubmit");
+
+        function setError(text) {
+            msg.textContent = text;
+            msg.style.display = "block";
+        }
+        function clearError() {
+            msg.textContent = "";
+            msg.style.display = "none";
+        }
+
+        form?.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            clearError();
+
+            const email = (document.getElementById("email")?.value || "").trim();
+            const fullName = (document.getElementById("fullName")?.value || "").trim();
+
+            if (!email || !fullName) {
+                setError("Debe completar correo electrónico y nombre.");
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = "Procesando…";
+
+            try {
+                // await fetch("{{READONLY_ACCESS_ENDPOINT}}", {
+                //   method: "POST",
+                //   headers: { "Content-Type":"application/json" },
+                //   body: JSON.stringify({ email, full_name: fullName })
+                // });
+
+                await new Promise(r => setTimeout(r, 250));
+                window.location.href = "{{SUCCESS_REDIRECT_URL}}";
+            } catch (err) {
+                setError(err?.message || "No fue posible registrar el acceso.");
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "Continuar";
+            }
+        });
+    </script>
+</body>
+
+</html>

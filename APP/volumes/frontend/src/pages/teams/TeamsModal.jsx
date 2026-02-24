@@ -1,1916 +1,1054 @@
-// src/pages/team/TeamsModal.jsx
-import React, { useMemo, useState } from "react";
-import Icon from "@/components/ui/icon/iconManager";
-import { ModalManager } from "@/components/ui/modal";
+/**
+ * TeamsModal.jsx — v4 (definitivo)
+ *
+ * Fixes:
+ *  1. h-[80vh] fijo — el modal NO cambia de tamaño entre pasos.
+ *     Cada body scrollea internamente cuando necesita más espacio.
+ *  2. VIEW mode paso "Clientes y Proyectos": muestra SOLO los asignados al usuario.
+ *     EDIT mode: muestra el catálogo completo para seleccionar.
+ *  3. Resumen (VIEW y EDIT): lista clientes + proyectos con candados, siempre.
+ *  4. email omitido del payload UPDATE si el usuario no lo cambió
+ *     (fix para emails .local guardados en BD que no pasan validación RFC).
+ *  5. color hex → nombre corto al normalizar desde backend.
+ *  6. normalizeUser convierte clients[]/projects[] planos del backend
+ *     en la estructura clientProjects que usa el modal.
+ *
+ * Pasos EDIT/VIEW:  Info General → Rol → Modo Acceso → Clientes/Proyectos → Confirmación
+ * Pasos CREATE:     Info General → Rol → Modo Acceso → Confirmación
+ */
 
-// ✅ Catálogos (ajusta rutas si tu alias difiere)
-import clientsData from "@/data/dataClientes.json";
-import projectsData from "@/data/dataProjectos.json";
+import React, { useEffect, useMemo, useState } from "react";
+import Icon         from "@/components/ui/icon/iconManager";
+import ModalManager from "@/components/ui/modal";
+import { toastError } from "@/components/common/toast/toastHelpers";
+
+import clientService  from "@/services/clientService";
+import projectService from "@/services/projectService";
+
+// ─── Modos ────────────────────────────────────────────────────────────────────
 
 const MODES = {
   CREATE: "createNewTeam",
-  VIEW: "viewDetailTeam",
-  EDIT: "editCurrentTeam",
+  VIEW:   "viewDetailTeam",
+  EDIT:   "editCurrentTeam",
 };
 
-const safeArray = (v) => (Array.isArray(v) ? v : []);
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// ─── Departamentos (enum backend exacto) ──────────────────────────────────────
+
+const DEPARTMENTS = [
+  { value: "operations", label: "Operaciones"     },
+  { value: "it",         label: "Tecnología (IT)" },
+  { value: "sales",      label: "Ventas"           },
+  { value: "marketing",  label: "Marketing"        },
+  { value: "finance",    label: "Finanzas"         },
+  { value: "hr",         label: "Recursos Humanos" },
+];
+const deptLabel = (val) =>
+  DEPARTMENTS.find((d) => d.value === val)?.label ?? val ?? "—";
+
+// ─── Colores avatar ───────────────────────────────────────────────────────────
+
+const COLORS = ["blue","green","purple","red","orange","teal","pink","yellow"];
+const COLOR_MAP = {
+  blue:   "from-blue-500 to-blue-700",
+  green:  "from-green-500 to-green-700",
+  purple: "from-purple-500 to-purple-700",
+  red:    "from-red-500 to-red-700",
+  orange: "from-orange-500 to-orange-700",
+  teal:   "from-teal-500 to-teal-700",
+  pink:   "from-pink-500 to-pink-700",
+  yellow: "from-yellow-500 to-yellow-700",
+};
+const HEX_TO_NAME = {
+  "#6366f1":"purple","#8b5cf6":"purple","#a855f7":"purple",
+  "#3b82f6":"blue",  "#2563eb":"blue",  "#1d4ed8":"blue",
+  "#10b981":"green", "#059669":"green",
+  "#ef4444":"red",   "#dc2626":"red",
+  "#f97316":"orange","#ea580c":"orange",
+  "#14b8a6":"teal",  "#0d9488":"teal",
+  "#ec4899":"pink",  "#db2777":"pink",
+  "#eab308":"yellow","#ca8a04":"yellow",
+};
+const normalizeColor = (c) => {
+  if (!c) return "blue";
+  const l = String(c).toLowerCase();
+  return COLORS.includes(l) ? l : (HEX_TO_NAME[l] ?? "blue");
+};
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
 const normalizeText = (v) => String(v ?? "").trim();
+const EMAIL_RE      = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const computeInitials = (name) => {
   const n = normalizeText(name);
   if (!n) return "";
-  const parts = n.split(/\s+/).filter(Boolean);
-  const a = parts[0]?.[0] ?? "";
-  const b = parts.length > 1 ? parts[parts.length - 1]?.[0] ?? "" : "";
-  return (a + b).toUpperCase();
+  const p = n.split(/\s+/).filter(Boolean);
+  return ((p[0]?.[0] ?? "") + (p.length > 1 ? p[p.length - 1]?.[0] ?? "" : "")).toUpperCase();
 };
 
-const normalizeProjects = (data = {}) => {
-  const raw = data.projects ?? data.projectPermissions ?? [];
-  return safeArray(raw)
-    .map((p) => ({
-      clientId: normalizeText(p?.clientId ?? p?.client ?? ""),
-      projectId: normalizeText(p?.projectId ?? p?.project ?? ""),
-      permission: p?.permission === "edit" ? "edit" : "read",
-    }))
-    .filter((p) => p.clientId && p.projectId);
-};
-
+/**
+ * normalizeUser — convierte el shape del backend al shape interno del modal.
+ *
+ * El backend devuelve:
+ *   clients:  ["uuid1", "uuid2", ...]   (IDs de clientes asignados)
+ *   projects: ["uuid3", "uuid4", ...]   (IDs de proyectos asignados)
+ *
+ * El modal trabaja internamente con:
+ *   clientProjects: { [clientId]: { clientEnabled: bool, projects: Set<projectId> } }
+ *
+ * IMPORTANTE: el backend NO dice qué proyecto pertenece a qué cliente en los arrays planos.
+ * Guardamos _clientIds y _projectIds como arrays separados para uso posterior.
+ * StepAccessControl reconstruirá clientProjects correctamente cruzando con el catálogo.
+ */
 const normalizeUser = (data = {}) => {
-  const name = data.name ?? data.teamName ?? data.title ?? "";
+  const name           = data.name ?? data.full_name ?? "";
+  const status         = (data.status ?? "active") === "inactive" ? "inactive" : "active";
+  const rawRole        = data.systemRole ?? data.system_role ?? "READ";
+  const systemRole     = ["ADMIN","EDITOR","READ"].includes(rawRole) ? rawRole : "READ";
+  const assignmentMode = ((data.assignmentMode ?? data.assignment_mode ?? "specific") === "all") ? "all" : "specific";
 
-  const statusRaw = data.status ?? data.teamStatus ?? "active";
-  const status =
-    statusRaw === "inactive" || statusRaw === "inactivo" ? "inactive" : "active";
+  const clientIds  = Array.isArray(data.clients)  ? data.clients  : [];
+  const projectIds = Array.isArray(data.projects) ? data.projects : [];
 
-  const systemRoleRaw = data.systemRole ?? "read";
-  const systemRole =
-    systemRoleRaw === "admin"
-      ? "admin"
-      : systemRoleRaw === "write"
-      ? "write"
-      : "read";
-
-  const assignmentModeRaw = data.assignmentMode ?? "specific";
-  const assignmentMode = assignmentModeRaw === "all" ? "all" : "specific";
-
-  // "clients" se interpreta como "clientes visibles en la interfaz"
-  const clients = safeArray(data.clients ?? data.clientVisibility ?? [])
-    .map((x) => normalizeText(x))
-    .filter(Boolean);
-
-  const projects = normalizeProjects(data);
+  // clientProjects inicial: cada cliente con todos los proyectos como pool.
+  // StepAccessControl lo reconstruirá correctamente con el catálogo.
+  const clientProjects = data.clientProjects ?? {};
+  if (Object.keys(clientProjects).length === 0 && clientIds.length > 0) {
+    clientIds.forEach((cid) => {
+      clientProjects[cid] = { clientEnabled: true, projects: new Set(projectIds) };
+    });
+  }
 
   return {
-    id: data.id ?? data.teamId ?? "",
-    name: normalizeText(name),
-    email: normalizeText(data.email),
-    position: normalizeText(data.position),
-    phone: normalizeText(data.phone),
-    department: normalizeText(data.department),
+    id:             data.id           ?? "",
+    name:           normalizeText(name),
+    username:       normalizeText(data.username),
+    email:          normalizeText(data.email),
+    emailOriginal:  normalizeText(data.email),   // para detectar si cambió
+    position:       normalizeText(data.position),
+    phone:          normalizeText(data.phone),
+    department:     normalizeText(data.department),
     status,
-    systemRole,
+    systemRole:     normalizeText(data.systemRole).toLocaleUpperCase("es-CL"),
     assignmentMode,
-    clients,
-    projects,
-    notes: normalizeText(data.notes),
-    initials: normalizeText(data.initials) || computeInitials(name),
-    color: normalizeText(data.color) || "blue",
-    createdAt: normalizeText(data.createdAt),
-    lastActivity: normalizeText(data.lastActivity),
+    notes:          normalizeText(data.notes),
+    initials:       normalizeText(data.initials) || computeInitials(name),
+    color:          normalizeColor(data.color),
+    createdAt:      normalizeText(data.createdAt),
+    _clientIds:     clientIds,    // arrays planos originales del backend
+    _projectIds:    projectIds,
+    clientProjects,
   };
 };
 
-const TeamsModal = ({ mode, data, onSubmit, onClose }) => {
+// ─── Micro-componentes ────────────────────────────────────────────────────────
+
+const SectionTitle = ({ number, color, children }) => {
+  const cls = { blue:"bg-blue-500", purple:"bg-purple-500", green:"bg-green-500", amber:"bg-amber-500", gray:"bg-gray-500" };
+  return (
+    <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-3 flex items-center gap-2">
+      <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full ${cls[color] ?? cls.gray} text-white text-xs flex-shrink-0`}>
+        {number}
+      </span>
+      {children}
+    </h4>
+  );
+};
+
+const FieldRow = ({ label, value, icon }) => (
+  <div className="flex justify-between text-sm py-1.5 border-b border-gray-100 dark:border-gray-700/50 last:border-0 gap-2">
+    <span className="text-gray-500 dark:text-gray-400 font-medium flex-shrink-0 flex items-center gap-1.5">
+      {icon && <Icon name={icon} className="w-3 h-3" />}
+      {label}
+    </span>
+    <span className="text-gray-800 dark:text-gray-200 text-right">
+      {value || <em className="text-gray-400 font-normal">—</em>}
+    </span>
+  </div>
+);
+
+const ViewField = ({ label, value }) => (
+  <div>
+    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">{label}</label>
+    <p className="text-sm text-gray-800 dark:text-gray-200 min-h-[1.5rem]">
+      {value || <em className="text-gray-400">—</em>}
+    </p>
+  </div>
+);
+
+const FormField = ({ label, required, error, children }) => (
+  <div>
+    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+      {label}{required && <span className="text-red-500 ml-0.5">*</span>}
+    </label>
+    {children}
+    {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
+  </div>
+);
+
+const inputCls = (err) =>
+  `w-full px-3 py-2 text-sm rounded-lg border transition-colors bg-white dark:bg-gray-800 ` +
+  `text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500 ` +
+  (err ? "border-red-400 dark:border-red-500"
+       : "border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500");
+
+// ─── Validación ───────────────────────────────────────────────────────────────
+
+const validateStep = (step, formData, isCreate) => {
+  const e = {};
+  if (step === 0) {
+    if (!formData.name.trim())  e.name  = "El nombre es obligatorio";
+    if (!formData.email.trim()) e.email = "El email es obligatorio";
+    else if (!EMAIL_RE.test(formData.email)) e.email = "Email inválido";
+    if (isCreate) {
+      if (!formData.username.trim()) e.username   = "El usuario es obligatorio";
+      if (!formData.position.trim()) e.position   = "El cargo es obligatorio";
+      if (!formData.department)      e.department = "El departamento es obligatorio";
+      if (!formData.initials.trim()) e.initials   = "Las iniciales son obligatorias";
+    }
+  }
+  if (step === 1 && !formData.systemRole) e.systemRole = "Selecciona un rol";
+  return e;
+};
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ACORDEÓN DE CLIENTE (un cliente + sus proyectos)
+// ══════════════════════════════════════════════════════════════════════════════
+
+const ClientAccordion = ({
+  clientRows, confidential, selection,
+  onToggleClient, onToggleProject, onToggleAllProjects,
+  isView, searchValue,
+}) => {
+  const [expanded, setExpanded] = useState({});
+  const toggleOpen = (id) => setExpanded((p) => ({ ...p, [id]: !p[id] }));
+
+  const filtered = useMemo(() => {
+    if (!searchValue) return clientRows;
+    const term = searchValue.toLowerCase();
+    return clientRows.map((row) => {
+      const clientHit = row.client.name.toLowerCase().includes(term);
+      const projHit   = row.projects.filter((p) => p.name.toLowerCase().includes(term));
+      if (clientHit || projHit.length) return { ...row, projects: clientHit ? row.projects : projHit };
+      return null;
+    }).filter(Boolean);
+  }, [clientRows, searchValue]);
+
+  if (!filtered.length)
+    return <p className="text-center py-10 text-sm text-gray-400 dark:text-gray-500">{searchValue ? "Sin resultados." : "No hay elementos."}</p>;
+
+  const activeBg    = confidential ? "bg-amber-500"  : "bg-primary-600";
+  const activeBdr   = confidential ? "border-amber-400 dark:border-amber-600" : "border-primary-400 dark:border-primary-600";
+  const badgeSel    = confidential ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300" : "bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300";
+  const badgeGray   = "bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400";
+  const chkColor    = confidential ? "text-amber-600 focus:ring-amber-500" : "text-primary-600 focus:ring-primary-500";
+  const rowSelBg    = confidential ? "bg-amber-50 dark:bg-amber-900/10" : "bg-primary-50 dark:bg-primary-900/10";
+
+  return (
+    <div className="space-y-2">
+      {filtered.map(({ client, projects, totalCount }) => {
+        const sel      = selection[client.id] ?? { clientEnabled: false, projects: new Set() };
+        const enabled  = !!sel.clientEnabled;
+        const selSet   = sel.projects instanceof Set ? sel.projects : new Set(sel.projects ?? []);
+        const selCount = projects.filter((p) => selSet.has(p.id)).length;
+        const allSel   = projects.length > 0 && projects.every((p) => selSet.has(p.id));
+        const isOpen   = expanded[client.id] ?? false;
+        const total    = totalCount ?? projects.length;
+
+        return (
+          <div key={client.id} className={`rounded-lg border-2 overflow-hidden transition-colors ${enabled ? activeBdr : "border-gray-200 dark:border-gray-700"}`}>
+
+            {/* ── Cabecera ── */}
+            <div className="flex items-center gap-3 px-4 py-3 bg-white dark:bg-gray-800">
+              {/* Toggle (solo EDIT) */}
+              {!isView && (
+                <button type="button" onClick={() => onToggleClient(client.id)}
+                  className={`relative w-10 h-5 rounded-full transition-colors flex-shrink-0 focus:outline-none ${enabled ? activeBg : "bg-gray-300 dark:bg-gray-600"}`}>
+                  <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${enabled ? "translate-x-5" : ""}`} />
+                </button>
+              )}
+
+              {/* Nombre + badges */}
+              <button type="button" onClick={() => toggleOpen(client.id)} className="flex items-center gap-2 flex-1 text-left min-w-0">
+                <span className={`font-semibold text-sm truncate transition-colors ${enabled ? "text-gray-900 dark:text-gray-100" : "text-gray-400 dark:text-gray-500"}`}>
+                  {client.name}
+                </span>
+                {confidential && <Icon name="FaLock" className="w-3 h-3 text-amber-500 flex-shrink-0" />}
+                {/* Badge "Y de X proyectos" — X siempre visible */}
+                <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 whitespace-nowrap ${enabled && selCount > 0 ? badgeSel : badgeGray}`}>
+                  {enabled && selCount > 0 ? `${selCount} de ${total} proyecto${total !== 1 ? "s" : ""}` : `${total} proyecto${total !== 1 ? "s" : ""}`}
+                </span>
+              </button>
+
+              {/* Todos / Ninguno (solo EDIT con cliente activo) */}
+              {enabled && !isView && projects.length > 0 && (
+                <button type="button" onClick={() => onToggleAllProjects(client.id, projects)}
+                  className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 flex-shrink-0 hover:underline underline-offset-2">
+                  {allSel ? "Ninguno" : "Todos"}
+                </button>
+              )}
+
+              {/* Chevron */}
+              <button type="button" onClick={() => toggleOpen(client.id)} className="flex-shrink-0 text-gray-400 hover:text-gray-600">
+                <Icon name="FaChevronDown" className={`w-3.5 h-3.5 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+              </button>
+            </div>
+
+            {/* ── Lista de proyectos ── */}
+            {isOpen && (
+              <div className="border-t border-gray-100 dark:border-gray-700/60 bg-gray-50/50 dark:bg-gray-900/20 px-4 py-3 space-y-1">
+                {!projects.length
+                  ? <p className="text-xs text-gray-400 dark:text-gray-500 italic py-1">Sin proyectos en esta categoría.</p>
+                  : projects.map((project) => {
+                    const checked   = selSet.has(project.id);
+                    const disabled  = !enabled || isView;
+                    return (
+                      <label key={project.id}
+                        className={`flex items-center gap-3 rounded-md px-3 py-2 transition-colors ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/40"} ${checked && !disabled ? rowSelBg : ""}`}>
+                        <input type="checkbox" checked={checked} disabled={disabled}
+                          onChange={() => !disabled && onToggleProject(client.id, project.id)}
+                          className={`rounded border-gray-300 dark:border-gray-600 ${chkColor}`} />
+                        <span className={`text-sm flex-1 ${checked ? "text-gray-900 dark:text-gray-100 font-medium" : "text-gray-600 dark:text-gray-400"}`}>
+                          {project.name}
+                        </span>
+                        {project.code && (
+                          <span className="text-xs font-mono text-gray-400 dark:text-gray-500 flex-shrink-0">{project.code}</span>
+                        )}
+                      </label>
+                    );
+                  })}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PASO CLIENTES Y PROYECTOS
+// ══════════════════════════════════════════════════════════════════════════════
+
+const EmptyMsg = ({ icon, text, amber }) => (
+  <div className="flex flex-col items-center gap-3 py-12 text-center">
+    <Icon name={icon} className={`w-10 h-10 ${amber ? "text-amber-300 dark:text-amber-700" : "text-primary-300 dark:text-primary-700"}`} />
+    <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xs">{text}</p>
+  </div>
+);
+
+const StepAccessControl = ({ formData, setField, isView }) => {
+  const [loading,     setLoading]     = useState(true);
+  const [allClients,  setAllClients]  = useState([]);
+  const [allProjects, setAllProjects] = useState([]);
+  const [activeTab,   setActiveTab]   = useState("regular");
+  const [search,      setSearch]      = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const [cRes, pRes] = await Promise.all([
+          clientService.list({ isActive: true, limit: 200 }),
+          projectService.list({ isActive: true, limit: 200 }),
+        ]);
+        if (cancelled) return;
+
+        const allC = cRes.items ?? [];
+        const allP = pRes.items ?? [];
+
+        if (isView) {
+          // VIEW MODE: mostrar SOLO los clientes y proyectos del usuario.
+          // _clientIds y _projectIds son los arrays planos que vienen del backend.
+          const myClientSet  = new Set(formData._clientIds  ?? []);
+          const myProjectSet = new Set(formData._projectIds ?? []);
+
+          const myClients  = allC.filter((c) => myClientSet.has(c.id));
+          const myProjects = allP.filter((p) => myProjectSet.has(p.id));
+
+          setAllClients(myClients);
+          setAllProjects(myProjects);
+
+          // Reconstruir clientProjects agrupando correctamente proyectos por cliente
+          // (el catálogo nos da el clientId de cada proyecto)
+          const rebuilt = {};
+          myClients.forEach((c) => { rebuilt[c.id] = { clientEnabled: true, projects: new Set() }; });
+          myProjects.forEach((p) => {
+            const cid = p.clientId ?? p.client_id;
+            if (rebuilt[cid]) {
+              rebuilt[cid].projects.add(p.id);
+            } else if (myClientSet.has(cid)) {
+              // Cliente está asignado aunque no esté en el catálogo filtrado aún
+              rebuilt[cid] = { clientEnabled: true, projects: new Set([p.id]) };
+            }
+          });
+          setField("clientProjects", rebuilt);
+
+        } else {
+          // EDIT MODE: catálogo completo para selección
+          setAllClients(allC);
+          setAllProjects(allP);
+        }
+      } catch {
+        if (!cancelled) toastError("Error al cargar clientes y proyectos.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isView]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Clasificar en Tab A (regulares) y Tab B (confidenciales) ─────────────
+
+  const { regularRows, confidentialRows } = useMemo(() => {
+    const byClient = allProjects.reduce((acc, p) => {
+      const cid = p.clientId ?? p.client_id;
+      if (!acc[cid]) acc[cid] = [];
+      acc[cid].push(p);
+      return acc;
+    }, {});
+
+    const regular = [], confidential = [];
+    allClients.forEach((client) => {
+      const all    = byClient[client.id] ?? [];
+      const isConf = client.isConfidential ?? client.is_confidential ?? false;
+      if (isConf) {
+        confidential.push({ client, projects: all, totalCount: all.length });
+      } else {
+        const pub  = all.filter((p) => !(p.isConfidential ?? p.is_confidential));
+        const priv = all.filter((p) =>   (p.isConfidential ?? p.is_confidential));
+        regular.push({ client, projects: pub, totalCount: pub.length });
+        if (priv.length) confidential.push({ client, projects: priv, totalCount: priv.length });
+      }
+    });
+    return { regularRows: regular, confidentialRows: confidential };
+  }, [allClients, allProjects]);
+
+  // ── Handlers de selección (EDIT) ──────────────────────────────────────────
+
+  const current = formData.clientProjects ?? {};
+
+  const handleToggleClient = (clientId) => {
+    const sel    = current[clientId] ?? { clientEnabled: false, projects: new Set() };
+    const enable = !sel.clientEnabled;
+    setField("clientProjects", {
+      ...current,
+      [clientId]: { clientEnabled: enable, projects: enable ? sel.projects : new Set() },
+    });
+  };
+
+  const handleToggleProject = (clientId, projectId) => {
+    const sel   = current[clientId] ?? { clientEnabled: true, projects: new Set() };
+    const prSet = sel.projects instanceof Set ? new Set(sel.projects) : new Set(sel.projects ?? []);
+    prSet.has(projectId) ? prSet.delete(projectId) : prSet.add(projectId);
+    setField("clientProjects", { ...current, [clientId]: { ...sel, clientEnabled: true, projects: prSet } });
+  };
+
+  const handleToggleAll = (clientId, projects) => {
+    const sel   = current[clientId] ?? { clientEnabled: true, projects: new Set() };
+    const prSet = sel.projects instanceof Set ? sel.projects : new Set(sel.projects ?? []);
+    const allS  = projects.every((p) => prSet.has(p.id));
+    setField("clientProjects", {
+      ...current,
+      [clientId]: { ...sel, clientEnabled: true, projects: allS ? new Set() : new Set(projects.map((p) => p.id)) },
+    });
+  };
+
+  // ── Conteo de badges de tabs ──────────────────────────────────────────────
+
+  const countReg  = regularRows.filter(({ client }) => current[client.id]?.clientEnabled).length;
+  const countConf = confidentialRows.filter(({ client }) => current[client.id]?.clientEnabled).length;
+
+  const sharedProps = {
+    selection: current,
+    onToggleClient: handleToggleClient,
+    onToggleProject: handleToggleProject,
+    onToggleAllProjects: handleToggleAll,
+    isView,
+    searchValue: search,
+  };
+
+  if (loading) return (
+    <div className="flex flex-col items-center justify-center h-full gap-3">
+      <span className="w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+      <p className="text-sm text-gray-500 dark:text-gray-400">Cargando catálogo…</p>
+    </div>
+  );
+
+  return (
+    <div className="flex flex-col gap-3 h-full min-h-0">
+
+      {/* Buscador */}
+      <div className="relative flex-shrink-0">
+        <Icon name="FaSearch" className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+        <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar cliente o proyecto…"
+          className="w-full pl-9 pr-8 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+        {search && (
+          <button type="button" onClick={() => setSearch("")}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+            <Icon name="FaTimes" className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+
+      {/* Sub-tabs */}
+      <div className="flex border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+        {[
+          { key: "regular",      label: isView ? "Clientes / Proyectos" : "Clientes / Proyectos", icon: "FaBuilding",
+            activeCls: "border-primary-500 text-primary-600 dark:text-primary-400",
+            badgeCls:  "bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300",
+            count: countReg },
+          { key: "confidential", label: "Confidenciales", icon: "FaLock",
+            activeCls: "border-amber-500 text-amber-600 dark:text-amber-400",
+            badgeCls:  "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300",
+            count: countConf },
+        ].map((tab) => (
+          <button key={tab.key} type="button" onClick={() => setActiveTab(tab.key)}
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              activeTab === tab.key ? tab.activeCls : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+            }`}>
+            <Icon name={tab.icon} className="w-3.5 h-3.5" />
+            {tab.label}
+            {tab.count > 0 && (
+              <span className={`px-1.5 py-0.5 text-xs rounded-full font-semibold ${activeTab === tab.key ? tab.badgeCls : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"}`}>
+                {tab.count}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Contenido con scroll */}
+      <div className="flex-1 overflow-y-auto pr-1">
+        {activeTab === "regular" ? (
+          formData.assignmentMode === "all" && !isView
+            ? <EmptyMsg icon="FaGlobe" text="Acceso total: no necesita asignación específica." />
+            : regularRows.length === 0
+            ? <p className="text-center py-10 text-sm text-gray-400 dark:text-gray-500">
+                {isView ? "No tiene clientes regulares asignados." : "No hay clientes disponibles."}
+              </p>
+            : <ClientAccordion clientRows={regularRows} confidential={false} {...sharedProps} />
+        ) : (
+          formData.assignmentMode === "all" && !isView
+            ? <EmptyMsg icon="FaLock" text="Acceso total, incluido contenido confidencial." amber />
+            : confidentialRows.length === 0
+            ? <p className="text-center py-10 text-sm text-gray-400 dark:text-gray-500">
+                {isView ? "No tiene clientes o proyectos confidenciales asignados." : "No hay elementos confidenciales disponibles."}
+              </p>
+            : <ClientAccordion clientRows={confidentialRows} confidential={true} {...sharedProps} />
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ══════════════════════════════════════════════════════════════════════════════
+// BLOQUE RESUMEN DE ACCESO — para el paso de Confirmación
+// Siempre muestra lo que el usuario tiene/tendrá asignado.
+// ══════════════════════════════════════════════════════════════════════════════
+
+const AccessSummaryBlock = ({ formData, catClients, catProjects }) => {
+  if (formData.assignmentMode === "all") {
+    return (
+      <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 p-3 bg-primary-50 dark:bg-primary-900/10 rounded-lg border border-primary-200 dark:border-primary-800/40">
+        <Icon name="FaGlobe" className="w-4 h-4 text-primary-500 flex-shrink-0" />
+        <span>Acceso total — todos los clientes y proyectos.</span>
+      </div>
+    );
+  }
+
+  // Fuente de verdad preferida: clientProjects (ya reconstruido correctamente por StepAccessControl).
+  // Fallback cuando aún no se cargó el catálogo: usar _clientIds/_projectIds.
+  const sel = formData.clientProjects ?? {};
+  const clientIds = Object.entries(sel)
+    .filter(([, s]) => s?.clientEnabled)
+    .map(([id]) => id);
+
+  // Si no hay selección en clientProjects, caer back a los arrays planos
+  const effectiveClientIds = clientIds.length > 0
+    ? clientIds
+    : (formData._clientIds ?? []);
+
+  const effectiveProjectIds = clientIds.length > 0
+    ? new Set(Object.values(sel).flatMap((s) => [...(s.projects instanceof Set ? s.projects : new Set(s.projects ?? []))]))
+    : new Set(formData._projectIds ?? []);
+
+  if (!effectiveClientIds.length)
+    return <p className="text-sm text-gray-400 dark:text-gray-500 italic">Sin clientes asignados.</p>;
+
+  const clientMap = Object.fromEntries((catClients ?? []).map((c) => [c.id, c]));
+  const allP      = catProjects ?? [];
+
+  return (
+    <div className="space-y-2">
+      {effectiveClientIds.map((clientId) => {
+        const client  = clientMap[clientId];
+        const isConf  = client?.isConfidential ?? client?.is_confidential ?? false;
+        const cName   = client?.name ?? `[${clientId.slice(0, 8)}…]`;
+
+        // Proyectos de ESTE cliente que están asignados
+        const myProjects = allP.filter((p) => {
+          const cid = p.clientId ?? p.client_id;
+          return cid === clientId && effectiveProjectIds.has(p.id);
+        });
+
+        return (
+          <div key={clientId} className={`rounded-lg border overflow-hidden ${isConf ? "border-amber-200 dark:border-amber-800/40" : "border-gray-200 dark:border-gray-700"}`}>
+            {/* Cliente header */}
+            <div className={`flex items-center gap-2 px-3 py-2 ${isConf ? "bg-amber-50 dark:bg-amber-900/10" : "bg-gray-50 dark:bg-gray-800/50"}`}>
+              <Icon name={isConf ? "FaLock" : "FaBuilding"} className={`w-3.5 h-3.5 flex-shrink-0 ${isConf ? "text-amber-500" : "text-gray-400"}`} />
+              <span className={`text-sm font-semibold flex-1 ${isConf ? "text-amber-800 dark:text-amber-300" : "text-gray-800 dark:text-gray-200"}`}>
+                {cName}
+              </span>
+              {isConf && (
+                <span className="text-xs px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 font-medium">
+                  Confidencial
+                </span>
+              )}
+            </div>
+            {/* Proyectos */}
+            <div className="px-3 py-2">
+              {!myProjects.length
+                ? <p className="text-xs text-gray-400 dark:text-gray-500 italic">Sin proyectos específicos asignados.</p>
+                : <div className="flex flex-wrap gap-1.5">
+                    {myProjects.map((project) => {
+                      const pConf = project.isConfidential ?? project.is_confidential ?? false;
+                      return (
+                        <span key={project.id}
+                          className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md font-medium ${
+                            pConf
+                              ? "bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/40"
+                              : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600"
+                          }`}>
+                          {pConf && <Icon name="FaLock" className="w-2.5 h-2.5" />}
+                          {project.name}
+                        </span>
+                      );
+                    })}
+                  </div>
+              }
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+// ══════════════════════════════════════════════════════════════════════════════
+// MODAL PRINCIPAL
+// ══════════════════════════════════════════════════════════════════════════════
+
+const TeamsModal = ({ mode, data, onSubmit }) => {
   const isCreate = mode === MODES.CREATE;
-  const isView = mode === MODES.VIEW;
-  const isEdit = mode === MODES.EDIT;
+  const isView   = mode === MODES.VIEW;
+  const isEdit   = mode === MODES.EDIT;
 
   const initial = useMemo(() => normalizeUser(data), [data]);
 
-  const [formData, setFormData] = useState(() =>
-    isCreate ? normalizeUser({}) : initial
-  );
-  const [errors, setErrors] = useState({});
+  const [formData,    setFormData]    = useState(() => isCreate ? normalizeUser({}) : initial);
+  const [errors,      setErrors]      = useState({});
   const [currentStep, setCurrentStep] = useState(0);
+  const [submitting,  setSubmitting]  = useState(false);
 
-  // ✅ Sub-tabs SOLO para Paso 3 (Clientes/Confidenciales)
-  const ACCESS_TABS = { REGULAR: "regular", CONFIDENTIAL: "confidential" };
-  const [accessTab, setAccessTab] = useState(ACCESS_TABS.REGULAR);
+  // Catálogos cargados lazy al llegar al paso de Confirmación (para el resumen)
+  const [catClients,  setCatClients]  = useState([]);
+  const [catProjects, setCatProjects] = useState([]);
 
-  // ✅ UI state: buscador + accordion
-  const [clientSearch, setClientSearch] = useState("");
-  const [expandedClients, setExpandedClients] = useState({}); // { [clientId]: boolean }
-  const toggleExpanded = (clientId) =>
-    setExpandedClients((p) => ({ ...p, [clientId]: !p[clientId] }));
+  const steps = useMemo(() => {
+    const s = [
+      { title: "Información General", number: 1 },
+      { title: "Rol del Sistema",     number: 2 },
+      { title: "Modo de Acceso",      number: 3 },
+    ];
+    if (isEdit || isView) s.push({ title: "Clientes y Proyectos", number: 4 });
+    s.push({ title: "Confirmación", number: s.length + 1 });
+    return s;
+  }, [isEdit, isView]);
 
-  // ✅ (2) Collapsables en pestaña confidencial (por defecto colapsados)
-  const [confAlertOpen, setConfAlertOpen] = useState(false);
-  const [confInfoOpen, setConfInfoOpen] = useState(false);
+  const accessStepIdx = steps.findIndex((s) => s.title === "Clientes y Proyectos");
+  const lastStep      = steps.length - 1;
+  const isAccessStep  = currentStep === accessStepIdx && accessStepIdx >= 0;
+  const isLastStep    = currentStep === lastStep;
 
-  const steps = [
-    { title: "Información General", number: 1 },
-    { title: "Rol del Sistema", number: 2 },
-    { title: "Asignación de Acceso", number: 3 },
-    { title: "Clientes y Proyectos", number: 4 },
-    { title: "Confirmación", number: 5 },
-  ];
+  // Cargar catálogos al llegar al paso de Confirmación (solo una vez)
+  useEffect(() => {
+    if (!isLastStep || catClients.length > 0) return;
+    Promise.all([
+      clientService.list({ isActive: true, limit: 200 }),
+      projectService.list({ isActive: true, limit: 200 }),
+    ]).then(([cR, pR]) => {
+      setCatClients(cR.items ?? []);
+      setCatProjects(pR.items ?? []);
+    }).catch(() => {});
+  }, [isLastStep]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const closeModal = () => {
-    try {
-      onClose?.();
-    } catch (_) {}
-    try {
-      ModalManager.hide?.();
-    } catch (_) {}
-    try {
-      ModalManager.close?.();
-    } catch (_) {}
-    try {
-      ModalManager.dismiss?.();
-    } catch (_) {}
-    try {
-      ModalManager.closeAll?.();
-    } catch (_) {}
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  const set = (field) => (e) => {
+    const val = e?.target ? e.target.value : e;
+    setFormData((prev) => ({ ...prev, [field]: val }));
+    if (errors[field]) setErrors((p) => ({ ...p, [field]: undefined }));
   };
 
-  const handleChange = (name, value) => {
-    setFormData((prev) => ({ ...prev, [name]: value }));
-    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: null }));
+  const setField = (field, value) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    if (errors[field]) setErrors((p) => ({ ...p, [field]: undefined }));
   };
 
-  const FieldRow = ({ label, value }) => {
-    const v = (value ?? "").toString().trim();
-    return (
-      <div className="flex">
-        <span className="font-medium text-gray-700 dark:text-gray-300 w-44">
-          {label}:
-        </span>
-        <span className="text-gray-600 dark:text-gray-400">
-          {v || (
-            <span className="italic text-gray-500 dark:text-gray-500">
-              Sin información
-            </span>
-          )}
-        </span>
-      </div>
-    );
-  };
+  const closeModal = () => { try { ModalManager.closeAll(); } catch (_) {} };
 
-  // ------------------------------------------------------------
-  // Catálogos (Clientes/Proyectos) + helpers (según tus JSON)
-  // ------------------------------------------------------------
-  const catalogClients = safeArray(clientsData?.clients);
-  const catalogProjects = safeArray(projectsData?.projects);
+  // ── Navegación ────────────────────────────────────────────────────────────
 
-  const clientsById = useMemo(() => {
-    const m = new Map();
-    for (const c of catalogClients) m.set(String(c?.id), c);
-    return m;
-  }, [catalogClients]);
-
-  const projectsById = useMemo(() => {
-    const m = new Map();
-    for (const p of catalogProjects) m.set(String(p?.id), p);
-    return m;
-  }, [catalogProjects]);
-
-  const isClientConfidential = (clientId) => {
-    const c = clientsById.get(String(clientId));
-    return !!c?.isconfidential;
-  };
-
-  const isProjectConfidential = (projectId) => {
-    const p = projectsById.get(String(projectId));
-    return !!p?.isconfidential;
-  };
-
-  // (5) Si el cliente es confidencial => se asume que TODOS sus proyectos son confidenciales
-  const isEffectiveConfidential = (clientId, projectId) => {
-    return isClientConfidential(clientId) || isProjectConfidential(projectId);
-  };
-
-  const getClientName = (clientId) => {
-    const c = clientsById.get(String(clientId));
-    return normalizeText(c?.company || c?.name || clientId);
-  };
-
-  const getProjectName = (projectId) => {
-    const p = projectsById.get(String(projectId));
-    return normalizeText(p?.name || projectId);
-  };
-
-  // ------------------------------------------------------------
-  // Reglas de modo asignación:
-  // - (4) assignmentMode=all aplica SOLO a regulares
-  // - Confidenciales SIEMPRE requieren gestión explícita
-  // Por ello: en modo "all" mantenemos en formData.projects SOLO asignaciones confidenciales
-  // ------------------------------------------------------------
-  const setAssignmentMode = (modeValue) => {
-    const v = modeValue === "all" ? "all" : "specific";
-
-    setFormData((prev) => {
-      const currentProjects = safeArray(prev.projects);
-
-      // Si pasa a "all": limpiar asignaciones NO confidenciales, pero mantener confidenciales
-      const nextProjects =
-        v === "all"
-          ? currentProjects.filter((x) =>
-              isEffectiveConfidential(x?.clientId, x?.projectId)
-            )
-          : currentProjects;
-
-      return {
-        ...prev,
-        assignmentMode: v,
-        projects: nextProjects,
-        // clients visibles: en "all" puedes elegir mantenerlos como estén.
-        // No los forzamos, pero al seleccionar regulares en "specific" sí auto-marcamos.
-      };
-    });
-  };
-
-  const validateStep = (step) => {
-    const newErrors = {};
-
+  const handleNext = async () => {
     if (isView) {
-      setErrors({});
-      return true;
+      if (currentStep < lastStep) { setCurrentStep((s) => s + 1); return; }
+      closeModal(); return;
     }
+    const errs = validateStep(currentStep, formData, isCreate);
+    if (Object.keys(errs).length) { setErrors(errs); return; }
+    if (currentStep < lastStep) { setCurrentStep((s) => s + 1); return; }
 
-    switch (step) {
-      case 0: {
-        if (!normalizeText(formData.name))
-          newErrors.name = "Nombre completo es requerido";
-        const email = normalizeText(formData.email);
-        if (!email) newErrors.email = "Email corporativo es requerido";
-        else if (!EMAIL_RE.test(email)) newErrors.email = "Email inválido";
-        if (!normalizeText(formData.position))
-          newErrors.position = "Cargo / Puesto es requerido";
-        break;
-      }
-      case 1: {
-        if (!["admin", "write", "read"].includes(formData.systemRole))
-          newErrors.systemRole = "Rol de sistema inválido";
-        break;
-      }
-      case 2: {
-        if (!["all", "specific"].includes(formData.assignmentMode))
-          newErrors.assignmentMode = "Modo de asignación inválido";
-        break;
-      }
-      case 3: {
-        // Valida filas de proyectos (en "all" solo deberían existir confidenciales, pero igual validamos)
-        for (let i = 0; i < (formData.projects?.length || 0); i++) {
-          const p = formData.projects[i];
-          if (!p?.clientId || !p?.projectId) {
-            newErrors.projects = `Proyecto inválido en fila #${i + 1}`;
-            break;
-          }
-          if (!["read", "edit"].includes(p?.permission)) {
-            newErrors.projects = `Permiso inválido en fila #${i + 1}`;
-            break;
-          }
-        }
-        break;
-      }
-      default:
-        break;
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleNext = () => {
-    if (validateStep(currentStep)) {
-      if (currentStep < steps.length - 1) setCurrentStep(currentStep + 1);
-      else handleSubmit();
+    setSubmitting(true);
+    try {
+      await onSubmit?.(formData);
+    } catch (err) {
+      const msg = err?.response?.data?.error?.message ?? err?.message ?? "Error inesperado";
+      toastError(`Error al guardar: ${msg}`);
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const handlePrevious = () => {
-    if (currentStep > 0) setCurrentStep(currentStep - 1);
-  };
+  const handlePrevious = () => { if (currentStep > 0) setCurrentStep((s) => s - 1); };
 
-  const handleSubmit = () => {
-    if (isView) {
-      closeModal();
-      return;
-    }
+  // ── Render ────────────────────────────────────────────────────────────────
+  // h-[80vh] fijo — nunca cambia de tamaño entre pasos.
 
-    // (4) En modo "all": el usuario tiene acceso implícito a TODOS los regulares.
-    // Enviamos explícitamente SOLO los confidenciales que sí fueron asignados.
-    const payloadProjects =
-      formData.assignmentMode === "specific"
-        ? safeArray(formData.projects)
-            .map((p) => ({
-              clientId: normalizeText(p?.clientId),
-              projectId: normalizeText(p?.projectId),
-              permission: p?.permission === "edit" ? "edit" : "read",
-            }))
-            .filter((p) => p.clientId && p.projectId)
-        : safeArray(formData.projects)
-            .filter((p) => isEffectiveConfidential(p?.clientId, p?.projectId))
-            .map((p) => ({
-              clientId: normalizeText(p?.clientId),
-              projectId: normalizeText(p?.projectId),
-              permission: p?.permission === "edit" ? "edit" : "read",
-            }))
-            .filter((p) => p.clientId && p.projectId);
-
-    const payload = {
-      id: formData.id || undefined,
-      name: normalizeText(formData.name),
-      email: normalizeText(formData.email),
-      position: normalizeText(formData.position),
-      phone: normalizeText(formData.phone),
-      department: normalizeText(formData.department),
-      status: formData.status === "inactive" ? "inactive" : "active",
-      systemRole: ["admin", "write", "read"].includes(formData.systemRole)
-        ? formData.systemRole
-        : "read",
-      assignmentMode: formData.assignmentMode === "all" ? "all" : "specific",
-
-      // clients = "Cliente visible en la interfaz"
-      clients: safeArray(formData.clients)
-        .map((x) => normalizeText(x))
-        .filter(Boolean),
-
-      projects: payloadProjects,
-
-      notes: normalizeText(formData.notes),
-      initials: normalizeText(formData.initials) || computeInitials(formData.name),
-      color: normalizeText(formData.color) || "blue",
-      createdAt: normalizeText(formData.createdAt),
-      lastActivity: normalizeText(formData.lastActivity),
-    };
-
-    onSubmit?.(payload);
-  };
-
-  // ------------------------------------------------------------
-  // Maps de proyectos por cliente:
-  // (5) clientes isconfidential => todos sus proyectos pasan a CONF
-  // y no aparecen en REGULAR.
-  // ------------------------------------------------------------
-  const projectsRegularByClientId = useMemo(() => {
-    const map = new Map(); // clientId -> projects[]
-    for (const p of catalogProjects) {
-      const clientId = String(p?.clientId ?? "");
-      if (!clientId) continue;
-      if (isClientConfidential(clientId)) continue; // (5) cliente confidencial no entra aquí
-      if (p?.isconfidential) continue;
-      if (!map.has(clientId)) map.set(clientId, []);
-      map.get(clientId).push(p);
-    }
-    return map;
-  }, [catalogProjects, clientsById]);
-
-  const projectsConfByClientId = useMemo(() => {
-    const map = new Map(); // clientId -> projects[]
-    for (const p of catalogProjects) {
-      const clientId = String(p?.clientId ?? "");
-      if (!clientId) continue;
-
-      const clientIsConf = isClientConfidential(clientId);
-      const projIsConf = !!p?.isconfidential;
-
-      // (5) cliente confidencial => TODOS sus proyectos se tratan como confidenciales
-      if (clientIsConf || projIsConf) {
-        if (!map.has(clientId)) map.set(clientId, []);
-        map.get(clientId).push(p);
-      }
-    }
-    return map;
-  }, [catalogProjects, clientsById]);
-
-  const byClientId = useMemo(() => {
-    const map = new Map();
-    for (const c of catalogClients) map.set(String(c?.id), c);
-    return map;
-  }, [catalogClients]);
-
-  // ------------------------------------------------------------
-  // Permisos
-  // ------------------------------------------------------------
-  const getPermission = (clientId, projectId) => {
-    const cid = String(clientId);
-    const pid = String(projectId);
-    const hit = safeArray(formData.projects).find(
-      (x) => String(x?.clientId) === cid && String(x?.projectId) === pid
-    );
-    return hit?.permission === "edit" ? "edit" : hit ? "read" : null;
-  };
-
-  const isClientVisible = (clientId) =>
-    safeArray(formData.clients).some((x) => String(x) === String(clientId));
-
-  const toggleClientVisible = (clientId, visible) => {
-    const cid = String(clientId);
-    const cur = safeArray(formData.clients).map((x) => String(x));
-    const has = cur.includes(cid);
-    const next =
-      visible === true
-        ? has
-          ? cur
-          : [...cur, cid]
-        : cur.filter((x) => x !== cid);
-
-    handleChange("clients", next);
-  };
-
-  // (3) al seleccionar un proyecto REGULAR (read/edit), auto-marca cliente visible
-  const ensureClientVisibleIfRegular = (clientId, projectId) => {
-    const cid = String(clientId);
-    const pid = String(projectId);
-    if (isEffectiveConfidential(cid, pid)) return; // confidencial => no fuerza visibilidad
-    if (!isClientVisible(cid)) toggleClientVisible(cid, true);
-  };
-
-  const setPermission = (clientId, projectId, permission) => {
-    const cid = String(clientId);
-    const pid = String(projectId);
-    const perm = permission === "edit" ? "edit" : "read";
-
-    const next = [...safeArray(formData.projects)];
-    const idx = next.findIndex(
-      (x) => String(x?.clientId) === cid && String(x?.projectId) === pid
-    );
-
-    if (idx >= 0) next[idx] = { ...next[idx], permission: perm };
-    else next.push({ clientId: cid, projectId: pid, permission: perm });
-
-    handleChange("projects", next);
-
-    // (3) auto activar visibilidad si es regular
-    ensureClientVisibleIfRegular(cid, pid);
-  };
-
-  const clearPermission = (clientId, projectId) => {
-    const cid = String(clientId);
-    const pid = String(projectId);
-    const next = safeArray(formData.projects).filter(
-      (x) => !(String(x?.clientId) === cid && String(x?.projectId) === pid)
-    );
-    handleChange("projects", next);
-  };
-
-  const selectAllClientProjectsAs = (clientId, permission, isConfidential) => {
-    const cid = String(clientId);
-    const list = isConfidential
-      ? safeArray(projectsConfByClientId.get(cid))
-      : safeArray(projectsRegularByClientId.get(cid));
-
-    if (!list.length) return;
-
-    if (isConfidential) {
-      // solo a los ya habilitados (checkbox "asignar acceso")
-      for (const p of list) {
-        const pid = String(p?.id ?? "");
-        if (!pid) continue;
-        const enabled = getPermission(cid, pid) != null;
-        if (enabled) setPermission(cid, pid, permission);
-      }
-      return;
-    }
-
-    for (const p of list) {
-      const pid = String(p?.id ?? "");
-      if (!pid) continue;
-      setPermission(cid, pid, permission);
-      // (3) y fuerza visibilidad cliente
-      ensureClientVisibleIfRegular(cid, pid);
-    }
-  };
-
-  const filterClient = (c) => {
-    const q = normalizeText(clientSearch).toLowerCase();
-    if (!q) return true;
-    const name = normalizeText(c?.name).toLowerCase();
-    const company = normalizeText(c?.company).toLowerCase();
-    const email = normalizeText(c?.email).toLowerCase();
-    return name.includes(q) || company.includes(q) || email.includes(q);
-  };
-
-  const regularClientIds = useMemo(() => {
-    const ids = [];
-    for (const [cid, list] of projectsRegularByClientId.entries()) {
-      if (safeArray(list).length) ids.push(cid);
-    }
-    return ids;
-  }, [projectsRegularByClientId]);
-
-  const confClientIds = useMemo(() => {
-    // (5) incluye:
-    // - clientes con proyectos confidenciales
-    // - clientes marcados isconfidential aunque no tengan proyectos conf marcados
-    const ids = new Set();
-
-    for (const [cid, list] of projectsConfByClientId.entries()) {
-      if (safeArray(list).length) ids.add(cid);
-    }
-    for (const c of catalogClients) {
-      const cid = String(c?.id ?? "");
-      if (!cid) continue;
-      if (c?.isconfidential) ids.add(cid);
-    }
-
-    return Array.from(ids);
-  }, [projectsConfByClientId, catalogClients]);
-
-  const selectedRegularClientsCount = useMemo(() => {
-    const set = new Set();
-    for (const p of safeArray(formData.projects)) {
-      const cid = String(p?.clientId ?? "");
-      const pid = String(p?.projectId ?? "");
-      if (!cid || !pid) continue;
-      if (isEffectiveConfidential(cid, pid)) continue; // no cuenta confidenciales
-      set.add(cid);
-    }
-    return set.size;
-  }, [formData.projects, clientsById, projectsById]);
-
-  const assignedConfProjectsCount = useMemo(() => {
-    let n = 0;
-    for (const p of safeArray(formData.projects)) {
-      const cid = String(p?.clientId ?? "");
-      const pid = String(p?.projectId ?? "");
-      if (isEffectiveConfidential(cid, pid)) n++;
-    }
-    return n;
-  }, [formData.projects, clientsById, projectsById]);
-
-  // ------------------------------------------------------------
-  // (1) Resumen: construir filas con NOMBRE cliente/proyecto + tipo + permiso
-  // ------------------------------------------------------------
-  const summaryRows = useMemo(() => {
-    const rows = safeArray(formData.projects).map((p) => {
-      const clientId = String(p?.clientId ?? "");
-      const projectId = String(p?.projectId ?? "");
-      const perm = p?.permission === "edit" ? "edit" : "read";
-      const confidential = isEffectiveConfidential(clientId, projectId);
-
-      return {
-        clientId,
-        projectId,
-        clientName: getClientName(clientId),
-        projectName: getProjectName(projectId),
-        type: confidential ? "Confidencial" : "Normal",
-        permission: perm === "edit" ? "Editor" : "Lector",
-      };
-    });
-
-    const typeRank = (t) => (t === "Confidencial" ? 0 : 1);
-
-    return rows.sort((a, b) => {
-      const t = typeRank(a.type) - typeRank(b.type);
-      if (t !== 0) return t;
-      const c = a.clientName.localeCompare(b.clientName, "es");
-      if (c !== 0) return c;
-      return a.projectName.localeCompare(b.projectName, "es");
-    });
-  }, [formData.projects, clientsById, projectsById]);
-
-  // ============================================================
-  // UI
-  // ============================================================
   return (
-    <div className="flex flex-col w-full h-[650px]">
-      {/* Header con stepper */}
-      <div className="flex-shrink-0 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-        <div className="flex items-center justify-between mb-4">
+    <div className="flex flex-col h-[80vh]">
+
+      {/* ── HEADER: stepper + título ─────────────────────────────────────── */}
+      <div className="flex-shrink-0 px-6 pt-4 pb-4 border-b border-gray-200 dark:border-gray-700 space-y-3">
+        {/* Stepper */}
+        <div className="flex items-center justify-center gap-0.5">
           {steps.map((step, idx) => (
-            <div key={idx} className="flex items-center">
-              <div
-                className={`
-                  flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold
-                  ${
-                    idx === currentStep
-                      ? "bg-blue-600 text-white"
-                      : idx < currentStep
-                      ? "bg-green-600 text-white"
-                      : "bg-gray-300 dark:bg-gray-600 text-gray-600 dark:text-gray-400"
-                  }
-                `}
-              >
+            <div key={idx} className="flex items-center flex-shrink-0">
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold transition-colors ${
+                idx === currentStep ? "bg-primary-600 text-white"
+                : idx < currentStep ? "bg-green-600 text-white"
+                : "bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
+              }`}>
                 {idx < currentStep ? "✓" : step.number}
               </div>
               {idx < steps.length - 1 && (
-                <div
-                  className={`w-12 h-1 mx-2 ${
-                    idx < currentStep
-                      ? "bg-green-600"
-                      : "bg-gray-300 dark:bg-gray-600"
-                  }`}
-                />
+                <div className={`w-6 h-1 mx-0.5 rounded ${idx < currentStep ? "bg-green-600" : "bg-gray-200 dark:bg-gray-700"}`} />
               )}
             </div>
           ))}
         </div>
-
-        <div className="flex items-center justify-between gap-4">
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
-            <Icon name="FaUsers" className="w-5 h-5" />
+        {/* Título + badge estado */}
+        <div className="flex items-center justify-between">
+          <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+            <Icon name="FaUsers" className="w-4 h-4" />
             {isCreate && `Nuevo Usuario — ${steps[currentStep].title}`}
-            {isEdit && `Editar Usuario — ${steps[currentStep].title}`}
-            {isView && `Detalles de Usuario — ${steps[currentStep].title}`}
+            {isEdit   && `Editar Usuario — ${steps[currentStep].title}`}
+            {isView   && `Detalle — ${steps[currentStep].title}`}
           </h3>
-
-          <div className="flex items-center gap-2">
-            <span
-              className={`
-                px-3 py-1 rounded-full text-xs font-semibold
-                ${
-                  formData.status === "inactive"
-                    ? "bg-gray-100 dark:bg-gray-900/20 text-gray-700 dark:text-gray-300"
-                    : "bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-300"
-                }
-              `}
-            >
-              {formData.status === "inactive" ? "Inactivo" : "Activo"}
-            </span>
-            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300">
-              {formData.systemRole === "admin"
-                ? "Administrador"
-                : formData.systemRole === "write"
-                ? "Escritura"
-                : "Lectura"}
-            </span>
-          </div>
+          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+            formData.status === "inactive"
+              ? "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
+              : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+          }`}>
+            {formData.status === "inactive" ? "Inactivo" : "Activo"}
+          </span>
         </div>
       </div>
 
-      {/* Body */}
-      <div className="flex-1 overflow-y-auto px-6 py-4 min-h-0">
-        {/* Paso 0: Información General */}
+      {/* ── BODY: scroll interno por paso ───────────────────────────────── */}
+      {/* El paso de Acceso usa flex+overflow-hidden para que su acordeón scrollee */}
+      <div className={`flex-1 min-h-0 px-6 py-5 ${isAccessStep ? "flex flex-col overflow-hidden" : "overflow-y-auto"}`}>
+
+        {/* ── PASO 0: Información General ──────────────────────────────── */}
         {currentStep === 0 && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Nombre completo <span className="text-red-500">*</span>
-                </label>
-                {isView ? (
-                  <div className="text-sm text-gray-600 dark:text-gray-400">
-                    {formData.name || (
-                      <span className="italic text-gray-500">
-                        Sin información
-                      </span>
-                    )}
-                  </div>
-                ) : (
-                  <>
-                    <input
-                      type="text"
-                      value={formData.name}
-                      onChange={(e) => handleChange("name", e.target.value)}
-                      placeholder="Ej: Juan Pérez"
-                      className={`
-                        w-full px-3 py-2.5 border rounded-lg text-sm
-                        bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
-                        ${
-                          errors.name
-                            ? "border-red-500 focus:ring-red-500"
-                            : "border-gray-300 dark:border-gray-600 focus:ring-blue-500"
-                        }
-                        focus:outline-none focus:ring-2
-                      `}
-                    />
-                    {errors.name && (
-                      <p className="mt-1 text-sm text-red-500">{errors.name}</p>
-                    )}
-                  </>
-                )}
+          <div className="space-y-5">
+            {/* Avatar preview */}
+            <div className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+              <div className={`w-14 h-14 bg-gradient-to-br ${COLOR_MAP[formData.color] ?? COLOR_MAP.blue} rounded-full flex items-center justify-center text-white font-bold text-xl flex-shrink-0`}>
+                {formData.initials || computeInitials(formData.name) || "?"}
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Email corporativo <span className="text-red-500">*</span>
-                </label>
-                {isView ? (
-                  <div className="text-sm text-gray-600 dark:text-gray-400">
-                    {formData.email || (
-                      <span className="italic text-gray-500">
-                        Sin información
-                      </span>
-                    )}
-                  </div>
-                ) : (
-                  <>
-                    <input
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => handleChange("email", e.target.value)}
-                      placeholder="juan.perez@company.com"
-                      className={`
-                        w-full px-3 py-2.5 border rounded-lg text-sm
-                        bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
-                        ${
-                          errors.email
-                            ? "border-red-500 focus:ring-red-500"
-                            : "border-gray-300 dark:border-gray-600 focus:ring-blue-500"
-                        }
-                        focus:outline-none focus:ring-2
-                      `}
-                    />
-                    {errors.email && (
-                      <p className="mt-1 text-sm text-red-500">
-                        {errors.email}
-                      </p>
-                    )}
-                  </>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Cargo / Puesto <span className="text-red-500">*</span>
-                </label>
-                {isView ? (
-                  <div className="text-sm text-gray-600 dark:text-gray-400">
-                    {formData.position || (
-                      <span className="italic text-gray-500">
-                        Sin información
-                      </span>
-                    )}
-                  </div>
-                ) : (
-                  <>
-                    <input
-                      type="text"
-                      value={formData.position}
-                      onChange={(e) => handleChange("position", e.target.value)}
-                      placeholder="Ej: Project Manager"
-                      className={`
-                        w-full px-3 py-2.5 border rounded-lg text-sm
-                        bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
-                        ${
-                          errors.position
-                            ? "border-red-500 focus:ring-red-500"
-                            : "border-gray-300 dark:border-gray-600 focus:ring-blue-500"
-                        }
-                        focus:outline-none focus:ring-2
-                      `}
-                    />
-                    {errors.position && (
-                      <p className="mt-1 text-sm text-red-500">
-                        {errors.position}
-                      </p>
-                    )}
-                  </>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Teléfono
-                </label>
-                {isView ? (
-                  <div className="text-sm text-gray-600 dark:text-gray-400">
-                    {formData.phone || (
-                      <span className="italic text-gray-500">
-                        Sin información
-                      </span>
-                    )}
-                  </div>
-                ) : (
-                  <input
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) => handleChange("phone", e.target.value)}
-                    placeholder="+56 9 1234 5678"
-                    className="
-                      w-full px-3 py-2.5 border rounded-lg text-sm
-                      bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
-                      border-gray-300 dark:border-gray-600
-                      focus:outline-none focus:ring-2 focus:ring-blue-500
-                    "
-                  />
-                )}
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-gray-800 dark:text-gray-200 truncate">
+                  {formData.name || <em className="text-gray-400 font-normal text-sm">Sin nombre</em>}
+                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                  {formData.email || <em className="text-gray-400">Sin email</em>}
+                </p>
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Departamento
-                </label>
-                {isView ? (
-                  <div className="text-sm text-gray-600 dark:text-gray-400">
-                    {formData.department || (
-                      <span className="italic text-gray-500">
-                        Sin información
-                      </span>
-                    )}
-                  </div>
-                ) : (
-                  <select
-                    value={formData.department}
-                    onChange={(e) => handleChange("department", e.target.value)}
-                    className="
-                      w-full px-3 py-2.5 border rounded-lg text-sm
-                      bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
-                      border-gray-300 dark:border-gray-600
-                      focus:outline-none focus:ring-2 focus:ring-blue-500
-                    "
-                  >
-                    <option value="">Seleccionar departamento</option>
-                    <option value="it">Tecnología</option>
-                    <option value="sales">Ventas</option>
-                    <option value="marketing">Marketing</option>
-                    <option value="operations">Operaciones</option>
-                    <option value="hr">Recursos Humanos</option>
-                  </select>
+              <FormField label="Nombre completo" required error={errors.name}>
+                {isView ? <ViewField value={formData.name} /> : (
+                  <input type="text" value={formData.name}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setFormData((prev) => ({ ...prev, name: val, initials: prev.initials || computeInitials(val) }));
+                      if (errors.name) setErrors((p) => ({ ...p, name: undefined }));
+                    }}
+                    placeholder="Ej: María González" className={inputCls(errors.name)} />
                 )}
-              </div>
+              </FormField>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Estado inicial
-                </label>
-                {isView ? (
-                  <div className="text-sm text-gray-600 dark:text-gray-400">
-                    {formData.status === "inactive" ? "Inactivo" : "Activo"}
-                  </div>
-                ) : (
-                  <select
-                    value={formData.status}
-                    onChange={(e) =>
-                      handleChange(
-                        "status",
-                        e.target.value === "inactive" ? "inactive" : "active"
-                      )
-                    }
-                    className="
-                      w-full px-3 py-2.5 border rounded-lg text-sm
-                      bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
-                      border-gray-300 dark:border-gray-600
-                      focus:outline-none focus:ring-2 focus:ring-blue-500
-                    "
-                  >
-                    <option value="active">Activo</option>
-                    <option value="inactive">Inactivo</option>
+              <FormField label="Email" required error={errors.email}>
+                {isView ? <ViewField value={formData.email} /> : (
+                  <input type="email" value={formData.email} onChange={set("email")}
+                    placeholder="usuario@empresa.com" className={inputCls(errors.email)} />
+                )}
+              </FormField>
+
+              <FormField label="Nombre de usuario" required={isCreate} error={errors.username}>
+                {isView ? <ViewField value={formData.username} /> : (
+                  <>
+                    <input type="text" value={formData.username} onChange={set("username")} placeholder="mgonzalez"
+                      disabled={isEdit} className={`${inputCls(errors.username)} ${isEdit ? "opacity-60 cursor-not-allowed" : ""}`} />
+                    {isEdit && <p className="mt-1 text-xs text-gray-400">El nombre de usuario no puede modificarse.</p>}
+                  </>
+                )}
+              </FormField>
+
+              <FormField label="Cargo / Posición" required={isCreate} error={errors.position}>
+                {isView ? <ViewField value={formData.position} /> : (
+                  <input type="text" value={formData.position} onChange={set("position")} placeholder="Ej: Analista Senior" className={inputCls(errors.position)} />
+                )}
+              </FormField>
+
+              <FormField label="Teléfono">
+                {isView ? <ViewField value={formData.phone} /> : (
+                  <input type="tel" value={formData.phone} onChange={set("phone")} placeholder="+56 9 1234 5678" className={inputCls(false)} />
+                )}
+              </FormField>
+
+              <FormField label="Departamento" required={isCreate} error={errors.department}>
+                {isView ? <ViewField value={deptLabel(formData.department)} /> : (
+                  <select value={formData.department} onChange={set("department")} className={inputCls(errors.department)}>
+                    <option value="">Seleccionar…</option>
+                    {DEPARTMENTS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
                   </select>
                 )}
-              </div>
+              </FormField>
+
+              <FormField label="Estado">
+                {isView ? <ViewField value={formData.status === "inactive" ? "Inactivo" : "Activo"} /> : (
+                  <div className="flex gap-4 pt-1">
+                    {["active","inactive"].map((s) => (
+                      <label key={s} className="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="status" value={s} checked={formData.status === s}
+                          onChange={() => setField("status", s)} className="text-primary-600" />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                          {s === "active" ? "Activo" : "Inactivo"}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </FormField>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Notas internas
-              </label>
-              {isView ? (
-                <div className="text-sm text-gray-600 dark:text-gray-400 whitespace-pre-line">
-                  {formData.notes || (
-                    <span className="italic text-gray-500">Sin información</span>
-                  )}
-                </div>
-              ) : (
-                <textarea
-                  rows={3}
-                  value={formData.notes}
-                  onChange={(e) => handleChange("notes", e.target.value)}
-                  placeholder="Información adicional sobre el usuario..."
-                  className="
-                    w-full px-3 py-2.5 border rounded-lg text-sm
-                    bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
-                    border-gray-300 dark:border-gray-600
-                    focus:outline-none focus:ring-2 focus:ring-blue-500
-                    resize-none
-                  "
-                />
+            {/* Iniciales + color (solo formulario) */}
+            {!isView && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <FormField label="Iniciales" required={isCreate} error={errors.initials}>
+                  <input type="text" value={formData.initials}
+                    onChange={(e) => setField("initials", e.target.value.toUpperCase().slice(0, 3))}
+                    maxLength={3} placeholder="MG" className={inputCls(errors.initials)} />
+                </FormField>
+                <FormField label="Color de avatar">
+                  <div className="flex gap-2 flex-wrap pt-1">
+                    {COLORS.map((c) => (
+                      <button key={c} type="button" onClick={() => setField("color", c)}
+                        className={`w-7 h-7 rounded-full bg-gradient-to-br ${COLOR_MAP[c]} border-2 transition-all ${formData.color === c ? "border-gray-900 dark:border-white scale-110" : "border-transparent hover:scale-105"}`} title={c} />
+                    ))}
+                  </div>
+                </FormField>
+              </div>
+            )}
+
+            <FormField label="Notas internas">
+              {isView ? <ViewField value={formData.notes} /> : (
+                <textarea value={formData.notes} onChange={set("notes")} rows={3}
+                  placeholder="Información adicional…" className={`${inputCls(false)} resize-none`} />
               )}
-            </div>
+            </FormField>
           </div>
         )}
 
-        {/* Paso 1: Rol del Sistema */}
+        {/* ── PASO 1: Rol del Sistema ──────────────────────────────────── */}
         {currentStep === 1 && (
-          <div className="space-y-6">
-            {errors.systemRole && (
-              <div className="p-3 rounded-lg border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-900/20 text-sm text-red-700 dark:text-red-300">
-                {errors.systemRole}
-              </div>
-            )}
-
-            <div>
-              <label className="block text-sm font-semibold text-gray-900 dark:text-gray-200 mb-4">
-                Selecciona el rol del sistema{" "}
-                <span className="text-red-500">*</span>
-              </label>
-
-              {/* Admin */}
-              <div className="mb-4">
-                <label
-                  className={`
-                    flex items-start gap-4 p-5 border-2 rounded-lg cursor-pointer transition-all
-                    ${
-                      isView
-                        ? "opacity-80 cursor-default"
-                        : "hover:bg-purple-50 hover:border-purple-300"
-                    }
-                    ${
-                      formData.systemRole === "admin"
-                        ? "border-purple-400 bg-purple-50"
-                        : "border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900/10"
-                    }
-                  `}
-                >
-                  <input
-                    type="radio"
-                    name="systemRole"
-                    value="admin"
-                    disabled={isView}
-                    checked={formData.systemRole === "admin"}
-                    onChange={() => handleChange("systemRole", "admin")}
-                    className="mt-1 w-4 h-4 text-purple-600 focus:ring-purple-500"
-                  />
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600 dark:text-gray-400">Define el nivel de acceso del usuario dentro del sistema.</p>
+            {errors.systemRole && <p className="text-sm text-red-500">{errors.systemRole}</p>}
+            {[
+              { value: "ADMIN", label: "Administrador", desc: "Acceso completo: gestión de usuarios, clientes, proyectos y configuración del sistema.", icon: "FaUserShield", ring: "ring-red-500 border-red-400 bg-red-50 dark:bg-red-900/10" },
+              { value: "EDITOR", label: "Escritura",     desc: "Puede crear y editar contenido asignado, sin acceso a configuración del sistema.",    icon: "FaEdit",       ring: "ring-blue-500 border-blue-400 bg-blue-50 dark:bg-blue-900/10" },
+              { value: "READ",  label: "Solo lectura",  desc: "Visualización de contenido asignado sin posibilidad de realizar cambios.",              icon: "eye",          ring: "ring-gray-400 border-gray-400" },
+            ].map((opt) => (
+              <button key={opt.value} type="button"
+                onClick={() => !isView && setField("systemRole", opt.value)} disabled={isView}
+                className={`w-full text-left p-4 rounded-lg border-2 transition-all ${formData.systemRole === opt.value ? `ring-2 ${opt.ring}` : "border-gray-200 dark:border-gray-700"} ${isView ? "cursor-default" : "hover:shadow-sm"}`}>
+                <div className="flex items-center gap-3">
+                  <Icon name={opt.icon} className="w-5 h-5 text-gray-600 dark:text-gray-400 flex-shrink-0" />
                   <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                        <Icon
-                          name="FaUserShield"
-                          className="w-5 h-5 text-purple-600"
-                        />
-                      </div>
-                      <div>
-                        <h4 className="text-base font-semibold text-gray-900 dark:text-gray-100">
-                          Administrador
-                        </h4>
-                        <p className="text-xs text-purple-600 font-medium">
-                          Acceso total al sistema
-                        </p>
-                      </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-gray-800 dark:text-gray-200">{opt.label}</span>
+                      {formData.systemRole === opt.value && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300">Seleccionado</span>
+                      )}
                     </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Control completo sobre módulos y configuraciones.
-                    </p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{opt.desc}</p>
                   </div>
-                </label>
-              </div>
-
-              {/* Write */}
-              <div className="mb-4">
-                <label
-                  className={`
-                    flex items-start gap-4 p-5 border-2 rounded-lg cursor-pointer transition-all
-                    ${
-                      isView
-                        ? "opacity-80 cursor-default"
-                        : "hover:bg-blue-50 hover:border-blue-300"
-                    }
-                    ${
-                      formData.systemRole === "write"
-                        ? "border-blue-400 bg-blue-50"
-                        : "border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900/10"
-                    }
-                  `}
-                >
-                  <input
-                    type="radio"
-                    name="systemRole"
-                    value="write"
-                    disabled={isView}
-                    checked={formData.systemRole === "write"}
-                    onChange={() => handleChange("systemRole", "write")}
-                    className="mt-1 w-4 h-4 text-blue-600 focus:ring-blue-500"
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                        <Icon name="FaPen" className="w-5 h-5 text-blue-600" />
-                      </div>
-                      <div>
-                        <h4 className="text-base font-semibold text-gray-900 dark:text-gray-100">
-                          Escritura
-                        </h4>
-                        <p className="text-xs text-blue-600 font-medium">
-                          Crear y editar contenido
-                        </p>
-                      </div>
-                    </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Puede crear/editar dentro de lo asignado.
-                    </p>
-                  </div>
-                </label>
-              </div>
-
-              {/* Read */}
-              <div className="mb-4">
-                <label
-                  className={`
-                    flex items-start gap-4 p-5 border-2 rounded-lg cursor-pointer transition-all
-                    ${
-                      isView
-                        ? "opacity-80 cursor-default"
-                        : "hover:bg-green-50 hover:border-green-300"
-                    }
-                    ${
-                      formData.systemRole === "read"
-                        ? "border-green-400 bg-green-50"
-                        : "border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900/10"
-                    }
-                  `}
-                >
-                  <input
-                    type="radio"
-                    name="systemRole"
-                    value="read"
-                    disabled={isView}
-                    checked={formData.systemRole === "read"}
-                    onChange={() => handleChange("systemRole", "read")}
-                    className="mt-1 w-4 h-4 text-green-600 focus:ring-green-500"
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                        <Icon
-                          name="FaCircleCheck"
-                          className="w-5 h-5 text-green-600"
-                        />
-                      </div>
-                      <div>
-                        <h4 className="text-base font-semibold text-gray-900 dark:text-gray-100">
-                          Lectura
-                        </h4>
-                        <p className="text-xs text-green-600 font-medium">
-                          Solo visualización
-                        </p>
-                      </div>
-                    </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Solo puede ver/descargar dentro de lo asignado.
-                    </p>
-                  </div>
-                </label>
-              </div>
-            </div>
+                  {formData.systemRole === opt.value && <Icon name="FaCheck" className="w-4 h-4 text-primary-600 flex-shrink-0" />}
+                </div>
+              </button>
+            ))}
           </div>
         )}
 
-        {/* Paso 2: Asignación de Acceso */}
+        {/* ── PASO 2: Modo de Acceso ───────────────────────────────────── */}
         {currentStep === 2 && (
-          <div className="space-y-6">
-            {errors.assignmentMode && (
-              <div className="p-3 rounded-lg border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-900/20 text-sm text-red-700 dark:text-red-300">
-                {errors.assignmentMode}
-              </div>
-            )}
-
-            <div>
-              <label className="block text-sm font-semibold text-gray-900 dark:text-gray-200 mb-3">
-                Modo de asignación <span className="text-red-500">*</span>
-              </label>
-
-              <div className="space-y-3">
-                <label
-                  className={`
-                    flex items-center gap-4 p-4 border-2 rounded-lg cursor-pointer transition-all
-                    ${
-                      isView
-                        ? "opacity-80 cursor-default"
-                        : "hover:border-blue-300 hover:bg-blue-50"
-                    }
-                    ${
-                      formData.assignmentMode === "all"
-                        ? "border-blue-400 bg-blue-50"
-                        : "border-gray-300 dark:border-gray-700"
-                    }
-                  `}
-                >
-                  <input
-                    type="radio"
-                    name="assignmentMode"
-                    value="all"
-                    disabled={isView}
-                    checked={formData.assignmentMode === "all"}
-                    onChange={() => setAssignmentMode("all")}
-                    className="w-4 h-4 text-blue-600 focus:ring-blue-500"
-                  />
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600 dark:text-gray-400">Define qué clientes y proyectos puede ver este usuario.</p>
+            {[
+              { value: "all",      label: "Acceso total",     desc: "El usuario puede ver todos los clientes y proyectos del sistema.", icon: "FaGlobe" },
+              { value: "specific", label: "Acceso específico", desc: "El usuario solo puede ver los clientes y proyectos que se le asignen explícitamente.", icon: "FaFilter" },
+            ].map((opt) => (
+              <button key={opt.value} type="button"
+                onClick={() => !isView && setField("assignmentMode", opt.value)} disabled={isView}
+                className={`w-full text-left p-4 rounded-lg border-2 transition-all ${formData.assignmentMode === opt.value ? "ring-2 ring-primary-500 border-primary-400 bg-primary-50 dark:bg-primary-900/10" : "border-gray-200 dark:border-gray-700"} ${isView ? "cursor-default" : "hover:shadow-sm"}`}>
+                <div className="flex items-center gap-3">
+                  <Icon name={opt.icon} className="w-5 h-5 text-gray-600 dark:text-gray-400 flex-shrink-0" />
                   <div className="flex-1">
-                    <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                      Todos los clientes y proyectos (solo normales)
-                    </h4>
-                    <p className="text-xs text-gray-600 dark:text-gray-400">
-                      Acceso automático a todos los clientes/proyectos regulares
-                      existentes y futuros. Los confidenciales se gestionan aparte.
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-gray-800 dark:text-gray-200">{opt.label}</span>
+                      {formData.assignmentMode === opt.value && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300">Seleccionado</span>
+                      )}
+                    </div>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{opt.desc}</p>
                   </div>
-                </label>
-
-                <label
-                  className={`
-                    flex items-center gap-4 p-4 border-2 rounded-lg cursor-pointer transition-all
-                    ${
-                      isView
-                        ? "opacity-80 cursor-default"
-                        : "hover:border-blue-300 hover:bg-blue-50"
-                    }
-                    ${
-                      formData.assignmentMode === "specific"
-                        ? "border-blue-400 bg-blue-50"
-                        : "border-gray-300 dark:border-gray-700"
-                    }
-                  `}
-                >
-                  <input
-                    type="radio"
-                    name="assignmentMode"
-                    value="specific"
-                    disabled={isView}
-                    checked={formData.assignmentMode === "specific"}
-                    onChange={() => setAssignmentMode("specific")}
-                    className="w-4 h-4 text-blue-600 focus:ring-blue-500"
-                  />
-                  <div className="flex-1">
-                    <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                      Clientes y proyectos específicos
-                    </h4>
-                    <p className="text-xs text-gray-600 dark:text-gray-400">
-                      Selección manual de clientes y permisos por proyecto.
-                    </p>
-                  </div>
-                </label>
-              </div>
-            </div>
+                  {formData.assignmentMode === opt.value && <Icon name="FaCheck" className="w-4 h-4 text-primary-600 flex-shrink-0" />}
+                </div>
+              </button>
+            ))}
           </div>
         )}
 
-        {/* Paso 3: Clientes y Proyectos */}
-        {currentStep === 3 && (
-          <div className="space-y-6">
-            {errors.projects && (
-              <div className="p-3 rounded-lg border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-900/20 text-sm text-red-700 dark:text-red-300">
-                {errors.projects}
-              </div>
-            )}
-
-            {/* (4) En modo all: regulares automáticos, pero confidenciales siguen gestionables */}
-            {formData.assignmentMode === "all" && (
-              <div className="p-4 rounded-lg border border-blue-200 dark:border-blue-900/40 bg-blue-50 dark:bg-blue-900/20">
-                <div className="text-sm font-semibold text-blue-800 dark:text-blue-200">
-                  Modo “Todos” aplicado a proyectos normales
-                </div>
-                <div className="text-sm text-blue-700 dark:text-blue-300">
-                  El usuario tendrá acceso automático a todos los clientes/proyectos regulares.
-                  <br />
-                  Los proyectos confidenciales deben asignarse explícitamente en la pestaña correspondiente.
-                </div>
-              </div>
-            )}
-
-            {/* Tabs */}
-            <div className="border-b border-gray-200 dark:border-gray-700">
-              <nav className="flex gap-2 overflow-x-auto pb-2">
-                <button
-                  type="button"
-                  disabled={formData.assignmentMode === "all"} // (4) no gestionas regulares manualmente en modo all
-                  onClick={() => setAccessTab(ACCESS_TABS.REGULAR)}
-                  className={`
-                    inline-flex items-center gap-2 px-4 py-2 rounded-t-lg text-sm font-semibold border
-                    ${
-                      formData.assignmentMode === "all"
-                        ? "opacity-60 cursor-not-allowed bg-white dark:bg-gray-900/10 border-transparent text-gray-500"
-                        : accessTab === ACCESS_TABS.REGULAR
-                        ? "bg-blue-50 border-blue-300 text-blue-700"
-                        : "bg-white dark:bg-gray-900/10 border-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/30"
-                    }
-                  `}
-                >
-                  <Icon name="FaUsers" className="w-4 h-4" />
-                  Clientes y Proyectos
-                  <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">
-                    {selectedRegularClientsCount} clientes seleccionados
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setAccessTab(ACCESS_TABS.CONFIDENTIAL)}
-                  className={`
-                    inline-flex items-center gap-2 px-4 py-2 rounded-t-lg text-sm font-semibold border
-                    ${
-                      accessTab === ACCESS_TABS.CONFIDENTIAL
-                        ? "bg-blue-50 border-blue-300 text-blue-700"
-                        : "bg-white dark:bg-gray-900/10 border-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/30"
-                    }
-                  `}
-                >
-                  <Icon name="FaLock" className="w-4 h-4" />
-                  Proyectos Confidenciales
-                  <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">
-                    {assignedConfProjectsCount} proyecto asignado
-                  </span>
-                </button>
-              </nav>
-            </div>
-
-            {/* Buscador */}
-            <div className="flex items-center gap-3">
-              <div className="relative flex-1">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                  <Icon name="FaSearch" className="w-4 h-4" />
-                </span>
-                <input
-                  value={clientSearch}
-                  onChange={(e) => setClientSearch(e.target.value)}
-                  placeholder="Buscar cliente..."
-                  className="
-                    w-full pl-10 pr-3 py-2.5 border rounded-lg text-sm
-                    bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
-                    border-gray-300 dark:border-gray-600
-                    focus:outline-none focus:ring-2 focus:ring-blue-500
-                  "
-                />
-              </div>
-            </div>
-
-            {/* TAB: REGULARES */}
-            {accessTab === ACCESS_TABS.REGULAR && (
-              <div className="space-y-4">
-                {formData.assignmentMode === "all" ? (
-                  <div className="text-sm text-gray-600 dark:text-gray-400 italic">
-                    En modo “Todos”, los permisos regulares no se configuran manualmente.
-                  </div>
-                ) : (
-                  <>
-                    {regularClientIds
-                      .map((cid) => ({ cid, c: byClientId.get(cid) }))
-                      .filter(({ c }) => !!c)
-                      .map(({ cid, c }) => ({
-                        cid,
-                        c,
-                        projects: safeArray(projectsRegularByClientId.get(cid)),
-                      }))
-                      .filter(({ c }) => filterClient(c))
-                      .map(({ cid, c, projects }) => {
-                        const expanded = !!expandedClients[cid];
-                        return (
-                          <div
-                            key={cid}
-                            className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden"
-                          >
-                            <button
-                              type="button"
-                              onClick={() => toggleExpanded(cid)}
-                              className="w-full flex items-center justify-between px-4 py-3 bg-white dark:bg-gray-900/10 hover:bg-gray-50 dark:hover:bg-gray-800/30"
-                            >
-                              <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-lg bg-blue-600 text-white flex items-center justify-center font-semibold">
-                                  {computeInitials(c?.company || c?.name)}
-                                </div>
-                                <div className="text-left">
-                                  <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                                    {c?.company || c?.name}
-                                  </div>
-                                  <div className="text-xs text-gray-500 dark:text-gray-400">
-                                    {c?.email || "—"}
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div className="flex items-center gap-3">
-                                <span className="px-2 py-1 text-xs font-semibold rounded-md bg-blue-50 text-blue-700 border border-blue-200">
-                                  {projects.length} proyectos
-                                </span>
-                                <Icon
-                                  name={expanded ? "FaChevronUp" : "FaChevronDown"}
-                                  className="w-4 h-4 text-gray-500"
-                                />
-                              </div>
-                            </button>
-
-                            {expanded && (
-                              <div className="p-4 bg-white dark:bg-gray-900/5">
-                                {/* Cliente visible toggle */}
-                                <div className="flex items-center justify-between mb-3">
-                                  <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                                    <Icon name="FaEye" className="w-4 h-4" />
-                                    Cliente visible en la interfaz
-                                  </div>
-
-                                  <div className="flex items-center gap-3">
-                                    <span className="text-xs text-gray-500 dark:text-gray-400 italic">
-                                      El usuario podrá ver este cliente al crear minutas
-                                    </span>
-                                    <label className="inline-flex items-center cursor-pointer">
-                                      <input
-                                        type="checkbox"
-                                        className="sr-only peer"
-                                        disabled={isView}
-                                        checked={isClientVisible(cid)}
-                                        onChange={(e) =>
-                                          toggleClientVisible(cid, e.target.checked)
-                                        }
-                                      />
-                                      <div
-                                        className="
-                                          relative w-11 h-6 bg-gray-200 peer-focus:outline-none
-                                          peer-focus:ring-2 peer-focus:ring-blue-500
-                                          rounded-full peer dark:bg-gray-700
-                                          peer-checked:after:translate-x-full peer-checked:after:border-white
-                                          after:content-[''] after:absolute after:top-[2px] after:left-[2px]
-                                          after:bg-white after:border-gray-300 after:border after:rounded-full
-                                          after:h-5 after:w-5 after:transition-all dark:border-gray-600
-                                          peer-checked:bg-blue-600
-                                        "
-                                      />
-                                    </label>
-                                  </div>
-                                </div>
-
-                                {/* Encabezado tabla + acción select all */}
-                                <div className="flex items-center justify-between mb-2">
-                                  <div className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-                                    Proyectos de {c?.company || c?.name}
-                                  </div>
-
-                                  {!isView && (
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        selectAllClientProjectsAs(cid, "edit", false)
-                                      }
-                                      className="text-sm font-semibold text-blue-600 hover:text-blue-700"
-                                    >
-                                      Seleccionar todos como Editor
-                                    </button>
-                                  )}
-                                </div>
-
-                                {/* Tabla */}
-                                <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-                                  <div className="grid grid-cols-12 bg-gray-50 dark:bg-gray-900/20 px-3 py-2 text-xs font-semibold text-gray-600 dark:text-gray-400">
-                                    <div className="col-span-8">Proyecto</div>
-                                    <div className="col-span-2 text-center flex items-center justify-center gap-1">
-                                      <Icon name="FaEye" className="w-3.5 h-3.5" />
-                                      Lector
-                                    </div>
-                                    <div className="col-span-2 text-center flex items-center justify-center gap-1">
-                                      <Icon name="FaPen" className="w-3.5 h-3.5" />
-                                      Editor
-                                    </div>
-                                  </div>
-
-                                  {projects.map((p) => {
-                                    const pid = String(p?.id ?? "");
-                                    const perm = getPermission(cid, pid); // null|read|edit
-
-                                    return (
-                                      <div
-                                        key={pid}
-                                        className="grid grid-cols-12 px-3 py-3 border-t border-gray-200 dark:border-gray-700"
-                                      >
-                                        <div className="col-span-8 flex items-start gap-2">
-                                          <Icon
-                                            name="FaFolder"
-                                            className="w-4 h-4 text-blue-600 mt-0.5"
-                                          />
-                                          <div>
-                                            <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                                              {p?.name}
-                                            </div>
-                                            <div className="text-xs text-gray-500 dark:text-gray-400">
-                                              {p?.description || "—"}
-                                            </div>
-                                          </div>
-                                        </div>
-
-                                        {/* Lector */}
-                                        <div className="col-span-2 flex items-center justify-center">
-                                          <input
-                                            type="checkbox"
-                                            disabled={isView}
-                                            checked={perm === "read"}
-                                            onChange={(e) => {
-                                              if (isView) return;
-                                              if (e.target.checked) setPermission(cid, pid, "read");
-                                              else clearPermission(cid, pid);
-                                            }}
-                                            className="w-4 h-4 text-blue-600 focus:ring-blue-500"
-                                          />
-                                        </div>
-
-                                        {/* Editor */}
-                                        <div className="col-span-2 flex items-center justify-center">
-                                          <input
-                                            type="checkbox"
-                                            disabled={isView}
-                                            checked={perm === "edit"}
-                                            onChange={(e) => {
-                                              if (isView) return;
-                                              if (e.target.checked) setPermission(cid, pid, "edit");
-                                              else clearPermission(cid, pid);
-                                            }}
-                                            className="w-4 h-4 text-blue-600 focus:ring-blue-500"
-                                          />
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-
-                    {!regularClientIds.length && (
-                      <div className="text-sm italic text-gray-500 dark:text-gray-500">
-                        No existen proyectos regulares en el catálogo.
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
-
-            {/* TAB: CONFIDENCIALES */}
-            {accessTab === ACCESS_TABS.CONFIDENTIAL && (
-              <div className="space-y-4">
-                {/* (2) Banner warning colapsable */}
-                <div className="rounded-lg border border-red-200 dark:border-red-900/40 overflow-hidden">
-                  <button
-                    type="button"
-                    onClick={() => setConfAlertOpen((v) => !v)}
-                    className="w-full flex items-center justify-between px-4 py-3 bg-red-50 dark:bg-red-900/20"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Icon
-                        name="FaTriangleExclamation"
-                        className="w-5 h-5 text-red-600"
-                      />
-                      <div className="text-left">
-                        <div className="text-sm font-semibold text-red-800 dark:text-red-200">
-                          Acceso sensible - Proyectos Confidenciales
-                        </div>
-                        <div className="text-xs text-red-700 dark:text-red-300">
-                          Requieren asignación explícita
-                        </div>
-                      </div>
-                    </div>
-                    <Icon
-                      name={confAlertOpen ? "FaChevronUp" : "FaChevronDown"}
-                      className="w-4 h-4 text-red-700 dark:text-red-300"
-                    />
-                  </button>
-
-                  {confAlertOpen && (
-                    <div className="px-4 py-3 bg-red-50 dark:bg-red-900/20 border-t border-red-200 dark:border-red-900/40">
-                      <div className="text-sm text-red-700 dark:text-red-300">
-                        Estos proyectos contienen información sensible y requieren asignación explícita.
-                        <br />
-                        NO se incluyen en "Todos los clientes". Solo asigna acceso a usuarios autorizados.
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* (2) Caja informativa colapsable */}
-                <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-                  <button
-                    type="button"
-                    onClick={() => setConfInfoOpen((v) => !v)}
-                    className="w-full flex items-center justify-between px-4 py-3 bg-white dark:bg-gray-900/10"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Icon name="FaCircleInfo" className="w-5 h-5 text-gray-500" />
-                      <div className="text-left">
-                        <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                          ¿Qué son los proyectos confidenciales?
-                        </div>
-                        <div className="text-xs text-gray-600 dark:text-gray-400">
-                          Definición y reglas de asignación
-                        </div>
-                      </div>
-                    </div>
-                    <Icon
-                      name={confInfoOpen ? "FaChevronUp" : "FaChevronDown"}
-                      className="w-4 h-4 text-gray-600 dark:text-gray-300"
-                    />
-                  </button>
-
-                  {confInfoOpen && (
-                    <div className="px-4 py-3 bg-white dark:bg-gray-900/10 border-t border-gray-200 dark:border-gray-700">
-                      <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1 list-disc pl-5">
-                        <li>Proyectos con información sensible, estratégica, financiera o legal sensible</li>
-                        <li>Requieren asignación manual y explícita de cada usuario</li>
-                        <li>Cada asignación queda registrada en el sistema de auditoría</li>
-                        <li>
-                          Si un cliente está marcado como confidencial, se asume que todos sus proyectos son confidenciales
-                        </li>
-                      </ul>
-                    </div>
-                  )}
-                </div>
-
-                {/* Listado por cliente */}
-                <div className="space-y-4">
-                  {confClientIds
-                    .map((cid) => ({ cid, c: byClientId.get(cid) }))
-                    .filter(({ c }) => !!c)
-                    .map(({ cid, c }) => ({
-                      cid,
-                      c,
-                      projects: safeArray(projectsConfByClientId.get(cid)),
-                    }))
-                    .filter(({ c }) => filterClient(c))
-                    .map(({ cid, c, projects }) => {
-                      const expanded = !!expandedClients[`conf_${cid}`];
-                      const toggle = () =>
-                        setExpandedClients((p) => ({
-                          ...p,
-                          [`conf_${cid}`]: !p[`conf_${cid}`],
-                        }));
-
-                      return (
-                        <div
-                          key={cid}
-                          className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden"
-                        >
-                          <button
-                            type="button"
-                            onClick={toggle}
-                            className="w-full flex items-center justify-between px-4 py-3 bg-white dark:bg-gray-900/10 hover:bg-gray-50 dark:hover:bg-gray-800/30"
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-lg bg-blue-600 text-white flex items-center justify-center font-semibold">
-                                {computeInitials(c?.company || c?.name)}
-                              </div>
-                              <div className="text-left">
-                                <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                                  {c?.company || c?.name}
-                                </div>
-                                <div className="text-xs text-gray-500 dark:text-gray-400">
-                                  {isClientConfidential(cid) ? (
-                                    <span className="font-semibold text-red-600 dark:text-red-300">
-                                      CLIENTE CONFIDENCIAL
-                                    </span>
-                                  ) : (
-                                    <>
-                                      {projects.length} proyecto confidencial
-                                      {projects.length > 1 ? "es" : ""}
-                                    </>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-
-                            <Icon
-                              name={expanded ? "FaChevronUp" : "FaChevronDown"}
-                              className="w-4 h-4 text-gray-500"
-                            />
-                          </button>
-
-                          {expanded && (
-                            <div className="p-4 bg-white dark:bg-gray-900/5">
-                              <div className="flex items-center justify-between mb-2">
-                                <div className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-                                  Proyectos Confidenciales por Cliente
-                                </div>
-
-                                {!isView && (
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      selectAllClientProjectsAs(cid, "edit", true)
-                                    }
-                                    className="text-sm font-semibold text-blue-600 hover:text-blue-700"
-                                    title="Aplica 'Editor' a todos los proyectos confidenciales habilitados"
-                                  >
-                                    Marcar habilitados como Editor
-                                  </button>
-                                )}
-                              </div>
-
-                              <div className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                                Marca el checkbox izquierdo para asignar acceso (por defecto Lector).
-                              </div>
-
-                              <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-                                <div className="grid grid-cols-12 bg-gray-50 dark:bg-gray-900/20 px-3 py-2 text-xs font-semibold text-gray-600 dark:text-gray-400">
-                                  <div className="col-span-8">Proyecto</div>
-                                  <div className="col-span-2 text-center flex items-center justify-center gap-1">
-                                    <Icon name="FaEye" className="w-3.5 h-3.5" />
-                                    Lector
-                                  </div>
-                                  <div className="col-span-2 text-center flex items-center justify-center gap-1">
-                                    <Icon name="FaPen" className="w-3.5 h-3.5" />
-                                    Editor
-                                  </div>
-                                </div>
-
-                                {projects.map((p) => {
-                                  const pid = String(p?.id ?? "");
-                                  const perm = getPermission(cid, pid); // null|read|edit
-                                  const enabled = perm != null;
-
-                                  return (
-                                    <div
-                                      key={pid}
-                                      className="grid grid-cols-12 px-3 py-3 border-t border-gray-200 dark:border-gray-700"
-                                    >
-                                      <div className="col-span-8 flex items-start gap-2">
-                                        <input
-                                          type="checkbox"
-                                          disabled={isView}
-                                          checked={enabled}
-                                          onChange={(e) => {
-                                            if (isView) return;
-                                            if (e.target.checked) setPermission(cid, pid, "read");
-                                            else clearPermission(cid, pid);
-                                          }}
-                                          className="mt-1 w-4 h-4 text-blue-600 focus:ring-blue-500"
-                                          title="Asignar acceso"
-                                        />
-
-                                        <div className="flex-1">
-                                          <div className="flex items-center gap-2">
-                                            <Icon
-                                              name="FaLock"
-                                              className="w-4 h-4 text-gray-700 dark:text-gray-300"
-                                            />
-                                            <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                                              {p?.name}
-                                            </div>
-                                            <span className="ml-auto px-2 py-0.5 text-[11px] font-semibold rounded-md bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700">
-                                              CONFIDENCIAL
-                                            </span>
-                                          </div>
-                                          <div className="text-xs text-gray-500 dark:text-gray-400">
-                                            {p?.description || "—"}
-                                          </div>
-                                        </div>
-                                      </div>
-
-                                      {/* Lector */}
-                                      <div className="col-span-2 flex items-center justify-center">
-                                        <input
-                                          type="checkbox"
-                                          disabled={isView || !enabled}
-                                          checked={perm === "read"}
-                                          onChange={(e) => {
-                                            if (isView) return;
-                                            if (!enabled) return;
-                                            if (e.target.checked) setPermission(cid, pid, "read");
-                                          }}
-                                          className="w-4 h-4 text-blue-600 focus:ring-blue-500 disabled:opacity-40"
-                                        />
-                                      </div>
-
-                                      {/* Editor */}
-                                      <div className="col-span-2 flex items-center justify-center">
-                                        <input
-                                          type="checkbox"
-                                          disabled={isView || !enabled}
-                                          checked={perm === "edit"}
-                                          onChange={(e) => {
-                                            if (isView) return;
-                                            if (!enabled) return;
-                                            if (e.target.checked) setPermission(cid, pid, "edit");
-                                          }}
-                                          className="w-4 h-4 text-blue-600 focus:ring-blue-500 disabled:opacity-40"
-                                        />
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-
-                  {!confClientIds.length && (
-                    <div className="text-sm italic text-gray-500 dark:text-gray-500">
-                      No existen proyectos confidenciales en el catálogo.
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
+        {/* ── PASO 3: Clientes y Proyectos (solo EDIT/VIEW) ───────────── */}
+        {isAccessStep && (
+          <StepAccessControl formData={formData} setField={setField} isView={isView} />
         )}
 
-        {/* Paso 4: Confirmación */}
-        {currentStep === 4 && (
-          <div className="space-y-6">
+        {/* ── PASO FINAL: Confirmación completa ───────────────────────── */}
+        {isLastStep && (
+          <div className="space-y-5">
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Revise la información antes de{" "}
-              {isCreate ? "crear" : isEdit ? "guardar" : "cerrar"} el usuario.
+              {isView ? "Resumen completo del usuario." : "Revise todos los datos antes de confirmar."}
             </p>
 
-            <div className="border-l-4 border-blue-500 pl-4">
-              <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-3 flex items-center">
-                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-500 text-white text-xs mr-2">
-                  1
+            {/* Sección 1: Datos personales */}
+            <div className="bg-gray-50 dark:bg-gray-800/60 rounded-lg p-4">
+              <SectionTitle number="1" color="blue">Información personal</SectionTitle>
+              <div className="flex items-center gap-3 mb-3 pb-3 border-b border-gray-200 dark:border-gray-700">
+                <div className={`w-10 h-10 bg-gradient-to-br ${COLOR_MAP[formData.color] ?? COLOR_MAP.blue} rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0`}>
+                  {formData.initials || computeInitials(formData.name) || "?"}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-gray-800 dark:text-gray-200 text-sm truncate">{formData.name || "—"}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{formData.email || "—"}</p>
+                </div>
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${
+                  formData.status === "inactive"
+                    ? "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
+                    : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+                }`}>
+                  {formData.status === "inactive" ? "Inactivo" : "Activo"}
                 </span>
-                Usuario
-              </h4>
-
-              <div className="space-y-2 text-sm">
-                <FieldRow label="Nombre" value={formData.name} />
-                <FieldRow label="Email" value={formData.email} />
-                <FieldRow label="Cargo" value={formData.position} />
-                <FieldRow label="Teléfono" value={formData.phone} />
-                <FieldRow label="Departamento" value={formData.department} />
-                <FieldRow
-                  label="Estado"
-                  value={formData.status === "inactive" ? "Inactivo" : "Activo"}
-                />
-                <FieldRow
-                  label="Rol Sistema"
-                  value={
-                    formData.systemRole === "admin"
-                      ? "Administrador"
-                      : formData.systemRole === "write"
-                      ? "Escritura"
-                      : "Lectura"
-                  }
-                />
-                <FieldRow
-                  label="Asignación"
-                  value={
-                    formData.assignmentMode === "all"
-                      ? "Todos (solo normales) + confidenciales manual"
-                      : "Específica"
-                  }
-                />
               </div>
+              <FieldRow label="Usuario"      value={formData.username}              />
+              <FieldRow label="Cargo"        value={formData.position}              />
+              <FieldRow label="Teléfono"     value={formData.phone}                 />
+              <FieldRow label="Departamento" value={deptLabel(formData.department)} />
+              {formData.notes && <FieldRow label="Notas" value={formData.notes} />}
             </div>
 
-            {/* (1) Resumen de permisos: tabla con nombre cliente/proyecto + tipo + permiso */}
-            <div className="border-l-4 border-indigo-500 pl-4">
-              <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-3 flex items-center">
-                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-indigo-500 text-white text-xs mr-2">
-                  2
-                </span>
-                Permisos
-              </h4>
-
-              {formData.assignmentMode === "all" && (
-                <div className="mb-4 p-3 rounded-lg border border-blue-200 dark:border-blue-900/40 bg-blue-50 dark:bg-blue-900/20">
-                  <div className="text-sm font-semibold text-blue-800 dark:text-blue-200">
-                    Acceso automático (Normales)
-                  </div>
-                  <div className="text-sm text-blue-700 dark:text-blue-300">
-                    El usuario tendrá acceso a todos los proyectos normales.
-                    El listado siguiente corresponde a permisos explícitos (principalmente confidenciales).
-                  </div>
-                </div>
-              )}
-
-              {!summaryRows.length ? (
-                <div className="text-sm italic text-gray-500 dark:text-gray-500">
-                  Sin permisos asignados
-                </div>
-              ) : (
-                <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-                  <div className="grid grid-cols-12 bg-gray-50 dark:bg-gray-900/20 px-3 py-2 text-xs font-semibold text-gray-600 dark:text-gray-400">
-                    <div className="col-span-4">Cliente</div>
-                    <div className="col-span-5">Proyecto</div>
-                    <div className="col-span-2 text-center">Tipo</div>
-                    <div className="col-span-1 text-center">Permiso</div>
-                  </div>
-
-                  {summaryRows.map((r, idx) => {
-                    const showTypeHeader =
-                      idx === 0 || summaryRows[idx - 1]?.type !== r.type;
-
-                    return (
-                      <React.Fragment key={`${r.clientId}_${r.projectId}_${idx}`}>
-                        {showTypeHeader && (
-                          <div className="px-3 py-2 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/10">
-                            <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                              <Icon
-                                name={r.type === "Confidencial" ? "FaLock" : "FaFolder"}
-                                className="w-4 h-4"
-                              />
-                              {r.type}
-                            </div>
-                          </div>
-                        )}
-
-                        <div className="grid grid-cols-12 px-3 py-3 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/5">
-                          <div className="col-span-4">
-                            <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                              {r.clientName}
-                            </div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">
-                              {r.clientId}
-                            </div>
-                          </div>
-
-                          <div className="col-span-5">
-                            <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                              {r.projectName}
-                            </div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">
-                              {r.projectId}
-                            </div>
-                          </div>
-
-                          <div className="col-span-2 flex items-center justify-center">
-                            <span
-                              className={`
-                                px-2 py-1 text-xs font-semibold rounded-md border
-                                ${
-                                  r.type === "Confidencial"
-                                    ? "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border-red-200 dark:border-red-900/40"
-                                    : "bg-gray-50 dark:bg-gray-900/20 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700"
-                                }
-                              `}
-                            >
-                              {r.type}
-                            </span>
-                          </div>
-
-                          <div className="col-span-1 flex items-center justify-center">
-                            <span
-                              className={`
-                                px-2 py-1 text-xs font-semibold rounded-md border
-                                ${
-                                  r.permission === "Editor"
-                                    ? "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-900/40"
-                                    : "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border-green-200 dark:border-green-900/40"
-                                }
-                              `}
-                              title={r.permission}
-                            >
-                              {r.permission === "Editor" ? "E" : "L"}
-                            </span>
-                          </div>
-                        </div>
-                      </React.Fragment>
-                    );
-                  })}
-                </div>
-              )}
+            {/* Sección 2: Rol y acceso */}
+            <div className="bg-gray-50 dark:bg-gray-800/60 rounded-lg p-4">
+              <SectionTitle number="2" color="purple">Rol y modo de acceso</SectionTitle>
+              <FieldRow
+                label="Rol del sistema"
+                value={formData.systemRole === "ADMIN" ? "Administrador" : formData.systemRole === "EDITOR" ? "Escritura" : "Solo lectura"}
+                icon={formData.systemRole === "ADMIN" ? "FaUserShield" : formData.systemRole === "EDITOR" ? "FaEdit" : "eye"}
+              />
+              <FieldRow
+                label="Modo de acceso"
+                value={formData.assignmentMode === "all" ? "Acceso total" : "Acceso específico"}
+                icon={formData.assignmentMode === "all" ? "FaGlobe" : "FaFilter"}
+              />
             </div>
 
-            <div className="border-l-4 border-green-500 pl-4">
-              <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-3 flex items-center">
-                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-500 text-white text-xs mr-2">
-                  3
-                </span>
-                Notas
-              </h4>
-              <div className="text-sm text-gray-600 dark:text-gray-400 whitespace-pre-line">
-                {formData.notes || (
-                  <span className="italic text-gray-500">Sin notas</span>
-                )}
+            {/* Sección 3: Clientes y proyectos (EDIT/VIEW) — siempre visible */}
+            {(isEdit || isView) && (
+              <div className="bg-gray-50 dark:bg-gray-800/60 rounded-lg p-4">
+                <SectionTitle number="3" color="amber">Clientes y proyectos asignados</SectionTitle>
+                {catClients.length === 0 && catProjects.length === 0
+                  ? <div className="flex items-center gap-2 text-sm text-gray-400 dark:text-gray-500">
+                      <span className="w-4 h-4 border-2 border-gray-300 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                      Cargando catálogo…
+                    </div>
+                  : <AccessSummaryBlock formData={formData} catClients={catClients} catProjects={catProjects} />
+                }
               </div>
-            </div>
+            )}
+
+            {/* Aviso contraseña temporal (CREATE) */}
+            {isCreate && (
+              <div className="p-4 rounded-lg bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 flex gap-2">
+                <Icon name="FaKey" className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-blue-700 dark:text-blue-300">
+                  Se generará una contraseña temporal automáticamente. El usuario deberá cambiarla en su primer acceso.
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      {/* Footer */}
-      <div className="flex-shrink-0 px-6 py-4 border-t border-gray-200 dark:border-gray-700">
-        <div className="flex justify-between">
-          <button
-            type="button"
-            onClick={currentStep === 0 ? closeModal : handlePrevious}
-            className="
-              px-4 py-2 text-sm font-medium
-              text-gray-700 dark:text-gray-300
-              bg-white dark:bg-gray-800
-              border border-gray-300 dark:border-gray-600
-              rounded-lg
-              hover:bg-gray-50 dark:hover:bg-gray-700
-              focus:outline-none focus:ring-2 focus:ring-blue-500
-              transition-colors
-            "
-          >
-            {currentStep === 0 ? "Cancelar" : "Anterior"}
-          </button>
+      {/* ── FOOTER — patrón ProjectModal / ClientModal ───────────────────── */}
+      <div className="flex-shrink-0 px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-between">
+        <button
+          type="button"
+          onClick={currentStep === 0 ? closeModal : handlePrevious}
+          className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+        >
+          {currentStep === 0 ? "Cancelar" : "Anterior"}
+        </button>
 
-          <button
-            type="button"
-            onClick={handleNext}
-            className="
-              px-4 py-2 text-sm font-medium
-              text-white
-              bg-blue-600
-              rounded-lg
-              hover:bg-blue-700
-              focus:outline-none focus:ring-2 focus:ring-blue-500
-              transition-colors
-            "
-          >
-            {currentStep === steps.length - 1
-              ? isView
-                ? "Cerrar"
-                : isCreate
-                ? "Crear Usuario"
-                : "Guardar"
-              : "Siguiente"}
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={handleNext}
+          disabled={submitting}
+          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors disabled:opacity-60 flex items-center gap-2"
+        >
+          {submitting && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+          {isLastStep
+            ? isView    ? "Cerrar"
+              : isCreate ? "Crear"
+              : "Guardar"
+            : "Siguiente"}
+        </button>
       </div>
     </div>
   );
