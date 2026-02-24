@@ -133,14 +133,17 @@ def list_projects(db: Session, filters: ProjectFilterRequest) -> dict:
 
 
 def create_project(db: Session, body: ProjectCreateRequest, created_by_id: str) -> dict:
+    # Verificar unicidad nombre+cliente antes de crear
     _check_unique_client_name(db, body.client_id, body.name, exclude_id=None)
-    _check_unique_code(db, body.code, exclude_id=None)
+
+    # El código siempre se genera en el backend — nunca viene del cliente
+    generated_code = str(uuid.uuid4())
 
     obj = Project(
         id=str(uuid.uuid4()),
         client_id=body.client_id,
         name=body.name,
-        code=body.code,
+        code=generated_code,
         description=body.description,
         status=body.status,
         is_confidential=bool(body.is_confidential),
@@ -166,6 +169,7 @@ def update_project(db: Session, project_id: str, body: ProjectUpdateRequest, upd
     next_name = body.name if body.name is not None else obj.name
     _check_unique_client_name(db, next_client_id, next_name, exclude_id=obj.id)
 
+    # En update sí se permite cambiar el code (viene del body)
     next_code = body.code if body.code is not None else obj.code
     _check_unique_code(db, next_code, exclude_id=obj.id)
 

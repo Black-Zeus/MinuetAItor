@@ -1,240 +1,238 @@
 /**
- * ProjectCard.jsx (alineado a MinuteCard template)
- * - Card con h-full + flex-col (misma proporción en grillas)
- * - Header con min-h fijo y grid 2 columnas (cliente/estado)
- * - Título truncado por longitud (igual patrón)
- * - Footer fijo con ActionButton + tooltip
+ * ProjectCard.jsx
+ * Recibe id + summary (DTO mínimo del list).
+ * El detalle completo se carga on-demand al abrir View o Edit.
  */
 
-import React from "react";
-import Icon from "@/components/ui/icon/iconManager";
-import ModalManager from "@/components/ui/modal";
-import ActionButton from "@/components/ui/button/ActionButton";
-
-import ProjectModal, { PROJECT_MODAL_MODES } from "@/pages/project/ProjectModal";
+import React, { useState } from 'react';
+import Icon from '@/components/ui/icon/iconManager';
+import { ModalManager } from '@/components/ui/modal';
+import ProjectModal, { PROJECT_MODAL_MODES } from './ProjectModal';
+import ActionButton from '@/components/ui/button/ActionButton';
+import projectService from '@/services/projectService';
 
 import logger from '@/utils/logger';
 const projectLog = logger.scope("project");
 
-const TXT_TITLE = "text-gray-900 dark:text-gray-50";
-const TXT_BODY = "text-gray-700 dark:text-gray-300";
-const TXT_META = "text-gray-500 dark:text-gray-400";
+const TXT_TITLE = "text-gray-900 dark:text-white";
+const TXT_BODY  = "text-gray-600 dark:text-gray-300";
+const TXT_META  = "text-gray-500 dark:text-gray-400";
 
-const ProjectCard = ({ project, clients = [], onEdit, onDelete }) => {
-  const getStatusColor = (status) => {
-    const colors = {
-      activo:
-        "bg-success-50 text-success-700 dark:bg-success-900/20 dark:text-success-200",
-      inactivo:
-        "bg-secondary-100 text-secondary-700 dark:bg-secondary-900/20 dark:text-secondary-200",
-    };
-    return colors[status] || colors.activo;
+// Mapea formData del wizard → snake_case para el backend
+const toApiPayload = (formData) => ({
+  client_id:       formData.clientId          ?? null,
+  name:            formData.projectName       ?? '',
+  code:            formData.projectCode       ?? null,
+  description:     formData.projectDescription ?? null,
+  status:          formData.projectStatus     ?? 'activo',
+  is_confidential: Boolean(formData.isConfidential),
+});
+
+const getStatusColor = (status) => {
+  const map = {
+    activo:   "bg-success-50 text-success-700 dark:bg-success-900/20 dark:text-success-200",
+    inactivo: "bg-secondary-100 text-secondary-700 dark:bg-secondary-900/20 dark:text-secondary-200",
+  };
+  return map[status] || map.activo;
+};
+
+const getStatusText = (status) => {
+  const map = { activo: "Activo", inactivo: "Inactivo" };
+  return map[status] || status;
+};
+
+const ProjectCard = ({ id, summary = null, clientCatalog = [], onUpdated, onDeleted }) => {
+  const [loadingDetail, setLoadingDetail] = useState(false);
+
+  // ─── Carga de detalle on-demand ───────────────────────────────────────────
+
+  const fetchDetail = async () => {
+    setLoadingDetail(true);
+    try {
+      const detail = await projectService.getById(id);
+      return detail;
+    } catch (err) {
+      projectLog.error('[ProjectCard] Error cargando detalle:', id, err);
+      return summary;
+    } finally {
+      setLoadingDetail(false);
+    }
   };
 
-  const getStatusText = (status) => {
-    const texts = { activo: "Activo", inactivo: "Inactivo" };
-    return texts[status] || status;
+  // ─── Cierre modal ─────────────────────────────────────────────────────────
+
+  const closeModal = () => {
+    try { ModalManager.hide?.();    } catch (_) {}
+    try { ModalManager.close?.();   } catch (_) {}
+    try { ModalManager.closeAll?.();} catch (_) {}
   };
 
-  const applyWizardPayload = (payload) => {
-    const clientId =
-      payload.clientId !== undefined &&
-        payload.clientId !== null &&
-        String(payload.clientId).trim() !== ""
-        ? Number.isFinite(Number(payload.clientId))
-          ? Number(payload.clientId)
-          : payload.clientId
-        : project.clientId;
+  // ─── Modal: Ver Detalle ───────────────────────────────────────────────────
 
-    return {
-      ...project,
-      clientId,
-      name: payload.projectName,
-      client: payload.clientName || project.client,
-      description: payload.projectDescription,
-      status: payload.projectStatus,
-      tags: payload.projectTags,
-      confidential: Boolean(payload.isConfidential),
-      isConfidential: Boolean(payload.isConfidential),
-    };
-  };
+  const handleViewProject = async () => {
+    const detail = await fetchDetail();
+    if (!detail) return;
 
-  const handleViewProject = () => {
     ModalManager.show({
-      type: "custom",
-      title: "Detalles del Proyecto",
-      size: "large",
+      type: 'custom',
+      title: 'Detalle Proyecto',
+      size: 'large',
       showFooter: false,
       content: (
         <ProjectModal
           mode={PROJECT_MODAL_MODES.VIEW}
-          data={project}
-          clients={clients}
-          onClose={() => { }}
-          onSubmit={() => { }}
+          data={detail}
+          clientCatalog={clientCatalog}
+          onClose={closeModal}
+          onSubmit={() => {}}
         />
       ),
     });
   };
 
-  const handleEditProject = () => {
+  // ─── Modal: Editar ────────────────────────────────────────────────────────
+
+  const handleEditProject = async () => {
+    const detail = await fetchDetail();
+    if (!detail) return;
+
     ModalManager.show({
-      type: "custom",
-      title: "Editar Proyecto",
-      size: "large",
+      type: 'custom',
+      title: 'Editar Proyecto',
+      size: 'large',
       showFooter: false,
       content: (
         <ProjectModal
           mode={PROJECT_MODAL_MODES.EDIT}
-          data={project}
-          clients={clients}
-          onClose={() => { }}
-          onSubmit={(payload) => {
-            const updated = applyWizardPayload(payload);
-            onEdit?.(updated);
-
-            ModalManager.success({
-              title: "Proyecto Actualizado",
-              message: "Los cambios han sido guardados exitosamente.",
-            });
+          data={detail}
+          clientCatalog={clientCatalog}
+          onClose={closeModal}
+          onSubmit={async (formData) => {
+            const payload = toApiPayload(formData);
+            const updated = await projectService.update(id, payload); // lanza si falla → modal muestra toast error
+            onUpdated?.(updated);
           }}
         />
       ),
     });
   };
 
+  // ─── Eliminar ─────────────────────────────────────────────────────────────
+
   const handleDeleteProject = async () => {
     try {
       const confirmed = await ModalManager.confirm({
-        title: "Confirmar Eliminación",
-        message: `¿Estás seguro de que deseas eliminar el proyecto "${project.name}"?`,
-        description: "Esta acción no se puede deshacer.",
-        confirmText: "Eliminar",
-        cancelText: "Cancelar",
-        variant: "danger",
+        title: 'Confirmar Eliminación',
+        message: `¿Estás seguro de que deseas eliminar el proyecto "${summary?.name ?? 'este proyecto'}"? Esta acción no se puede deshacer.`,
+        confirmText: 'Eliminar',
+        cancelText: 'Cancelar',
       });
 
-      if (confirmed) onDelete?.(project.id);
-    } catch (error) {
-      projectLog.log("[ProjectCard] Eliminación cancelada");
+      if (confirmed) {
+        await projectService.softDelete(id);
+        onDeleted?.(id);
+      }
+    } catch (err) {
+      projectLog.log('[ProjectCard] Eliminación cancelada o fallida', err);
     }
   };
 
-  // --- Header truncation (mismo patrón) ---
-  const title = String(project?.name ?? "");
-  const numberIndex = 25;
-  const titleUi =
-    title.length > numberIndex ? `${title.slice(0, numberIndex + 3)}...` : title;
+  // ─── Render (usa summary para mostrar la card) ────────────────────────────
 
-  // --- Tags normalizados (si vienen como string CSV) ---
+  const name         = summary?.name        ?? '—';
+  const status       = summary?.status      ?? 'activo';
+  const isActive     = summary?.isActive    ?? true;
+  const isConf       = summary?.isConfidential ?? false;
+  const description  = summary?.description ?? null;
+  const clientName   = summary?.clientName  ?? summary?.client ?? null;
+  const code         = summary?.code        ?? null;
+
+  const titleDisplay = name.length > 28 ? `${name.slice(0, 28)}...` : name;
+
+  // Tags normalizados
   const tagList =
-    typeof project?.tags === "string" && project.tags.trim()
-      ? project.tags.split(",").map((t) => t.trim()).filter(Boolean)
+    typeof summary?.tags === "string" && summary.tags.trim()
+      ? summary.tags.split(",").map((t) => t.trim()).filter(Boolean)
+      : Array.isArray(summary?.tags)
+      ? summary.tags.filter(Boolean)
       : [];
 
   return (
-    <div className="bg-surface rounded-2xl border border-secondary-200 dark:border-secondary-700/60 dark:ring-1 dark:ring-white/5 overflow-hidden transition-all duration-200 shadow-card hover:shadow-card-hover hover:-translate-y-0.5 hover:border-primary-500 dark:hover:border-primary-400 h-full flex flex-col">
-      {/* HEADER (fijo) */}
-      <div className="p-6 border-b border-secondary-200 dark:border-secondary-700/60 transition-theme min-h-[120px]">
-        <div className="grid grid-cols-2 gap-3 items-start">
-          {/* Título ocupa todo el ancho */}
-          <div className="col-span-2 flex items-start gap-3">
-            <div className="w-11 h-11 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center shrink-0">
-              <Icon name="FaFolderOpen" className="text-primary-600 dark:text-primary-400 w-5 h-5" />
-            </div>
+    <div className="bg-white dark:bg-gray-800 rounded-xl border border-secondary-200 dark:border-secondary-700 shadow-sm flex flex-col h-full transition-theme">
 
-            <div className="min-w-0 flex-1">
-              <h3
-                className={`text-lg font-semibold ${TXT_TITLE} leading-snug transition-theme text-center`}
-                title={title}
+      {/* HEADER */}
+      <div className="p-5 border-b border-secondary-200 dark:border-secondary-700/60 min-h-[100px]">
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <h3 className={`text-base font-bold ${TXT_TITLE} leading-snug transition-theme`} title={name}>
+            {titleDisplay}
+          </h3>
+          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold flex-shrink-0 ${getStatusColor(status)}`}>
+            {getStatusText(status)}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-2">
+          {clientName && (
+            <div className={`text-xs ${TXT_META} flex items-center gap-1 truncate col-span-2 transition-theme`}>
+              <Icon name="FaBuilding" className="flex-shrink-0 w-3 h-3" />
+              <span className="truncate">{clientName}</span>
+            </div>
+          )}
+          {code && (
+            <div className={`text-xs ${TXT_META} flex items-center gap-1 transition-theme`}>
+              <Icon name="FaTag" className="flex-shrink-0 w-3 h-3" />
+              <span>{code}</span>
+            </div>
+          )}
+          {isConf && (
+            <div className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
+              <Icon name="FaLock" className="flex-shrink-0 w-3 h-3" />
+              <span>Confidencial</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* BODY */}
+      <div className="p-5 flex-1">
+        {description ? (
+          <p className={`text-sm ${TXT_BODY} line-clamp-3 transition-theme`}>{description}</p>
+        ) : (
+          <p className={`text-sm ${TXT_META} italic transition-theme`}>Sin descripción</p>
+        )}
+      </div>
+
+      {/* TAGS */}
+      {tagList.length > 0 && (
+        <div className="px-5 pb-3 border-t border-secondary-200 dark:border-secondary-700/60 pt-3">
+          <div className="flex flex-wrap gap-1.5">
+            {tagList.slice(0, 4).map((tag, i) => (
+              <span
+                key={`${tag}-${i}`}
+                className="px-2 py-0.5 rounded-md text-xs font-medium bg-primary-100 text-primary-700 dark:bg-primary-900/20 dark:text-primary-200"
               >
-                {titleUi}
-              </h3>
-            </div>
-          </div>
-
-          {/* Cliente (izquierda) */}
-          <div className={`flex flex-col gap-2 text-xs ${TXT_META} transition-theme`}>
-            <span className="flex items-center gap-1.5 min-w-0">
-              <Icon name="FaBuilding" className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate">{project.client || "Sin cliente"}</span>
-            </span>
-          </div>
-
-          {/* Estado (derecha) */}
-          <div className="flex justify-end">
-            <div
-              className={`px-4 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-theme ${getStatusColor(
-                project.status
-              )}`}
-              title={`Estado: ${getStatusText(project.status)}`}
-            >
-              <Icon name={project.status === "activo" ? "checkCircle" : "ban"} />
-              {getStatusText(project.status)}
-            </div>
+                {tag}
+              </span>
+            ))}
+            {tagList.length > 4 && (
+              <span className={`px-2 py-0.5 rounded-md text-xs font-medium ${TXT_META} bg-secondary-100 dark:bg-secondary-800`}>
+                +{tagList.length - 4}
+              </span>
+            )}
           </div>
         </div>
-      </div>
+      )}
 
-      {/* BODY (flexible) */}
-      <div className="flex-1 flex flex-col">
-        {/* Contenido principal */}
-        <div className="p-6">
-          <div className="mb-4">
-            <p className={`text-sm ${TXT_BODY} transition-theme line-clamp-3`}>
-              {project.description || "Sin descripción"}
-            </p>
-          </div>
-
-          {/* Minutas (mejor presentación) */}
-          <div className="flex items-center gap-3 pt-4">
-            <div className="w-10 h-10 rounded-xl bg-primary-100 dark:bg-primary-900/20 flex items-center justify-center shrink-0">
-              <Icon name="FaFileAlt" className="text-primary-600 dark:text-primary-400 w-4 h-4" />
-            </div>
-
-            <div className="min-w-0">
-              <div className={`flex items-baseline gap-2 ${TXT_BODY} transition-theme`}>
-                <span className={`text-xl font-extrabold ${TXT_TITLE} transition-theme leading-none`}>
-                  {project.minutas || 0}
-                </span>
-                <span className="text-sm">
-                  {(project.minutas || 0) === 1 ? "minuta" : "minutas"}
-                </span>
-              </div>
-
-              <div className={`text-xs ${TXT_META} transition-theme`}>
-                Total registradas en este proyecto
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Línea separadora SOBRE tags */}
-        {tagList.length ? (
-          <div className="px-6 mt-auto border-t border-secondary-200 dark:border-secondary-700/60 pt-4 pb-4">
-            <div className="flex flex-wrap gap-2 justify-center">
-              {tagList.map((tag, index) => (
-                <span
-                  key={`${tag}-${index}`}
-                  className="px-3 py-1 rounded-lg text-xs font-semibold transition-theme bg-primary-100 text-primary-700 dark:bg-primary-900/20 dark:text-primary-200"
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
-          </div>
-        ) : null}
-      </div>
-
-      {/* FOOTER (fijo) */}
-      <div className="p-4 border-t border-secondary-200 dark:border-secondary-700/60 transition-theme min-h-[70px] flex flex-col">
-        <div className="grid grid-cols-3 gap-2 mt-auto w-full place-items-center">
+      {/* FOOTER */}
+      <div className="p-4 border-t border-secondary-200 dark:border-secondary-700/60 transition-theme">
+        <div className="grid grid-cols-3 gap-2 place-items-center">
           <ActionButton
             variant="soft"
             size="xs"
             icon={<Icon name="eye" />}
-            tooltip="Abrir vista detalle del proyecto"
+            tooltip="Ver detalle del proyecto"
             onClick={handleViewProject}
+            disabled={loadingDetail}
             className="w-full"
           />
           <ActionButton
@@ -243,6 +241,7 @@ const ProjectCard = ({ project, clients = [], onEdit, onDelete }) => {
             icon={<Icon name="FaEdit" />}
             tooltip="Editar proyecto"
             onClick={handleEditProject}
+            disabled={loadingDetail}
             className="w-full"
           />
           <ActionButton

@@ -1,0 +1,573 @@
+<!--
+  VisitModuleTemplate.html
+  Template UI — Módulo de Visitas (Header fijo + Body visor PDF + Footer fijo)
+
+  Requisitos cubiertos:
+  - Header fijo: logo (arriba-izq) + Cliente -> Proyecto -> Minuta activa
+  - Zona usuario: nombre + correo + botón "Cerrar sesión"
+  - Botón "Agregar observación" => abre modal con un solo campo (textarea)
+  - Sin sidebar (solo header, body, footer)
+  - Body: visor PDF para revisión (iframe)
+
+  Integración:
+  - Reemplaza los placeholders {{...}} desde tu backend/template engine o por JS.
+  - pdfUrl debe ser una URL que entregue application/pdf (idealmente inline).
+-->
+
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="x-apple-disable-message-reformatting" />
+  <meta name="format-detection" content="telephone=no,address=no,email=no,date=no,url=no" />
+  <title>Módulo de Visitas</title>
+
+  <style>
+    :root{
+      --bg: #020617;        /* slate-950 */
+      --panel: #0b1220;     /* cercano slate-900 */
+      --panel2: #0f172a;    /* slate-900 */
+      --border: #1f2937;    /* slate-800 */
+      --text: #e2e8f0;      /* slate-200 */
+      --muted: #94a3b8;     /* slate-400 */
+      --muted2:#64748b;     /* slate-500 */
+      --accent:#4f46e5;     /* indigo-600 */
+      --accent2:#6366f1;    /* indigo-500 */
+      --danger:#f87171;     /* red-400 */
+      --shadow: 0 20px 50px rgba(0,0,0,.45);
+      --radius: 16px;
+      --header-h: 64px;
+      --footer-h: 40px;
+      --pad: 16px;
+      --font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+    }
+
+    *{ box-sizing: border-box; }
+    html, body{ height: 100%; }
+    body{
+      margin:0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      overflow: hidden; /* evita scroll del body; el scroll lo gestiona el visor si aplica */
+    }
+
+    .layout{
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    /* HEADER fijo */
+    header{
+      height: var(--header-h);
+      flex: 0 0 var(--header-h);
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border);
+    }
+    .header-inner{
+      height: 100%;
+      padding: 0 var(--pad);
+      display:flex;
+      align-items:center;
+      justify-content: space-between;
+      gap: 12px;
+      min-width: 0;
+    }
+    .brand{
+      display:flex;
+      align-items:center;
+      gap: 12px;
+      min-width: 0;
+    }
+    .logo{
+      width: 36px;
+      height: 36px;
+      border-radius: 12px;
+      padding: 6px;
+      background: rgba(31,41,55,.7);
+      border: 1px solid var(--border);
+      object-fit: contain;
+      flex: 0 0 auto;
+    }
+    .crumbs{
+      min-width: 0;
+      display:flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .crumb-row{
+      display:flex;
+      align-items:center;
+      gap: 8px;
+      font-size: 13px;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .crumb{
+      max-width: 28vw;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .sep{ color: var(--muted2); }
+    .subline{
+      font-size: 12px;
+      color: var(--muted);
+      max-width: 55vw;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .actions{
+      display:flex;
+      align-items:center;
+      gap: 10px;
+      flex: 0 0 auto;
+    }
+    .user{
+      display:none;
+      text-align:right;
+      line-height: 1.15;
+    }
+    .user .name{ font-size: 13px; font-weight: 600; color: var(--text); }
+    .user .mail{ font-size: 12px; color: var(--muted); }
+
+    @media (min-width: 900px){
+      .user{ display:block; }
+      .crumb{ max-width: 320px; }
+    }
+
+    button{
+      border: 1px solid var(--border);
+      background: rgba(31,41,55,.65);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform .05s ease, background .15s ease, border-color .15s ease, opacity .15s ease;
+    }
+    button:hover{ background: rgba(51,65,85,.65); }
+    button:active{ transform: translateY(1px); }
+    button:disabled{ opacity: .7; cursor: not-allowed; }
+
+    .btn-accent{
+      background: rgba(79,70,229,.9);
+      border-color: rgba(99,102,241,.55);
+    }
+    .btn-accent:hover{ background: rgba(99,102,241,.95); }
+
+    /* BODY */
+    main{
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .body-pad{
+      height: 100%;
+      padding: 12px;
+    }
+    .pdf-frame{
+      height: 100%;
+      width: 100%;
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: rgba(15,23,42,.6);
+      border: 1px solid var(--border);
+    }
+    iframe{
+      width: 100%;
+      height: 100%;
+      border: 0;
+      display:block;
+      background: #0b1220;
+    }
+
+    .empty{
+      height: 100%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding: 24px;
+    }
+    .empty-card{
+      width: min(680px, 100%);
+      border-radius: 20px;
+      border: 1px dashed rgba(148,163,184,.35);
+      background: rgba(15,23,42,.35);
+      padding: 18px;
+      text-align:center;
+    }
+    .empty-title{ font-size: 16px; font-weight: 700; margin: 0; }
+    .empty-sub{ margin: 10px 0 0; font-size: 13px; color: var(--muted); }
+    code{
+      background: rgba(31,41,55,.6);
+      border: 1px solid var(--border);
+      padding: 2px 6px;
+      border-radius: 10px;
+      color: var(--text);
+      font-size: 12px;
+    }
+
+    /* FOOTER fijo */
+    footer{
+      height: var(--footer-h);
+      flex: 0 0 var(--footer-h);
+      position: sticky;
+      bottom: 0;
+      z-index: 40;
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(10px);
+      border-top: 1px solid var(--border);
+    }
+    .footer-inner{
+      height: 100%;
+      padding: 0 var(--pad);
+      display:flex;
+      align-items:center;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--muted);
+      gap: 12px;
+      min-width: 0;
+    }
+    .truncate{
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
+    }
+
+    /* MODAL */
+    .modal{
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display:none;
+    }
+    .modal.open{ display:block; }
+    .overlay{
+      position:absolute;
+      inset:0;
+      background: rgba(0,0,0,.6);
+    }
+    .dialog-wrap{
+      position:absolute;
+      inset:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding: 16px;
+    }
+    .dialog{
+      width: min(640px, 100%);
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: rgba(2,6,23,.95);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .dialog-head{
+      display:flex;
+      align-items:flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(15,23,42,.55);
+    }
+    .dialog-title{
+      margin:0;
+      font-size: 15px;
+      font-weight: 800;
+      color: var(--text);
+    }
+    .dialog-desc{
+      margin: 4px 0 0;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .dialog-body{
+      padding: 16px;
+    }
+    label{
+      display:block;
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: var(--text);
+    }
+    textarea{
+      width: 100%;
+      border-radius: 16px;
+      border: 1px solid rgba(148,163,184,.35);
+      background: rgba(15,23,42,.75);
+      color: var(--text);
+      padding: 10px 12px;
+      outline: none;
+      resize: none;
+      font-size: 13px;
+      line-height: 1.35;
+      transition: border-color .15s ease, box-shadow .15s ease;
+    }
+    textarea:focus{
+      border-color: rgba(99,102,241,.65);
+      box-shadow: 0 0 0 3px rgba(99,102,241,.18);
+    }
+    .error{
+      margin-top: 10px;
+      font-size: 13px;
+      color: var(--danger);
+    }
+    .dialog-actions{
+      display:flex;
+      justify-content:flex-end;
+      gap: 10px;
+      padding: 0 16px 16px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="layout">
+    <!-- ===================== HEADER ===================== -->
+    <header>
+      <div class="header-inner">
+        <div class="brand">
+          <!-- Logo -->
+          <img class="logo" src="./content/img/chinchinAItor.jpg" alt="{{APP_NAME}}" />
+
+          <!-- Cliente / Proyecto / Minuta -->
+          <div class="crumbs">
+            <div class="crumb-row" title="{{CLIENT_NAME}} / {{PROJECT_NAME}} / {{MINUTE_NAME}}">
+              <span class="crumb" id="clientName">{{CLIENT_NAME}}</span>
+              <span class="sep">/</span>
+              <span class="crumb" id="projectName">{{PROJECT_NAME}}</span>
+              <span class="sep">/</span>
+              <span class="crumb" id="minuteName" style="font-weight:700;color:var(--text);">
+                {{MINUTE_NAME}}
+              </span>
+            </div>
+            <div class="subline">
+              Visualización de minuta en PDF para revisión y observaciones
+            </div>
+          </div>
+        </div>
+
+        <div class="actions">
+          <!-- Usuario -->
+          <div class="user">
+            <div class="name" id="userFullName">{{USER_FULL_NAME}}</div>
+            <div class="mail" id="userEmail">{{USER_EMAIL}}</div>
+          </div>
+
+          <!-- Botón Observación -->
+          <button type="button" class="btn-accent" id="btnOpenObs">
+            Agregar observación
+          </button>
+
+          <!-- Logout -->
+          <button type="button" id="btnLogout">
+            Cerrar sesión
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- ===================== BODY (PDF Viewer) ===================== -->
+    <main>
+      <div class="body-pad" id="pdfContainer">
+        <!-- Visor PDF -->
+        <div class="pdf-frame" id="pdfFrameWrap">
+          <iframe
+            id="pdfFrame"
+            title="Visor PDF"
+            src="./content/demo.pdf"
+            loading="eager"
+          ></iframe>
+        </div>
+
+        <!-- Estado vacío (se habilita por JS si PDF_URL está vacío) -->
+        <div class="empty" id="emptyState" style="display:none;">
+          <div class="empty-card">
+            <p class="empty-title">No hay PDF cargado</p>
+            <p class="empty-sub">
+              Proporcione <code>PDF_URL</code> para visualizar el documento.
+            </p>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- ===================== FOOTER ===================== -->
+    <footer>
+      <div class="footer-inner">
+        <span class="truncate" id="footerLeft">{{FOOTER_LEFT}}</span>
+        <span class="truncate" id="footerRight">{{FOOTER_RIGHT}}</span>
+      </div>
+    </footer>
+  </div>
+
+  <!-- ===================== MODAL Observaciones ===================== -->
+  <div class="modal" id="obsModal" aria-modal="true" role="dialog">
+    <div class="overlay" id="obsOverlay"></div>
+
+    <div class="dialog-wrap" role="document">
+      <div class="dialog">
+        <div class="dialog-head">
+          <div>
+            <h3 class="dialog-title">Agregar observación</h3>
+            <p class="dialog-desc">Registre una observación asociada a la revisión actual.</p>
+          </div>
+          <button type="button" id="btnCloseObs">Cerrar</button>
+        </div>
+
+        <div class="dialog-body">
+          <label for="obsText">Observación (texto)</label>
+          <textarea id="obsText" rows="6" placeholder="Ingrese su observación…"></textarea>
+          <div class="error" id="obsError" style="display:none;"></div>
+        </div>
+
+        <div class="dialog-actions">
+          <button type="button" id="btnCancelObs">Cancelar</button>
+          <button type="button" class="btn-accent" id="btnSaveObs">Guardar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /**
+     * Implementación mínima (sin frameworks):
+     * - Modal: abrir/cerrar + ESC + click overlay
+     * - Validación: textarea requerido
+     * - Hooks: logout y guardado (stubs a reemplazar)
+     */
+
+    // ======== Placeholders (si no usas motor de templates, setea aquí) ========
+    // const CONFIG = {
+    //   pdfUrl: "/api/v1/files/123/view",
+    //   logoutUrl: "/api/v1/auth/logout",
+    //   saveObservationUrl: "/api/v1/visits/observations",
+    // };
+
+    const elModal = document.getElementById("obsModal");
+    const elOverlay = document.getElementById("obsOverlay");
+    const elOpen = document.getElementById("btnOpenObs");
+    const elClose = document.getElementById("btnCloseObs");
+    const elCancel = document.getElementById("btnCancelObs");
+    const elSave = document.getElementById("btnSaveObs");
+    const elText = document.getElementById("obsText");
+    const elError = document.getElementById("obsError");
+
+    const elLogout = document.getElementById("btnLogout");
+
+    const elPdfFrame = document.getElementById("pdfFrame");
+    const elPdfWrap = document.getElementById("pdfFrameWrap");
+    const elEmpty = document.getElementById("emptyState");
+
+    function openModal() {
+      elError.style.display = "none";
+      elError.textContent = "";
+      elText.value = "";
+      elModal.classList.add("open");
+      // enfoque diferido
+      setTimeout(() => elText.focus(), 50);
+    }
+
+    function closeModal() {
+      elModal.classList.remove("open");
+      elError.style.display = "none";
+      elError.textContent = "";
+      elText.value = "";
+    }
+
+    function showError(msg) {
+      elError.textContent = msg;
+      elError.style.display = "block";
+    }
+
+    // ======== PDF: si PDF_URL está vacío, mostrar estado vacío ========
+    (function initPdf() {
+      const src = (elPdfFrame.getAttribute("src") || "").trim();
+      if (!src || src.includes("{{PDF_URL}}")) {
+        elPdfWrap.style.display = "none";
+        elEmpty.style.display = "flex";
+      } else {
+        elPdfWrap.style.display = "block";
+        elEmpty.style.display = "none";
+      }
+    })();
+
+    // ======== Eventos Modal ========
+    elOpen.addEventListener("click", openModal);
+    elClose.addEventListener("click", closeModal);
+    elCancel.addEventListener("click", closeModal);
+    elOverlay.addEventListener("click", closeModal);
+
+    window.addEventListener("keydown", (ev) => {
+      if (ev.key === "Escape" && elModal.classList.contains("open")) closeModal();
+    });
+
+    // ======== Guardar Observación (stub) ========
+    elSave.addEventListener("click", async () => {
+      const text = (elText.value || "").trim();
+      if (!text) {
+        showError("Debe ingresar una observación.");
+        return;
+      }
+
+      elSave.disabled = true;
+      elSave.textContent = "Guardando…";
+
+      try {
+        /**
+         * Reemplazar por tu integración real:
+         * - fetch POST a tu backend con { text, clientId, projectId, minuteId }
+         * - manejo de headers Bearer/token si aplica
+         */
+        // await fetch(CONFIG.saveObservationUrl, {
+        //   method: "POST",
+        //   headers: { "Content-Type": "application/json" },
+        //   body: JSON.stringify({ text }),
+        // });
+
+        // Simulación OK
+        await new Promise((r) => setTimeout(r, 350));
+
+        closeModal();
+      } catch (e) {
+        showError(e?.message || "No fue posible guardar la observación.");
+      } finally {
+        elSave.disabled = false;
+        elSave.textContent = "Guardar";
+      }
+    });
+
+    // ======== Logout (stub) ========
+    elLogout.addEventListener("click", async () => {
+      /**
+       * Reemplazar por tu flujo real:
+       * - llamada a /auth/logout
+       * - limpiar tokens/estado
+       * - redirigir a /login
+       */
+      // await fetch(CONFIG.logoutUrl, { method: "POST" });
+      // window.location.href = "/login";
+
+      // Simulación: redirección local
+      window.location.href = "/login";
+    });
+  </script>
+</body>
+</html>

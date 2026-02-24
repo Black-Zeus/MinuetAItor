@@ -1,150 +1,180 @@
 /**
  * Project.jsx
- * Componente monolítico para gestión de proyectos - 100% Tailwind CSS
+ * Gestión de proyectos — carga real desde API (projectService + clientService)
  */
 
-import React, { useState, useEffect } from 'react';
-import projectsData from '@/data/dataProjectos.json';
-import clientsData from '@/data/dataClientes.json'; // ✅ NUEVO
-import ProjectHeader from './ProjectHeader';
+import React, { useState, useEffect, useCallback } from 'react';
+import projectService from '@/services/projectService';
+import clientService  from '@/services/clientService';
+import ProjectHeader  from './ProjectHeader';
 import ProjectFilters from './ProjectFilters';
-import ProjectStats from './ProjectStats';
-import ProjectGrid from './ProjectGrid';
+import ProjectStats   from './ProjectStats';
+import ProjectGrid    from './ProjectGrid';
 import PageLoadingSpinner from '@/components/ui/modal/types/system/PageLoadingSpinner';
 
 import logger from '@/utils/logger';
 const projectLog = logger.scope("project");
 
+// ─── Stats ────────────────────────────────────────────────────────────────────
+
+const calcStats = (list) => ({
+  total:       list.length,
+  activos:     list.filter((p) => p.status === 'activo').length,
+  inactivos:   list.filter((p) => p.status === 'inactivo').length,
+  totalMinutas: list.reduce((sum, p) => sum + (Number(p.minutas) || 0), 0),
+});
+
+// ─── Filtro local ─────────────────────────────────────────────────────────────
+
+const applyLocalFilters = (list, filters) => {
+  let result = [...list];
+
+  if (filters.search) {
+    const term = filters.search.toLowerCase();
+    result = result.filter(
+      (p) =>
+        (p.name        ?? '').toLowerCase().includes(term) ||
+        (p.clientName  ?? p.client ?? '').toLowerCase().includes(term) ||
+        (p.description ?? '').toLowerCase().includes(term) ||
+        (p.code        ?? '').toLowerCase().includes(term)
+    );
+  }
+
+  if (filters.status) {
+    result = result.filter((p) => p.status === filters.status);
+  }
+
+  if (filters.clientId) {
+    result = result.filter((p) => String(p.clientId ?? '') === String(filters.clientId));
+  }
+
+  return result;
+};
+
+// ─── Componente ───────────────────────────────────────────────────────────────
+
 const Project = () => {
-  const [projects, setProjects] = useState([]);
+  const [projects,         setProjects]         = useState([]);
   const [filteredProjects, setFilteredProjects] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [clientCatalog,    setClientCatalog]    = useState([]);
+  const [isLoading,        setIsLoading]        = useState(true);
+  const [stats,            setStats]            = useState({ total: 0, activos: 0, inactivos: 0, totalMinutas: 0 });
 
-  const [clients] = useState(() => clientsData?.clients || []); // ✅ NUEVO (luego reemplazas por service)
-
-  // Filters
   const [filters, setFilters] = useState({
-    search: '',
-    status: '',
-    client: ''
+    search:   '',
+    status:   '',
+    clientId: '',
   });
 
-  // Stats
-  const [stats, setStats] = useState({
-    total: 0,
-    activos: 0,
-    inactivos: 0,
-    totalMinutas: 0
-  });
+  // ─── Carga inicial ──────────────────────────────────────────────────────────
 
-  // Load data
-  useEffect(() => {
-    const loadProjects = async () => {
-      try {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        setProjects(projectsData.projects || []);
-        setFilteredProjects(projectsData.projects || []);
-        calculateStats(projectsData.projects || []);
-      } catch (error) {
-        projectLog.error('[Proyectos] Error loading projects:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    loadProjects();
+  const loadAll = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      // Carga en paralelo
+      const [projectsResult, clientsResult] = await Promise.all([
+        projectService.list({ isActive: null }),
+        clientService.list({ isActive: true, limit: 200 }),
+      ]);
+
+      const pList = projectsResult.items ?? [];
+      const cList = clientsResult.items  ?? [];
+
+      setProjects(pList);
+      setFilteredProjects(pList);
+      setStats(calcStats(pList));
+      setClientCatalog(cList);
+
+    } catch (err) {
+      projectLog.error('[Project] Error cargando datos:', err);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
-  // Calculate stats
-  const calculateStats = (projectsList) => {
-    const stats = {
-      total: projectsList.length,
-      activos: projectsList.filter(p => p.status === 'activo').length,
-      inactivos: projectsList.filter(p => p.status === 'inactivo').length,
-      totalMinutas: projectsList.reduce((sum, p) => sum + (p.minutas || 0), 0)
-    };
-    setStats(stats);
-  };
+  useEffect(() => { loadAll(); }, [loadAll]);
 
-  // Filter projects
+  // ─── Filtrado local reactivo ────────────────────────────────────────────────
+
   useEffect(() => {
-    let filtered = [...projects];
-
-    if (filters.search) {
-      const term = filters.search.toLowerCase();
-      filtered = filtered.filter(project =>
-        project.name.toLowerCase().includes(term) ||
-        project.client.toLowerCase().includes(term) ||
-        (project.description && project.description.toLowerCase().includes(term))
-      );
-    }
-
-    if (filters.status) {
-      filtered = filtered.filter(project => project.status === filters.status);
-    }
-
-    if (filters.client) {
-      filtered = filtered.filter(project => project.client === filters.client);
-    }
-
+    const filtered = applyLocalFilters(projects, filters);
     setFilteredProjects(filtered);
   }, [filters, projects]);
 
-  // Project handlers
-  const handleEditProject = (updatedProject) => {
-    const updatedProjects = projects.map(p =>
-      p.id === updatedProject.id ? updatedProject : p
-    );
-    setProjects(updatedProjects);
-    calculateStats(updatedProjects);
-  };
+  // ─── Handlers CRUD ─────────────────────────────────────────────────────────
 
-  const handleDeleteProject = (projectId) => {
-    const updatedProjects = projects.filter(p => p.id !== projectId);
-    setProjects(updatedProjects);
-    calculateStats(updatedProjects);
-  };
+  // onCreated: recibe el objeto del backend y lo prepende a la lista
+  const handleCreated = useCallback((created) => {
+    setProjects((prev) => {
+      const next = [created, ...prev];
+      setStats(calcStats(next));
+      return next;
+    });
+  }, []);
 
-  // Filter handlers
+  // onUpdated: recibe el objeto actualizado y reemplaza en lista
+  const handleUpdated = useCallback((updated) => {
+    setProjects((prev) => {
+      const next = prev.map((p) => (p.id === updated.id ? updated : p));
+      setStats(calcStats(next));
+      return next;
+    });
+  }, []);
+
+  // onDeleted: recibe id y lo elimina de la lista
+  const handleDeleted = useCallback((deletedId) => {
+    setProjects((prev) => {
+      const next = prev.filter((p) => p.id !== deletedId);
+      setStats(calcStats(next));
+      return next;
+    });
+  }, []);
+
+  // ─── Filtros ───────────────────────────────────────────────────────────────
+
   const handleFilterChange = (filterName, value) => {
-    setFilters(prev => ({ ...prev, [filterName]: value }));
+    setFilters((prev) => ({ ...prev, [filterName]: value }));
   };
 
   const handleClearFilters = () => {
-    setFilters({
-      search: '',
-      status: '',
-      client: ''
-    });
+    setFilters({ search: '', status: '', clientId: '' });
   };
 
   const handleApplyFilters = () => {
     projectLog.log('[Project] Filtros aplicados:', filters);
   };
 
+  // ─── Render ────────────────────────────────────────────────────────────────
+
   if (isLoading) {
     return <PageLoadingSpinner message="Cargando Proyectos..." />;
   }
 
+  const hasFilters = !!(filters.search || filters.status || filters.clientId);
+
   return (
     <div className="space-y-6">
-      <ProjectHeader />
+      <ProjectHeader
+        onCreated={handleCreated}
+        clientCatalog={clientCatalog}
+      />
 
       <ProjectFilters
         filters={filters}
         onFilterChange={handleFilterChange}
         onClearFilters={handleClearFilters}
         onApplyFilters={handleApplyFilters}
-        data={{}}
+        clientCatalog={clientCatalog}
       />
 
       <ProjectStats stats={stats} />
 
       <ProjectGrid
         projects={filteredProjects}
-        clients={clients}              // ✅ NUEVO
-        onEdit={handleEditProject}
-        onDelete={handleDeleteProject}
-        hasFilters={!!(filters.search || filters.status || filters.client)}
+        clientCatalog={clientCatalog}
+        onUpdated={handleUpdated}
+        onDeleted={handleDeleted}
+        hasFilters={hasFilters}
       />
     </div>
   );
