@@ -1,16 +1,17 @@
 /**
  * ProfilesCatalogHeader.jsx
- * Header del módulo de perfiles (alineado a ProjectHeader)
+ * Header del módulo de perfiles
+ * Recibe categories y onCreated para propagarlos al botón NewProfilesCatalog
  */
 
 import React from "react";
-import Icon from "@/components/ui/icon/iconManager";
+import Icon               from "@/components/ui/icon/iconManager";
 import NewProfilesCatalog from "@/components/ui/button/NewProfilesCatalog";
 
 const TXT_TITLE = "text-gray-900 dark:text-white";
-const TXT_META = "text-gray-600 dark:text-gray-300";
+const TXT_META  = "text-gray-600 dark:text-gray-300";
 
-const ProfilesCatalogHeader = () => {
+const ProfilesCatalogHeader = ({ categories = [], onCreated }) => {
   return (
     <div className="flex items-center justify-between">
       <div>
@@ -23,7 +24,10 @@ const ProfilesCatalogHeader = () => {
         </p>
       </div>
 
-      <NewProfilesCatalog />
+      <NewProfilesCatalog
+        categories={categories}
+        onCreated={onCreated}
+      />
     </div>
   );
 };
