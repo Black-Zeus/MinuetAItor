@@ -1,0 +1,221 @@
+Seguimiento servicio Nexcorp 2026
+jue, 26 feb 2026
+
+Resumen:
+
+La reunión abordó el seguimiento de incidencias operativas y solicitudes de infraestructura, centradas en la interpretación de los nuevos protocolos de ciberseguridad, la migración de archivos a la plataforma colaborativa y la creación de accesos para el nuevo edificio corporativo. Se aclararon las diferencias entre los niveles de restricción de acceso (nivel básico, nivel medio y nivel crítico) para evitar bloqueos innecesarios por malentendidos; además se acordó reforzar la comunicación hacia usuarios tras ejemplos de equipos que quedaron inaccesibles por activación incorrecta de perfiles de seguridad. Se repasaron tickets técnicos: un caso de sincronización de librerías compartidas con 95 días abierto que requirió escalamiento al área de desarrollo, permisos pendientes para el nuevo gerente de proyectos, accesos a sistema contable y VPN de proveedor externo, y la necesidad de aprobación de formularios por parte del subgerente de TI para las cuentas del nuevo edificio.
+
+También se revisaron problemas con la plataforma de gestión de parches y dificultades de actualización por diferencias entre los servidores locales en región norte y la consola centralizada en la casa matriz, lo que provoca falta de visibilidad del estado real de los equipos; Valeria corrigió un formulario de solicitud y se creó un ticket por parte del área de infraestructura contra el proveedor de la solución. Se informó sobre la instalación de nuevas estaciones de trabajo y problemas recurrentes por la mala práctica de almacenar archivos locales en lugar de usar las unidades de red, lo que degrada el rendimiento de los respaldos. Finalmente se discutieron problemas de conectividad entre sedes y controladores de dominio, resolución DNS inestable para un servidor de recursos humanos, y el bloqueo de la herramienta de escritorio remoto que impide soporte a usuarios —se comparó su funcionamiento con la herramienta de videocolaboración corporativa y se identificaron posibles conflictos con políticas de firewall—, con coordinación pendiente entre el equipo local, la mesa de ayuda regional y el área de ciberseguridad.
+
+Capítulos y Temas:
+
+Apertura y presentación del problema de protocolos de acceso
+Saludos iniciales y presentación del tema principal sobre malinterpretación de los niveles de restricción de acceso y su impacto en la operación diaria. Se solicita revisar la comunicación y formación para evitar que perfiles de nivel básico bloqueen el ingreso a sistemas.
+
+La nomenclatura de los perfiles debe clarificarse porque usuarios están interpretando nivel básico como prohibición total de acceso.
+
+Detalle y ejemplos de interpretación de protocolos
+Se clarifican las diferencias entre nivel básico (acceso mínimo), nivel medio (acceso estándar con restricciones horarias) y nivel crítico (acceso restringido a personal autorizado) con ejemplos reales de bloqueos en turnos nocturnos y la recomendación de ajustar políticas para personal en terreno.
+
+Incidencias de migración a plataforma colaborativa
+Se revisa un ticket crítico de migración de librerías compartidas que lleva 95 días; se informan reuniones con el área de soporte y la falta de avance en la transferencia de archivos, además de la posibilidad de ampliar almacenamiento temporal que no soluciona el origen del problema.
+
+Un caso de migración de librerías lleva 95 días y la sincronización sigue sin resolverse pese a reuniones con el área de soporte.
+
+Seguimiento de tickets escalados y accesos
+Se detallan casos abiertos relacionados con nuevos colaboradores, problemas de permisos en carpetas compartidas, acceso a sistema contable y VPN de proveedor externo; varios asuntos están escalados a la casa matriz o a la región norte y todavía sin solución.
+
+Se propuso recrear perfiles para resolver el problema de permisos, pero la política impide duplicar ciertas asignaciones.
+
+Hay múltiples tickets escalados sin solución definitiva, incluyendo incidencias asociadas a accesos de personal nuevo y proveedores.
+
+Nuevo edificio corporativo y cuentas requeridas
+Se solicita creación de 15 cuentas para el nuevo edificio corporativo; se discute la confusión previa por solicitudes duplicadas y se acuerda requerir aprobación del subgerente de TI para avanzar con los formularios.
+
+Se requieren 15 cuentas específicas para el nuevo edificio corporativo y falta la aprobación del subgerente de TI para proceder.
+
+Se detectaron instalaciones de cableado de red provisionales que deben ser normalizadas por la empresa instaladora.
+
+Algunas estaciones de trabajo no reconocen los monitores externos; parece ser más un problema de controladores o configuración de video.
+
+Instalación de equipamiento y problemas de video
+Se reportan instalaciones con cableado provisional que podrían generar problemas de conectividad y se pide normalización; además se discuten problemas de detección de monitores externos que se han resuelto actualizando controladores o ajustando configuraciones de pantalla.
+
+Solicitud de cuenta y problemas con plataforma de parches
+Valeria presentó la solicitud desde región norte para crear una cuenta de servicio para el nuevo sistema de turnos y explicó que el formulario fue corregido y enviado al subgerente de TI para aprobación. Se detectó que la plataforma de gestión de parches presenta limitaciones en el reporte de estado al actualizar equipos.
+
+Se solicitó y corrigió la creación de una cuenta de servicio para el sistema de turnos y el formulario fue enviado al subgerente de TI para aprobación.
+
+En servidores Linux no se está reportando el nivel de parches aplicados y en equipos de usuario final falta información de última actualización en varios registros, lo que impide usar la herramienta para auditorías de cumplimiento.
+
+Diferencias entre plataformas y falta de datos
+Se discutió la diferencia entre los servidores locales de región norte y la consola centralizada en la casa matriz, sin aclaración inicial sobre la razón de la diferencia, y se planteó que los servidores locales podrían contener más datos que la vista centralizada.
+
+La plataforma de parches en región norte utiliza servidores locales y difiere de la consola web centralizada, provocando falta de datos relevantes en los reportes de cumplimiento.
+
+Escalamiento y seguimiento del ticket
+Se mencionó la intención de escalar el problema con el proveedor y que el área de infraestructura creó el ticket correspondiente; el equipo espera la respuesta del fabricante para avanzar.
+
+Se creó un ticket para escalar la inconsistencia con el proveedor y se está a la espera de respuesta.
+
+Reacción sobre limitaciones y seguridad
+Mauricio expresó que la herramienta debe tener un alcance claro y rechazó soluciones que requieran modificar configuraciones de seguridad o forzar actualizaciones manuales; además expuso las diferencias del parque de servidores entre región norte y la casa matriz y la necesidad de adaptar las herramientas a la realidad local.
+
+Mauricio rechazó procedimientos que modifiquen políticas de seguridad por posibles riesgos y pidió definir claramente el alcance de la herramienta.
+
+Instalación de estaciones de trabajo y gestión de inventario
+Se informó que la instalación de nuevas estaciones de trabajo se realizó con apoyo del equipo de soporte, con usuarios mayormente satisfechos salvo por algunos problemas de rendimiento en ciertos modelos; además el área de finanzas entregó un listado de activos que carece de números de serie completos, complicando la identificación.
+
+La instalación de nuevas estaciones fue mayormente exitosa; algunos usuarios reportaron rendimiento inferior al esperado en ciertos modelos.
+
+Problema de almacenamiento local y respaldos
+Se revisó un caso con usuarios que almacenan archivos localmente en lugar de usar las unidades de red, lo que provoca que los respaldos automáticos no incluyan información crítica y genera pérdida de datos en caso de fallo de equipo; el tema fue explicado al encargado de operaciones y se recomendó reforzar la política de uso de unidades de red.
+
+Usuarios almacenan archivos localmente en lugar de usar unidades de red, lo que provoca que respaldos automáticos no incluyan información crítica; se explicó el problema al área de operaciones y requiere corregir la práctica.
+
+Cierre de sección y entrega de la palabra a infraestructura
+Andrés dio paso a la lámina del área de infraestructura y cedió la palabra a Mauricio y Camila para continuar con los temas correspondientes.
+
+Conectividad entre sedes y VLAN
+Se describieron problemas de conectividad entre la sede norte y la casa matriz, con dificultades para acceder a recursos compartidos, lo que motivó la apertura de un ticket y la petición de una sesión de trabajo técnica con el equipo de redes y el área de telecomunicaciones para resolver el incidente. Se destacó que la falta de conectividad impide el trabajo colaborativo y afecta la productividad.
+
+Se requiere una sesión de trabajo técnica para revisar la conectividad entre sedes y el ticket asociado
+
+Coordinación de sesión para controladores de dominio
+Se confirmó la intención de realizar una sesión de trabajo (no sólo coordinación) para definir la nueva estructura de controladores de dominio y establecer políticas que eviten problemas de autenticación, con una reunión programada a las 11:00 según el coordinador de proyectos.
+
+Hay una reunión agendada a las 11:00 para abordar la estructura de controladores de dominio y avanzar en configuración y pruebas
+
+Telefonía IP y control de accesos físicos
+Se solicitó una cotización para la actualización de la central telefónica y se informó que el asunto está en pausa por falta de respuesta del proveedor; el sistema de control de accesos con tarjetas quedó igualmente en espera y sujeto a nuevas consultas.
+
+Migración de servicios y problemas de resolución DNS
+Se explicó que un servidor de archivos fue migrado sin pruebas suficientes, provocando fallos en el acceso a documentos y la necesidad de revertir el cambio para mitigación; además se constató que la resolución por cercanía no funciona y que servidores en región norte responden en lugar de servidores locales.
+
+Un servidor de archivos fue migrado sin pruebas y causó problemas al intentar acceder a documentos compartidos
+
+No existe resolución por cercanía y las consultas DNS responden desde servidores en región norte en vez de locales, lo que es crítico para el servidor de nómina
+
+Propiedad de administración y alcance de responsabilidades
+Se debatió la ambigüedad sobre si región norte administra servidores mientras la operación local gestiona los servicios; se solicitó clarificar alcance para evitar responsabilidades mal atribuidas.
+
+Sistemas de reportes y aplicaciones críticas
+Se informó que la herramienta de business intelligence enfrenta problemas de conectividad con las bases de datos y se evalúa crear un servidor local para alojar los reportes; el sistema de gestión de proyectos completó pruebas y se documentará el proceso; el área de comunicaciones realizó limpieza de archivos temporales y requiere autorización para aplicar parches y solicitud formal de ampliación de disco para evitar que los logs llenen el almacenamiento principal.
+
+Se está evaluando la creación de un servidor local de business intelligence para reducir latencia y publicar reportes localmente
+
+El servidor de comunicaciones debe solicitar ampliación de espacio y un segundo disco para separar logs del disco principal
+
+Integración LDAP y seguimiento del requerimiento de reportes
+Se confirmó la entrega de la cuenta de servicio para la integración con el sistema externo y el área de desarrollo lidera la implementación; se reiteró que la solicitud del servidor de reportes aún no está formalizada y queda pendiente decisión de la dirección.
+
+Se entregó la cuenta de servicio para la integración con sistema externo y el área de desarrollo continúa la implementación
+
+Bloqueo de herramienta de soporte remoto y su impacto
+Mauricio informó que desde el fin de semana hubo bloqueos que dejaron sin respuesta varias estaciones de trabajo y afectaron el uso de la herramienta de soporte remoto. Señaló que el área de ciberseguridad creó una lista de excepción con cinco usuarios, sus equipos y el servidor de administración utilizado para las conexiones.
+
+El bloqueo de la herramienta de soporte remoto impidió la asistencia en varios equipos y se detectó una lista de excepción creada por ciberseguridad con cinco usuarios y un servidor
+
+Problemas de visibilidad de equipos en red y comunicación con el área técnica
+Mauricio y el equipo de soporte reportaron que ciertos equipos no aparecían en el inventario de red y que, pese a ello, estaban operativos; se mencionó la respuesta del administrador de redes sobre políticas de segmentación y la extrañeza del comportamiento observado.
+
+Hay incertidumbre sobre por qué ciertos equipos aparecen como "no visibles" pero están operativos, y se debe validar su estado y visibilidad en la red
+
+Posibles causas y comportamiento aleatorio del bloqueo
+Se discutió la posibilidad de que el bloqueo provenga de capas de seguridad como firewall perimetral, proxy o sistema de prevención de intrusiones y que el bloqueo pudiera ser aleatorio, lo que afectaría el control operativo.
+
+El bloqueo parece aleatorio y podría estar relacionado con capas de seguridad como firewall, proxy o sistema de prevención de intrusiones
+
+Coordinación con región norte sobre políticas y planes de desinstalación
+Mauricio explicó que coordinará con región norte la revisión de las políticas de seguridad y la posible generación de un despliegue masivo para desinstalar la herramienta de soporte remoto no autorizada en equipos de usuarios.
+
+Región norte está revisando las políticas de seguridad y se evalúa una desinstalación masiva de la herramienta no autorizada en equipos de usuarios
+
+Comparación herramienta de videocolaboración vs soporte remoto y problemas prácticos
+Diego y Mauricio compararon herramientas: Diego indicó que la herramienta de videocolaboración dificulta el control remoto, especialmente con múltiples pantallas, y que el equipo se vuelve lento o impide operaciones. Mauricio detalló que la herramienta de videocolaboración requiere invitación y complementos mientras que la herramienta de soporte dedicada facilita el ingreso mediante ID y confirmación del usuario.
+
+La herramienta de videocolaboración presenta problemas para el control remoto en escenarios de múltiples pantallas y para operaciones como transferencia de archivos
+
+La herramienta de soporte dedicada sigue disponible con licencia vigente y facilita la conexión remota en comparación con la herramienta de videocolaboración
+
+Licencia de herramienta de soporte, revisión y convocatoria de sesiones
+Sofía indicó que desconocía las limitaciones de la herramienta de videocolaboración pero confirmó que la organización tiene licencia vigente para la herramienta de soporte dedicada. Propuso organizar sesiones de validación, revisar por qué ciertos equipos quedaron desbloqueados, coordinar controles con región norte y fijar fechas; se sugirió una sesión mañana a las 11 para avanzar.
+
+Se acordó realizar sesiones de coordinación y fijar fechas concretas; se propondrá una sesión mañana a las 11 para avanzar en agenda y controles
+
+Seguimiento de servidores y cierre
+Sofía comentó la necesidad de clarificar el alcance y flujo de administración de servidores desde que región norte asumió ciertas funciones y dijo que se encargaría de coordinar los temas, solicitó recordatorios y confirmó que se realizarán sesiones de seguimiento.
+
+Puntos de Acción:
+
+Andrés Silva: Volver a reportar al área de desarrollo y coordinar nueva instancia de soporte para el caso de migración de librerías
+
+Valeria Contreras: Insistir con Andrés Silva y seguimiento al escalamiento del caso de migración hasta obtener respuesta del área de desarrollo
+
+Camila Torres: Contactar a los nuevos colaboradores para que activen sus accesos y evitar que las cuentas queden bloqueadas nuevamente
+
+Sofía Martínez: Hablar con el subgerente de TI para solicitar la aprobación de los formularios de las 15 cuentas del nuevo edificio
+
+Diego Fuentes: Enviar fotos y evidencia de las instalaciones de red en el nuevo edificio para evaluar normalización por la empresa instaladora
+
+Encargado de instalaciones: Enviar fotos del cableado de red (evidencia solicitada) para tomar decisión sobre normalización de la instalación
+
+Subgerente de TI: Revisar y aprobar el formulario corregido enviado por Valeria Contreras
+
+Área de infraestructura: Hacer seguimiento y escalar el ticket con el proveedor sobre la discrepancia de datos en la plataforma de parches
+
+Encargado de inventarios: Entregar un listado de activos identificado por área con números de serie o modelos completos para permitir la identificación de equipos
+
+Encargado de operaciones: Implementar y comunicar la política de almacenamiento en unidades de red para que los usuarios dejen de almacenar archivos localmente
+
+Mauricio Ríos: Coordinar y solicitar la sesión de trabajo con el equipo de redes y el área de telecomunicaciones para revisar la conectividad entre sedes y el ticket asociado
+
+Sofía Martínez: Confirmar y dejar la agenda a las 11:00 para la sesión sobre controladores de dominio
+
+Mauricio Ríos: Consultar nuevamente al área de compras sobre la cotización de la central telefónica y dar seguimiento
+
+Mauricio Ríos: Avanzar en la coordinación de pruebas y reuniones con región norte para revisar resolución DNS, políticas de replicación y cuentas de administración
+
+Administrador de proyectos: Formalizar la documentación del proceso de gestión de proyectos tras las pruebas completadas
+
+Área de comunicaciones: Solicitar formalmente ampliación de capacidad de disco y la adición de un segundo disco para alojar logs en el servidor afectado
+
+Área de desarrollo: Continuar con la implementación y coordinación del proyecto de integración usando la cuenta de servicio ya entregada
+
+Equipo de soporte: Verificar la visibilidad y conectividad de los equipos reportados en la red y reportar hallazgos
+
+Mauricio Ríos: Revisar con el equipo de región norte las políticas de seguridad y confirmar si se hará un despliegue masivo para desinstalar herramientas no autorizadas
+
+Diego Fuentes: Documentar y entregar ejemplos de problemas prácticos de la herramienta de videocolaboración en sesiones con múltiples pantallas para facilitar la evaluación de herramientas
+
+Sofía Martínez: Organizar y convocar sesiones de seguimiento para validar el bloqueo de la herramienta de soporte remoto y el estado de los equipos no visibles
+
+Coordinador de proyectos: Confirmar y compartir la agenda para la sesión propuesta mañana a las 11
+
+Sofía Martínez: Contactar al subgerente de TI y coordinar con región norte la aclaración sobre el alcance y controles de los servidores
+
+Participante de la reunión: Enviar un recordatorio a Sofía sobre las sesiones y los puntos a revisar
+
+Equipo local (Operaciones): Realizar una prueba en entorno controlado para validar si la herramienta de parches funciona correctamente con equipos locales y documentar resultados
+
+Preguntas clave:
+
+¿Tenemos personal de soporte en la sede norte en este turno?
+
+¿Con cuánto almacenamiento adicional se intentó mitigar el problema de migración y será suficiente?
+
+¿Se trata de las mismas cuentas que antes fueron objetadas por ser duplicadas?
+
+¿Por qué la plataforma de parches de región norte es diferente a la de la casa matriz?
+
+¿Qué datos o aspectos están visibles en región norte que nosotros no vemos?
+
+¿Se vio este punto en la reunión semanal y cuándo será la reunión sobre el tema de conectividad entre sedes?
+
+¿Esta reunión será una sesión de trabajo o de coordinación?
+
+¿La administración de servidores corresponde hoy a región norte?
+
+Bloc de notas:
+
+No hay notas

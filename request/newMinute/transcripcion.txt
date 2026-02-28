@@ -1,0 +1,236 @@
+Seguimiento servicio Nexcorp 2026
+jue, 26 feb 2026
+
+0:00 - Sofía Martínez
+Buenas tardes a todos.
+
+0:01 - Andrés Silva
+Buenas tardes.
+
+0:03 - Andrés Silva
+Hola Sofía. Buenas tardes. ¿Cómo estás?
+
+0:06 - Sofía Martínez
+Buenas tardes, Andrés.
+
+0:08 - Sofía Martínez
+Hola, hola. Todo bien. El subgerente de TI me avisó que no se puede conectar, acaba de salir de otra reunión. Podemos comenzar igual. Estamos en el horario acordado. Hoy quería partir con una consulta respecto al informe de la semana, sobre los nuevos protocolos de acceso que se activaron. Ha habido algunas confusiones con los niveles de restricción, especialmente con el nivel básico que algunos colaboradores interpretan como prohibición total de acceso.
+
+1:04 - Andrés Silva
+Pero según lo que he visto en los reportes, hay varias incidencias reportadas por accesos bloqueados.
+
+1:10 - Sofía Martínez
+Sí, exacto. Un usuario me contactó para decirme que no podía acceder al sistema y cuando revisamos tenía perfil nivel básico. Y yo le expliqué que eso no es una restricción, es el acceso mínimo necesario para operar. He pedido varias veces que revisemos la comunicación de estos protocolos, porque para muchos cualquier nivel que no sea el estándar es sinónimo de bloqueo. El nivel básico no es una restricción. El nivel medio, dependiendo del horario, puede tener limitaciones. El nivel crítico sí restringe completamente el acceso. Eso es más que nada lo que quería clarificar, porque el usuario que me contactó se quedó sin trabajar medio día pensando que no podía ingresar.
+
+2:15 - Andrés Silva
+Claro, como que piensan que no pueden hacer nada.
+
+2:18 - Sofía Martínez
+Exactamente. Así que comento esto para que lo consideren en las comunicaciones futuras. No es tan complejo el tema de los niveles de acceso.
+
+2:30 - Andrés Silva
+Sí, hay que reforzar para que no haya doble lectura, más que nada.
+
+2:34 - Sofía Martínez
+Sí, tal cual. Se malinterpretan las directrices, así que hay que tratar de hacer todo más claro para que no pase lo de hoy. Porque hubo varios colaboradores que no accedieron a sistemas por esto.
+
+2:50 - Sofía Martínez
+Y todos los demás estaban trabajando normalmente.
+
+2:54 - Sofía Martínez
+Entonces la idea es tratar de tener una comunicación clara, para que se entienda. Si un colaborador me pregunta si puede acceder, la respuesta es sí, con nivel básico. El nivel básico es solo para estar atentos a las restricciones horarias que pueda tener. Nunca hemos tenido un escenario de nivel crítico generalizado que haya dejado a todos sin acceso. Entonces más que nada es eso, clarificar de qué se trata cada nivel y que no se malinterpreten. Porque para algunos, se activa un nivel distinto al estándar y ya creen que no pueden trabajar. Y acá en la oficina central estamos todos operando con normalidad.
+
+5:02 - Andrés Silva
+Bueno, empecemos con la presentación correspondiente a esta semana. Respecto a los tickets que están abiertos, seguimos con el primer caso de migración de librerías de Claudio Rivas. Esto lleva a la fecha 95 días. Ayer tuvimos una reunión con el área de desarrollo y con soporte avanzado, donde estuvieron revisando el motivo por el cual no se pueden transferir los archivos a la nueva plataforma. Y la verdad es que no lograron resolverlo, no pudieron avanzar, pero también se dieron cuenta de que había problemas de permisos en las carpetas origen. Quedaron de volver a reportarlo al área de desarrollo, van a iniciar una nueva revisión. Hoy en la mañana contacté a Claudio para ver si el problema se había solucionado o no, nos dice que sigue igual, los archivos no se migran.
+
+6:20 - Sofía Martínez
+Andrés, Claudio es de...
+
+6:20 - Interviniente no identificado
+Sucursal norte, sí.
+
+6:23 - Sofía Martínez
+¿Y entiendo que no tenemos soporte asignado allá?
+
+6:25 - Andrés Silva
+¿En sucursal norte?
+
+6:26 - Andrés Silva
+No, en este turno no. En el turno anterior estaba Camila Torres.
+
+6:32 - Interviniente no identificado
+Camila.
+
+6:33 - Andrés Silva
+Sí, ella estuvo con algunos soportes remotos. Estuvimos con Diego de visita en sucursal norte el martes y miércoles, y justo ayer ella no fue, trabajó remoto. Así que toda esta revisión fue con ella de manera remota, pero no lograron solucionar este inconveniente. Si ampliaron el almacenamiento temporal, la pregunta que hizo el analista de desarrollo fue si con ese espacio, que eran como 100 gigas adicionales que tenía en este momento, era suficiente para operar. Claudio no supo responder y yo le comenté que tal vez por ahora sí, pero ¿cuánto durará? O sea, si es un día, puede durar dos días, pero quizás en dos semanas vuelve a saturarse porque recibe muchos archivos, ya que es del área de planificación, recibe muchos documentos.
+
+7:36 - Sofía Martínez
+Claro, claro.
+
+7:37 - Andrés Silva
+Incluso se ofreció lo que Diego había planteado, y le dije al analista, ¿por qué no respaldan, eliminan la carpeta, la vuelven a crear y restauran los archivos necesarios? Me dijo que claro, se podría hacer, pero por política interna no se puede perder el historial de versiones. Así que era una solución práctica, rápida, a lo más perdía un día, pero el hecho de perder el historial es una complicación.
+
+8:27 - Sofía Martínez
+Qué complicado, ojalá no sea el primero de muchos casos que puedan ocurrir. Y pregunto, ¿por qué esos archivos estaban almacenados localmente y no en las unidades de red? Eso generó todo este problema.
+
+9:10 - Andrés Silva
+Exactamente, es una situación similar a lo que aparece en el punto 4, el caso de los nuevos colaboradores.
+
+9:36 - Sofía Martínez
+Claro, y aparte que estamos dependiendo de desarrollo y no tenemos respuesta clara.
+
+9:40 - Andrés Silva
+Bueno, ya llegaron a la última instancia y no hay solución desde allá. Así que voy a esperar, voy a seguir insistiendo con Andrés Silva para ver qué más se puede hacer. Respecto al punto 2, los accesos de los nuevos colaboradores, entiendo que se reportó que estaban ok. Se envió correo a Camila Torres para que contacte a su equipo, que activen las cuentas y que no perdamos las 24 o 48 horas y que los accesos se bloqueen nuevamente. No he visto respuesta hasta ahora, pero esto ha sido un trabajo coordinado para que todo esté activado para el inicio del nuevo proyecto, pero si no hay respuesta de los usuarios, es muy difícil avanzar. Se envió mensaje por Teams a todos los usuarios, pero no ha habido retroalimentación aún. El punto de Matías Rivas, que tenía inconveniente para acceder al sistema de planificación, se resolvió. El punto que mencionamos recién de los nuevos colaboradores. El quinto punto es la cuenta VPN para proveedor externo, ya está creada y pendiente de validación por parte del usuario, pero no se ha logrado contactar a los responsables, se les han mandado mensajes y no responden. El punto 6, relacionado con VPN de un contratista, que está accediendo vía VPN al portal de proyectos, pero no al aplicativo instalado en su equipo. Eso ya se escaló, se está viendo con región norte. El punto 7 también es algo que ya está finalizado, que es el nuevo acceso directo que se desplegó en todos los equipos mediante política de grupo. Punto 8. Este es un tema que discutimos la semana pasada. Había una solicitud, que entiendo fue tuya, Sofía, para crear 15 cuentas para el nuevo edificio corporativo. En la reunión del jueves pasado, mencioné esto y el coordinador recordó que en algún momento se había hablado de algunas cuentas que ciertos usuarios habían solicitado, y el subgerente de TI las objetó porque eran duplicadas. Entonces cuando se envió la solicitud, el subgerente preguntó de qué se trataba. Entonces el coordinador dijo que él iba a hablar con el subgerente para explicarle el contexto. No sé si pudo conversar con él o no, pero al parecer son dos temas totalmente distintos. Esto que se está pidiendo acá es para el nuevo edificio, los formularios están listos pero falta la aprobación del subgerente. Y lo que antes había objetado eran casos similares pero de usuarios individuales.
+
+14:22 - Sofía Martínez
+Claro, son dos temas diferentes, pero ¿de qué se trata específicamente?
+
+14:25 - Andrés Silva
+Si puedes hablar con el subgerente, clarificar eso, para que apruebe el formulario y lo derivamos al área de sistemas para que creen las cuentas.
+
+14:36 - Sofía Martínez
+¿Tenemos algún número de ticket de esas cuentas? Son temas totalmente diferentes. El nuevo edificio ya está listo, tenemos que instalar los equipos y necesitamos esas 15 cuentas para habilitarlos. Y se confundió porque en su momento también habían pedido cuentas para dos oficinas individuales, que el subgerente rechazó desde el principio. Eso recuerdo, que las objetó porque dijo que las cuentas corporativas son para funciones compartidas, no para oficinas individuales.
+
+15:44 - Andrés Silva
+Correcto.
+
+15:45 - Sofía Martínez
+Entonces, por favor envíame un recordatorio o el correo dirigido al subgerente, y yo hablo con él internamente para que lo apruebe.
+
+15:56 - Andrés Silva
+Y sobre lo mismo, ahora en la visita que hicimos a la sucursal norte, vimos que instalaron equipos de videocolaboración en dos salas nuevas, y revisando con Diego, se nota que bajo las mesas hay una instalación que no es la más profesional, hay cables que aunque están con canaletas, ante cualquier tirón podrían quedar expuestos y eso es riesgoso. No sé cómo se puede canalizar mejor para que la empresa instaladora pueda reforzar el trabajo.
+
+17:53 - Sofía Martínez
+Entiendo que es más que nada un tema de la instalación.
+
+17:58 - Sofía Martínez
+Que revisen eso. Porque a nosotros nos pasó una vez que perdimos un adaptador HDMI. Tuvieron que conectarlo con cable USB-C y no podían. E hicieron lo que dices tú, abrieron una reunión virtual para proyectar. Pero la solución era un adaptador que faltaba. Entonces a veces es más simple de lo que parece.
+
+19:31 - Andrés Silva
+Sin tener que abrir una reunión de fondo.
+
+19:35 - Sofía Martínez
+Sin abrir una reunión.
+
+19:36 - Interviniente no identificado
+Perfecto.
+
+19:36 - Sofía Martínez
+Solo presionando un botón.
+
+19:39 - Andrés Silva
+Claro, tomemos eso en consideración para ver qué prueba, quizás es suficiente pero acá no funcionó.
+
+19:54 - Sofía Martínez
+Claro, dile a Diego que envíe fotos, para tomar una decisión de cómo funciona. Ellos lo tienen claro.
+
+20:05 - Andrés Silva
+¿Diego?
+
+20:06 - Diego Fuentes
+Sí, lo que pasa es que yo ingresé el ticket para la creación de las salas y envié un correo a Sofía con el mismo correo que el subgerente envió preguntando qué pasaba con esas salas. Ah, ok. Gracias, Diego.
+
+21:21 - Diego Fuentes
+Sí, de hecho ahí en el correo que te envié, él hace la pregunta.
+
+21:26 - Sofía Martínez
+Claro.
+
+21:30 - Andrés Silva
+Todo bien, todo bien.
+
+21:39 - Andrés Silva
+Bueno, continuando con la presentación. El punto 9, una solicitud de región norte, que ha reiterado y se ha burocratizado un poco. Una solicitud del área de operaciones para crear una cuenta de servicio para el nuevo sistema de monitoreo de flotas. Tenía carácter de urgente, se creó, pero región norte creó una cuenta de servicio en sus servidores locales. Por lo tanto, no se puede utilizar desde acá y nos pidieron hacer el formulario nuevamente. Lo corregí ayer y lo envié al subgerente para su aprobación. Punto 10, tema con la plataforma de parches. La semana pasada sostuvimos una reunión solicitada por nosotros con el administrador de sistemas porque nos estaba informando de varios servidores que no reportaban estado de actualización. Estuvimos revisando la plataforma y resulta que está muy pobre de información. Es una carga que es automática, o sea, nosotros cuando actualizamos un equipo no ingresamos datos manuales, se descarga un agente en el servidor, se sincroniza y comienza a reportar, pero nos dimos cuenta que en servidores Linux no está reportando el nivel de parches aplicados y en equipos de usuario final no reporta la fecha de última actualización. Entonces, como esta es una herramienta que usamos para auditorías de cumplimiento, estamos ciegos. No habían visualizado esta situación, lo notaron y nos dijeron que región norte tiene la plataforma en servidores locales y acá tenemos la consola web centralizada. No sé, dije, ¿por qué la diferencia? Porque no es una sola. No hubo respuesta. ¿Qué cosas ven ellos que nosotros no vemos? Quizás el hecho de que sea local tiene más datos que los que podemos ver vía web. No quiero opinar más y dijeron que iban a escalarlo con el fabricante. Han habido correos que se enviaron al área de infraestructura para crear el ticket. Se creó y ahí estamos, esperando. Pero la verdad es que si no aprovechamos esto, ¿para qué proponen estas herramientas si no cargan toda la información? Incluso ellos mismos vieron dentro de la plataforma cuáles eran los campos editables, porque finalmente si el nivel de parches es editable, uno podría ingresarlo manualmente, pero los campos editables no tenían relación con los datos reales del equipo. Así que no avanzamos mucho tampoco.
+
+25:21 - Mauricio Ríos
+Mauricio, ¿ibas a decir algo? Sí, en la reunión semanal, creo que fue en la del martes, se habló de este punto, y yo comenté que la idea de tener herramientas es saber exactamente cuál es el procedimiento y cuál es el alcance que esta herramienta va a tener. Porque como dice Andrés, no tener la posibilidad de registrar el nivel de parches, por ejemplo, o el estado real de los equipos, es muy complicado hacer seguimiento. Y en teoría, hasta cierto punto, el argumento era que los que tienen ese control son los administradores locales. Y ahí comparto con Andrés, ¿cuál es la necesidad de tener una herramienta que haga todo automatizado, si al final voy a tener que llevar el control en un Excel? No sé si realmente cumple. Porque por más que haga 10,000 maravillas, si no va a servir para lo más importante, no sé si se justifica. Ahora, dando un apoyo a lo que dijo el administrador, los fabricantes han restringido cierta información por políticas de seguridad, así que cualquier herramienta va a tener esa misma limitación. Y se habló de que había un procedimiento que permitía obtenerlo, pero casi implicaba reiniciar los equipos. Y yo dejé claro que no estoy de acuerdo con modificar la configuración de seguridad de los equipos. No voy a forzar actualizaciones manuales ni voy a ser parte de instalar scripts que puedan abrir brechas de seguridad. Si el fabricante no puede, es que no pueden. Pero necesitamos tener claro qué va a pasar con eso, porque el parque en región norte es simple, hay pocos servores. El parque acá es mucho más grande y variado. No es lo mismo. Y lamentablemente siento, y soy sincero, que todas las herramientas según cómo región norte las está usando y la realidad local no ha sido completamente evaluada. No trabajamos igual que ellos y ya hemos tenido varios problemas con diversas aplicaciones donde se prioriza cómo trabajan en región norte y nosotros tenemos que adaptarnos, esperando que funcione. Y ahí siento que estamos quedando muy cortos porque complican el panorama. No sé si alguien opina lo mismo o no, pero así lo siento al menos.
+
+28:12 - Andrés Silva
+No, por mi lado estoy 100% de acuerdo contigo, Mauricio. Porque en vez de sumar, restan. Pero bueno, creo que hay que esperar a ver qué pasa esta semana y la próxima, qué respuesta dan. Hay que ir revisando y levantar la mano. Quizás deberíamos hacer una prueba local para definir si este software va a funcionar acá, porque hicimos la prueba con un equipo, funcionó dos semanas y después dejó de reportar. Cuando revisamos la consola, aparecía el equipo pero no mostraba el nivel de parches. Así que estábamos ciegos. O ingresamos todo manualmente, y estas plataformas no ayudan mucho. Pero es una definición interna, y podemos dar nuestra opinión. Sigamos, hay muchos temas. Punto 11, la instalación de nuevas estaciones de trabajo en sucursal norte está finalizada. El trabajo se hizo con el apoyo de Camila. Puede haber uno o dos usuarios que no estaban, no se pudo concretar, pero la mayoría quedó con sus equipos nuevos y los usuarios bastante contentos. Solo una observación, algunos modelos tienen menor rendimiento del esperado, según comentarios de usuarios. Punto 12, instalación de estaciones en el área de finanzas, todo ok, las 8 posiciones que habían solicitado se realizaron y está operativo. Punto 13, nos entregó el área de finanzas un listado de activos, un archivo con todo lo que tienen inventariado. Pero resulta que dentro de esa información, solo dice, no sé, laptop modelo tal, pero no dice el número de serie completo, entonces ¿cómo identificamos uno de otro? Es una bolsa única. En algunos aparece el nombre del equipo. Con ese nombre podríamos recuperar los datos, pero del universo completo que nos enviaron, la mayoría no tiene identificación clara. Es urgente poder avanzar con eso, para poder identificar equipos por área, y hoy está todo mezclado. Y el último punto que tenía anotado acá es el correo del encargado de operaciones, que también se trató hoy en la reunión, y ahí lo que se presentó es un tema puramente de metodología de trabajo. Lo pudimos visualizar con Diego en sucursal norte. Ya nos pasó esto mismo con una usuaria del área comercial. ¿Qué pasa? Los usuarios van creando archivos locales por proyecto. Pero cuando uno crea archivos locales, el concepto es que eso es temporal. Y los tienen al máximo de capacidad. Y los van dejando, no sé, proyecto 2024, proyecto 2025, etcétera. Pero los dejan ahí, para consulta. ¿Qué hacen estos usuarios? Siguen almacenando archivos ahí, o siguen moviendo documentos a esas carpetas locales. Por lo tanto, los respaldos automáticos no incluyen esa información, y ante un fallo del equipo se pierde todo. Con la usuaria nos pasó, detectamos y sugerimos no usar esa metodología de trabajo. Archivo local es solo temporal. No para que siga almacenando datos. Lo mismo le explicamos acá, porque si no, los respaldos no funcionan y se pierde información crítica. Vamos a la lámina del área de infraestructura. Ahí Mauricio y Camila, les dejo la palabra.
+
+34:44 - Mauricio Ríos
+Buenas tardes. Los primeros tres puntos corresponden a la conectividad entre sedes, específicamente a la optimización de enlaces. Esto, como se mencionó en la reunión semanal, ya he pedido a región norte hacer una sesión de trabajo para poder revisar la conectividad, porque actualmente hay tramos de red que no se ven correctamente. De hecho, la semana pasada Camila estaba trabajando con recursos compartidos y le costaba acceder, porque desde acá no se visualizaban bien esas VLANs. Se supone que ya estaba estabilizado, pero ahora tenemos problemas para acceder a ciertos archivos. Ya abrimos ticket, enviamos todos los correos, y estamos esperando qué respuesta tienen, si podemos hacer una sesión de trabajo con el equipo de redes, el área de telecomunicaciones, para poder limpiar eso y empezar a avanzar, porque no podemos hacer mucho con la conectividad actual si no vemos las rutas correctamente.
+
+36:08 - Sofía Martínez
+Mauricio, esto lo vimos en la reunión semanal, ¿cierto?
+
+36:11 - Mauricio Ríos
+Sí.
+
+36:13 - Sofía Martínez
+Perfecto. El coordinador me respondió que mañana a las 11. Me dijo, voy a dejar la agenda a las 11, el tema de conectividad. No sé si está en agenda aún.
+
+36:33 - Mauricio Ríos
+Consulta, ¿esto es una sesión de trabajo o de coordinación? Esperemos que sea de trabajo.
+
+36:37 - Sofía Martínez
+Sí, porque la idea es trabajar, primero, con los nuevos controladores de dominio, que van a soportar los servicios críticos.
+
+36:59 - Mauricio Ríos
+Y que esto sea la base para poder definir las políticas y luego hacer un grupo que permita no tener que reiterar para cada servicio, porque vamos a migrar varios servidores y tendríamos que pasar por cada uno por el mismo proceso. Así que espero que si es coordinación, coordinemos bien, y si es trabajo, dejemos todos los puntos marcados para no tener inconvenientes en el futuro. Pasamos al siguiente punto, que es el número 4. Saltamos a la central telefónica. Esto está a la espera de la cotización. El área de compras tiene los antecedentes, pero no ha habido respuesta, así que estamos en pausa con eso. El sistema de control de accesos con tarjetas, asumimos que por ahora sigue en pausa. Voy a volver a consultar para ver si nos dan algún avance. En el punto 6, la migración de servicios. Acá tengo otro descargo. Esto fue un servidor que se pidió habilitar hace como dos meses, se activó hace dos semanas, contra todos los protocolos, lo pusieron en producción sin notificarnos, sin hacer pruebas, sin entorno de pruebas, sin hacer ningún tipo de test, y quedó online. Este servidor, por suerte, funcionó hasta cierto punto porque el único que tuvo problemas fue el administrador. Se reportó y dijeron que era problema de la máquina solamente, pero lo que pasó es que esta semana comenzó el problema cuando se intentó acceder a documentos compartidos, y se dieron cuenta que no cargaban. Contactamos a región norte, nos apoyaron, se hizo una reunión y se apagó el servidor porque estaba dando problemas. El tema es que hoy todavía tengo el problema de que cualquier consulta de resolución de nombres me responde desde región norte en vez de responder localmente. Acá en la oficina hoy hicimos una prueba y me respondía el servidor nuevo, que se supone está apagado. Estoy teniendo mucho ruido, esto se discutió en la reunión. Y la idea es que esto se va a tratar en una reunión aparte para hacer un laboratorio y revisar cómo está configurada la resolución. No hay resolución por cercanía. Eso lo hemos pedido desde hace tiempo. Y me preocupa porque en el siguiente punto viene la implementación del servidor de nómina. Si esto no funciona bien, vamos a tener problemas graves. Eso ya escaló y supuestamente tenemos una reunión, o deberíamos tener una reunión luego con el área de arquitectura, para ver las cuentas de administración que necesitan tener. También habrá pruebas con el firewall. Estamos demandando que haya resolución por cercanía, que hoy no existe. Así que disculpen el reclamo, pero estoy teniendo mucho ruido. En punto 7, que es nómina, servidor de nómina.
+
+42:15 - Andrés Silva
+Perdón, perdón que te interrumpa. Y ese tema, ¿eso corresponde a la administración de los servidores, hoy por región norte, cierto?
+
+42:24 - Mauricio Ríos
+Estoy ambivalente porque, según entiendo, ellos administran los servidores, pero los servicios los gestionamos nosotros. Por eso sigo apoyando el problema.
+
+42:37 - Andrés Silva
+Creo que ese es un punto súper importante, poder definir el alcance, porque quizás podríamos estar apoyando por buena voluntad algo que no nos corresponde y el día mañana que algo pase nos van a señalar. No es nuestra competencia y debería ser responsabilidad de, en este caso, no sé, de la mesa central. Habría que levantar eso para que se pueda clarificar.
+
+43:30 - Mauricio Ríos
+Sí, es delicado, como dice Andrés, porque hay decisiones que aunque estamos apoyando, y como ya tenemos experiencia con la infraestructura, tenemos un poco más claro el panorama. Pero también podríamos equivocarnos al asumir responsabilidades que no nos corresponden. Siguiente punto, ¿más información sobre business intelligence?
+
+44:20 - Camila Torres
+Buenas tardes. Sí, respecto al punto número 8, un requerimiento del área de control de gestión, que tenía problemas para acceder a algunos reportes alojados en región norte. Esto se revisó conjuntamente y llegaron a la conclusión de que tenían problemas de conectividad. Por ahora van a seguir recibiendo esta información de forma manual, como lo han estado haciendo. Mientras tanto, surgió la solicitud, que aún no sé bien de qué se trata, de que se va a generar un servidor local para poder alojar estos reportes y bajar la latencia. En ese punto, correspondería a un servidor de business intelligence, no solo una puerta de enlace. Tal como región norte lo tiene, sería lo mismo.
+
+45:39 - Mauricio Ríos
+De esa forma, los reportes locales se publicarían localmente y no en región norte. No sé si todos o solo algunas áreas. Como no hay nada formalizado aún, no tenemos real claridad de ese requerimiento. En punto 9, lo que recién mencioné, la resolución de nombres, que actualmente apunta a servidores casi al azar. No hemos tenido una entrega formal, en el sentido de que no hubo un documento que indicara qué se hizo, ni las correcciones. Sí, ya tenemos acceso a un servidor, pero esa formalidad no está presente aún. En punto 11, estábamos diciendo, la propuesta de ordenamiento, estamos sugiriendo hacer un trabajo en el directorio activo para poder segmentar el árbol de equipos, porque actualmente el árbol dice computadores, portátiles, escritorio. Y lo que proponemos es que haya una segmentación física que permita saber qué equipos están en cada ubicación, para poder también facilitar el despliegue de políticas, el ordenamiento, tener los inventarios separados a nivel de directorio activo, y poder, de esa manera, hacer las pruebas y despliegues con mucha más facilidad. Como les decía, instalaciones, despliegues de parches, o incluso bloqueos de equipos, es más fácil encontrarlos. Falta aún respuesta sobre si este procedimiento se acepta para empezar a trabajar, o se descarta y se deja para después. Punto 12, sistema de gestión de proyectos.
+
+48:22 - Camila Torres
+En cuanto al sistema de gestión de proyectos, ya están todas las pruebas ok. De hecho, hace poco se levantó un caso de parte de un contratista, que está llevando a cabo la coordinación de este proyecto. Era más que nada por la conectividad que está presentando con la VPN hacia el aplicativo. Esto ya quedó subsanado, y de momento me encuentro ya generando la documentación para formalizar este proceso. Así que nada, no tenemos nada pendiente por ahora.
+
+48:57 - Mauricio Ríos
+Gracias, Camila. En punto 13, coordinación con comunicaciones. Es el área que está a cargo de la intranet. Hay que hacer una limpieza de archivos temporales. Hoy se hizo algo de limpieza en el servidor porque estaba teniendo algunos problemas de espacio. Ya está operativo. De hecho, envié un correo, copia a Sofía, donde está la evidencia de lo que se hizo. Con eso, tienen el espacio para poder generar todos sus respaldos. Al hacer la limpieza, eliminamos archivos temporales y liberamos espacio. Obviamente, vamos a pedir una ventana de tiempo que no debería ser más de una hora, pero estoy esperando que confirmen que se puede hacer. En punto 14, el servidor de respaldos. Este tema se mencionó hoy en la reunión y el administrador comentó que había una tarea programada que duplicaba los respaldos sin control. Eso generó que el disco se desbordara y que no hubiera espacio. Eso fue lo que tuvimos que hacer, la limpieza, y eliminar los respaldos antiguos que no servían manualmente. Ahora, comunicaciones, dentro de la actividad que les corresponde, formalmente van a solicitar ampliar un poco el tamaño de este servidor y pedir que se agregue un segundo disco duro, para poder configurar que los respaldos vayan al disco secundario y no afecten al disco principal, que es donde corre la aplicación.
+
+51:24 - Andrés Silva
+Hay que ser más claros en eso.
+
+51:28 - Mauricio Ríos
+Esto fue una alerta que llegó, me parece que del área de seguridad, era algo que un colaborador reportó porque no podía acceder a SAP. Estuvimos buscando este equipo, no lo podían encontrar, y resulta que es porque está instalado dentro de un equipo virtual que ocupa el colaborador. Ahí no sé si lograron contactarlo para poder revisar y saber si tiene VPN instalada, por ejemplo, para poder conectar. Eso quedó pendiente.
+
+52:06 - Andrés Silva
+Punto 16, la cuenta LDAP para el proyecto de integración.
+
+52:11 - Mauricio Ríos
+Este es un sistema que se publicará en internet. Ya pidieron una cuenta LDAP porque habrá dos tipos de acceso, uno para proveedores que no tienen cuenta de dominio y otro para usuarios corporativos. Y la cuenta LDAP es para poder validar con las credenciales de dominio. La cuenta ya se entregó, se pasó al proveedor, así que ese punto está cerrado y estamos esperando a ver cómo avanza ese proyecto. El área de desarrollo está trabajando en eso. Voy a coordinarme un poco para ver si hay pasos siguientes. Pero al menos la cuenta LDAP está lista. Punto 16, hace referencia a lo que Camila decía sobre business intelligence, que posiblemente estaban pidiendo ver qué iba a pasar, si se iba a crear otro servidor o no. Por eso pusimos que estamos esperando la decisión de la dirección, porque la solicitud no está formalizada aún. En punto 17, los bloqueos de la herramienta de soporte remoto, esto estaba afectando, como saben, desde el fin de semana, no sé si se activaron o se intensificó el bloqueo, pero varios equipos dejaron de responder y actualmente usamos esa herramienta para acceso remoto a los equipos de usuarios para dar soporte. Y ahora, con este bloqueo, ya no tenemos esa herramienta. Enviamos un correo al área de ciberseguridad, y crearon una lista de excepción donde hay cinco usuarios, más sus cinco equipos, y el servidor de administración, que es por donde se conectan. Además, el área de soporte reportó que ciertos equipos no aparecían en el inventario de red, y es lo más extraño porque desde redes respondieron que las políticas de segmentación estaban bien, pero no podían ver los equipos, no aparecían en las redes, pero nos advirtieron que estaban conectados. De hecho, también se comentó que parecía extraño que estuvieran funcionando, pero no se veían. Así que no sé si es el firewall, no sé si es el proxy, no sé si es alguna capa de seguridad, pero algo los bloqueó y puede ser aleatorio, y está haciendo bloqueos al azar, lo que no sería ideal porque perderíamos control. Así que todos esos temas los voy a hablar con el área de ciberseguridad ahora que se reúnan para ver la implementación de políticas y ver si han hecho cambios, para generar un despliegue masivo y desinstalar la herramienta no autorizada de los equipos de usuarios. Esto nos va a llevar a usar... ¿Sí, Diego?
+
+55:47 - Diego Fuentes
+Eso quería comentar, precisamente por la herramienta que se está usando ahora, la de videocolaboración. Lo que pasa es que genera varios problemas para poder tomar control remoto de los equipos. Específicamente, cuando los usuarios tienen más de una pantalla. De hecho, el equipo se cuelga, no deja tomar el control, no deja hacer muchas cosas. En resumen, en vez de facilitar el proceso de tomar el control remoto del equipo del usuario y poder brindar asistencia, al final a veces se vuelve más complejo que útil.
+
+56:29 - Mauricio Ríos
+A diferencia de la herramienta de soporte dedicada, que no genera nada de eso. Sí, va de la mano con lo que hablamos antes. El uso de esta herramienta es complicado porque hay que generar un enlace, pasarlo al usuario, el usuario tiene que tener un complemento, tiene que activar la conexión, tiene que aceptar la conexión, y eso es cada vez que nos vamos a conectar. Con la otra herramienta es abrir el programa que da el ID e ingresamos al equipo, el usuario también confirma la conexión, y con esta herramienta nos genera bastantes complicaciones para copiar archivos, como dice Diego, cuando la pantalla es más pequeña que la del usuario, haces clic en un área pero el usuario hace clic en un área diferente. Es como si extrapolara las dimensiones.
+
+57:36 - Sofía Martínez
+¿Sí? Revisemos bien este tema, porque creo que debe haber sido cuando yo llegué. Hablamos de esto con Andrés, sobre el bloqueo de la herramienta. Esto viene desde que entré, que iba a haber un bloqueo, no sabía que esta herramienta existía. No sabía que tenía tantas limitaciones. Pero me habían advertido que en algún momento se iba a desinstalar de los equipos. Entiendo que obviamente nos ayuda mucho para temas remotos, para poder acceder a los usuarios, pero validemos bien este punto, porque entendería que la herramienta que tenemos es la gratuita. Y no deberíamos tenerla.
+
+58:26 - Mauricio Ríos
+No, de hecho, tenemos licencia hasta octubre.
+
+58:33 - Sofía Martínez
+Perfecto. Organicemos bien este tema. Reunámonos en otra sesión y validemos bien esto. Porque no sabemos por qué se desbloquearon algunos equipos. Hay equipos que no están en el dominio, la información no se envió a ciberseguridad, no he podido ver que realmente se conecten. Pero sí, revisemos esto. No sé cuántos días quedan, tengo que cambiar una reunión.
+
+59:23 - Mauricio Ríos
+No, no, no, una semana. Lo haremos antes.
+
+59:47 - Sofía Martínez
+Claro, perfecto.
+
+59:51 - Sofía Martínez
+Hagamos sesiones, sesiones sobre los puntos. Le estoy pidiendo al coordinador, pero la idea es mañana a las 11. El tema de conectividad. Si no es de trabajo, va a ser de coordinación, o ambas. La idea es, obviamente, fijar fechas y avanzar. Que también se pueda trabajar en un ambiente más despejado, sin tantas cosas, así que la idea es coordinación entre todos. Y el tema de servidores sigue, desde que región norte tomó el mando, creo que siempre hemos tenido la duda y nunca la clarificamos, para ver el flujo. El alcance. Si región norte tiene algún alcance, firmo los documentos, tenemos que hacer los controles de cambio, pero al mismo tiempo piden otro control de cambio, entonces tenemos que estar haciendo todos los controles que región norte pide. Así que eso es más que nada. Pero sí, voy a tomar estos temas. Recuéndenmelo, por favor. Y la idea es, le estoy preguntando al coordinador si tiene agenda para mañana a las 11, si no, lo haré en un rato.
+
+1:01:15 - Andrés Silva
+Muchas gracias, Sofía. Perfecto.
+
+1:01:18 - Sofía Martínez
+Muchas gracias a ustedes también.
