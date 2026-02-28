@@ -1006,3 +1006,51 @@ CREATE TABLE user_sessions (
 
 ALTER TABLE user_sessions
   ADD CONSTRAINT fk_us_user FOREIGN KEY (user_id) REFERENCES users(id);
+
+
+-- ----------------------------------------------------------------------------
+-- 10) Minute Transactions (auditoría de interacciones con la IA)
+-- ----------------------------------------------------------------------------
+CREATE TABLE minute_transactions (
+  id                  CHAR(36)     NOT NULL,
+  record_id           CHAR(36)     NOT NULL,
+  record_version_id   CHAR(36)     NULL,
+
+  status              ENUM('pending','processing','completed','failed')
+                      NOT NULL DEFAULT 'pending',
+
+  -- Referencias a objetos MinIO (solo punteros, no datos)
+  input_object_id     CHAR(36)     NULL,   -- schema_input en json_container
+  output_object_id    CHAR(36)     NULL,   -- schema_output en json_container
+
+  -- Auditoría OpenAI
+  openai_thread_id    VARCHAR(100) NULL,
+  openai_run_id       VARCHAR(100) NULL,
+  openai_model        VARCHAR(80)  NULL,
+  ai_profile_id       CHAR(36)     NULL,
+
+  -- Mapa sha256→file_id de archivos subidos a OpenAI (no son objetos MinIO)
+  openai_file_ids     JSON         NULL,
+
+  error_message       TEXT         NULL,
+
+  requested_by        CHAR(36)     NOT NULL,
+  created_at          DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at          DATETIME     NULL     ON UPDATE CURRENT_TIMESTAMP,
+  completed_at        DATETIME     NULL,
+
+  PRIMARY KEY (id),
+
+  CONSTRAINT fk_mt_record     FOREIGN KEY (record_id)         REFERENCES records(id),
+  CONSTRAINT fk_mt_version    FOREIGN KEY (record_version_id) REFERENCES record_versions(id),
+  CONSTRAINT fk_mt_input_obj  FOREIGN KEY (input_object_id)   REFERENCES objects(id),
+  CONSTRAINT fk_mt_output_obj FOREIGN KEY (output_object_id)  REFERENCES objects(id),
+  CONSTRAINT fk_mt_ai_profile FOREIGN KEY (ai_profile_id)     REFERENCES ai_profiles(id),
+  CONSTRAINT fk_mt_requested  FOREIGN KEY (requested_by)      REFERENCES users(id),
+
+  KEY idx_mt_record   (record_id),
+  KEY idx_mt_version  (record_version_id),
+  KEY idx_mt_status   (status),
+  KEY idx_mt_created  (created_at)
+
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
