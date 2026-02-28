@@ -224,23 +224,22 @@ run_cmd() {
     local cmd="$1"
     local error_msg="${2:-Error al ejecutar el comando}"
     local success_msg="${3:-Comando ejecutado exitosamente}"
-    local output
     local exit_code
     
     echo -e "${CYAN}▶ Ejecutando: $cmd${NC}"
-    output=$(eval "$cmd" 2>&1)
+    echo -e "${CYAN}────────────────────────────────────────────────${NC}"
+    
+    # Ejecutar el comando directamente para ver el output en tiempo real
+    eval "$cmd"
     exit_code=$?
     
+    echo -e "${CYAN}────────────────────────────────────────────────${NC}"
+    
     if [[ $exit_code -ne 0 ]]; then
-        echo -e "${RED}❌ $error_msg${NC}"
-        echo -e "${YELLOW}📋 Detalles del error:${NC}"
-        echo "$output" | sed 's/^/   /'
+        echo -e "${RED}❌ $error_msg (código: $exit_code)${NC}"
         return $exit_code
     fi
     
-    if [[ -n "$output" && "$output" != *"ID"* ]]; then
-        echo "$output" | sed 's/^/   /'
-    fi
     echo -e "${GREEN}✅ $success_msg${NC}"
     return 0
 }
@@ -784,19 +783,158 @@ clean_volumes() {
 clean_all() {
     banner_principal "LIMPIEZA COMPLETA"
     
-    echo -e "${RED}${BOLD}⚠️  ADVERTENCIA: Esta acción eliminará:${NC}"
-    echo -e "   • Todos los contenedores del stack"
-    echo -e "   • Todas las imágenes no utilizadas"
-    echo -e "   • Todos los volúmenes no utilizados"
-    echo -e "   • Caché de builds"
+    echo -e "${RED}${BOLD}⚠️  ADVERTENCIA: Esta acción realizará una limpieza profunda del sistema${NC}"
+    echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${YELLOW}Se eliminarán:${NC}"
+    echo -e "   • Contenedores, redes y volúmenes del stack actual"
+    echo -e "   • Volúmenes huérfanos relacionados con el stack"
+    echo -e "   • Imágenes base e Imágenes proyecto (Confirmación)"
+    echo -e "   • Caché de builds de Docker"
+    echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
     
-    if confirm_action "¿Continuar con limpieza completa?" "no"; then
-        run_cmd "$COMPOSE_CMD -f $COMPOSE_FILE --env-file .env --env-file .env.$ENV down --volumes --remove-orphans"
-        run_cmd "docker system prune -af --volumes" \
-                "Error durante la limpieza" \
-                "Limpieza completa exitosa"
+     # PRIMERA CONFIRMACIÓN: Inicio de limpieza
+    if ! confirm_action "¿Iniciar limpieza completa?" "no"; then
+        menu_limpieza
+        return
     fi
+    
+    # PASO 1: Limpiar contenedores, redes y volúmenes del stack
+    echo -e "\n${CYAN}${BOLD}📦 PASO 1/3: Limpiando recursos del stack...${NC}"
+    echo -e "${CYAN}────────────────────────────────────────────────${NC}"
+    
+    run_cmd "$COMPOSE_CMD -f $COMPOSE_FILE --env-file .env --env-file .env.$ENV down --volumes --remove-orphans" \
+            "Error al limpiar recursos del stack" \
+            "Recursos del stack eliminados"
+    
+    # PASO 2: Limpiar volúmenes huérfanos del stack
+    echo -e "\n${CYAN}${BOLD}💾 PASO 2/3: Buscando volúmenes huérfanos del stack...${NC}"
+    echo -e "${CYAN}────────────────────────────────────────────────${NC}"
+    
+    local stack_volumes=()
+    while IFS= read -r volume; do
+        stack_volumes+=("$volume")
+    done < <(docker volume ls --filter "dangling=true" --filter "label=$LABEL_FILTER" --format "{{.Name}}" 2>/dev/null)
+    
+    if [[ ${#stack_volumes[@]} -gt 0 ]]; then
+        echo -e "${YELLOW}Se encontraron ${#stack_volumes[@]} volúmenes huérfanos del stack:${NC}"
+        for volume in "${stack_volumes[@]}"; do
+            echo -e "   • $volume"
+        done
+        echo ""
+        
+        for volume in "${stack_volumes[@]}"; do
+            docker volume rm "$volume" >/dev/null 2>&1 && \
+                echo -e "${GREEN}   ✅ Eliminado: $volume${NC}" || \
+                echo -e "${RED}   ❌ Error al eliminar: $volume${NC}"
+        done
+    else
+        echo -e "${GREEN}✅ No se encontraron volúmenes huérfanos del stack${NC}"
+    fi
+    
+    # Limpiar imágenes huérfanas (automático)
+    echo -e "\n${CYAN}${BOLD}🗑️  Eliminando imágenes huérfanas...${NC}"
+    docker image prune -f >/dev/null 2>&1
+    echo -e "${GREEN}✅ Imágenes huérfanas eliminadas${NC}"
+    
+    # PASO 3: Limpieza de imágenes (con consultas separadas)
+    echo -e "\n${CYAN}${BOLD}🖼️  PASO 3/3: Limpieza de imágenes Docker${NC}"
+    echo -e "${CYAN}────────────────────────────────────────────────${NC}"
+    
+    local project_name="${PROJECT_NAME:-inventario}"
+    
+    # Obtener imágenes base (excluyendo las del proyecto)
+    local base_images=()
+    while IFS= read -r image; do
+        if [[ -n "$image" && "$image" != "<none>:<none>" ]]; then
+            base_images+=("$image")
+        fi
+    done < <(docker images --format "{{.Repository}}:{{.Tag}}" | grep -v "^${project_name}/" | grep -v "<none>" | sort -u)
+    
+    # Obtener imágenes del proyecto
+    local project_images=()
+    while IFS= read -r image; do
+        if [[ -n "$image" ]]; then
+            project_images+=("$image")
+        fi
+    done < <(docker images --format "{{.Repository}}:{{.Tag}}" | grep "^${project_name}/" | sort -u)
+    
+    # SEGUNDA CONFIRMACIÓN: Imágenes base (externas)
+    if [[ ${#base_images[@]} -gt 0 ]]; then
+        echo -e "\n${BLUE}${BOLD}📦 IMÁGENES BASE (EXTERNAS) - ${#base_images[@]} encontradas${NC}"
+        echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        echo -e "${YELLOW}Estas imágenes son descargadas de Docker Hub:${NC}"
+        echo ""
+        
+        # Mostrar lista de imágenes base
+        for image in "${base_images[@]}"; do
+            local size=$(docker images --format "{{.Size}}" "$image" 2>/dev/null | head -1)
+            echo -e "   • $image ${CYAN}(${size})${NC}"
+        done
+        echo ""
+        
+        if confirm_action "¿Eliminar TODAS las imágenes base?" "no"; then
+            echo -e "${YELLOW}Eliminando imágenes base...${NC}"
+            local deleted=0
+            for image in "${base_images[@]}"; do
+                if docker rmi -f "$image" >/dev/null 2>&1; then
+                    echo -e "${GREEN}   ✅ Eliminada: $image${NC}"
+                    ((deleted++))
+                else
+                    echo -e "${RED}   ❌ Error al eliminar: $image${NC}"
+                fi
+            done
+            echo -e "${GREEN}✅ Imágenes base eliminadas: $deleted de ${#base_images[@]}${NC}"
+        else
+            echo -e "${BLUE}⏭️  Imágenes base conservadas${NC}"
+        fi
+    else
+        echo -e "\n${GREEN}✅ No hay imágenes base para eliminar${NC}"
+    fi
+    
+    # TERCERA CONFIRMACIÓN: Imágenes del proyecto
+    if [[ ${#project_images[@]} -gt 0 ]]; then
+        echo -e "\n${MAGENTA}${BOLD}🏗️  IMÁGENES DEL PROYECTO - ${#project_images[@]} encontradas${NC}"
+        echo -e "${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        echo -e "${YELLOW}Estas imágenes fueron construidas desde Dockerfiles locales:${NC}"
+        echo ""
+        
+        # Mostrar lista de imágenes del proyecto
+        for image in "${project_images[@]}"; do
+            local size=$(docker images --format "{{.Size}}" "$image" 2>/dev/null | head -1)
+            echo -e "   • $image ${CYAN}(${size})${NC}"
+        done
+        echo ""
+        
+        if confirm_action "¿Eliminar TODAS las imágenes del proyecto?" "no"; then
+            echo -e "${YELLOW}Eliminando imágenes del proyecto...${NC}"
+            local deleted=0
+            for image in "${project_images[@]}"; do
+                if docker rmi -f "$image" >/dev/null 2>&1; then
+                    echo -e "${GREEN}   ✅ Eliminada: $image${NC}"
+                    ((deleted++))
+                else
+                    echo -e "${RED}   ❌ Error al eliminar: $image${NC}"
+                fi
+            done
+            echo -e "${GREEN}✅ Imágenes del proyecto eliminadas: $deleted de ${#project_images[@]}${NC}"
+        else
+            echo -e "${BLUE}⏭️  Imágenes del proyecto conservadas${NC}"
+        fi
+    else
+        echo -e "\n${GREEN}✅ No hay imágenes del proyecto para eliminar${NC}"
+    fi
+    
+    # Limpiar caché de builds (automático)
+    echo -e "\n${CYAN}${BOLD}🧹 Limpiando caché de builds...${NC}"
+    docker builder prune -af >/dev/null 2>&1
+    echo -e "${GREEN}✅ Caché de builds eliminada${NC}"
+    
+    # RESUMEN FINAL
+    echo ""
+    echo -e "${CYAN}${BOLD}═══════════════════════════════════════════════════════════${NC}"
+    echo -e "${GREEN}${BOLD}✅ LIMPIEZA COMPLETA FINALIZADA${NC}"
+    echo -e "${CYAN}${BOLD}═══════════════════════════════════════════════════════════${NC}"
     
     pause
     menu_limpieza
