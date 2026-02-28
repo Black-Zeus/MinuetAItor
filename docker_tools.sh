@@ -55,6 +55,7 @@ banner_menu_ambiente(){
   echo "IP Actual: $current_ip"
   echo "Rama Git: $git_branch"
 }
+
 #############################################################
 ###                      Menus
 #############################################################
@@ -72,14 +73,15 @@ menu() {
   echo " 1. 📋 MANEJADOR DE CONTENEDORES"
   echo " 2. 📊 MONITOREO Y DIAGNÓSTICO"
   echo " 3. 🧹 LIMPIEZA Y MANTENIMIENTO"
-  echo " 4. ⚙️  CONFIGURACIÓN DEL SISTEMA"
+  echo " 4. ⚙️ CONFIGURACIÓN DEL SISTEMA"
   echo " 5. 📱 HERRAMIENTAS EXPO"
   echo " 6. 📄 GESTIÓN DE TEMPLATES .ENV"
   echo " 7. 🐳 ESTADO Y SERVICIOS DOCKER"
+  echo " 8. 🧰 PORTAINER"
   echo ""
   echo " S. 🚪 Salir"
   echo "======================================="
-  read -p "👉 Seleccione una opción [1-7, S]: " choice
+  read -p "👉 Seleccione una opción [1-8, S]: " choice
 
   case "$choice" in
     1) menu_contenedores ;;
@@ -89,11 +91,53 @@ menu() {
     5) menu_expo ;;
     6) menu_templates ;;
     7) menu_docker_services ;;
+    8) menu_portainer ;;
     [Ss]) exit_script ;;
     *)
       echo "❌ Opción inválida. Inténtelo de nuevo."
       sleep 3
       menu
+      ;;
+  esac
+}
+
+# Submenú: Portainer (VERSIÓN LINUX COMPLETA)
+menu_portainer() {
+  clear
+  echo "======================================="
+  echo "🧰 PORTAINER (Linux)"
+  banner_menu_ambiente
+  echo "======================================="
+  echo ""
+  echo " 1. ▶️ Iniciar/Crear Portainer"
+  echo " 2. ⏹️ Detener Portainer"
+  echo " 3. 🔄 Reiniciar Portainer"
+  echo " 4. 🌐 Abrir en navegador"
+  echo " 5. 📋 Ver logs"
+  echo " 6. ♻️ Recrear Portainer (nuevo contenedor)"
+  echo " 7. 🗑️ Eliminar contenedor (con opción de borrar datos)"
+  echo " 8. ℹ️ Información detallada"
+  echo ""
+  echo " V. ⬅️ Volver al menú principal"
+  echo " S. 🚪 Salir"
+  echo "======================================="
+  read -p "👉 Seleccione una opción [1-8, V, S]: " choice
+
+  case "$choice" in
+    1) portainer_start ;;
+    2) portainer_stop ;;
+    3) portainer_restart ;;
+    4) portainer_open_browser ;;
+    5) portainer_logs ;;
+    6) portainer_recreate ;;
+    7) portainer_destroy ;;
+    8) portainer_info ;;
+    [Vv]) menu ;;
+    [Ss]) exit_script ;;
+    *)
+      echo "❌ Opción inválida. Inténtelo de nuevo."
+      sleep 3
+      menu_portainer
       ;;
   esac
 }
@@ -175,9 +219,9 @@ menu_limpieza() {
   echo "======================================="
   echo ""
   echo " 1. 🧹 Limpiar contenedores, redes y volúmenes"
-  echo " 2. 🖼️  Limpiar imágenes no utilizadas"
+  echo " 2. 🖼️ Limpiar imágenes no utilizadas"
   echo " 3. 💾 Limpiar volúmenes no utilizados"
-  echo " 4. 🗑️  Limpiar todo (contenedores, imágenes y volúmenes)"
+  echo " 4. 🗑️ Limpiar todo (contenedores, imágenes y volúmenes)"
   echo " 5. 🔥 Eliminar Persistencias"
   echo ""
   echo " V. ⬅️  Volver al menú principal"
@@ -243,7 +287,7 @@ menu_expo() {
   echo "======================================="
   echo ""
   echo "1) 🚀 Iniciar Expo Development Server"
-  echo "2) 🏗️  EAS Build (Generar APK/AAB)"
+  echo "2) 🏗️ EAS Build (Generar APK/AAB)"
   echo ""
   echo " V. ⬅️  Volver al menú principal"
   echo " S. 🚪 Salir"
@@ -305,10 +349,10 @@ menu_docker_services() {
   echo "======================================="
   echo ""
   echo " 1. 🔍 Estado Docker Engine"
-  echo " 2. 🖥️  Estado Docker Desktop"
+  echo " 2. 🖥️ Estado Docker Desktop"
   echo " 3. 🔄 Reiniciar Docker Engine"
   echo " 4. 🔄 Reiniciar Docker Desktop"
-  echo " 5. ♻️  Reiniciar Ambos (Engine + Desktop)"
+  echo " 5. ♻️ Reiniciar Ambos (Engine + Desktop)"
   echo ""
   echo " V. ⬅️  Volver al menú principal"
   echo " S. 🚪 Salir"
@@ -327,6 +371,47 @@ menu_docker_services() {
       echo "❌ Opción inválida. Inténtelo de nuevo."
       sleep 3
       menu_docker_services
+      ;;
+  esac
+}
+
+# Submenú: Portainer (VERSIÓN LINUX)
+menu_portainer() {
+  clear
+  echo "======================================="
+  echo "🧰 PORTAINER (Linux)"
+  banner_menu_ambiente
+  echo "======================================="
+  echo ""
+  echo " 1. ▶️  Iniciar/Crear Portainer"
+  echo " 2. ⏹️  Detener Portainer"
+  echo " 3. 🔄 Reiniciar Portainer"
+  echo " 4. 🌐 Abrir en navegador"
+  echo " 5. 📋 Ver logs"
+  echo " 6. ♻️  Recrear Portainer (nuevo contenedor)"
+  echo " 7. 🗑️  Eliminar contenedor (con opción de borrar datos)"
+  echo " 8. ℹ️  Información detallada"
+  echo ""
+  echo " V. ⬅️  Volver al menú principal"
+  echo " S. 🚪 Salir"
+  echo "======================================="
+  read -p "👉 Seleccione una opción [1-8, V, S]: " choice
+
+  case "$choice" in
+    1) portainer_start ;;
+    2) portainer_stop ;;
+    3) portainer_restart ;;
+    4) portainer_open_browser ;;
+    5) portainer_logs ;;
+    6) portainer_recreate ;;
+    7) portainer_destroy ;;
+    8) portainer_info ;;
+    [Vv]) menu ;;
+    [Ss]) exit_script ;;
+    *)
+      echo "❌ Opción inválida. Inténtelo de nuevo."
+      sleep 3
+      menu_portainer
       ;;
   esac
 }
@@ -2054,6 +2139,792 @@ docker_restart_all() {
 
   pause; menu_docker_services
 }
+
+#############################################################
+###          Feature - Portainer (VERSIÓN LINUX COMPLETA)
+#############################################################
+
+# Configuración Portainer
+PORTAINER_NAME="${PORTAINER_NAME:-portainer}"
+PORTAINER_IMAGE="${PORTAINER_IMAGE:-portainer/portainer-ce:latest}"
+PORTAINER_PORT="${PORTAINER_PORT:-9000}"
+PORTAINER_PORT_HTTPS="${PORTAINER_PORT_HTTPS:-9443}"
+PORTAINER_VOLUME="portainer_data"
+
+# =========================================================
+# FUNCIONES AUXILIARES (VERIFICACIÓN DE PUERTOS)
+# =========================================================
+
+# Verifica si un puerto está disponible en Linux
+_port_is_free_linux() {
+    local port="$1"
+    
+    # Usar ss (Linux moderno) - más rápido y confiable
+    if command -v ss >/dev/null 2>&1; then
+        if ss -ltn | grep -q ":${port} "; then
+            return 1 # Ocupado
+        else
+            return 0 # Libre
+        fi
+    fi
+    
+    # Fallback: netstat (Linux)
+    if command -v netstat >/dev/null 2>&1; then
+        if netstat -ltn | grep -q ":${port} "; then
+            return 1 # Ocupado
+        else
+            return 0 # Libre
+        fi
+    fi
+    
+    # Fallback: lsof (Linux/macOS)
+    if command -v lsof >/dev/null 2>&1; then
+        if lsof -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1; then
+            return 1 # Ocupado
+        else
+            return 0 # Libre
+        fi
+    fi
+    
+    return 2 # No se pudo determinar
+}
+
+# Obtiene información de quién ocupa un puerto en Linux
+_port_owner_hint_linux() {
+    local port="$1"
+    
+    # Buscar en contenedores Docker (más probable)
+    if command -v docker >/dev/null 2>&1; then
+        # Buscar específicamente el contenedor que usa el puerto
+        local container_info
+        container_info=$(docker ps --format 'table {{.Names}}\t{{.Ports}}' | grep ":${port}->" | head -1)
+        if [[ -n "$container_info" ]]; then
+            echo "Contenedor: $container_info"
+            return 0
+        fi
+    fi
+    
+    # Linux: lsof para proceso
+    if command -v lsof >/dev/null 2>&1; then
+        local process_info
+        process_info=$(lsof -nP -iTCP:"$port" -sTCP:LISTEN 2>/dev/null | awk 'NR==2{print "Proceso: " $1 " (PID " $2 ")"}')
+        if [[ -n "$process_info" ]]; then
+            echo "$process_info"
+            return 0
+        fi
+    fi
+    
+    # Linux: ss con proceso
+    if command -v ss >/dev/null 2>&1 && command -v awk >/dev/null 2>&1; then
+        local process_name
+        process_name=$(ss -ltnp 2>/dev/null | grep ":${port} " | awk -F 'users:' '{print $2}' | cut -d'"' -f2)
+        if [[ -n "$process_name" ]]; then
+            echo "Proceso: $process_name"
+            return 0
+        fi
+    fi
+    
+    echo "desconocido (puerto en uso)"
+    return 1
+}
+
+# Encuentra el primer puerto libre a partir de un rango (evitando 9000-9099)
+_find_free_port_linux() {
+    local start_port="$1"
+    local avoid_range_start=9000
+    local avoid_range_end=9099
+    
+    # Si el puerto solicitado está en rango conflictivo, empezar desde otro lado
+    if [[ $start_port -ge $avoid_range_start ]] && [[ $start_port -le $avoid_range_end ]]; then
+        start_port=9100
+        echo "⚠️  Evitando rango 9000-9099 (usado por Minio, etc.)" >&2
+    fi
+    
+    local max_attempts=100
+    for ((i=0; i<max_attempts; i++)); do
+        local test_port=$((start_port + i))
+        
+        # Saltar el rango completo de 9000-9099
+        if [[ $test_port -ge 9000 ]] && [[ $test_port -le 9099 ]]; then
+            test_port=9100
+        fi
+        
+        _port_is_free_linux "$test_port"
+        if [[ $? -eq 0 ]]; then
+            echo "$test_port"
+            return 0
+        fi
+    done
+    
+    # Último recurso: puerto aleatorio
+    echo $(( RANDOM % 10000 + 10000 ))
+}
+
+# Verifica y configura el puerto para Portainer
+_configure_portainer_port_linux() {
+    local default_port="$1"
+    local suggested_port
+    local selected_port
+    
+    echo "🔍 Verificando disponibilidad del puerto $default_port..."
+    echo "   (Nota: Minio usa comúnmente el puerto 9000)"
+    
+    _port_is_free_linux "$default_port"
+    local rc=$?
+    
+    if [[ $rc -eq 0 ]]; then
+        echo "✅ Puerto $default_port está disponible"
+        PORTAINER_PORT="$default_port"
+        return 0
+    elif [[ $rc -eq 2 ]]; then
+        echo "⚠️  No se pudo verificar el puerto. Se usará $default_port"
+        PORTAINER_PORT="$default_port"
+        return 0
+    fi
+    
+    # Puerto ocupado - mostrar información detallada
+    local owner
+    owner=$(_port_owner_hint_linux "$default_port")
+    echo "❌ Puerto $default_port NO está disponible"
+    echo "   └─ $owner"
+    echo ""
+    
+    # Mostrar contenedores que usan puertos similares
+    echo "📊 Puertos en uso por contenedores:"
+    docker ps --format '   └─ {{.Names}}: {{.Ports}}' | grep -E ":[0-9]+->" | head -5
+    echo ""
+    
+    # Buscar puerto sugerido (evitando el rango 9000-9099)
+    suggested_port=$(_find_free_port_linux 9100)
+    echo "📌 Puertos sugeridos (evitando rango 9000-9099):"
+    echo "   - Alternativa 1: $suggested_port (automático)"
+    echo "   - Alternativa 2: 9443 (HTTPS UI - puede estar libre)"
+    echo "   - Alternativa 3: Puerto personalizado"
+    echo ""
+    
+    while true; do
+        read -p "👉 Ingrese puerto para Portainer [$suggested_port]: " selected_port
+        selected_port="${selected_port:-$suggested_port}"
+        
+        # Validación
+        if ! [[ "$selected_port" =~ ^[0-9]+$ ]] || [[ "$selected_port" -lt 1024 ]] || [[ "$selected_port" -gt 65535 ]]; then
+            echo "❌ Puerto inválido. Use puerto > 1024 (no privilegiado) y < 65536"
+            continue
+        fi
+        
+        # Advertencia si está en rango conflictivo
+        if [[ $selected_port -ge 9000 ]] && [[ $selected_port -le 9099 ]]; then
+            echo "⚠️  ADVERTENCIA: El rango 9000-9099 es usado comúnmente por:"
+            echo "   - Minio (9000)"
+            echo "   - Portainer (9000)"
+            echo "   - Otros servicios"
+            read -p "   ¿Continuar de todas formas? (s/N): " confirm_range
+            if [[ ! "$confirm_range" =~ ^[Ss]$ ]]; then
+                continue
+            fi
+        fi
+        
+        # Verificar disponibilidad
+        _port_is_free_linux "$selected_port"
+        local check_rc=$?
+        
+        if [[ $check_rc -eq 0 ]]; then
+            PORTAINER_PORT="$selected_port"
+            echo "✅ Puerto $selected_port disponible y seleccionado"
+            return 0
+        elif [[ $check_rc -eq 2 ]]; then
+            PORTAINER_PORT="$selected_port"
+            echo "⚠️  Usando puerto $selected_port (no se pudo verificar disponibilidad)"
+            return 0
+        else
+            owner=$(_port_owner_hint_linux "$selected_port")
+            echo "❌ Puerto $selected_port ocupado por: $owner"
+            echo "   Intente con otro puerto"
+        fi
+    done
+}
+
+# =========================================================
+# FUNCIONES PRINCIPALES DE PORTAINER
+# =========================================================
+
+# Obtiene el puerto publicado actual de Portainer
+_get_portainer_mapped_port() {
+    local container="$1"
+    docker port "$container" 9000/tcp 2>/dev/null | head -1 | awk -F: '{print $NF}' | tr -d '\n'
+}
+
+# Inicia Portainer (crea si no existe, inicia si está detenido)
+portainer_start() {
+    clear
+    echo "======================================="
+    echo "🧰 PORTAINER - Iniciar (Linux)"
+    banner_menu_ambiente
+    echo "======================================="
+    echo ""
+
+    command -v docker >/dev/null 2>&1 || { 
+        echo "❌ docker CLI no disponible."
+        pause
+        menu_portainer
+        return 1
+    }
+
+    # Verificar Docker daemon
+    if ! docker info >/dev/null 2>&1; then
+        echo "❌ Docker daemon no está en ejecución"
+        pause
+        menu_portainer
+        return 1
+    fi
+
+    # Mostrar puertos actuales en uso
+    echo "📊 Puertos actualmente en uso por contenedores:"
+    docker ps --format '   └─ {{.Names}}: {{.Ports}}' | head -3
+    echo ""
+
+    # Verificar si el contenedor existe
+    if docker ps -a --format '{{.Names}}' | grep -qx "$PORTAINER_NAME"; then
+        # Contenedor existe
+        echo "📦 Contenedor '$PORTAINER_NAME' encontrado"
+        
+        if docker ps --format '{{.Names}}' | grep -qx "$PORTAINER_NAME"; then
+            # Está en ejecución
+            local mapped_port
+            mapped_port=$(_get_portainer_mapped_port "$PORTAINER_NAME")
+            
+            echo "✅ Portainer ya está EN EJECUCIÓN"
+            if [[ -n "$mapped_port" ]]; then
+                echo "   └─ UI: http://localhost:${mapped_port}"
+                echo "   └─ HTTPS: https://localhost:${PORTAINER_PORT_HTTPS}"
+            else
+                echo "⚠️  Contenedor sin puerto publicado"
+                echo "   Recomendación: Use opción 6 (Recrear)"
+            fi
+        else
+            # Está detenido
+            echo "⏸️  Contenedor detenido"
+            echo ""
+            read -p "¿Iniciar contenedor existente? (S/N): " start_confirm
+            if [[ "$start_confirm" =~ ^[Ss]$ ]]; then
+                echo "▶️  Iniciando $PORTAINER_NAME..."
+                if docker start "$PORTAINER_NAME" >/dev/null 2>&1; then
+                    echo "✅ Contenedor iniciado"
+                    sleep 2
+                    local mapped_port=$(_get_portainer_mapped_port "$PORTAINER_NAME")
+                    [[ -n "$mapped_port" ]] && echo "   └─ UI: http://localhost:${mapped_port}"
+                else
+                    echo "❌ Error al iniciar"
+                fi
+            fi
+        fi
+        
+        pause
+        menu_portainer
+        return 0
+    fi
+
+    # Contenedor no existe - crear nuevo
+    echo "📦 No existe contenedor Portainer"
+    echo "   Creando nueva instancia..."
+    echo ""
+
+    # CONFIGURAR PUERTO (con detección de Minio)
+    if ! _configure_portainer_port_linux "9000"; then
+        echo "❌ Error en configuración de puerto"
+        pause
+        menu_portainer
+        return 1
+    fi
+
+    # Verificar que el puerto seleccionado esté realmente libre
+    _port_is_free_linux "$PORTAINER_PORT"
+    if [[ $? -eq 1 ]]; then
+        echo "❌ El puerto $PORTAINER_PORT se ocupó entre la verificación y ahora"
+        owner=$(_port_owner_hint_linux "$PORTAINER_PORT")
+        echo "   Ocupado por: $owner"
+        pause
+        menu_portainer
+        return 1
+    fi
+
+    # Crear volumen persistente
+    if ! docker volume ls --format '{{.Name}}' | grep -qx "$PORTAINER_VOLUME"; then
+        echo "📦 Creando volumen persistente: $PORTAINER_VOLUME"
+        docker volume create "$PORTAINER_VOLUME" >/dev/null || {
+            echo "❌ Error al crear volumen"
+            pause
+            menu_portainer
+            return 1
+        }
+    fi
+
+    # Crear contenedor
+    echo "🚀 Creando contenedor Portainer (puerto $PORTAINER_PORT)..."
+    echo ""
+
+    local run_cmd="docker run -d \
+        --name $PORTAINER_NAME \
+        --restart unless-stopped \
+        -p ${PORTAINER_PORT}:9000 \
+        -p ${PORTAINER_PORT_HTTPS}:9443 \
+        -v /var/run/docker.sock:/var/run/docker.sock \
+        -v $PORTAINER_VOLUME:/data \
+        $PORTAINER_IMAGE"
+
+    # Ejecutar y capturar salida para diagnóstico
+    local output
+    output=$(eval "$run_cmd" 2>&1)
+    local exit_code=$?
+
+    if [[ $exit_code -eq 0 ]] && [[ -n "$output" ]] && [[ "$output" =~ ^[a-f0-9]{64}$ ]]; then
+        echo "✅ Portainer creado exitosamente"
+        echo ""
+        echo "   ┌─────────────────────────────────────┐"
+        echo "   │  🌐 UI: http://localhost:${PORTAINER_PORT}  │"
+        echo "   │  🔒 HTTPS: https://localhost:${PORTAINER_PORT_HTTPS} │"
+        echo "   └─────────────────────────────────────┘"
+        echo ""
+        echo "⏳ Esperando 3 segundos para inicialización..."
+        sleep 3
+        
+        # Verificar que el contenedor esté corriendo
+        if docker ps --format '{{.Names}}' | grep -qx "$PORTAINER_NAME"; then
+            echo "✅ Contenedor en ejecución"
+        else
+            echo "⚠️  Contenedor creado pero no está corriendo"
+            echo "   Revise logs: docker logs $PORTAINER_NAME"
+        fi
+    else
+        echo "❌ Error al crear Portainer"
+        echo "   └─ $output"
+        echo ""
+        echo "📋 Diagnóstico:"
+        echo "   └─ Puerto $PORTAINER_PORT: $(ss -ltn | grep -q ":${PORTAINER_PORT} " && echo "OCUPADO" || echo "libre")"
+        echo "   └─ Docker: $(docker info >/dev/null 2>&1 && echo "OK" || echo "ERROR")"
+    fi
+
+    pause
+    menu_portainer
+}
+
+# Detiene Portainer
+portainer_stop() {
+    clear
+    echo "======================================="
+    echo "🧰 PORTAINER - Detener"
+    banner_menu_ambiente
+    echo "======================================="
+    echo ""
+
+    command -v docker >/dev/null 2>&1 || { 
+        echo "❌ docker CLI no disponible."
+        pause
+        menu_portainer
+        return 1
+    }
+
+    if ! docker ps -a --format '{{.Names}}' | grep -qx "$PORTAINER_NAME"; then
+        echo "ℹ️  El contenedor '$PORTAINER_NAME' no existe"
+        pause
+        menu_portainer
+        return 0
+    fi
+
+    if docker ps --format '{{.Names}}' | grep -qx "$PORTAINER_NAME"; then
+        echo "⏹️  Deteniendo Portainer..."
+        if docker stop "$PORTAINER_NAME" >/dev/null 2>&1; then
+            echo "✅ Portainer detenido correctamente"
+        else
+            echo "❌ Error al detener Portainer"
+        fi
+    else
+        echo "ℹ️  Portainer ya está detenido"
+    fi
+
+    pause
+    menu_portainer
+}
+
+# Reinicia Portainer
+portainer_restart() {
+    clear
+    echo "======================================="
+    echo "🧰 PORTAINER - Reiniciar"
+    banner_menu_ambiente
+    echo "======================================="
+    echo ""
+
+    command -v docker >/dev/null 2>&1 || { 
+        echo "❌ docker CLI no disponible."
+        pause
+        menu_portainer
+        return 1
+    }
+
+    if ! docker ps -a --format '{{.Names}}' | grep -qx "$PORTAINER_NAME"; then
+        echo "ℹ️  El contenedor '$PORTAINER_NAME' no existe"
+        echo "   Se creará uno nuevo..."
+        pause
+        portainer_start
+        return $?
+    fi
+
+    echo "🔄 Reiniciando Portainer..."
+    if docker restart "$PORTAINER_NAME" >/dev/null 2>&1; then
+        echo "✅ Portainer reiniciado correctamente"
+        
+        local mapped_port
+        mapped_port=$(_get_portainer_mapped_port "$PORTAINER_NAME")
+        
+        if [[ -n "$mapped_port" ]]; then
+            echo "   └─ UI: http://localhost:${mapped_port}"
+        else
+            echo "⚠️  Contenedor reiniciado pero sin puerto publicado"
+            echo "   Recomendación: Use opción 6 (Recrear) para corregir el mapeo"
+        fi
+    else
+        echo "❌ Error al reiniciar Portainer"
+    fi
+
+    pause
+    menu_portainer
+}
+
+# Recrea Portainer (destruye y crea nuevo)
+portainer_recreate() {
+    clear
+    echo "======================================="
+    echo "🧰 PORTAINER - Recrear (Linux)"
+    banner_menu_ambiente
+    echo "======================================="
+    echo ""
+    
+    command -v docker >/dev/null 2>&1 || { 
+        echo "❌ docker CLI no disponible."
+        pause
+        menu_portainer
+        return 1
+    }
+    
+    echo "⚠️  Esta acción eliminará el contenedor actual"
+    echo "   El volumen '$PORTAINER_VOLUME' con los datos se conservará"
+    echo ""
+    echo "📊 Estado actual:"
+    if docker ps -a --format '{{.Names}}' | grep -qx "$PORTAINER_NAME"; then
+        echo "   └─ Contenedor: EXISTE"
+        docker ps -a --filter "name=$PORTAINER_NAME" --format "      Estado: {{.Status}}"
+    else
+        echo "   └─ Contenedor: NO EXISTE"
+    fi
+    
+    # Mostrar si Minio está usando el puerto
+    if command -v ss >/dev/null 2>&1; then
+        if ss -ltn | grep -q ":9000 "; then
+            echo "   └─ Puerto 9000: OCUPADO"
+        fi
+    fi
+    echo ""
+    
+    read -p "¿Confirmar recreación? (S/N): " confirm
+    if [[ ! "$confirm" =~ ^[Ss]$ ]]; then
+        echo "Operación cancelada"
+        pause
+        menu_portainer
+        return 0
+    fi
+    
+    # Configurar puerto
+    if ! _configure_portainer_port_linux "9000"; then
+        echo "❌ Error en configuración de puerto"
+        pause
+        menu_portainer
+        return 1
+    fi
+    
+    # Eliminar contenedor si existe
+    if docker ps -a --format '{{.Names}}' | grep -qx "$PORTAINER_NAME"; then
+        echo "🛑 Eliminando contenedor existente..."
+        docker stop "$PORTAINER_NAME" >/dev/null 2>&1
+        docker rm "$PORTAINER_NAME" >/dev/null 2>&1
+        echo "   ✅ Contenedor eliminado"
+    fi
+    
+    # Crear volumen si no existe
+    if ! docker volume ls --format '{{.Name}}' | grep -qx "$PORTAINER_VOLUME"; then
+        echo "📦 Creando volumen persistente..."
+        docker volume create "$PORTAINER_VOLUME" >/dev/null
+    fi
+    
+    # Crear nuevo contenedor
+    echo "🚀 Creando nuevo contenedor (puerto $PORTAINER_PORT)..."
+    echo ""
+    
+    local run_cmd="docker run -d \
+        --name $PORTAINER_NAME \
+        --restart unless-stopped \
+        -p ${PORTAINER_PORT}:9000 \
+        -p ${PORTAINER_PORT_HTTPS}:9443 \
+        -v /var/run/docker.sock:/var/run/docker.sock \
+        -v $PORTAINER_VOLUME:/data \
+        $PORTAINER_IMAGE"
+    
+    local output
+    output=$(eval "$run_cmd" 2>&1)
+    
+    if [[ $? -eq 0 ]] && [[ -n "$output" ]]; then
+        echo "✅ Portainer recreado exitosamente"
+        echo ""
+        echo "   ┌─────────────────────────────────────┐"
+        echo "   │  🌐 UI: http://localhost:${PORTAINER_PORT}  │"
+        echo "   │  🔒 HTTPS: https://localhost:${PORTAINER_PORT_HTTPS} │"
+        echo "   └─────────────────────────────────────┘"
+        echo ""
+        echo "⏳ Esperando 3 segundos..."
+        sleep 3
+    else
+        echo "❌ Error al crear el contenedor"
+        echo "   └─ $output"
+    fi
+    
+    pause
+    menu_portainer
+}
+
+# Elimina el contenedor de Portainer (con opción de eliminar persistencia)
+portainer_destroy() {
+    clear
+    echo "======================================="
+    echo "🧰 PORTAINER - Eliminar Contenedor"
+    banner_menu_ambiente
+    echo "======================================="
+    echo ""
+    
+    command -v docker >/dev/null 2>&1 || { 
+        echo "❌ docker CLI no disponible."
+        pause
+        menu_portainer
+        return 1
+    }
+    
+    if ! docker ps -a --format '{{.Names}}' | grep -qx "$PORTAINER_NAME"; then
+        echo "ℹ️  El contenedor '$PORTAINER_NAME' no existe"
+        pause
+        menu_portainer
+        return 0
+    fi
+    
+    echo "⚠️  ADVERTENCIA: Esta acción eliminará el contenedor '$PORTAINER_NAME'"
+    echo ""
+    
+    # Preguntar por el volumen
+    local delete_volume=false
+    if docker volume ls --format '{{.Name}}' | grep -qx "$PORTAINER_VOLUME"; then
+        echo "📦 Se detectó el volumen persistente: $PORTAINER_VOLUME"
+        echo "   Este volumen contiene TODAS las configuraciones de Portainer"
+        read -p "¿Desea eliminar TAMBIÉN el volumen con TODOS LOS DATOS? (s/N): " confirm_volume
+        if [[ "$confirm_volume" =~ ^[Ss]$ ]]; then
+            delete_volume=true
+            echo "⚠️  ¡ATENCIÓN! Se eliminarán TODAS las configuraciones de Portainer"
+        fi
+    fi
+    
+    echo ""
+    read -p "¿Confirmar eliminación del contenedor? (S/N): " confirm
+    if [[ ! "$confirm" =~ ^[Ss]$ ]]; then
+        echo "Operación cancelada"
+        pause
+        menu_portainer
+        return 0
+    fi
+    
+    echo "🛑 Deteniendo contenedor..."
+    docker stop "$PORTAINER_NAME" >/dev/null 2>&1
+    
+    echo "🗑️  Eliminando contenedor..."
+    if docker rm "$PORTAINER_NAME" >/dev/null 2>&1; then
+        echo "✅ Contenedor eliminado exitosamente"
+    else
+        echo "❌ Error al eliminar el contenedor"
+        pause
+        menu_portainer
+        return 1
+    fi
+    
+    # Eliminar volumen si se solicitó
+    if [[ "$delete_volume" == true ]]; then
+        echo ""
+        echo "🗑️  Eliminando volumen $PORTAINER_VOLUME..."
+        if docker volume rm "$PORTAINER_VOLUME" >/dev/null 2>&1; then
+            echo "✅ Volumen eliminado exitosamente"
+        else
+            echo "❌ Error al eliminar el volumen"
+        fi
+    else
+        echo ""
+        echo "📦 El volumen '$PORTAINER_VOLUME' conserva los datos"
+        echo "   Para eliminarlo manualmente: docker volume rm $PORTAINER_VOLUME"
+    fi
+    
+    pause
+    menu_portainer
+}
+
+# Abrir Portainer en navegador
+portainer_open_browser() {
+    clear
+    echo "======================================="
+    echo "🧰 PORTAINER - Abrir en navegador"
+    banner_menu_ambiente
+    echo "======================================="
+    echo ""
+
+    command -v docker >/dev/null 2>&1 || { 
+        echo "❌ docker CLI no disponible."
+        pause
+        menu_portainer
+        return 1
+    }
+
+    if ! docker ps --format '{{.Names}}' | grep -qx "$PORTAINER_NAME"; then
+        echo "❌ Portainer no está en ejecución"
+        echo "   Inícielo primero (opción 1)"
+        pause
+        menu_portainer
+        return 1
+    fi
+
+    local mapped_port
+    mapped_port=$(_get_portainer_mapped_port "$PORTAINER_NAME")
+    
+    if [[ -z "$mapped_port" ]]; then
+        echo "❌ No se detectó puerto publicado para Portainer"
+        echo "   Use la opción 6 (Recrear) para corregir esto"
+        pause
+        menu_portainer
+        return 1
+    fi
+
+    local url="http://localhost:${mapped_port}"
+    echo "🌐 Abriendo: $url"
+    
+    # Abrir navegador en Linux
+    if command -v xdg-open >/dev/null 2>&1; then
+        xdg-open "$url" >/dev/null 2>&1
+        echo "✅ Navegador abierto"
+    elif command -v gnome-open >/dev/null 2>&1; then
+        gnome-open "$url" >/dev/null 2>&1
+    elif command -v kde-open >/dev/null 2>&1; then
+        kde-open "$url" >/dev/null 2>&1
+    else
+        echo "⚠️  No se pudo abrir el navegador automáticamente"
+        echo "   Abra manualmente: $url"
+    fi
+
+    pause
+    menu_portainer
+}
+
+# Ver logs de Portainer
+portainer_logs() {
+    clear
+    echo "======================================="
+    echo "🧰 PORTAINER - Ver Logs"
+    banner_menu_ambiente
+    echo "======================================="
+    echo ""
+
+    command -v docker >/dev/null 2>&1 || { 
+        echo "❌ docker CLI no disponible."
+        pause
+        menu_portainer
+        return 1
+    }
+
+    if ! docker ps -a --format '{{.Names}}' | grep -qx "$PORTAINER_NAME"; then
+        echo "❌ El contenedor '$PORTAINER_NAME' no existe"
+        pause
+        menu_portainer
+        return 1
+    fi
+
+    echo "📋 Últimos 50 logs de Portainer:"
+    echo "────────────────────────────────────────────────────────"
+    docker logs --tail 50 "$PORTAINER_NAME" 2>&1
+    echo "────────────────────────────────────────────────────────"
+    echo ""
+    echo "💡 Para ver logs en tiempo real: docker logs -f $PORTAINER_NAME"
+    echo "   Para salir: Ctrl+C"
+
+    pause
+    menu_portainer
+}
+
+# Ver información detallada de Portainer
+portainer_info() {
+    clear
+    echo "======================================="
+    echo "🧰 PORTAINER - Información Detallada"
+    banner_menu_ambiente
+    echo "======================================="
+    echo ""
+
+    command -v docker >/dev/null 2>&1 || { 
+        echo "❌ docker CLI no disponible."
+        pause
+        menu_portainer
+        return 1
+    }
+
+    if ! docker ps -a --format '{{.Names}}' | grep -qx "$PORTAINER_NAME"; then
+        echo "❌ El contenedor '$PORTAINER_NAME' no existe"
+        pause
+        menu_portainer
+        return 1
+    fi
+
+    echo "📊 ESTADO DEL CONTENEDOR:"
+    echo "────────────────────────────────────────────────────────"
+    docker ps -a --filter "name=$PORTAINER_NAME" --format "   Nombre: {{.Names}}\n   Estado: {{.Status}}\n   Imagen: {{.Image}}\n   Creado: {{.CreatedAt}}\n   Puerto: {{.Ports}}"
+    echo ""
+
+    local mapped_port
+    mapped_port=$(_get_portainer_mapped_port "$PORTAINER_NAME")
+    
+    if [[ -n "$mapped_port" ]]; then
+        echo "🌐 URL DE ACCESO:"
+        echo "   └─ http://localhost:${mapped_port}"
+        echo "   └─ https://localhost:${PORTAINER_PORT_HTTPS}"
+    else
+        echo "⚠️  No hay puerto publicado para la UI"
+    fi
+    
+    echo ""
+    echo "📦 VOLUMEN PERSISTENTE:"
+    echo "   └─ Nombre: $PORTAINER_VOLUME"
+    
+    if docker volume ls --format '{{.Name}}' | grep -qx "$PORTAINER_VOLUME"; then
+        echo "   └─ Estado: ✅ Existe"
+        local volume_info=$(docker volume inspect "$PORTAINER_VOLUME" --format '   └─ Mountpoint: {{.Mountpoint}}' 2>/dev/null)
+        if [[ -n "$volume_info" ]]; then
+            echo "$volume_info"
+        fi
+    else
+        echo "   └─ Estado: ❌ No existe"
+    fi
+    
+    echo ""
+    echo "🔧 COMANDOS ÚTILES:"
+    echo "   └─ Ver logs: docker logs $PORTAINER_NAME"
+    echo "   └─ Shell: docker exec -it $PORTAINER_NAME sh"
+    echo "   └─ Detener: docker stop $PORTAINER_NAME"
+    echo "   └─ Iniciar: docker start $PORTAINER_NAME"
+    echo "   └─ Eliminar: docker rm $PORTAINER_NAME"
+
+    pause
+    menu_portainer
+}
+
 
 #############################################################
 ###       Funciones generales   
