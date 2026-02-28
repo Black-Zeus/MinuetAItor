@@ -277,6 +277,10 @@ app.include_router(version_statuses_router, prefix="/v1")
 from routers.v1.sendmail import router as sendmail_router
 app.include_router(sendmail_router, prefix="/v1")
 
+# Añadir en main.py junto a los otros routers:
+from routers.v1.minutes import router as minutes_router
+app.include_router(minutes_router, prefix="/v1")
+
 # ── System endpoints ──────────────────────────────────────────────────────────
 @app.get("/", tags=["System"])
 def root():
