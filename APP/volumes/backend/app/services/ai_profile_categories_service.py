@@ -48,9 +48,9 @@ def _user_ref(u) -> dict | None:
 
 def _build_response_dict(obj: AiProfileCategory) -> dict[str, Any]:
     return {
-        "id": int(obj.id),
-        "name": obj.name,
-        "isActive": bool(obj.is_active),
+        "id":        int(obj.id),
+        "name":      obj.name,
+        "is_active": bool(obj.is_active),   # ← snake_case: Pydantic lo valida y serializa como "isActive"
     }
 
 
@@ -81,7 +81,7 @@ def list_ai_profile_categories(db: Session, filters: AiProfileCategoryFilterRequ
     return {
         "items": [_build_response_dict(x) for x in items],
         "total": int(total),
-        "skip": int(filters.skip),
+        "skip":  int(filters.skip),
         "limit": int(filters.limit),
     }
 
@@ -92,18 +92,15 @@ def create_ai_profile_category(
     created_by_id: str,
 ) -> dict[str, Any]:
     name = body.name.strip()
-    _check_unique_name(db, name, exclude_id=None)
+    _check_unique_name(db, name)
 
     obj = AiProfileCategory(
         name=name,
-        is_active=bool(body.is_active),
+        is_active=body.is_active,
     )
-
     db.add(obj)
     db.commit()
     db.refresh(obj)
-
-    obj = _get_or_404(db, obj.id)
     return _build_response_dict(obj)
 
 
@@ -116,19 +113,15 @@ def update_ai_profile_category(
     obj = _get_or_404(db, id)
 
     if body.name is not None:
-        new_name = body.name.strip()
-        if new_name != obj.name:
-            _check_unique_name(db, new_name, exclude_id=obj.id)
-        obj.name = new_name
+        name = body.name.strip()
+        _check_unique_name(db, name, exclude_id=id)
+        obj.name = name
 
     if body.is_active is not None:
-        obj.is_active = bool(body.is_active)
+        obj.is_active = body.is_active
 
-    db.add(obj)
     db.commit()
     db.refresh(obj)
-
-    obj = _get_or_404(db, obj.id)
     return _build_response_dict(obj)
 
 
@@ -139,17 +132,17 @@ def change_ai_profile_category_status(
     updated_by_id: str,
 ) -> dict[str, Any]:
     obj = _get_or_404(db, id)
-    obj.is_active = bool(is_active)
-
-    db.add(obj)
+    obj.is_active = is_active
     db.commit()
     db.refresh(obj)
-
-    obj = _get_or_404(db, obj.id)
     return _build_response_dict(obj)
 
 
-def delete_ai_profile_category(db: Session, id: int, deleted_by_id: str) -> None:
+def delete_ai_profile_category(
+    db: Session,
+    id: int,
+    deleted_by_id: str,
+) -> None:
     obj = _get_or_404(db, id)
     db.delete(obj)
     db.commit()
