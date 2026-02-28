@@ -26,6 +26,31 @@ class Settings(BaseSettings):
     geo_block_enabled: bool = True 
     geo_allowed_countries: list[str] = ["CL"]
 
+    # OpenAI
+    openai_api_key: str
+    openai_model: str = "gpt-4o"
+    openai_assistant_id: str
+    openai_max_tokens: int = 16000
+    openai_timeout_seconds: int = 300
+
+    # MinIO
+    minio_host:          str = "minio"
+    minio_port:          int = 9000
+    minio_root_user:     str = "minioadmin"
+    minio_root_password: str = ""
+
+    # Minutes config
+    minutes_max_file_size_mb: int = 50
+    minutes_max_files_per_request: int = 10
+    minutes_rate_limit_per_day: int = 20
+    minutes_polling_interval_seconds: int = 3
+    minutes_max_polling_attempts: int = 100
+
+    # Redis TTLs
+    redis_ttl_file_id_days: int = 30
+    redis_ttl_transaction_hours: int = 24
+    redis_ttl_lock_seconds: int = 30
+
     @property
     def database_url(self) -> str:
         return (

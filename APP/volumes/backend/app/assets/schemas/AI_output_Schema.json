@@ -1,0 +1,775 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "MinuteDocument",
+    "description": "Esquema para documentos de minutas de reunión generadas automáticamente",
+    "type": "object",
+    "required": [
+        "metadata",
+        "inputInfo",
+        "aiSuggestedTags",
+        "generalInfo",
+        "participants",
+        "scope",
+        "agreements",
+        "requirements",
+        "upcomingMeetings"
+    ],
+    "additionalProperties": false,
+    "properties": {
+        "metadata": {
+            "type": "object",
+            "description": "Metadatos de la transacción y generación del documento",
+            "required": [
+                "transactionId",
+                "generatedAt",
+                "generatedBy",
+                "version"
+            ],
+            "additionalProperties": false,
+            "properties": {
+                "transactionId": {
+                    "type": "string",
+                    "description": "Identificador único de la transacción (UUID v4)",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                    "examples": [
+                        "550e8400-e29b-41d4-a716-446655440000"
+                    ]
+                },
+                "generatedAt": {
+                    "type": "string",
+                    "description": "Timestamp ISO 8601 de generación del documento",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$",
+                    "examples": [
+                        "2026-02-16T14:30:00Z"
+                    ]
+                },
+                "generatedBy": {
+                    "type": "string",
+                    "description": "Nombre completo de quien preparó la minuta",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "examples": [
+                        "Juan Perez"
+                    ]
+                },
+                "version": {
+                    "type": "string",
+                    "description": "Versión del esquema JSON (formato MAJOR.MINOR)",
+                    "pattern": "^\\d+\\.\\d+$",
+                    "examples": [
+                        "1.0",
+                        "2.1"
+                    ]
+                }
+            }
+        },
+        "inputInfo": {
+            "type": "object",
+            "description": "Información proporcionada manualmente por el usuario",
+            "required": [
+                "attachments",
+                "meetingSchedule",
+                "participants",
+                "projectInfo",
+                "profileInfo",
+                "additionalNotes",
+                "userProvidedTags"
+            ],
+            "additionalProperties": false,
+            "properties": {
+                "attachments": {
+                    "type": "array",
+                    "description": "Lista de archivos adjuntos procesados",
+                    "minItems": 1,
+                    "items": {
+                        "type": "object",
+                        "required": [
+                            "fileName",
+                            "mimeType",
+                            "sha256"
+                        ],
+                        "additionalProperties": false,
+                        "properties": {
+                            "fileName": {
+                                "type": "string",
+                                "description": "Nombre del archivo con extensión",
+                                "minLength": 1,
+                                "maxLength": 255,
+                                "examples": [
+                                    "transcripcion.txt",
+                                    "resumen.txt"
+                                ]
+                            },
+                            "mimeType": {
+                                "type": "string",
+                                "description": "Tipo MIME del archivo",
+                                "examples": [
+                                    "text/plain",
+                                    "application/pdf",
+                                    "text/html"
+                                ]
+                            },
+                            "sha256": {
+                                "type": "string",
+                                "description": "Hash SHA-256 del archivo",
+                                "pattern": "^[a-f0-9]{64}$",
+                                "examples": [
+                                    "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "meetingSchedule": {
+                    "type": "object",
+                    "description": "Información de programación de la reunión",
+                    "required": [
+                        "scheduledDate",
+                        "scheduledStartTime",
+                        "actualStartTime",
+                        "scheduledEndTime"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                        "scheduledDate": {
+                            "type": "string",
+                            "description": "Fecha programada (formato YYYY-MM-DD)",
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                            "examples": [
+                                "2026-02-12"
+                            ]
+                        },
+                        "scheduledStartTime": {
+                            "type": "string",
+                            "description": "Hora de inicio programada (formato HH:MM)",
+                            "pattern": "^\\d{2}:\\d{2}$",
+                            "examples": [
+                                "09:00",
+                                "14:30"
+                            ]
+                        },
+                        "actualStartTime": {
+                            "type": "string",
+                            "description": "Hora de inicio real o 'no definido' si no se puede extraer",
+                            "pattern": "^(\\d{2}:\\d{2}|no definido)$",
+                            "examples": [
+                                "09:05",
+                                "no definido"
+                            ]
+                        },
+                        "scheduledEndTime": {
+                            "type": "string",
+                            "description": "Hora de término programada (formato HH:MM)",
+                            "pattern": "^\\d{2}:\\d{2}$",
+                            "examples": [
+                                "10:00",
+                                "16:30"
+                            ]
+                        }
+                    }
+                },
+                "participants": {
+                    "type": "object",
+                    "description": "Participantes proporcionados por el usuario",
+                    "required": [
+                        "attendees",
+                        "copyRecipients"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                        "attendees": {
+                            "type": "array",
+                            "description": "Lista de nombres de asistentes",
+                            "items": {
+                                "type": "string",
+                                "minLength": 1
+                            }
+                        },
+                        "copyRecipients": {
+                            "type": "array",
+                            "description": "Lista de nombres de destinatarios de copia",
+                            "items": {
+                                "type": "string",
+                                "minLength": 1
+                            }
+                        }
+                    }
+                },
+                "projectInfo": {
+                    "type": "object",
+                    "description": "Información del proyecto",
+                    "required": [
+                        "client",
+                        "project",
+                        "minuteTitle",
+                        "titleGeneratedByAI"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                        "client": {
+                            "type": "string",
+                            "description": "Nombre del cliente/empresa",
+                            "minLength": 1,
+                            "maxLength": 200,
+                            "examples": [
+                                "Clínica Santa Aurora S.A."
+                            ]
+                        },
+                        "project": {
+                            "type": "string",
+                            "description": "Nombre del proyecto",
+                            "minLength": 1,
+                            "maxLength": 200,
+                            "examples": [
+                                "Desarrollo Web Corporativo"
+                            ]
+                        },
+                        "minuteTitle": {
+                            "type": "string",
+                            "description": "Título de la minuta",
+                            "minLength": 1,
+                            "maxLength": 300
+                        },
+                        "titleGeneratedByAI": {
+                            "type": "boolean",
+                            "description": "true si el título fue generado por IA, false si fue proporcionado por usuario"
+                        }
+                    }
+                },
+                "profileInfo": {
+                    "type": "object",
+                    "description": "Información del perfil utilizado",
+                    "required": [
+                        "profileId",
+                        "profileName"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                        "profileId": {
+                            "type": "string",
+                            "description": "Identificador único del perfil",
+                            "minLength": 1,
+                            "maxLength": 50,
+                            "examples": [
+                                "PROF-001"
+                            ]
+                        },
+                        "profileName": {
+                            "type": "string",
+                            "description": "Nombre descriptivo del perfil",
+                            "minLength": 1,
+                            "maxLength": 200,
+                            "examples": [
+                                "Seguimiento de Servicios (Service Review Semanal)"
+                            ]
+                        }
+                    }
+                },
+                "additionalNotes": {
+                    "type": "string",
+                    "description": "Notas adicionales proporcionadas por el usuario (puede ser vacío)"
+                },
+                "userProvidedTags": {
+                    "type": "array",
+                    "description": "Tags proporcionados por el usuario",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                }
+            }
+        },
+        "aiSuggestedTags": {
+            "type": "array",
+            "description": "Tags sugeridos por la IA con descripciones",
+            "items": {
+                "type": "object",
+                "required": [
+                    "name",
+                    "description"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "Nombre del tag (preferiblemente kebab-case)",
+                        "minLength": 1,
+                        "maxLength": 50,
+                        "examples": [
+                            "segmentación-red",
+                            "políticas-firewall"
+                        ]
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "Descripción del tag",
+                        "minLength": 1,
+                        "maxLength": 500
+                    }
+                }
+            }
+        },
+        "generalInfo": {
+            "type": "object",
+            "description": "Información general de la minuta para renderizado HTML",
+            "required": [
+                "client",
+                "subject",
+                "meetingDate",
+                "scheduledStartTime",
+                "actualStartTime",
+                "scheduledEndTime",
+                "actualEndTime",
+                "location",
+                "preparedBy"
+            ],
+            "additionalProperties": false,
+            "properties": {
+                "client": {
+                    "type": "string",
+                    "description": "Nombre del cliente/empresa",
+                    "minLength": 1,
+                    "maxLength": 200
+                },
+                "subject": {
+                    "type": "string",
+                    "description": "Tema(s) de la reunión",
+                    "minLength": 1,
+                    "maxLength": 500
+                },
+                "meetingDate": {
+                    "type": "string",
+                    "description": "Fecha de la reunión (formato DD/MM/YYYY)",
+                    "pattern": "^\\d{2}/\\d{2}/\\d{4}$",
+                    "examples": [
+                        "12/02/2026"
+                    ]
+                },
+                "scheduledStartTime": {
+                    "type": "string",
+                    "description": "Hora de inicio programada (formato HH:MM)",
+                    "pattern": "^\\d{2}:\\d{2}$"
+                },
+                "actualStartTime": {
+                    "type": "string",
+                    "description": "Hora de inicio real o 'no definido'",
+                    "pattern": "^(\\d{2}:\\d{2}|no definido)$"
+                },
+                "scheduledEndTime": {
+                    "type": "string",
+                    "description": "Hora de término programada (formato HH:MM)",
+                    "pattern": "^\\d{2}:\\d{2}$"
+                },
+                "actualEndTime": {
+                    "type": "string",
+                    "description": "Hora de término real calculada o 'no definido' (NUNCA enviada manualmente)",
+                    "pattern": "^(\\d{2}:\\d{2}|no definido)$"
+                },
+                "location": {
+                    "type": "string",
+                    "description": "Lugar o plataforma de la reunión",
+                    "maxLength": 200,
+                    "examples": [
+                        "Microsoft Teams",
+                        "Zoom",
+                        "Presencial - Sala Ejecutiva"
+                    ]
+                },
+                "preparedBy": {
+                    "type": "string",
+                    "description": "Nombre de quien preparó la minuta",
+                    "minLength": 1,
+                    "maxLength": 200
+                }
+            }
+        },
+        "participants": {
+            "type": "object",
+            "description": "Participantes de la reunión (procesados)",
+            "required": [
+                "invited",
+                "attendees",
+                "copyRecipients"
+            ],
+            "additionalProperties": false,
+            "properties": {
+                "invited": {
+                    "type": "array",
+                    "description": "Lista de invitados",
+                    "items": {
+                        "type": "object",
+                        "required": [
+                            "fullName",
+                            "initials"
+                        ],
+                        "additionalProperties": false,
+                        "properties": {
+                            "fullName": {
+                                "type": "string",
+                                "description": "Nombre completo de la persona",
+                                "minLength": 1,
+                                "maxLength": 200
+                            },
+                            "initials": {
+                                "type": "string",
+                                "description": "Iniciales (2-4 letras mayúsculas)",
+                                "pattern": "^[A-Z]{2,4}$",
+                                "examples": [
+                                    "JP",
+                                    "JCP",
+                                    "JCPM"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "attendees": {
+                    "type": "array",
+                    "description": "Lista de asistentes",
+                    "items": {
+                        "type": "object",
+                        "required": [
+                            "fullName",
+                            "initials"
+                        ],
+                        "additionalProperties": false,
+                        "properties": {
+                            "fullName": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 200
+                            },
+                            "initials": {
+                                "type": "string",
+                                "pattern": "^[A-Z]{2,4}$"
+                            }
+                        }
+                    }
+                },
+                "copyRecipients": {
+                    "type": "array",
+                    "description": "Lista de destinatarios de copia",
+                    "items": {
+                        "type": "object",
+                        "required": [
+                            "fullName",
+                            "initials"
+                        ],
+                        "additionalProperties": false,
+                        "properties": {
+                            "fullName": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 200
+                            },
+                            "initials": {
+                                "type": "string",
+                                "pattern": "^[A-Z]{2,4}$"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "scope": {
+            "type": "object",
+            "description": "Alcances de la reunión",
+            "required": [
+                "sections"
+            ],
+            "additionalProperties": false,
+            "properties": {
+                "sections": {
+                    "type": "array",
+                    "description": "Secciones de alcances",
+                    "minItems": 1,
+                    "items": {
+                        "type": "object",
+                        "required": [
+                            "sectionId",
+                            "sectionTitle",
+                            "sectionType",
+                            "content"
+                        ],
+                        "additionalProperties": false,
+                        "properties": {
+                            "sectionId": {
+                                "type": "string",
+                                "description": "Identificador único (formato SCOPE-XXX)",
+                                "pattern": "^SCOPE-\\d{3}$",
+                                "examples": [
+                                    "SCOPE-001",
+                                    "SCOPE-042"
+                                ]
+                            },
+                            "sectionTitle": {
+                                "type": "string",
+                                "description": "Título de la sección",
+                                "minLength": 1,
+                                "maxLength": 200
+                            },
+                            "sectionType": {
+                                "type": "string",
+                                "description": "Tipo de sección",
+                                "enum": [
+                                    "introduction",
+                                    "topic",
+                                    "conclusion"
+                                ]
+                            },
+                            "content": {
+                                "type": "object",
+                                "required": [
+                                    "summary"
+                                ],
+                                "additionalProperties": false,
+                                "properties": {
+                                    "summary": {
+                                        "type": "string",
+                                        "description": "Resumen/descripción general",
+                                        "minLength": 1
+                                    },
+                                    "topicsList": {
+                                        "type": "array",
+                                        "description": "Lista de temas (solo para introduction)",
+                                        "items": {
+                                            "type": "string",
+                                            "minLength": 1
+                                        }
+                                    },
+                                    "details": {
+                                        "type": "array",
+                                        "description": "Detalles específicos (solo para topic)",
+                                        "items": {
+                                            "type": "object",
+                                            "required": [
+                                                "label",
+                                                "description"
+                                            ],
+                                            "additionalProperties": false,
+                                            "properties": {
+                                                "label": {
+                                                    "type": "string",
+                                                    "description": "Etiqueta/título del detalle",
+                                                    "minLength": 1,
+                                                    "maxLength": 200
+                                                },
+                                                "description": {
+                                                    "type": "string",
+                                                    "description": "Descripción del detalle",
+                                                    "minLength": 1
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "agreements": {
+            "type": "object",
+            "description": "Acuerdos de la reunión",
+            "required": [
+                "items"
+            ],
+            "additionalProperties": false,
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "description": "Lista de acuerdos",
+                    "items": {
+                        "type": "object",
+                        "required": [
+                            "agreementId",
+                            "subject",
+                            "body",
+                            "responsible",
+                            "status"
+                        ],
+                        "additionalProperties": false,
+                        "properties": {
+                            "agreementId": {
+                                "type": "string",
+                                "description": "Identificador único (formato AGR-XXX)",
+                                "pattern": "^AGR-\\d{3}$",
+                                "examples": [
+                                    "AGR-001",
+                                    "AGR-042"
+                                ]
+                            },
+                            "subject": {
+                                "type": "string",
+                                "description": "Asunto/título del acuerdo",
+                                "minLength": 1,
+                                "maxLength": 200
+                            },
+                            "body": {
+                                "type": "string",
+                                "description": "Cuerpo/descripción del acuerdo",
+                                "minLength": 1
+                            },
+                            "responsible": {
+                                "type": "string",
+                                "description": "Nombre del responsable",
+                                "minLength": 1,
+                                "maxLength": 200
+                            },
+                            "dueDate": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "description": "Fecha límite (formato ISO 8601) o null",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+                            },
+                            "status": {
+                                "type": "string",
+                                "description": "Estado del acuerdo",
+                                "enum": [
+                                    "pending",
+                                    "in_progress",
+                                    "completed",
+                                    "cancelled"
+                                ]
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "requirements": {
+            "type": "object",
+            "description": "Requerimientos de la reunión",
+            "required": [
+                "items"
+            ],
+            "additionalProperties": false,
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "description": "Lista de requerimientos",
+                    "items": {
+                        "type": "object",
+                        "required": [
+                            "requirementId",
+                            "entity",
+                            "body",
+                            "responsible",
+                            "priority",
+                            "status"
+                        ],
+                        "additionalProperties": false,
+                        "properties": {
+                            "requirementId": {
+                                "type": "string",
+                                "description": "Identificador único (formato REQ-XXX)",
+                                "pattern": "^REQ-\\d{3}$",
+                                "examples": [
+                                    "REQ-001",
+                                    "REQ-042"
+                                ]
+                            },
+                            "entity": {
+                                "type": "string",
+                                "description": "Entidad responsable del requerimiento",
+                                "minLength": 1,
+                                "maxLength": 200
+                            },
+                            "body": {
+                                "type": "string",
+                                "description": "Descripción del requerimiento",
+                                "minLength": 1
+                            },
+                            "responsible": {
+                                "type": "string",
+                                "description": "Nombre del responsable",
+                                "minLength": 1,
+                                "maxLength": 200
+                            },
+                            "priority": {
+                                "type": "string",
+                                "description": "Prioridad del requerimiento",
+                                "enum": [
+                                    "low",
+                                    "medium",
+                                    "high",
+                                    "critical"
+                                ]
+                            },
+                            "status": {
+                                "type": "string",
+                                "description": "Estado del requerimiento",
+                                "enum": [
+                                    "open",
+                                    "in_progress",
+                                    "resolved",
+                                    "closed"
+                                ]
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "upcomingMeetings": {
+            "type": "object",
+            "description": "Próximas reuniones programadas",
+            "required": [
+                "items"
+            ],
+            "additionalProperties": false,
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "description": "Lista de próximas reuniones",
+                    "items": {
+                        "type": "object",
+                        "required": [
+                            "meetingId",
+                            "scheduledDate",
+                            "agenda",
+                            "attendees"
+                        ],
+                        "additionalProperties": false,
+                        "properties": {
+                            "meetingId": {
+                                "type": "string",
+                                "description": "Identificador único (formato MEET-XXX)",
+                                "pattern": "^MEET-\\d{3}$",
+                                "examples": [
+                                    "MEET-001",
+                                    "MEET-042"
+                                ]
+                            },
+                            "scheduledDate": {
+                                "type": "string",
+                                "description": "Fecha programada (DD/MM/YYYY) o 'Por definir'",
+                                "pattern": "^(\\d{2}/\\d{2}/\\d{4}|Por definir)$",
+                                "examples": [
+                                    "22/01/2026",
+                                    "Por definir"
+                                ]
+                            },
+                            "agenda": {
+                                "type": "string",
+                                "description": "Agenda de la reunión",
+                                "minLength": 1
+                            },
+                            "attendees": {
+                                "type": "array",
+                                "description": "Lista de asistentes confirmados",
+                                "items": {
+                                    "type": "string",
+                                    "minLength": 1
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
