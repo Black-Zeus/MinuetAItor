@@ -1,21 +1,21 @@
 /**
- * TagsStats.jsx (alineado a ProjectStats / ClientStats template)
- * - StatsCard reutilizable con palette por color
- * - Grid responsiva (1 -> 3 columnas)
+ * TagsStats.jsx
+ * Estadísticas de Tags — recibe prop `stats` del padre (Tags.jsx)
+ * Patrón: ProjectStats / ClientStats / TeamsStats
  */
 
-import React, { useMemo } from "react";
+import React from "react";
 import Icon from "@/components/ui/icon/iconManager";
 
 const TXT_TITLE = "text-gray-900 dark:text-white";
-const TXT_META = "text-gray-500 dark:text-gray-400";
+const TXT_META  = "text-gray-500 dark:text-gray-400";
 
 const StatsCard = ({ icon, label, value, color }) => {
   const colorClasses = {
-    primary:
-      "bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400",
-    green: "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400",
-    gray: "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400",
+    primary: "bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400",
+    green:   "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400",
+    gray:    "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400",
+    purple:  "bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400",
   };
 
   return (
@@ -27,7 +27,6 @@ const StatsCard = ({ icon, label, value, color }) => {
             {value}
           </p>
         </div>
-
         <div className={`p-3 rounded-lg ${colorClasses[color] || colorClasses.primary}`}>
           <Icon name={icon} className="w-5 h-5" />
         </div>
@@ -36,37 +35,35 @@ const StatsCard = ({ icon, label, value, color }) => {
   );
 };
 
-export default function TagsStats({ tags = [] }) {
-  const stats = useMemo(() => {
-    const total = Array.isArray(tags) ? tags.length : 0;
-    const activos = Array.isArray(tags)
-      ? tags.filter((t) => t?.status === "active").length
-      : 0;
-    const inactivos = total - activos;
-
-    return { total, activos, inactivos };
-  }, [tags]);
-
+const TagsStats = ({ stats = {} }) => {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
       <StatsCard
         icon="FaTags"
         label="Total Tags"
-        value={stats.total}
+        value={stats.total ?? 0}
         color="primary"
       />
       <StatsCard
         icon="FaCheckCircle"
         label="Activos"
-        value={stats.activos}
+        value={stats.activos ?? 0}
         color="green"
       />
       <StatsCard
         icon="FaPauseCircle"
         label="Inactivos"
-        value={stats.inactivos}
+        value={stats.inactivos ?? 0}
         color="gray"
+      />
+      <StatsCard
+        icon="FaLayerGroup"
+        label="Categorías"
+        value={stats.totalCategorias ?? 0}
+        color="purple"
       />
     </div>
   );
-}
+};
+
+export default TagsStats;

@@ -54,18 +54,18 @@ def _check_unique_cat_name(db: Session, category_id: int, name: str, exclude_id:
 def _build_response_dict(obj: Tag) -> dict:
     return {
         "id": str(obj.id),
-        "categoryId": int(obj.category_id),
+        "category_id": int(obj.category_id),   
         "name": obj.name,
         "description": obj.description,
         "source": str(obj.source.value) if hasattr(obj.source, "value") else str(obj.source),
         "status": obj.status,
-        "isActive": bool(obj.is_active),
-        "createdAt": obj.created_at.isoformat() if obj.created_at else None,
-        "updatedAt": obj.updated_at.isoformat() if obj.updated_at else None,
-        "deletedAt": obj.deleted_at.isoformat() if obj.deleted_at else None,
-        "createdBy": _user_ref(getattr(obj, "created_by_user", None)),
-        "updatedBy": _user_ref(getattr(obj, "updated_by_user", None)),
-        "deletedBy": _user_ref(getattr(obj, "deleted_by_user", None)),
+        "is_active": bool(obj.is_active),      
+        "created_at": obj.created_at.isoformat() if obj.created_at else None,  
+        "updated_at": obj.updated_at.isoformat() if obj.updated_at else None,  
+        "deleted_at": obj.deleted_at.isoformat() if obj.deleted_at else None,  
+        "created_by": _user_ref(getattr(obj, "created_by_user", None)),        
+        "updated_by": _user_ref(getattr(obj, "updated_by_user", None)),        
+        "deleted_by": _user_ref(getattr(obj, "deleted_by_user", None)),        
     }
 
 
