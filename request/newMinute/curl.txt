@@ -1,0 +1,75 @@
+curl -X POST "http://localhost:8000/v1/minutes/generate" \
+  -H "Authorization: Bearer TU_TOKEN_AQUI" \
+  -F 'input_json={
+  "meetingInfo": {
+    "title": "Reunión de planificación Q1 2024",
+    "date": "2024-01-15",
+    "time": "10:00",
+    "duration": "01:30",
+    "location": "Sala de Conferencias 3",
+    "meeting_type": "planificacion",
+    "objective": "Definir objetivos y KPIs para el primer trimestre",
+    "agenda": [
+      "Revisión de resultados Q4 2023",
+      "Definición de metas Q1 2024",
+      "Asignación de recursos",
+      "Próximos pasos"
+    ]
+  },
+  "projectInfo": {
+    "client": "Empresa XYZ S.A.",
+    "project": "Implementación CRM Salesforce",
+    "project_code": "CRM-2024-001"
+  },
+  "participants": {
+    "attendees": [
+      {
+        "name": "Juan Pérez",
+        "email": "juan.perez@empresaxyz.com",
+        "role": "Project Manager"
+      },
+      {
+        "name": "María González",
+        "email": "maria.gonzalez@empresaxyz.com",
+        "role": "Technical Lead"
+      },
+      {
+        "name": "Carlos Rodríguez",
+        "email": "carlos.rodriguez@consultora.com",
+        "role": "Consultor Senior"
+      }
+    ],
+    "optional_attendees": [
+      {
+        "name": "Ana Martínez",
+        "email": "ana.martinez@empresaxyz.com",
+        "role": "Observadora"
+      }
+    ],
+    "absentees": [
+      {
+        "name": "Pedro Sánchez",
+        "email": "pedro.sanchez@empresaxyz.com",
+        "role": "Arquitecto",
+        "excuse": "Vacaciones"
+      }
+    ]
+  },
+  "profileInfo": {
+    "profile_id": "perfil-ejecutivo-001",
+    "profile_name": "Perfil Ejecutivo",
+    "template_preferences": {
+      "language": "es",
+      "detail_level": "detallado",
+      "include_action_items": true,
+      "include_next_steps": true
+    }
+  },
+  "preparedBy": {
+    "name": "Laura Torres",
+    "email": "laura.torres@consultora.com",
+    "role": "Analista"
+  }
+}' \
+  -F "files=@/ruta/a/tu/transcripcion.txt" \
+  -F "files=@/ruta/a/tu/resumen.pdf"
