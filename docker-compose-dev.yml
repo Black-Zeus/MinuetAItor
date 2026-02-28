@@ -95,7 +95,6 @@ services:
     logging: *default-logging
     <<: *resources-medium
 
-
   frontend:
     container_name: ${PROJECT_NAME}-frontend
     labels:
@@ -149,6 +148,12 @@ services:
       MINIO_HOST: ${MINIO_HOST:-minio}
       MINIO_PORT: ${MINIO_PORT:-9000}
       JWT_SECRET: ${JWT_SECRET}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_MODEL: ${OPENAI_MODEL}
+      OPENAI_ASSISTANT_ID: ${OPENAI_ASSISTANT_ID}
+      OPENAI_MAX_TOKENS: ${OPENAI_MAX_TOKENS}
+      MINUTES_MAX_FILE_SIZE_MB: ${MINUTES_MAX_FILE_SIZE_MB}
+      MINUTES_RATE_LIMIT_PER_DAY: ${MINUTES_RATE_LIMIT_PER_DAY}
     env_file:
       - ./APP/volumes/backend/.env
     volumes:
