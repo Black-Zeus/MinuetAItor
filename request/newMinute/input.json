@@ -1,66 +1,39 @@
 {
     "meetingInfo": {
-        "title": "Reunión de planificación Q1 2024",
-        "date": "2024-01-15",
-        "time": "10:00",
-        "duration": "01:30",
-        "location": "Sala de Conferencias 3",
-        "meeting_type": "planificacion",
-        "objective": "Definir objetivos y KPIs para el primer trimestre",
-        "agenda": []
+        "scheduledDate": "2024-01-15",
+        "scheduledStartTime": "10:00",
+        "scheduledEndTime": "11:30",
+        "actualStartTime": "10:05",
+        "actualEndTime": "11:35",
+        "location": "Microsoft Teams",
+        "title": "Reunión de planificación Q1 2024"
     },
     "projectInfo": {
-        "client": "Empresa XYZ S.A.",
-        "project": "Implementación CRM Salesforce",
-        "project_code": "CRM-2024-001"
+        "client": "Clínica Santa Aurora",
+        "project": "Implementación HIS",
+        "clientId": "c1000000-0000-4000-a000-000000000001",
+        "projectId": "p1000000-0000-4000-a000-000000000001"
     },
     "participants": {
         "attendees": [
-            {
-                "name": "Juan Pérez",
-                "email": "juan.perez@empresaxyz.com",
-                "role": "Project Manager"
-            },
-            {
-                "name": "María González",
-                "email": "maria.gonzalez@empresaxyz.com",
-                "role": "Technical Lead"
-            },
-            {
-                "name": "Carlos Rodríguez",
-                "email": "carlos.rodriguez@consultora.com",
-                "role": "Consultor Senior"
-            }
+            "Juan Pérez",
+            "María González",
+            "Carlos Rodríguez"
         ],
-        "optional_attendees": [
-            {
-                "name": "Ana Martínez",
-                "email": "ana.martinez@empresaxyz.com",
-                "role": "Observadora"
-            }
+        "invited": [
+            "Pedro Sánchez"
         ],
-        "absentees": [
-            {
-                "name": "Pedro Sánchez",
-                "email": "pedro.sanchez@empresaxyz.com",
-                "role": "Arquitecto",
-                "excuse": "Vacaciones"
-            }
+        "copyRecipients": [
+            "Ana Martínez"
         ]
     },
     "profileInfo": {
-        "profile_id": "perfil-ejecutivo-001",
-        "profile_name": "Perfil Ejecutivo",
-        "template_preferences": {
-            "language": "es",
-            "detail_level": "detallado",
-            "include_action_items": true,
-            "include_next_steps": true
-        }
+        "profileId": "d3e88ebe-14eb-11f1-9fb3-56bc49539218",
+        "profileName": "Reunión de Seguimiento Semanal (Weekly Status)"
     },
-    "preparedBy": {
-        "name": "Laura Torres",
-        "email": "laura.torres@consultora.com",
-        "role": "Analista"
+    "preparedBy": "Laura Torres",
+    "additionalNotes": "Reunión de planificación trimestral. Énfasis en asignación de recursos.",
+    "generationOptions": {
+        "language": "es"
     }
 }
