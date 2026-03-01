@@ -44,3 +44,6 @@ APP/data/settings/nginx/certs/
 # OS
 .DS_Store
 Thumbs.db
+
+#temp json AI Response
+APP/volumes/backend/app/assets/temp/*
