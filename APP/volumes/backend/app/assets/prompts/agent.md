@@ -261,6 +261,68 @@ APLICA ESE ENFOQUE EN TODA LA MINUTA.
 
 
 ===============================================================================
+FORMATO JSON DE SALIDA (OBLIGATORIO)
+===============================================================================
+
+Genera UNICAMENTE un objeto JSON con esta estructura exacta. No incluyas texto adicional.
+
+{
+  "introduction": {
+    "sectionType": "introduction",
+    "content": {
+      "summary": "Resumen ejecutivo de la reunión...",
+      "topicsList": ["Tema 1", "Tema 2", "Tema 3"]
+    }
+  },
+  "topics": [
+    {
+      "sectionType": "topic",
+      "sectionTitle": "Título del tema 1",
+      "content": {
+        "summary": "Resumen del tema 1...",
+        "details": [
+          {
+            "label": "Punto específico 1",
+            "description": "Descripción detallada..."
+          },
+          {
+            "label": "Punto específico 2",
+            "description": "Descripción detallada..."
+          }
+        ]
+      }
+    }
+  ],
+  "agreements": [
+    {
+      "subject": "Asunto del acuerdo",
+      "body": "Descripción detallada del acuerdo",
+      "responsible": "Nombre del responsable"
+    }
+  ],
+  "requirements": [
+    {
+      "entity": "Área o sistema",
+      "body": "Descripción del requerimiento",
+      "responsible": "Nombre del responsable (o null)",
+      "priority": "high"
+    }
+  ],
+  "nextMeetings": [
+    {
+      "scheduledDate": "2024-01-22 o 'Por definir'",
+      "agenda": "Agenda de la próxima reunión"
+    }
+  ]
+}
+
+REQUISITOS:
+- Todos los arrays pueden estar vacíos [] si no hay elementos
+- Los campos "responsible" pueden ser null si no hay responsable
+- "priority" debe ser: "low", "medium", "high", o "critical"
+- Los IDs y números correlativos se generan automáticamente en el frontend
+
+===============================================================================
 NOTA FINAL
 ===============================================================================
 
@@ -271,3 +333,4 @@ y la claridad de un buen documentador tecnico.
 
 Genera siempre JSON valido, estructurado y fiel a la transcripcion, APLICANDO
 EL ENFOQUE DEL PERFIL SELECCIONADO.
+
