@@ -615,3 +615,104 @@ FROM (
 ) v
 JOIN ai_profile_categories pc
   ON pc.name = v.category;
+
+
+-- Clientes
+-- ============================================================
+-- CLIENTES (3)
+-- ============================================================
+
+INSERT INTO clients (
+  id, name, legal_name, industry, email, phone,
+  contact_name, contact_email, contact_position,
+  status, priority, is_confidential, is_active
+) VALUES
+(
+  'c1000000-0000-4000-a000-000000000001',
+  'Clínica Santa Aurora',
+  'Clínica Santa Aurora S.A.',
+  'Salud',
+  'contacto@santaaurora.cl',
+  '+56 2 2345 6789',
+  'Dr. Felipe Contreras',
+  'fcontreras@santaaurora.cl',
+  'Gerente de TI',
+  'activo', 'alta', 0, 1
+),
+(
+  'c1000000-0000-4000-a000-000000000002',
+  'Constructora Del Valle',
+  'Constructora Del Valle Ltda.',
+  'Construcción',
+  'info@delvalle.cl',
+  '+56 2 2987 6543',
+  'Ing. Rosa Valenzuela',
+  'rvalenzuela@delvalle.cl',
+  'Jefa de Proyectos',
+  'activo', 'media', 0, 1
+),
+(
+  'c1000000-0000-4000-a000-000000000003',
+  'Retail Pacífico',
+  'Retail Pacífico SpA',
+  'Comercio',
+  'operaciones@retailpacifico.cl',
+  '+56 9 8765 4321',
+  'Andrea Matus',
+  'amatus@retailpacifico.cl',
+  'Directora de Operaciones',
+  'activo', 'media', 0, 1
+);
+
+
+-- ============================================================
+-- PROYECTOS (5)
+-- ============================================================
+
+INSERT INTO projects (
+  id, client_id, name, code, description, status, is_confidential, is_active
+) VALUES
+-- Clínica Santa Aurora → 2 proyectos
+(
+  'p1000000-0000-4000-a000-000000000001',
+  'c1000000-0000-4000-a000-000000000001',
+  'Implementación HIS',
+  'CSA-HIS-2026',
+  'Implementación del sistema de información hospitalaria (HIS). Módulos: admisiones, urgencias y pabellón.',
+  'activo', 0, 1
+),
+(
+  'p1000000-0000-4000-a000-000000000002',
+  'c1000000-0000-4000-a000-000000000001',
+  'Ciberseguridad y Cumplimiento',
+  'CSA-SEC-2026',
+  'Auditoría de seguridad y plan de remediación para cumplimiento normativa MINSAL.',
+  'activo', 1, 1
+),
+-- Constructora Del Valle → 2 proyectos
+(
+  'p1000000-0000-4000-a000-000000000003',
+  'c1000000-0000-4000-a000-000000000002',
+  'Digitalización de Obra',
+  'CDV-DIG-2026',
+  'Plataforma móvil para control de avance de obra, reportes y firma digital de documentos en terreno.',
+  'activo', 0, 1
+),
+(
+  'p1000000-0000-4000-a000-000000000004',
+  'c1000000-0000-4000-a000-000000000002',
+  'ERP Integración SAP',
+  'CDV-ERP-2025',
+  'Migración e integración del ERP corporativo con módulo de proveedores y facturación electrónica.',
+  'en_pausa', 0, 1
+),
+-- Retail Pacífico → 1 proyecto
+(
+  'p1000000-0000-4000-a000-000000000005',
+  'c1000000-0000-4000-a000-000000000003',
+  'Omnicanalidad 360',
+  'RPC-OMN-2026',
+  'Integración de canales online y tiendas físicas: inventario unificado, click & collect y CRM.',
+  'activo', 0, 1
+);
+

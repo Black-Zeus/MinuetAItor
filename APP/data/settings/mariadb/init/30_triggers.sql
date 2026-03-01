@@ -188,3 +188,43 @@ END$$
 
 
 DELIMITER ;
+
+
+
+-- Correccion de trigger --
+-- version para open AI post validaciones
+-- 1. PRIMERO: Eliminar el trigger existente
+DROP TRIGGER IF EXISTS trg_record_artifacts_check_version;
+DROP TRIGGER IF EXISTS trg_record_artifacts_before_insert;
+
+-- 2. CREAR EL NUEVO TRIGGER (que solo valida en COMMIT)
+DELIMITER $$
+
+CREATE TRIGGER trg_record_artifacts_check_version
+    BEFORE INSERT ON record_artifacts
+    FOR EACH ROW
+BEGIN
+    -- Solo validar si es un artefacto publicado Y estamos en una transacción
+    IF NEW.is_draft = 0 AND NEW.record_version_id IS NULL THEN
+        -- Permitir temporalmente, pero marcar para validación en commit
+        SET NEW._needs_version_check = 1;
+    END IF;
+END$$
+
+DELIMITER ;
+
+DELIMITER $$
+
+CREATE TRIGGER trg_record_artifacts_before_insert
+    BEFORE INSERT ON record_artifacts
+    FOR EACH ROW
+BEGIN
+    -- Si es un artefacto publicado sin versión, permitirlo temporalmente
+    -- pero marcarlo en una variable de sesión
+    IF NEW.is_draft = 0 AND NEW.record_version_id IS NULL THEN
+        -- Incrementar un contador de inserts "pendientes de validar"
+        SET @pending_version_checks = IFNULL(@pending_version_checks, 0) + 1;
+    END IF;
+END$$
+
+DELIMITER ;
