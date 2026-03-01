@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 
 from db.session import get_db
 from schemas.auth import UserSession
-from schemas.minutes import MinuteGenerateResponse, MinuteStatusResponse
+from schemas.minutes import MinuteGenerateRequest, MinuteGenerateResponse, MinuteStatusResponse
 from services.auth_service import get_current_user
 from services.minutes_service import generate_minute, get_minute_status
 
@@ -43,54 +43,53 @@ async def current_user_dep(
 
 @router.post(
     "/generate",
-    response_model=MinuteGenerateResponse,
-    status_code=status.HTTP_202_ACCEPTED,
-    summary="Generar minuta desde transcripción",
+    response_model = MinuteGenerateResponse,
+    status_code    = status.HTTP_202_ACCEPTED,
+    summary        = "Generar minuta desde transcripción",
 )
 async def generate_endpoint(
-    input_json: str       = Form(..., description="JSON serializado con MinuteGenerateRequest"),
+    input_json: str            = Form(..., description="JSON serializado con MinuteGenerateRequest"),
     files:      list[UploadFile] = File(..., description="Archivos adjuntos (transcripción, resumen, etc.)"),
-    db:         Session   = Depends(get_db),
-    session:    UserSession = Depends(current_user_dep),
+    db:         Session        = Depends(get_db),
+    session:    UserSession    = Depends(current_user_dep),
 ):
     """
     Recibe el formulario de nueva minuta desde el frontend (NewMinute.jsx).
-    
-    - input_json: JSON string con meetingInfo, projectInfo, participants, profileInfo, preparedBy
-    - files:      1-10 archivos (transcripción requerida, resumen opcional)
-    
+
+    - input_json : JSON string con meetingInfo, projectInfo, participants, profileInfo, preparedBy
+    - files      : 1-10 archivos (transcripción requerida, resumen opcional)
+
     Procesa síncronamente en esta versión (TODO: mover a worker async).
     Retorna 202 con transactionId + recordId para que el frontend navegue al editor.
     """
-    from schemas.minutes import MinuteGenerateRequest
 
     # Parsear y validar el JSON
     try:
-        data = json.loads(input_json)
+        data    = json.loads(input_json)
         request = MinuteGenerateRequest.model_validate(data)
     except json.JSONDecodeError as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"input_json no es JSON válido: {e}",
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail      = f"input_json no es JSON válido: {e}",
         )
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Validación fallida: {e}",
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail      = f"Validación fallida: {e}",
         )
 
     # Validar que hay al menos un archivo
     if not files:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Se requiere al menos un archivo adjunto (transcripción).",
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail      = "Se requiere al menos un archivo adjunto (transcripción).",
         )
 
     # Validar que hay al menos un asistente
     if not request.participants.attendees:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Se requiere al menos un asistente en participants.attendees.",
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail      = "Se requiere al menos un asistente en participants.attendees.",
         )
 
     logger.info(
@@ -101,10 +100,9 @@ async def generate_endpoint(
     )
 
     return await generate_minute(
-        db            = db,
-        request       = request,
-        
-        files         = files,
+        db              = db,
+        request         = request,
+        files           = files,
         requested_by_id = session.user_id,
     )
 
@@ -113,11 +111,11 @@ async def generate_endpoint(
 
 @router.get(
     "/{transaction_id}/status",
-    response_model=MinuteStatusResponse,
-    status_code=status.HTTP_200_OK,
-    summary="Estado de la transacción de generación",
+    response_model = MinuteStatusResponse,
+    status_code    = status.HTTP_200_OK,
+    summary        = "Estado de la transacción de generación",
 )
-def status_endpoint(
+async def status_endpoint(
     transaction_id: str,
     db:             Session     = Depends(get_db),
     session:        UserSession = Depends(current_user_dep),
@@ -126,7 +124,4 @@ def status_endpoint(
     Retorna el estado actual de una transacción de generación de minuta.
     Útil para polling desde el frontend mientras la IA procesa.
     """
-    import asyncio
-    return asyncio.get_event_loop().run_until_complete(
-        get_minute_status(db, transaction_id)
-    )
+    return await get_minute_status(db, transaction_id)
