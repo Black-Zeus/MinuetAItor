@@ -5,12 +5,11 @@
         "scheduledEndTime": "11:30",
         "actualStartTime": "10:05",
         "actualEndTime": "11:35",
-        "location": "Microsoft Teams",
-        "title": "Reunión de planificación Q1 2024"
+        "location": "Microsoft Teams"
     },
     "projectInfo": {
-        "client": "Clínica Santa Aurora",
-        "project": "Implementación HIS",
+        "client": "Minera Goldfields",
+        "project": "Servicios IT",
         "clientId": "c1000000-0000-4000-a000-000000000001",
         "projectId": "p1000000-0000-4000-a000-000000000001"
     },
@@ -28,11 +27,11 @@
         ]
     },
     "profileInfo": {
-        "profileId": "d3e88ebe-14eb-11f1-9fb3-56bc49539218",
+        "profileId": "70aa9c64-1593-11f1-8403-da1169052fe5",
         "profileName": "Reunión de Seguimiento Semanal (Weekly Status)"
     },
-    "preparedBy": "Laura Torres",
-    "additionalNotes": "Reunión de planificación trimestral. Énfasis en asignación de recursos.",
+    "preparedBy": "Victor Soto",
+    "additionalNotes": "",
     "generationOptions": {
         "language": "es"
     }
