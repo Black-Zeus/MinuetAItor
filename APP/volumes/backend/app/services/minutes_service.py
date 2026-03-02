@@ -8,10 +8,10 @@ Flujo:
   3. Leer archivos y subir a MinIO → minuetaitor-inputs/{record_id}/
   4. Registrar Objects + RecordArtifacts de entrada en BD
   5. Construir AI input schema
-  6. Llamar a OpenAI (sube archivos + chat completions)
+  6. Llamar a OpenAI (base64 inline en Chat Completions)
   7. Guardar output JSON en MinIO → minuetaitor-json/{record_id}/
   8. Registrar Objects + RecordArtifacts de salida en BD
-  9. Crear RecordVersion v1
+  9. Crear RecordVersion v1 + RecordDraft
   10. Actualizar Record (active_version_id) + MinuteTransaction (completed)
   11. Retornar MinuteGenerateResponse
 
@@ -20,21 +20,23 @@ TODO: mover a tarea async (Celery/ARQ) cuando el tiempo de procesamiento lo just
 """
 from __future__ import annotations
 
-import os
-
+import base64
 import hashlib
 import io
 import json
 import logging
+import mimetypes
+import os
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Optional
 
-import openai  # ← AGREGAR ESTA LÍNEA
+import openai
 
-from fastapi import UploadFile, HTTPException, status  # ← AGREGAR HTTPException y status AQUÍ
-from sqlalchemy.orm import Session
+from fastapi import HTTPException, UploadFile, status
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
 from core.config import settings
 from db.minio_client import get_minio_client
@@ -48,9 +50,6 @@ from schemas.minutes import MinuteGenerateRequest, MinuteGenerateResponse, Minut
 logger = logging.getLogger(__name__)
 
 # ─── Constantes de catálogo ───────────────────────────────────────────────────
-# BUCKET_CODE_* → field 'code' en tabla buckets (para resolver bucket_id via _get_catalog_id)
-# BUCKET_*      → nombres reales de buckets en MinIO (para put_object / get_object)
-
 BUCKET_CODE_INPUTS    = "inputs_container"
 BUCKET_CODE_JSON      = "json_container"
 BUCKET_CODE_PUBLISHED = "published_container"
@@ -72,6 +71,10 @@ RECORD_TYPE_MINUTE       = "MINUTE"
 RECORD_STATUS_ACCEPTED   = "ACCEPTED"
 VERSION_STATUS_PUBLISHED = "PUBLISHED"
 
+PROMPT_FILE      = settings.openai_system_prompt
+PROMPT_PATH_BASE = Path("/app/assets/prompts")
+TRACE_BASE_DIR   = "/app/assets/temp"
+
 
 # ─── Helpers internos ────────────────────────────────────────────────────────
 
@@ -91,7 +94,6 @@ def _ext_from_filename(fname: str) -> str:
 
 
 # Mapa de normalización de content_type al valor EXACTO en mime_types (seeds).
-# El trigger trg_objects_sync_mime_ext_ins hace match exacto por texto.
 _MIME_NORMALIZE: dict[str, str] = {
     "text/plain":                    "text/plain; charset=utf-8",
     "text/plain; charset=utf8":      "text/plain; charset=utf-8",
@@ -106,10 +108,6 @@ _MIME_NORMALIZE: dict[str, str] = {
 
 
 def _normalize_mime(mime: str) -> str:
-    """
-    Normaliza el content_type al valor exacto registrado en mime_types.
-    El trigger de BD hace búsqueda exacta — si no coincide falla con SIGNAL.
-    """
     normalized = _MIME_NORMALIZE.get(mime.strip().lower())
     if normalized:
         return normalized
@@ -118,10 +116,6 @@ def _normalize_mime(mime: str) -> str:
 
 
 def _get_catalog_id(db: Session, model_class, code: str):
-    """
-    Resuelve el ID de un catálogo por su campo 'code'.
-    Falla rápido (fail-fast) si no existe.
-    """
     obj = db.query(model_class).filter_by(code=code).first()
     if obj is None:
         raise RuntimeError(
@@ -132,7 +126,6 @@ def _get_catalog_id(db: Session, model_class, code: str):
 
 
 def _parse_date(value: Optional[str]):
-    """Parsea 'YYYY-MM-DD' a date. Retorna None si falla."""
     if not value:
         return None
     try:
@@ -143,7 +136,6 @@ def _parse_date(value: Optional[str]):
 
 
 def _parse_time(value: Optional[str]):
-    """Parsea 'HH:MM' o 'HH:MM:SS' a time. Retorna None si falla."""
     if not value:
         return None
     try:
@@ -157,11 +149,6 @@ def _parse_time(value: Optional[str]):
 
 
 def _get_placeholder_client_id(db: Session) -> str:
-    """
-    Obtiene el ID del primer cliente activo como placeholder.
-    TODO: hacer client_id obligatorio en MinuteProjectInfo cuando el
-          frontend envíe UUIDs reales en vez de nombres de texto.
-    """
     from models.clients import Client
     client = db.query(Client).filter_by(is_active=True).first()
     if client is None:
@@ -173,10 +160,6 @@ def _get_placeholder_client_id(db: Session) -> str:
 
 
 def _get_ai_profile_data(db: Session, profile_id: str) -> dict:
-    """
-    Carga los datos completos del perfil AI desde la BD.
-    Necesario para inyectar description y prompt en el template agent.md.
-    """
     try:
         from models.ai_profiles import AiProfile
         profile = (
@@ -194,7 +177,6 @@ def _get_ai_profile_data(db: Session, profile_id: str) -> dict:
     except Exception as e:
         logger.warning(f"[minutes] No se pudo cargar perfil AI '{profile_id}': {e}")
 
-    # Fallback para no bloquear el flujo
     return {
         "profile_id":          profile_id,
         "profile_name":        "Perfil genérico",
@@ -213,7 +195,6 @@ def _build_object_row(
     sha256:       str,
     created_by:   str,
 ) -> Object:
-    """Construye un Object ORM usando los campos exactos del modelo."""
     return Object(
         id           = obj_id,
         bucket_id    = bucket_id,
@@ -232,29 +213,48 @@ def _build_artifact_row(
     artifact_state_id: int,
     object_id:         str,
     created_by:        str,
-    record_version_id: Optional[str] = None,  # ← NUEVO: parámetro opcional
+    record_version_id: Optional[str] = None,
     is_draft:          bool = False,
     natural_name:      Optional[str] = None,
 ) -> RecordArtifact:
-    """Construye un RecordArtifact ORM usando los campos exactos del modelo."""
     return RecordArtifact(
         record_id         = record_id,
         artifact_type_id  = artifact_type_id,
         artifact_state_id = artifact_state_id,
         object_id         = object_id,
-        record_version_id = record_version_id,  # ← NUEVO: asignar el valor
+        record_version_id = record_version_id,
         is_draft          = is_draft,
         natural_name      = natural_name,
         created_by        = created_by,
     )
 
+def _calculate_prompt_sha() -> str:
+    """
+    Calcula el SHA256 del contenido del archivo de prompt.
+    
+    Returns:
+        String con el hash SHA256 en hexadecimal
+    """
+    try:
+        prompt_path = PROMPT_PATH_BASE / PROMPT_FILE
+        
+        if not prompt_path.exists():
+            return f"file_not_found_{PROMPT_FILE}"
+        
+        with open(prompt_path, 'rb') as f:
+            file_content = f.read()
+            return _sha256_bytes(file_content)  # ← Reutilizando la función existente
+            
+    except Exception as e:
+        print(f"Error calculando SHA para prompt {PROMPT_FILE}: {e}")
+        return f"error_calculating_sha_{PROMPT_FILE}"
+    
 
 def _build_ai_input_schema(
-    request:       MinuteGenerateRequest,
+    request:        MinuteGenerateRequest,
     transaction_id: str,
     file_metadata:  list[dict],
 ) -> dict:
-    """Construye el payload JSON de entrada para el agente OpenAI."""
     mi = request.meeting_info
     pi = request.project_info
     pa = request.participants
@@ -272,17 +272,30 @@ def _build_ai_input_schema(
             "client":  pi.client,
             "project": pi.project,
         },
-        "participants": {
+        # ── CAMBIO CLAVE ──────────────────────────────────────────────────────
+        # Renombrado de "participants" a "declaredParticipants".
+        # El modelo (v05) lo trata como referencia adicional, no como verdad.
+        # La fuente primaria de participantes son los archivos adjuntos.
+        "declaredParticipants": {
             "attendees": pa.attendees,
+            "note": (
+                "Lista declarada por el usuario al crear la solicitud. "
+                "Puede estar incompleta. "
+                "Extraer participantes reales desde los archivos adjuntos."
+            ),
         },
+        # ─────────────────────────────────────────────────────────────────────
         "profileInfo": {
             "profileId":   pr.profile_id,
             "profileName": pr.profile_name,
         },
         "preparedBy": request.prepared_by,
+        "systemPrompt": {
+            "name": PROMPT_FILE,
+            "signedSha": _calculate_prompt_sha(),
+        },
     }
 
-    # Campos opcionales
     if mi.actual_start_time:
         schema["meetingInfo"]["actualStartTime"] = mi.actual_start_time
     if mi.actual_end_time:
@@ -294,13 +307,14 @@ def _build_ai_input_schema(
     if pi.category:
         schema["projectInfo"]["category"] = pi.category
     if pa.invited:
-        schema["participants"]["invited"] = pa.invited
+        schema["declaredParticipants"]["invited"] = pa.invited
     if pa.copy_recipients:
-        schema["participants"]["copyRecipients"] = pa.copy_recipients
+        schema["declaredParticipants"]["copyRecipients"] = pa.copy_recipients
     if request.additional_notes:
         schema["additionalNotes"] = request.additional_notes
     if request.generation_options:
         schema["generationOptions"] = {"language": request.generation_options.language}
+
 
     return schema
 
@@ -311,10 +325,6 @@ def _reload_files_from_minio(
     record_id:     str,
     file_metadata: list[dict],
 ) -> list[tuple[str, bytes, str]]:
-    """
-    Recarga archivos desde MinIO (después de que los UploadFile ya fueron consumidos).
-    Retorna lista de (filename, raw_bytes, mime_type).
-    """
     result = []
     for meta in file_metadata:
         fname   = meta["fileName"]
@@ -340,12 +350,7 @@ def _load_agent_prompt(
     additional_notes:    str = "",
     user_tags:           str = "",
 ) -> str:
-    """
-    Carga agent.md e inyecta los valores del perfil reemplazando placeholders.
-    Usa un prompt genérico como fallback si el archivo no existe.
-    """
-    import os
-    prompt_path = "/app/assets/prompts/agent.md"
+    prompt_path = PROMPT_PATH_BASE / PROMPT_FILE
 
     if os.path.exists(prompt_path):
         with open(prompt_path, "r", encoding="utf-8") as f:
@@ -359,10 +364,10 @@ def _load_agent_prompt(
         prompt = prompt.replace("{additional_notes}",    additional_notes or "Sin notas adicionales.")
         prompt = prompt.replace("{user_tags}",           user_tags or "Sin tags proporcionados.")
 
-        logger.debug(f"[minutes] Prompt cargado desde agent.md | perfil='{profile_name}'")
+        logger.debug(f"[minutes] Prompt cargado desde {PROMPT_FILE} | perfil='{profile_name}'")
         return prompt
 
-    logger.warning(f"[minutes] agent.md no encontrado en {prompt_path} — usando prompt fallback")
+    logger.warning(f"[minutes] {PROMPT_FILE} no encontrado en {prompt_path} — usando prompt fallback")
     return (
         f"Eres un asistente experto en redacción de minutas de reunión corporativas.\n\n"
         f"PERFIL DE ANÁLISIS:\n"
@@ -375,104 +380,326 @@ def _load_agent_prompt(
     )
 
 
-async def _call_openai(
-    ai_input:         dict,
-    files_bytes:      list[tuple[str, bytes, str]],
-    profile_data:     dict,
-    additional_notes: str = "",
-) -> dict:
-    """
-    Sube archivos a OpenAI Files API y llama a Chat Completions
-    con el prompt del perfil parametrizado.
-    Retorna el output JSON parseado.
-    """
-    import openai
+# ─── Resolución y validación de MIME ─────────────────────────────────────────
 
+def _resolve_mime(fname: str, declared_mime: str) -> str:
+    """
+    Resuelve el MIME type efectivo para un archivo.
+
+    Prioridad:
+      1. Extensión del nombre del archivo  (más confiable — curl/browsers mienten)
+      2. MIME declarado por el cliente, normalizado
+      3. Inferencia con mimetypes stdlib
+      4. Devuelve el declarado para que la validación posterior lo rechace
+
+    Las listas de referencia se leen desde settings para que sean
+    configurables sin tocar el código.
+    """
+    ext = Path(fname).suffix.lower()
+
+    # 1. Extensión
+    if ext in settings.minutes_supported_extensions:
+        return settings.minutes_supported_extensions[ext]
+
+    # 2. MIME declarado (ignorar parámetros como "; charset=utf-8")
+    mime_base = declared_mime.split(";")[0].strip().lower()
+    if mime_base in settings.minutes_supported_mimes:
+        return settings.minutes_supported_mimes[mime_base]
+
+    # 3. Inferencia
+    guessed, _ = mimetypes.guess_type(fname)
+    if guessed and guessed in settings.minutes_supported_mimes:
+        return guessed
+
+    # 4. No resolvible — devolver para que _validate_file_mime lo rechace
+    return mime_base
+
+
+def _validate_file_mime(fname: str, resolved_mime: str) -> None:
+    """
+    Lanza ValueError si el MIME no está en la lista de soportados.
+    El mensaje incluye los formatos aceptados para facilitar el debugging.
+    """
+    if resolved_mime not in settings.minutes_supported_mimes:
+        supported = ", ".join(settings.minutes_supported_mimes.keys())
+        raise ValueError(
+            f"Formato no soportado: '{fname}' ({resolved_mime}). "
+            f"Formatos aceptados: {supported}"
+        )
+
+
+def _model_supports_file_blocks(model: str) -> bool:
+    """
+    Retorna True si el modelo soporta bloques 'type: file' en Chat Completions.
+    La lista se lee desde settings para poder actualizar sin tocar el código.
+    """
+    model_lower = model.lower()
+    return any(m.lower() in model_lower for m in settings.openai_models_with_file_support)
+
+
+# ─── Trazabilidad local (debug) ───────────────────────────────────────────────
+
+def _init_trace_dir(transaction_id: str, record_id: str) -> str:
+    """
+    Crea una carpeta de trazabilidad por transacción:
+      /app/assets/temp/{YYYYMMDD_HHMMSS}_{transaction_id[:8]}/
+    """
+    timestamp   = datetime.now().strftime("%Y%m%d_%H%M%S")
+    folder_name = f"{timestamp}_{transaction_id[:8]}"
+    trace_dir   = os.path.join(TRACE_BASE_DIR, folder_name)
+    os.makedirs(trace_dir, exist_ok=True)
+
+    meta = {
+        "transaction_id": transaction_id,
+        "record_id":      record_id,
+        "created_at":     datetime.now().isoformat(),
+        "status":         "initiated",
+    }
+    with open(os.path.join(trace_dir, "meta.json"), "w", encoding="utf-8") as f:
+        json.dump(meta, f, ensure_ascii=False, indent=2)
+
+    logger.info(f"[trace] Carpeta de trazabilidad: {trace_dir}")
+    return trace_dir
+
+
+def _save_trace_input(trace_dir: str, ai_input: dict, prompt_system: str) -> None:
+    """Guarda el payload enviado al modelo (input JSON + prompt del sistema)."""
+    with open(os.path.join(trace_dir, "ai_input.json"), "w", encoding="utf-8") as f:
+        json.dump(ai_input, f, ensure_ascii=False, indent=2)
+
+    with open(os.path.join(trace_dir, PROMPT_FILE), "w", encoding="utf-8") as f:
+        f.write(prompt_system)
+
+    logger.debug(f"[trace] ai_input.json y {PROMPT_FILE} guardados")
+
+
+def _save_trace_attachments(
+    trace_dir:   str,
+    files_bytes: list[tuple[str, bytes, str]],
+) -> None:
+    """Guarda una copia de cada adjunto enviado al modelo."""
+    attachments_dir = os.path.join(trace_dir, "attachments")
+    os.makedirs(attachments_dir, exist_ok=True)
+
+    index = []
+    for fname, raw, mime in files_bytes:
+        dest_path = os.path.join(attachments_dir, fname)
+        with open(dest_path, "wb") as f:
+            f.write(raw)
+        index.append({
+            "fileName":  fname,
+            "mimeType":  mime,
+            "sizeBytes": len(raw),
+            "sha256":    _sha256_bytes(raw),
+        })
+        logger.debug(f"[trace] Adjunto guardado: {fname} ({len(raw)} bytes)")
+
+    with open(os.path.join(attachments_dir, "index.json"), "w", encoding="utf-8") as f:
+        json.dump(index, f, ensure_ascii=False, indent=2)
+
+
+def _save_trace_output(
+    trace_dir:         str,
+    ai_output:         dict,
+    validation_status: str,
+    missing_sections:  Optional[list] = None,
+) -> None:
+    """Guarda la respuesta del modelo y el resultado de validación."""
+    result = {
+        "received_at":       _now_utc().isoformat(),  # ← UTC consistente con el resto
+        "validation_status": validation_status,
+        "ai_output":         ai_output,
+    }
+    if missing_sections:
+        result["missing_sections"] = missing_sections
+
+    with open(os.path.join(trace_dir, "ai_output.json"), "w", encoding="utf-8") as f:
+        json.dump(result, f, ensure_ascii=False, indent=2)
+
+    logger.debug(f"[trace] ai_output.json guardado (status={validation_status})")
+
+
+def _finalize_trace(trace_dir: str, final_status: str, error: Optional[str] = None) -> None:
+    """Actualiza meta.json con el estado final de la transacción."""
+    meta_path = os.path.join(trace_dir, "meta.json")
+    try:
+        with open(meta_path, "r", encoding="utf-8") as f:
+            meta = json.load(f)
+        meta["status"]       = final_status
+        meta["finalized_at"] = datetime.now().isoformat()
+        if error:
+            meta["error"] = error
+        with open(meta_path, "w", encoding="utf-8") as f:
+            json.dump(meta, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        logger.warning(f"[trace] No se pudo finalizar meta.json: {e}")
+
+
+# ─── OpenAI ──────────────────────────────────────────────────────────────────
+
+async def _call_openai(
+    ai_input:      dict,
+    files_bytes:   list[tuple[str, bytes, str]],
+    prompt_system: str,
+) -> dict:
     client = openai.AsyncOpenAI(api_key=settings.openai_api_key)
 
-    # 1. Subir archivos a OpenAI
-    openai_file_ids: dict[str, str] = {}  # sha256 → file_id
+    supports_files = _model_supports_file_blocks(settings.openai_model)
+    logger.debug(
+        f"[openai] Modelo='{settings.openai_model}' | "
+        f"file_blocks={'sí' if supports_files else 'no (fallback texto)'}"
+    )
 
-    for fname, raw, mime in files_bytes:
-        sha = _sha256_bytes(raw)
-        try:
-            oai_file = await client.files.create(
-                file    = (fname, raw, mime or "text/plain"),
-                purpose = "assistants",
+    # ── Construir content ─────────────────────────────────────────────────────
+    if supports_files:
+        content_blocks: list[dict] = [
+            {
+                "type": "text",
+                "text": (
+                    "Procesa la siguiente reunión y genera la minuta estructurada en JSON.\n\n"
+                    f"METADATA DE LA SOLICITUD:\n"
+                    f"{json.dumps(ai_input, ensure_ascii=False, indent=2)}"
+                ),
+            }
+        ]
+
+        for fname, raw, declared_mime in files_bytes:
+            resolved_mime = _resolve_mime(fname, declared_mime)
+            _validate_file_mime(fname, resolved_mime)
+
+            if resolved_mime == "application/pdf":
+                b64 = base64.b64encode(raw).decode("utf-8")
+                content_blocks.append({
+                    "type": "file",
+                    "file": {
+                        "filename":  fname,
+                        "file_data": f"data:{resolved_mime};base64,{b64}",
+                    },
+                })
+                logger.info(f"[openai] Adjunto PDF base64: {fname} | {len(raw):,} bytes")
+            else:
+                try:
+                    text = raw.decode("utf-8")
+                except UnicodeDecodeError:
+                    text = raw.decode("latin-1", errors="replace")
+                content_blocks.append({
+                    "type": "text",
+                    "text": f"--- ARCHIVO: {fname} ---\n{text}",
+                })
+                logger.info(f"[openai] Adjunto texto: {fname} | {len(raw):,} bytes")
+
+        user_message_content = content_blocks
+
+    else:
+        files_text = ""
+        for fname, raw, declared_mime in files_bytes:
+            resolved_mime = _resolve_mime(fname, declared_mime)
+
+            if resolved_mime == "application/pdf":
+                raise ValueError(
+                    f"El modelo '{settings.openai_model}' no soporta archivos PDF. "
+                    f"Cambia a gpt-4o o gpt-4.1, o convierte el PDF a texto antes de subirlo."
+                )
+
+            _validate_file_mime(fname, resolved_mime)
+
+            try:
+                text = raw.decode("utf-8")
+            except UnicodeDecodeError:
+                text = raw.decode("latin-1", errors="replace")
+
+            files_text += f"\n\n--- ARCHIVO: {fname} ---\n{text}"
+            logger.info(f"[openai] Adjunto texto plano: {fname} | {len(raw):,} bytes")
+
+        logger.warning(
+            f"[openai] Modelo '{settings.openai_model}' sin soporte file blocks. "
+            f"Usando fallback texto plano."
+        )
+        user_message_content = (
+            "Procesa la siguiente reunión y genera la minuta estructurada en JSON.\n\n"
+            f"METADATA DE LA SOLICITUD:\n"
+            f"{json.dumps(ai_input, ensure_ascii=False, indent=2)}"
+            f"{files_text}"
+        )
+
+    messages = [
+        {"role": "system", "content": prompt_system},
+        {"role": "user",   "content": user_message_content},
+    ]
+
+    # ── Llamada al modelo con reintento si se alcanza el límite de tokens ─────
+    async def _invoke(max_tokens: int) -> tuple[str, str]:
+        response = await client.chat.completions.create(
+            model           = settings.openai_model,
+            messages        = messages,
+            response_format = {"type": "json_object"},
+            temperature     = settings.openai_temperature,
+            max_tokens      = max_tokens,
+            top_p           = settings.openai_top_p,
+            seed            = settings.openai_seed,
+            timeout         = settings.openai_timeout_seconds,
+        )
+        return (
+            response.choices[0].message.content or "{}",
+            response.choices[0].finish_reason or "stop",
+        )
+
+    # Intento 1 — límite base (normal)
+    raw_text, finish_reason = await _invoke(settings.openai_max_tokens)
+    logger.debug(
+        f"[openai] Intento 1 finish_reason={finish_reason} | "
+        f"max_tokens={settings.openai_max_tokens}"
+    )
+
+    # Intento 2 — reintento automático si se alcanzó el límite
+    if finish_reason == "length":
+        retry_limit = settings.openai_max_tokens_retry
+        logger.warning(
+            f"[openai] Output cortado (finish_reason=length) con {settings.openai_max_tokens} tokens. "
+            f"Reintentando con {retry_limit} tokens..."
+        )
+        raw_text, finish_reason = await _invoke(retry_limit)
+        logger.debug(
+            f"[openai] Intento 2 finish_reason={finish_reason} | "
+            f"max_tokens={retry_limit}"
+        )
+
+        if finish_reason == "length":
+            logger.error(
+                f"[openai] Output cortado incluso con {retry_limit} tokens. "
+                f"La sesión excede la capacidad máxima de procesamiento."
             )
-            openai_file_ids[sha] = oai_file.id
-            logger.info(f"[openai] Archivo subido: {fname} → {oai_file.id}")
-        except Exception as e:
-            logger.warning(f"[openai] Error subiendo {fname}: {e}")
+            raise ValueError(
+                "La sesión es demasiado extensa para procesarse en un solo archivo. "
+                "Te recomendamos dividirla en dos partes (por ejemplo, primera y segunda mitad) "
+                "y generar una minuta por cada parte."
+            )
 
-    # Enriquecer el schema con los file_ids obtenidos
-    ai_input_enriched = {**ai_input}
-    for att in ai_input_enriched.get("attachments", []):
-        sha = att.get("sha256", "")
-        if sha in openai_file_ids:
-            att["openaiFileId"] = openai_file_ids[sha]
-
-    # 2. Cargar y parametrizar el prompt del sistema
-    prompt_system = _load_agent_prompt(
-        profile_id          = profile_data["profile_id"],
-        profile_name        = profile_data["profile_name"],
-        profile_description = profile_data["profile_description"],
-        profile_prompt      = profile_data["profile_prompt"],
-        additional_notes    = additional_notes,
-        user_tags           = "",
-    )
-
-    # 3. Chat Completions con response_format JSON
-    user_content = (
-        "Procesa la siguiente reunión y genera la minuta estructurada en JSON.\n\n"
-        f"INPUT:\n{json.dumps(ai_input_enriched, ensure_ascii=False, indent=2)}"
-    )
-
-    response = await client.chat.completions.create(
-        model           = settings.openai_model,
-        messages        = [
-            {"role": "system", "content": prompt_system},
-            {"role": "user",   "content": user_content},
-        ],
-        response_format = {"type": "json_object"},
-        temperature     = 0.2,
-        max_tokens      = settings.openai_max_tokens,
-    )
-
-    raw_text = response.choices[0].message.content or "{}"
-
+    # ── Parsear JSON ──────────────────────────────────────────────────────────
     try:
         return json.loads(raw_text)
     except json.JSONDecodeError as e:
         logger.error(f"[openai] Output no es JSON válido: {e}\nRaw: {raw_text[:500]}")
         raise RuntimeError(f"La IA retornó un JSON inválido: {e}")
+    
+# ─── Limpieza MinIO ───────────────────────────────────────────────────────────
 
-
-# ─── Función de limpieza para MinIO (AHORA SÍ EN EL LUGAR CORRECTO) ──────
 async def _cleanup_minio_files(minio, record_id: str, file_metadata: list[dict]):
-    """
-    Limpia archivos subidos a MinIO en caso de error en el proceso.
-    Evita dejar archivos huérfanos cuando la transacción falla.
-    """
     if not file_metadata:
-        logger.debug("[minutes] No hay archivos para limpiar en MinIO")
         return
-    
+
     logger.info(f"[minutes] Limpiando {len(file_metadata)} archivos de MinIO para record {record_id}")
-    archivos_eliminados = 0
-    archivos_con_error = 0
-    
+    eliminados = 0
+
     for meta in file_metadata:
         try:
-            obj_key = f"{record_id}/{meta['fileName']}"
-            minio.remove_object(BUCKET_INPUTS, obj_key)
-            logger.info(f"[minutes] Archivo limpiado de MinIO: {obj_key}")
-            archivos_eliminados += 1
+            minio.remove_object(BUCKET_INPUTS, f"{record_id}/{meta['fileName']}")
+            eliminados += 1
         except Exception as e:
-            logger.warning(f"[minutes] Error limpiando archivo {meta.get('fileName', 'unknown')} de MinIO: {e}")
-            archivos_con_error += 1
-    
-    logger.info(f"[minutes] Limpieza completada: {archivos_eliminados} eliminados, {archivos_con_error} con errores")
+            logger.warning(f"[minutes] Error limpiando {meta.get('fileName')}: {e}")
+
+    logger.info(f"[minutes] Limpieza MinIO: {eliminados}/{len(file_metadata)} eliminados")
+
 
 # ─── Función principal ────────────────────────────────────────────────────────
 
@@ -485,25 +712,29 @@ async def generate_minute(
     """
     Orquesta la creación completa de una minuta.
     """
-    # Importaciones diferidas de catálogos para evitar circular imports
     from models.artifact_states  import ArtifactState
     from models.artifact_types   import ArtifactType
     from models.buckets          import Bucket
+    from models.record_drafts    import RecordDraft
     from models.record_statuses  import RecordStatus
     from models.record_types     import RecordType
     from models.version_statuses import VersionStatus
-    from models.ai_profiles import AiProfile  # ← IMPORTANTE: Importar AiProfile
+    from models.ai_profiles      import AiProfile
 
     transaction_id = str(uuid.uuid4())
     record_id      = str(uuid.uuid4())
     now            = _now_utc()
+    artefactos_creados: list[RecordArtifact] = []
+    file_metadata:      list[dict]           = []
+    trace_dir:          Optional[str]        = None
 
-    # 🔥 NUEVO: Lista para guardar referencias a artefactos
-    artefactos_creados = []
+    logger.info(f"[minutes] Iniciando | record={record_id} tx={transaction_id} user={requested_by_id}")
 
-    logger.info(
-        f"[minutes] Iniciando | record={record_id} tx={transaction_id} user={requested_by_id}"
-    )
+    # ── Inicializar carpeta de trazabilidad ───────────────────────────────────
+    try:
+        trace_dir = _init_trace_dir(transaction_id, record_id)
+    except Exception as e:
+        logger.warning(f"[trace] No se pudo crear carpeta de trazabilidad: {e}")
 
     # ── Resolver IDs de catálogo ──────────────────────────────────────────────
     record_type_id    = _get_catalog_id(db, RecordType,    RECORD_TYPE_MINUTE)
@@ -517,49 +748,31 @@ async def generate_minute(
     art_canonical_id  = _get_catalog_id(db, ArtifactType,  ART_CANONICAL_JSON)
     state_original_id = _get_catalog_id(db, ArtifactState, ART_STATE_ORIGINAL)
     state_ready_id    = _get_catalog_id(db, ArtifactState, ART_STATE_READY)
-    state_failed_id   = _get_catalog_id(db, ArtifactState, ART_STATE_FAILED)
+    state_failed_id   = _get_catalog_id(db, ArtifactState, ART_STATE_FAILED)  # noqa: F841
 
-    # ── Cargar datos del perfil AI desde BD ───────────────────────────────────
-    profile_data = _get_ai_profile_data(db, request.profile_info.profile_id)
-
-    # =========================================================================
-    # 🔥 VALIDACIONES CRÍTICAS - COLOCAR AQUÍ
-    # =========================================================================
-    
-    # Validar que el perfil AI existe en la BD
+    # ── Cargar perfil AI ──────────────────────────────────────────────────────
+    profile_data  = _get_ai_profile_data(db, request.profile_info.profile_id)
     ai_profile_id = request.profile_info.profile_id
+
     if not ai_profile_id:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={
-                "error": "missing_ai_profile",
-                "message": "Se requiere un perfil de IA para generar la minuta",
-                "transaction_id": transaction_id
-            }
+            detail={"error": "missing_ai_profile", "message": "Se requiere un perfil de IA"},
         )
-    
-    # Verificar existencia en tabla ai_profiles
+
     profile_exists = db.query(AiProfile).filter(
         AiProfile.id == ai_profile_id,
-        AiProfile.deleted_at.is_(None)
+        AiProfile.deleted_at.is_(None),
     ).first()
-    
+
     if not profile_exists:
-        logger.error(f"[minutes] Perfil AI no encontrado en BD: {ai_profile_id}")
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail={
-                "error": "invalid_ai_profile",
-                "message": f"El perfil de IA '{ai_profile_id}' no existe o está inactivo",
-                "transaction_id": transaction_id
-            }
+                "error":   "invalid_ai_profile",
+                "message": f"Perfil '{ai_profile_id}' no existe o está inactivo",
+            },
         )
-
-    # ── Título para el Record ─────────────────────────────────────────────────
-    record_title = (
-        request.meeting_info.title
-        or f"Reunión {request.project_info.client} – {request.meeting_info.scheduled_date}"
-    )
 
     # ── Resolver client_id ────────────────────────────────────────────────────
     raw_client_id  = getattr(request.project_info, "client_id", None)
@@ -567,20 +780,16 @@ async def generate_minute(
     client_id  = raw_client_id  or _get_placeholder_client_id(db)
     project_id = raw_project_id or None
 
-    # Validar cliente (si aplica)
     if not client_id:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={
-                "error": "missing_client",
-                "message": "Se requiere un cliente para generar la minuta",
-                "transaction_id": transaction_id
-            }
+            detail={"error": "missing_client", "message": "Se requiere un cliente"},
         )
 
-    # =========================================================================
-    # FIN DE VALIDACIONES
-    # =========================================================================
+    record_title = (
+        request.meeting_info.title
+        or f"Reunión {request.project_info.client} – {request.meeting_info.scheduled_date}"
+    )
 
     # ── 1. Crear Record ───────────────────────────────────────────────────────
     record = Record(
@@ -589,7 +798,7 @@ async def generate_minute(
         status_id            = record_status_id,
         client_id            = client_id,
         project_id           = project_id,
-        ai_profile_id        = ai_profile_id,  # ← Ahora sabemos que existe
+        ai_profile_id        = ai_profile_id,
         title                = record_title,
         document_date        = _parse_date(request.meeting_info.scheduled_date),
         location             = request.meeting_info.location,
@@ -613,26 +822,20 @@ async def generate_minute(
         created_at    = now,
     )
     db.add(tx)
-    
+
     try:
-        db.flush()  # FK record_id debe existir antes del flush de la tx
+        db.flush()
     except IntegrityError as e:
-        logger.error(f"[minutes] Error de integridad al crear record: {e}")
+        logger.error(f"[minutes] Error de integridad al crear record/tx: {e}")
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={
-                "error": "database_integrity_error",
-                "message": "Error al crear el registro. Verifica los datos proporcionados.",
-                "transaction_id": transaction_id
-            }
+            detail={"error": "database_integrity_error", "message": "Error al crear el registro."},
         )
 
     # ── 3. Leer archivos y subir a MinIO ──────────────────────────────────────
     minio = get_minio_client()
-
-    file_metadata:   list[dict]     = []
-    input_object_id: Optional[str]  = None
+    input_object_id: Optional[str] = None
 
     for upload in files:
         raw   = await upload.read()
@@ -641,7 +844,6 @@ async def generate_minute(
         mime  = _normalize_mime(upload.content_type or "text/plain")
         ext   = _ext_from_filename(fname)
 
-        # Determinar tipo de artefacto por nombre de archivo
         fname_lower = fname.lower()
         if "resumen" in fname_lower or "summary" in fname_lower:
             art_type_id = art_summary_id
@@ -653,7 +855,6 @@ async def generate_minute(
         obj_key = f"{record_id}/{fname}"
         obj_id  = str(uuid.uuid4())
 
-        # Subir a MinIO (nombre real del bucket)
         minio.put_object(
             bucket_name  = BUCKET_INPUTS,
             object_name  = obj_key,
@@ -663,7 +864,6 @@ async def generate_minute(
         )
         logger.info(f"[minutes] Subido a MinIO: {BUCKET_INPUTS}/{obj_key}")
 
-        # Registrar Object (campos exactos según models/objects.py)
         db.add(_build_object_row(
             obj_id       = obj_id,
             bucket_id    = bucket_inputs_id,
@@ -675,7 +875,6 @@ async def generate_minute(
             created_by   = requested_by_id,
         ))
 
-        # Registrar RecordArtifact de entrada
         artefacto = _build_artifact_row(
             record_id         = record_id,
             artifact_type_id  = art_type_id,
@@ -686,8 +885,8 @@ async def generate_minute(
             is_draft          = False,
             natural_name      = fname,
         )
-        db.add(artefacto)
-        artefactos_creados.append(artefacto)  # ← AGREGAR A LA LISTA
+        ### db.add(artefacto)
+        artefactos_creados.append(artefacto)
 
         file_metadata.append({
             "fileName": fname,
@@ -698,242 +897,244 @@ async def generate_minute(
 
         if input_object_id is None:
             input_object_id = obj_id
-       
 
-    # Actualizar tx → processing
     tx.status          = "processing"
     tx.input_object_id = input_object_id
-    # db.flush()
 
     # ── 4. Llamar a OpenAI ────────────────────────────────────────────────────
     ai_input = _build_ai_input_schema(request, transaction_id, file_metadata)
+    
 
-    # Crear directorio temp si no existe
-    TEMP_DIR = "/app/assets/temp"
-    os.makedirs(TEMP_DIR, exist_ok=True)
+    # Construir prompt ANTES de llamar — necesario para trazabilidad en caso de error
+    prompt_system = _load_agent_prompt(
+        profile_id          = profile_data["profile_id"],
+        profile_name        = profile_data["profile_name"],
+        profile_description = profile_data["profile_description"],
+        profile_prompt      = profile_data["profile_prompt"],
+        additional_notes    = request.additional_notes or "",
+        user_tags           = "",
+    )
 
     try:
-        # Validar que tenemos archivos para enviar
         if not file_metadata:
             raise ValueError("No hay metadatos de archivos para procesar")
-        
+
         files_for_openai = _reload_files_from_minio(minio, BUCKET_INPUTS, record_id, file_metadata)
-        
-        # Validar que pudimos recargar los archivos
+
         if not files_for_openai:
             raise ValueError("No se pudieron recargar los archivos desde MinIO")
-        
+
         if len(files_for_openai) != len(file_metadata):
-            logger.warning(f"Solo se recargaron {len(files_for_openai)} de {len(file_metadata)} archivos")
-        
+            logger.warning(
+                f"[minutes] Solo se recargaron {len(files_for_openai)} "
+                f"de {len(file_metadata)} archivos"
+            )
+
+        # ── Trazabilidad ANTES de llamar al modelo ────────────────────────
+        # Si el modelo falla, el input ya está guardado para debugging.
+        if trace_dir:
+            try:
+                _save_trace_attachments(trace_dir, files_for_openai)
+                _save_trace_input(trace_dir, ai_input, prompt_system)
+            except Exception as e:
+                logger.warning(f"[trace] Error guardando input/adjuntos: {e}")
+
+        # ── Llamar al modelo ──────────────────────────────────────────────
         ai_output = await _call_openai(
-            ai_input         = ai_input,
-            files_bytes      = files_for_openai,
-            profile_data     = profile_data,
-            additional_notes = request.additional_notes or "",
+            ai_input      = ai_input,
+            files_bytes   = files_for_openai,
+            prompt_system = prompt_system,
         )
-        
-        # 🔥 GUARDAR RESPUESTA DE OPENAI PARA DEPURACIÓN
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        filename = f"openai_response_{timestamp}.json"
-        filepath = os.path.join(TEMP_DIR, filename)
-        
-        # Preparar objeto para guardar (incluye metadata)
-        response_to_save = {
-            "timestamp": datetime.now().isoformat(),
-            "transaction_id": transaction_id,
-            "record_id": record_id,
-            "ai_input": ai_input,
-            "ai_output": ai_output,
-            "validation_status": "pending"
-        }
-        
-        with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(response_to_save, f, ensure_ascii=False, indent=2)
-        
-        logger.info(f"[minutes] Respuesta de OpenAI guardada en: {filepath}")
-        
-        # 🔥 VALIDACIÓN ESTRICTA DE LA RESPUESTA (ÚNICA Y CORRECTA)
+
+        # ── Validar respuesta ─────────────────────────────────────────────
         if not isinstance(ai_output, dict):
-            logger.error(f"[minutes] OpenAI no retornó un dict, tipo: {type(ai_output)}")
-            response_to_save["validation_status"] = "error_not_dict"
-            with open(filepath, "w", encoding="utf-8") as f:
-                json.dump(response_to_save, f, ensure_ascii=False, indent=2)
+            if trace_dir:
+                _save_trace_output(trace_dir, {}, "error_not_dict")
             raise ValueError("OpenAI no retornó un objeto JSON válido")
-        
-        # Verificar secciones requeridas según el prompt
-        required_sections = ["introduction", "topics", "agreements", "requirements", "nextMeetings"]
-        missing_sections = [section for section in required_sections if section not in ai_output]
-        
-        if missing_sections:
-            logger.error(f"[minutes] Respuesta de OpenAI incompleta. Faltan: {missing_sections}")
-            logger.error(f"[minutes] Respuesta parcial: {json.dumps(ai_output, indent=2)[:500]}")
-            
-            response_to_save["validation_status"] = "error_missing_sections"
-            response_to_save["missing_sections"] = missing_sections
-            with open(filepath, "w", encoding="utf-8") as f:
-                json.dump(response_to_save, f, ensure_ascii=False, indent=2)
-            
-            raise ValueError(f"La respuesta de OpenAI no contiene las secciones requeridas: {missing_sections}")
-        
-        # Verificar estructura interna de introduction
-        if not isinstance(ai_output.get("introduction"), dict):
-            logger.error(f"[minutes] 'introduction' no es un diccionario")
-            response_to_save["validation_status"] = "error_introduction_not_dict"
-            with open(filepath, "w", encoding="utf-8") as f:
-                json.dump(response_to_save, f, ensure_ascii=False, indent=2)
-            raise ValueError("La sección 'introduction' debe ser un objeto")
-        
-        intro_content = ai_output["introduction"].get("content")
-        if not isinstance(intro_content, dict) or "summary" not in intro_content:
-            logger.error(f"[minutes] 'introduction.content' no tiene la estructura esperada")
-            response_to_save["validation_status"] = "error_introduction_structure"
-            with open(filepath, "w", encoding="utf-8") as f:
-                json.dump(response_to_save, f, ensure_ascii=False, indent=2)
-            raise ValueError("La introducción debe contener 'content.summary'")
-        
-        # Verificar que topics sea una lista
-        if not isinstance(ai_output.get("topics"), list):
-            logger.error(f"[minutes] 'topics' no es una lista")
-            response_to_save["validation_status"] = "error_topics_not_list"
-            with open(filepath, "w", encoding="utf-8") as f:
-                json.dump(response_to_save, f, ensure_ascii=False, indent=2)
-            raise ValueError("La sección 'topics' debe ser una lista")
-        
-        # Verificar estructura básica de agreements (opcional pero recomendado)
-        if not isinstance(ai_output.get("agreements"), list):
-            logger.warning(f"[minutes] 'agreements' no es una lista, se usará lista vacía")
-            ai_output["agreements"] = []
-        
-        # Verificar estructura básica de requirements (opcional pero recomendado)
-        if not isinstance(ai_output.get("requirements"), list):
-            logger.warning(f"[minutes] 'requirements' no es una lista, se usará lista vacía")
-            ai_output["requirements"] = []
-        
-        # Verificar estructura básica de nextMeetings (opcional pero recomendado)
-        if not isinstance(ai_output.get("nextMeetings"), list):
-            logger.warning(f"[minutes] 'nextMeetings' no es una lista, se usará lista vacía")
-            ai_output["nextMeetings"] = []
-        
-        # Si llegamos aquí, la respuesta es válida
-        logger.info("[minutes] Respuesta de OpenAI válida recibida")
-        response_to_save["validation_status"] = "valid"
-        with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(response_to_save, f, ensure_ascii=False, indent=2)
+
+        # scope.sections debe existir y ser lista no vacía
+        sections = ai_output.get("scope", {}).get("sections")
+        if not isinstance(sections, list) or len(sections) == 0:
+            if trace_dir:
+                _save_trace_output(trace_dir, ai_output, "error_scope_sections_missing")
+            raise ValueError("La respuesta no contiene 'scope.sections' o está vacía")
+
+        # La primera sección debe ser introduction con content.summary
+        intro = sections[0]
+        if not isinstance(intro, dict) or intro.get("sectionType") != "introduction":
+            if trace_dir:
+                _save_trace_output(trace_dir, ai_output, "error_introduction_missing")
+            raise ValueError("La primera sección de 'scope.sections' debe ser de tipo 'introduction'")
+
+        if not isinstance(intro.get("content"), dict) or not intro["content"].get("summary"):
+            if trace_dir:
+                _save_trace_output(trace_dir, ai_output, "error_introduction_structure")
+            raise ValueError("La sección 'introduction' debe contener 'content.summary'")
+
+        # Debe haber al menos un topic
+        topics = [s for s in sections if isinstance(s, dict) and s.get("sectionType") == "topic"]
+        if len(topics) == 0:
+            if trace_dir:
+                _save_trace_output(trace_dir, ai_output, "error_no_topics")
+            raise ValueError("La respuesta debe contener al menos una sección de tipo 'topic'")
+
+        # Normalizar secciones opcionales
+        for key in ("agreements", "requirements", "upcomingMeetings"):
+            section = ai_output.get(key)
+            if not isinstance(section, dict):
+                logger.warning(f"[minutes] '{key}' ausente o inválido — se inicializa vacío")
+                ai_output[key] = {"items": []}
+            elif not isinstance(section.get("items"), list):
+                logger.warning(f"[minutes] '{key}.items' no es lista — se normaliza a []")
+                ai_output[key]["items"] = []
+
+
+        # ── Sobrescribir generatedAt con timestamp real del servidor ──────────────
+        # El modelo no tiene acceso al reloj — siempre genera fechas incorrectas.
+        if isinstance(ai_output.get("metadata"), dict):
+            ai_output["metadata"]["generatedAt"] = _now_utc().strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        logger.info(
+            f"[minutes] Respuesta válida — "
+            f"{len(sections)} secciones ({len(topics)} topics) | "
+            f"acuerdos={len(ai_output['agreements']['items'])} | "
+            f"reqs={len(ai_output['requirements']['items'])} | "
+            f"próximas={len(ai_output['upcomingMeetings']['items'])}"
+        )
+
+        if trace_dir:
+            try:
+                _save_trace_output(trace_dir, ai_output, "valid")
+            except Exception as e:
+                logger.warning(f"[trace] Error guardando output: {e}")
 
     except openai.RateLimitError as e:
-        logger.error(f"[minutes] Límite de cuota OpenAI excedido: {e}")
-        tx.status = "failed"
-        tx.error_message = "Límite de cuota de IA excedido. Por favor, intenta más tarde."
+        logger.error(f"[minutes] Rate limit OpenAI: {e}")
+        if trace_dir:
+            _finalize_trace(trace_dir, "failed", str(e))
+        tx.status        = "failed"
+        tx.error_message = "Límite de cuota de IA excedido."
         db.rollback()
         await _cleanup_minio_files(minio, record_id, file_metadata)
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail={
-                "error": "rate_limit_exceeded",
-                "message": "Límite de cuota de IA excedido. Por favor, intenta más tarde.",
+                "error":          "rate_limit_exceeded",
+                "message":        "Límite de cuota de IA excedido. Intenta más tarde.",
                 "transaction_id": transaction_id,
-                "record_id": record_id
-            }
+                "record_id":      record_id,
+            },
         )
 
     except openai.BadRequestError as e:
-        logger.error(f"[minutes] Error en solicitud a OpenAI: {e}")
-        tx.status = "failed"
+        logger.error(f"[minutes] Bad request OpenAI: {e}")
+        if trace_dir:
+            _finalize_trace(trace_dir, "failed", str(e))
+        tx.status        = "failed"
         tx.error_message = f"Error en solicitud a IA: {str(e)}"
         db.rollback()
         await _cleanup_minio_files(minio, record_id, file_metadata)
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail={
-                "error": "invalid_ai_request",
-                "message": "La solicitud a la IA fue rechazada. Verifica los archivos adjuntos.",
+                "error":          "invalid_ai_request",
+                "message":        "Solicitud rechazada por la IA. Verifica los archivos.",
                 "transaction_id": transaction_id,
-                "record_id": record_id
-            }
+                "record_id":      record_id,
+            },
         )
 
     except openai.AuthenticationError as e:
-        logger.error(f"[minutes] Error de autenticación OpenAI: {e}")
-        tx.status = "failed"
+        logger.error(f"[minutes] Auth error OpenAI: {e}")
+        if trace_dir:
+            _finalize_trace(trace_dir, "failed", str(e))
+        tx.status        = "failed"
         tx.error_message = "Error de configuración del servicio de IA"
         db.rollback()
         await _cleanup_minio_files(minio, record_id, file_metadata)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={
-                "error": "ai_auth_error",
-                "message": "Error de configuración del servicio de IA. Contacta al administrador.",
+                "error":          "ai_auth_error",
+                "message":        "Error de configuración de IA. Contacta al administrador.",
                 "transaction_id": transaction_id,
-                "record_id": record_id
-            }
+                "record_id":      record_id,
+            },
         )
 
     except openai.APITimeoutError as e:
-        logger.error(f"[minutes] Timeout en OpenAI: {e}")
-        tx.status = "failed"
+        logger.error(f"[minutes] Timeout OpenAI: {e}")
+        if trace_dir:
+            _finalize_trace(trace_dir, "failed", str(e))
+        tx.status        = "failed"
         tx.error_message = "Tiempo de espera agotado"
         db.rollback()
         await _cleanup_minio_files(minio, record_id, file_metadata)
         raise HTTPException(
             status_code=status.HTTP_504_GATEWAY_TIMEOUT,
             detail={
-                "error": "ai_timeout",
-                "message": "El servicio de IA tardó demasiado en responder. Intenta nuevamente.",
+                "error":          "ai_timeout",
+                "message":        "La IA tardó demasiado. Intenta nuevamente.",
                 "transaction_id": transaction_id,
-                "record_id": record_id
-            }
+                "record_id":      record_id,
+            },
         )
 
     except openai.APIError as e:
-        logger.error(f"[minutes] Error interno de OpenAI: {e}")
-        tx.status = "failed"
+        logger.error(f"[minutes] API error OpenAI: {e}")
+        if trace_dir:
+            _finalize_trace(trace_dir, "failed", str(e))
+        tx.status        = "failed"
         tx.error_message = "Error interno del servicio de IA"
         db.rollback()
         await _cleanup_minio_files(minio, record_id, file_metadata)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail={
-                "error": "ai_service_error",
-                "message": "El servicio de IA no está disponible. Intenta más tarde.",
+                "error":          "ai_service_error",
+                "message":        "Servicio de IA no disponible. Intenta más tarde.",
                 "transaction_id": transaction_id,
-                "record_id": record_id
-            }
+                "record_id":      record_id,
+            },
         )
 
     except ValueError as e:
-        logger.error(f"[minutes] Error de validación: {e}")
-        tx.status = "failed"
+        logger.error(f"[minutes] Validación: {e}")
+        if trace_dir:
+            _finalize_trace(trace_dir, "failed", str(e))
+        tx.status        = "failed"
         tx.error_message = str(e)
         db.rollback()
         await _cleanup_minio_files(minio, record_id, file_metadata)
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail={
-                "error": "validation_error",
-                "message": str(e),
+                "error":          "validation_error",
+                "message":        str(e),
                 "transaction_id": transaction_id,
-                "record_id": record_id
-            }
+                "record_id":      record_id,
+            },
         )
 
     except Exception as e:
         logger.error(f"[minutes] Error inesperado: {e}", exc_info=True)
-        tx.status = "failed"
+        if trace_dir:
+            _finalize_trace(trace_dir, "failed", str(e))
+        tx.status        = "failed"
         tx.error_message = f"Error inesperado: {str(e)}"
         db.rollback()
         await _cleanup_minio_files(minio, record_id, file_metadata)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={
-                "error": "unexpected_error",
-                "message": "Ocurrió un error inesperado al procesar la minuta.",
+                "error":          "unexpected_error",
+                "message":        "Error inesperado al procesar la minuta.",
                 "transaction_id": transaction_id,
-                "record_id": record_id
-            }
+                "record_id":      record_id,
+            },
         )
 
-    # ── 5. Guardar output JSON en MinIO ───────────────────────────────────────
+    # ── 5. Guardar LLM output JSON en MinIO ───────────────────────────────────
     ai_output_bytes  = json.dumps(ai_output, ensure_ascii=False, indent=2).encode("utf-8")
     ai_output_key    = f"{record_id}/llm_output_v1.json"
     ai_output_obj_id = str(uuid.uuid4())
@@ -946,7 +1147,6 @@ async def generate_minute(
         content_type = "application/json",
     )
 
-    # Registrar Object del output JSON
     db.add(_build_object_row(
         obj_id       = ai_output_obj_id,
         bucket_id    = bucket_json_id,
@@ -958,21 +1158,20 @@ async def generate_minute(
         created_by   = requested_by_id,
     ))
 
-    # ✅ PASO 5 (continuación): Crear artefacto LLM_JSON_ORIGINAL
     artefacto_llm = _build_artifact_row(
         record_id         = record_id,
         artifact_type_id  = art_llm_orig_id,
         artifact_state_id = state_original_id,
         object_id         = ai_output_obj_id,
         created_by        = requested_by_id,
-        record_version_id = None,  # ← Temporal, se asignará después
-        is_draft          = False,  # ← Publicado, necesitará versión
+        record_version_id = None,
+        is_draft          = False,
         natural_name      = "llm_output_v1.json",
     )
-    db.add(artefacto_llm)
-    artefactos_creados.append(artefacto_llm)  # ← AGREGAR A LA LISTA
+    ### db.add(artefacto_llm)
+    artefactos_creados.append(artefacto_llm)
 
-    # ── 6. CANONICAL_JSON (copia editable del output) ─────────────────────────
+    # ── 6. Canonical JSON (copia editable) ────────────────────────────────────
     canonical_key    = f"{record_id}/schema_output_v1.json"
     canonical_obj_id = str(uuid.uuid4())
 
@@ -984,7 +1183,6 @@ async def generate_minute(
         content_type = "application/json",
     )
 
-    # Registrar Object del canonical JSON
     db.add(_build_object_row(
         obj_id       = canonical_obj_id,
         bucket_id    = bucket_json_id,
@@ -996,26 +1194,27 @@ async def generate_minute(
         created_by   = requested_by_id,
     ))
 
-    # ✅ PASO 6 (continuación): Crear artefacto CANONICAL_JSON
     artefacto_canonical = _build_artifact_row(
         record_id         = record_id,
         artifact_type_id  = art_canonical_id,
         artifact_state_id = state_ready_id,
         object_id         = canonical_obj_id,
         created_by        = requested_by_id,
-        record_version_id = None,  # ← Temporal, se asignará después
-        is_draft          = True,   # ← Borrador, no necesita versión
+        record_version_id = None,
+        is_draft          = True,   # ← Borrador, requiere record_draft vigente
         natural_name      = "schema_output_v1.json",
     )
-    db.add(artefacto_canonical)
-    artefactos_creados.append(artefacto_canonical)  # ← AGREGAR A LA LISTA
+    ### db.add(artefacto_canonical)
+    artefactos_creados.append(artefacto_canonical)
 
-    # ── 7. Crear RecordVersion v1 ─────────────────────────────────────────────
-    # PRIMERO: Guardar todos los artefactos en BD (sin versión)
-    logger.info(f"[minutes] Guardando {len(artefactos_creados)} artefactos en BD (sin versión)")
-    db.flush()  # ← Este flush guarda los artefactos con record_version_id = None
+    # ── 7. Crear RecordVersion v1 + RecordDraft ───────────────────────────────
+    #
+    # ORDEN CRÍTICO:
+    #   - Los artefactos NO se agregaron a la sesión en los pasos 3/5/6
+    #   - db.flush() aquí solo ve: version, draft, Objects → los persiste
+    #   - Luego asignamos version_id y hacemos db.add() de los artefactos
+    #   - db.flush(artefactos_creados) los inserta con todo satisfecho
 
-    # AHORA crear la versión
     version_id = str(uuid.uuid4())
     version = RecordVersion(
         id               = version_id,
@@ -1028,43 +1227,45 @@ async def generate_minute(
         ai_model         = settings.openai_model,
     )
     db.add(version)
-    db.flush()  # Guarda la versión y obtiene su ID
 
-    # 🔥 AHORA: Actualizar los artefactos en BD con la versión
-    logger.info(f"[minutes] Asignando versión {version_id} a {len(artefactos_creados)} artefactos")
+    # Requerido por trigger para artefactos con is_draft=True
+    draft = RecordDraft(
+        record_id  = record_id,
+        created_by = requested_by_id,
+    )
+    db.add(draft)
 
-    artefactos_publicados = 0
-    for art in artefactos_creados:
-        # Recargar el artefacto desde la BD para asegurar que existe
-        art_en_bd = db.get(RecordArtifact, art.id)
-        if art_en_bd:
-            art_en_bd.record_version_id = version_id
-            if not art_en_bd.is_draft:
-                artefactos_publicados += 1
-            logger.debug(f"[minutes] Actualizado en BD: {art_en_bd.natural_name}")
-        else:
-            # Si no está en BD, asignar directamente (fallback)
-            art.record_version_id = version_id
-            db.merge(art)
-            artefactos_publicados += 1
-            logger.warning(f"[minutes] Artefacto no encontrado en BD, usando merge: {art.natural_name}")
-
-    logger.info(f"[minutes] Asignados {artefactos_publicados} artefactos publicados a versión {version_id}")
-
-    # Hacemos flush para guardar las asignaciones
+    # 7a: flush — persiste version + draft + todos los Objects pendientes
+    #     Los artefactos NO están en la sesión todavía → trigger no se dispara
     db.flush()
 
-    # ── 8. Actualizar Record y Transaction ────────────────────────────────────
-    record.active_version_id  = version_id
-    record.latest_version_num = 1
-    record.updated_by         = requested_by_id
+    # 7b: asignar version_id y agregar artefactos a la sesión recién ahora
+    for art in artefactos_creados:
+        if not art.is_draft:
+            art.record_version_id = version_id
+        db.add(art)
 
-    tx.status            = "completed"
-    tx.output_object_id  = ai_output_obj_id
-    tx.record_version_id = version_id
-    tx.completed_at      = _now_utc()
+    logger.info(f"[minutes] Versión {version_id} | RecordDraft {record_id} creados")
 
-    db.commit()
+    # 7c: flush de artefactos (recién en sesión, triggers satisfechos)
+    db.flush(artefactos_creados)
+
+    # ── Finalizar trazabilidad ────────────────────────────────────────────────
+    if trace_dir:
+        try:
+            _finalize_trace(trace_dir, "completed")
+            logger.info(f"[trace] Trazabilidad completa en: {trace_dir}")
+        except Exception as e:
+            logger.warning(f"[trace] Error finalizando trace: {e}")
+
+    logger.info(f"[minutes] Minuta generada exitosamente | record={record_id} version={version_id}")
+
+    return MinuteGenerateResponse(
+        transaction_id = transaction_id,
+        record_id      = record_id,
+        status         = "completed",
+        message        = "Minuta generada exitosamente",
+    )
 
 
 # ─── Status ──────────────────────────────────────────────────────────────────
@@ -1076,8 +1277,8 @@ async def get_minute_status(
     tx = db.query(MinuteTransaction).filter_by(id=transaction_id).first()
     if tx is None:
         raise HTTPException(
-            status_code = status.HTTP_404_NOT_FOUND,
-            detail      = "Transaction no encontrada",
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Transaction no encontrada",
         )
 
     def _fmt(dt) -> Optional[str]:
