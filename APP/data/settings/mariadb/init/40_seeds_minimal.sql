@@ -368,7 +368,7 @@ WHERE rt.code = 'REPORT';
 INSERT INTO mime_types (mime, description, is_active) VALUES
   ('application/pdf',            'PDF', 1),
   ('application/json',           'JSON estándar', 1),
-  ('text/plain; charset=utf-8',  'Texto plano UTF-8', 1),
+  ('text/plain',                 'Texto plano UTF-8', 1),
   ('image/png',                  'Imagen PNG', 1),
   ('image/jpeg',                 'Imagen JPEG', 1);
 
@@ -395,7 +395,7 @@ JOIN file_extensions fe ON (mt.mime='application/json' AND fe.ext='json');
 INSERT INTO mime_type_extensions (mime_type_id, file_extension_id, is_default, is_active)
 SELECT mt.id, fe.id, 1, 1
 FROM mime_types mt
-JOIN file_extensions fe ON (mt.mime='text/plain; charset=utf-8' AND fe.ext='txt');
+JOIN file_extensions fe ON (mt.mime='text/plain' AND fe.ext='txt');
 
 INSERT INTO mime_type_extensions (mime_type_id, file_extension_id, is_default, is_active)
 SELECT mt.id, fe.id, 1, 1
@@ -417,7 +417,7 @@ JOIN file_extensions fe ON (mt.mime='image/jpeg' AND fe.ext='jpeg');
 INSERT INTO artifact_type_mime_types (artifact_type_id, mime_type_id, is_default, is_active)
 SELECT at.id, mt.id, 1, 1
 FROM artifact_types at
-JOIN mime_types mt ON mt.mime='text/plain; charset=utf-8'
+JOIN mime_types mt ON mt.mime='text/plain'
 WHERE at.code IN ('INPUT_TRANSCRIPT','INPUT_SUMMARY');
 
 INSERT INTO artifact_type_mime_types (artifact_type_id, mime_type_id, is_default, is_active)

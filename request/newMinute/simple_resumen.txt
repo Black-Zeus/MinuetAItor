@@ -1,0 +1,51 @@
+Seguimiento Servicios TI Nexcorp (Reunión Rápida)
+lun, 02 mar 2026
+
+Resumen:
+
+Reunión breve de seguimiento para revisar el estado de tickets críticos y coordinar acciones inmediatas. Se abordaron tres temas principales: la recurrencia del problema de migración de librerías, la inminente fecha límite para la aprobación de las cuentas del nuevo edificio, y la intermitencia en la conectividad a la VPN de un proveedor externo. Se confirmó que el caso de la librería sigue sin avance y se escalará directamente a desarrollo. Sobre las cuentas del nuevo edificio, se acordó una acción directa con el subgerente para obtener la aprobación antes del cierre del día. Finalmente, se identificó que el problema de VPN se debe a un perfil de firewall desactualizado y ya está en proceso de solución por parte del área de ciberseguridad. La reunión concluyó con la asignación de tareas concretas y fechas límite para cada punto.
+
+Capítulos y Temas:
+
+Apertura y orden del día:
+Saludos iniciales y presentación de la agenda enfocada en puntos críticos para resolución en el día. Sofía indica que la reunión será breve y directa.
+
+Seguimiento caso migración de librerías (Claudio Rivas):
+Se revisa el ticket de migración que lleva 95 días abierto. Andrés confirma que no ha habido avances a pesar de las reuniones con soporte. La solución temporal de ampliación de almacenamiento no es viable a largo plazo. Se acuerda escalar el caso directamente al área de desarrollo para una revisión de código.
+
+El caso de migración de librerías sigue sin solución después de 95 días y se escalará a desarrollo.
+
+Cuentas para nuevo edificio corporativo:
+Se discute la urgencia de las 15 cuentas para el nuevo edificio. Sofía informa que el subgerente de TI aún no ha aprobado los formularios, posiblemente por confundirlos con solicitudes duplicadas anteriores. Se acuerda que Sofía hablará directamente con él para clarificar y obtener la aprobación antes de las 17:00.
+
+Las 15 cuentas para el nuevo edificio están pendientes de la aprobación del subgerente de TI, se gestionará una respuesta para hoy.
+
+Problemas de conectividad VPN (Proveedor externo):
+Diego reporta que un proveedor externo sigue sin poder acceder a la VPN. Se había creado la cuenta, pero el acceso no funciona. Andrés informa que, tras revisar con el área de ciberseguridad, se detectó que el perfil de firewall del proveedor estaba desactualizado. Se aplicará la corrección en el transcurso de la hora.
+
+La VPN para proveedor externo no funcionaba por un perfil de firewall desactualizado; la solución está en proceso.
+
+Cierre y puntos de acción:
+Resumen de las tareas acordadas y confirmación de los responsables y fechas límite.
+
+Puntos de Acción:
+
+Andrés Silva: Escalar formalmente el caso de la migración de librerías (ticket #4567) al área de desarrollo y solicitar una revisión prioritaria. Fecha: hoy.
+
+Sofía Martínez: Hablar con el subgerente de TI para obtener la aprobación de los formularios de las 15 cuentas del nuevo edificio. Fecha: hoy, antes de las 17:00.
+
+Área de Ciberseguridad (gestionado por Andrés): Actualizar el perfil de firewall para el proveedor externo y confirmar la conectividad VPN con Diego. Fecha: en la próxima hora.
+
+Diego Fuentes: Validar con el proveedor externo que el acceso VPN se restablece correctamente una vez aplicado el cambio de firewall. Fecha: mañana.
+
+Preguntas clave:
+
+Claudio Rivas, ¿es de la sucursal norte?
+
+¿Las 15 cuentas del nuevo edificio son las mismas que fueron objetadas la semana pasada?
+
+¿El problema de VPN es solo con este proveedor o hay más casos similares?
+
+Bloc de notas:
+
+No hay notas
