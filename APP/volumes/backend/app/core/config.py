@@ -29,9 +29,35 @@ class Settings(BaseSettings):
     # OpenAI
     openai_api_key: str
     openai_model: str = "gpt-4o"
-    openai_assistant_id: str
+    openai_assistant_id: str = ""
     openai_max_tokens: int = 16000
-    openai_timeout_seconds: int = 300
+    openai_max_tokens_retry: int = 24000 
+    openai_timeout_seconds: int = 120
+    openai_temperature: float = 0.0
+    openai_top_p: float = 1.0
+    openai_seed: int = 42
+    openai_system_prompt: str = "system_prompt_v06.txt"
+
+    # OpenAI — capacidades por modelo
+    openai_models_with_file_support: list[str] = [
+        "gpt-4o",
+        "gpt-4o-mini",
+        "gpt-4o-2024-08-06",
+        "gpt-4o-2024-11-20",
+        "gpt-4.1",
+        "gpt-4.1-2025-04-14",
+    ]
+
+    # Minutes — formatos de archivo soportados
+    minutes_supported_extensions: dict[str, str] = {
+        ".txt":  "text/plain",
+        ".text": "text/plain",
+        ".pdf":  "application/pdf",
+    }
+    minutes_supported_mimes: dict[str, str] = {
+        "text/plain":      "text/plain",
+        "application/pdf": "application/pdf",
+    }
 
     # MinIO
     minio_host:          str = "minio"
@@ -60,6 +86,6 @@ class Settings(BaseSettings):
 
     class Config:
         env_file = ".env"
-        extra = "ignore" 
+        extra = "ignore"
 
 settings = Settings()
