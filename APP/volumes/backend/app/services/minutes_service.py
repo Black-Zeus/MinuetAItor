@@ -95,10 +95,10 @@ def _ext_from_filename(fname: str) -> str:
 
 # Mapa de normalización de content_type al valor EXACTO en mime_types (seeds).
 _MIME_NORMALIZE: dict[str, str] = {
-    "text/plain":                    "text/plain; charset=utf-8",
-    "text/plain; charset=utf8":      "text/plain; charset=utf-8",
-    "text/plain;charset=utf-8":      "text/plain; charset=utf-8",
-    "text/plain;charset=utf8":       "text/plain; charset=utf-8",
+    "text/plain":                    "text/plain",
+    "text/plain; charset=utf8":      "text/plain",
+    "text/plain;charset=utf-8":      "text/plain",
+    "text/plain;charset=utf8":       "text/plain",
     "application/json":              "application/json",
     "application/pdf":               "application/pdf",
     "image/png":                     "image/png",
@@ -885,7 +885,6 @@ async def generate_minute(
             is_draft          = False,
             natural_name      = fname,
         )
-        ### db.add(artefacto)
         artefactos_creados.append(artefacto)
 
         file_metadata.append({
@@ -1168,7 +1167,6 @@ async def generate_minute(
         is_draft          = False,
         natural_name      = "llm_output_v1.json",
     )
-    ### db.add(artefacto_llm)
     artefactos_creados.append(artefacto_llm)
 
     # ── 6. Canonical JSON (copia editable) ────────────────────────────────────
@@ -1204,7 +1202,6 @@ async def generate_minute(
         is_draft          = True,   # ← Borrador, requiere record_draft vigente
         natural_name      = "schema_output_v1.json",
     )
-    ### db.add(artefacto_canonical)
     artefactos_creados.append(artefacto_canonical)
 
     # ── 7. Crear RecordVersion v1 + RecordDraft ───────────────────────────────
@@ -1249,6 +1246,14 @@ async def generate_minute(
 
     # 7c: flush de artefactos (recién en sesión, triggers satisfechos)
     db.flush(artefactos_creados)
+    
+    # ── 8. ¡¡¡COMMIT FINAL!!! ─────────────────────────────────────────────────
+    # Este es el paso crítico que faltaba - confirma todos los cambios en la BD
+    tx.status = "completed"
+    tx.completed_at = _now_utc()
+    db.commit()
+    
+    logger.info(f"[minutes] Transacción {transaction_id} completada y commiteada")
 
     # ── Finalizar trazabilidad ────────────────────────────────────────────────
     if trace_dir:
@@ -1266,7 +1271,6 @@ async def generate_minute(
         status         = "completed",
         message        = "Minuta generada exitosamente",
     )
-
 
 # ─── Status ──────────────────────────────────────────────────────────────────
 

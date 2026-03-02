@@ -1,0 +1,47 @@
+Seguimiento Servicios TI Nexcorp (Reunión Rápida)
+lun, 02 mar 2026
+
+0:00 - Sofía Martínez
+Buenos días a todos. Gracias por conectarse. El subgerente de TI me pidió una reunión breve para hoy, así que vamos al grano con los puntos críticos. Tenemos 15 minutos, así que seamos concretos. Lo primero, Andrés, ¿cómo vamos con el caso de la migración de librerías de Claudio Rivas? Ese ticket lleva abierto más de 90 días y necesitamos una solución o una fecha.
+
+0:28 - Andrés Silva
+Buenos días, Sofía. Sí, el ticket #4567. Lamentablemente, cero avances. La reunión de la semana pasada con soporte avanzado no dio resultados. Ellos mismos identificaron problemas de permisos, pero no lograron resolver la sincronización. Se amplió el almacenamiento temporal, pero es un parche. Claudio necesita que la migración termine. Hoy en la mañana hice un seguimiento y el problema persiste. La única vía que nos queda es escalar directamente a desarrollo para que revisen el código o la lógica de la migración.
+
+1:03 - Sofía Martínez
+De acuerdo. Escálalo hoy mismo, con copia a la subgerencia, para que quede registro de la urgencia. Claudio es de la sucursal norte, ¿cierto?
+
+1:12 - Andrés Silva
+Sí, de la sucursal norte.
+
+1:14 - Sofía Martínez
+Ok. Perfecto. Siguiente tema. Diego, ¿qué pasa con la VPN del proveedor externo? El viernes me llegó un correo de que la cuenta estaba creada pero el acceso no funcionaba.
+
+1:27 - Diego Fuentes
+Hola, Sofía. Sí, exacto. La cuenta se creó, la validamos, pero el proveedor nos reportó que no podía establecer la conexión. Revisamos logs y todo apuntaba a un bloqueo. Lo derivamos al área de ciberseguridad.
+
+1:41 - Andrés Silva
+Sobre eso, Sofía, hablé con ciberseguridad esta mañana. Detectaron que el perfil de firewall asignado al proveedor estaba desactualizado. Era un perfil de una versión anterior de VPN. Ya lo están actualizando. Estiman que en una hora más debería estar resuelto.
+
+1:57 - Sofía Martínez
+Perfecto, Andrés. Diego, por favor, haz el seguimiento con el proveedor después del mediodía para confirmar que ya puede acceder. Bien, último punto de la agenda. Las 15 cuentas para el nuevo edificio. Esto ya es crítico. ¿Cuál es el cuello de botella?
+
+2:15 - Andrés Silva
+El cuello de botella es la aprobación final del subgerente de TI. Los formularios están listos y enviados desde la semana pasada. Pero tengo entendido que él los objetó porque los confundió con otras solicitudes duplicadas de oficinas individuales que se rechazaron antes. No son las mismas. Son para el personal del nuevo edificio.
+
+2:34 - Sofía Martínez
+Entendido. Esa confusión la aclaramos en la reunión del jueves. Yo hablo con él personalmente ahora, le explico la diferencia y le pido la aprobación antes de las 5 de la tarde. Es un paso obligatorio y no podemos retrasar más la habilitación de esas oficinas. ¿Algún otro punto urgente?
+
+2:55 - Diego Fuentes
+Por mi parte, si lo de la VPN se soluciona hoy, estamos bien.
+
+3:00 - Andrés Silva
+Solo recordar que, adicional a la migración, estamos a la espera de esa respuesta de desarrollo. En cuanto la tenga, te escribo.
+
+3:08 - Sofía Martínez
+Perfecto. Entonces, resumiendo: Andrés escala el caso de Claudio a desarrollo. Yo gestiono la aprobación de las cuentas con el subgerente. Diego valida la VPN con el proveedor. Nos vemos en la reunión ampliada del jueves. Muchas gracias a los dos.
+
+3:25 - Andrés Silva
+Gracias, Sofía.
+
+3:26 - Diego Fuentes
+Gracias, buen día.

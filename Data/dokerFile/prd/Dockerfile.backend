@@ -5,11 +5,16 @@ ARG BACKEND_PORT_INTERNAL=8000
 WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    TZ=America/Santiago
 
+# Actualizar sistema e instalar tzdata de forma no interactiva
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
-  && rm -rf /var/lib/apt/lists/*
+    tzdata \
+    && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime \
+    && echo $TZ > /etc/timezone \
+    && rm -rf /var/lib/apt/lists/*
 
 # usuario no-root
 RUN useradd -m appuser

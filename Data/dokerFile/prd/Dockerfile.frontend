@@ -1,12 +1,19 @@
-# Data/dokerFile/dev_qa/Dockerfile.frontend
 FROM node:20-alpine
 
 ARG FRONTEND_PORT_INTERNAL=5173
 
+# Configurar zona horaria
+ENV TZ=America/Santiago
+
 WORKDIR /app
 
-# Utils (opcional, pero útil para healthchecks/curl)
-RUN apk add --no-cache curl
+# Utils e instalación de tzdata para zona horaria
+RUN apk add --no-cache \
+    curl \
+    tzdata \
+    && cp /usr/share/zoneinfo/America/Santiago /etc/localtime \
+    && echo "America/Santiago" > /etc/timezone \
+    && apk del tzdata  # Opcional: eliminar tzdata después de configurar
 
 # Copiamos solo manifests para cachear deps.
 # OJO: Para que no falle si no existe package-lock.json, usamos el patrón *.json.
