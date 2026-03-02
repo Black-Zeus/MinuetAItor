@@ -357,12 +357,12 @@ def _load_agent_prompt(
             template = f.read()
 
         prompt = template
-        prompt = prompt.replace("{profile_id}",          profile_id)
-        prompt = prompt.replace("{profile_name}",        profile_name)
-        prompt = prompt.replace("{profile_description}", profile_description)
-        prompt = prompt.replace("{profile_prompt}",      profile_prompt or "Analiza la reunión de forma general y objetiva.")
-        prompt = prompt.replace("{additional_notes}",    additional_notes or "Sin notas adicionales.")
-        prompt = prompt.replace("{user_tags}",           user_tags or "Sin tags proporcionados.")
+        prompt = prompt.replace("{profileId}",          profile_id)
+        prompt = prompt.replace("{profileName}",        profile_name)
+        prompt = prompt.replace("{profileDescription}", profile_description)
+        prompt = prompt.replace("{profilePrompt}",      profile_prompt or "Analiza la reunión de forma general y objetiva.")
+        prompt = prompt.replace("{additionalNotes}",    additional_notes or "Sin notas adicionales.")
+        prompt = prompt.replace("{userTags}",           user_tags or "Sin tags proporcionados.")
 
         logger.debug(f"[minutes] Prompt cargado desde {PROMPT_FILE} | perfil='{profile_name}'")
         return prompt
