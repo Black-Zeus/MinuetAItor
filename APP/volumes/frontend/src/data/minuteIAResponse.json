@@ -1,158 +1,118 @@
 {
     "metadata": {
-        "transactionId": "550e8400-e29b-41d4-a716-446655440000",
-        "generatedAt": "2026-02-16T14:30:00Z",
-        "generatedBy": "Juan Perez",
+        "transactionId": "faa90df9-2a10-43b2-bf70-c211a0405e7c",
+        "generatedAt": "2026-03-02T11:39:12Z",
+        "generatedBy": "Victor Soto",
         "version": "1.0"
     },
     "inputInfo": {
         "attachments": [
             {
                 "fileName": "transcripcion.txt",
-                "mimeType": "text/plain",
-                "sha256": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f2"
+                "mimeType": "text/plain; charset=utf-8",
+                "sha256": "e3235bd6f782ab1f9de047549effcdc901b7ce1a2acc9642a5cfa69778bea390"
             },
             {
                 "fileName": "resumen.txt",
-                "mimeType": "text/plain",
-                "sha256": "f2e1d0c9b8a7z6y5x4w3v2u1t0s9r8q7p6o5n4m3l2k1j0i9h8g7f6e5d4c3b2a1"
+                "mimeType": "text/plain; charset=utf-8",
+                "sha256": "1907b792e9fee8f0404149776d856d1172e9b8eb63b8f37e116a9a954cf25f47"
             }
         ],
         "meetingSchedule": {
-            "scheduledDate": "2026-02-12",
-            "scheduledStartTime": "09:00",
-            "actualStartTime": "09:05",
-            "scheduledEndTime": "10:00"
+            "scheduledDate": "2024-01-15",
+            "scheduledStartTime": "10:00",
+            "actualStartTime": "10:05",
+            "scheduledEndTime": "11:30"
         },
         "participants": {
             "attendees": [
-                "Juan Perez"
+                "Juan Pérez",
+                "María González",
+                "Carlos Rodríguez"
             ],
             "copyRecipients": [
-                "Matias Maldonado"
+                "Ana Martínez"
             ]
         },
         "projectInfo": {
-            "client": "Clínica Santa Aurora S.A.",
-            "project": "Desarrollo Web Corporativo",
-            "minuteTitle": "Habilitación acceso VLAN Usuarios → Portal Web On-Prem (Redes/Seguridad)",
+            "client": "Minera Goldfields",
+            "project": "Servicios IT",
+            "minuteTitle": "",
             "titleGeneratedByAI": false
         },
         "profileInfo": {
-            "profileId": "PROF-001",
-            "profileName": "Seguimiento de Servicios (Service Review Semanal)"
+            "profileId": "70aa9c64-1593-11f1-8403-da1169052fe5",
+            "profileName": "Reunión de Seguimiento Semanal (Weekly Status)"
         },
-        "additionalNotes": "Adicionar la necesidad de mejorar formatos de entrega y formalización de procesos con áreas a fin",
-        "userProvidedTags": [
-            "infraestructura",
-            "redes",
-            "seguridad",
-            "firewall",
-            "vlan"
-        ]
+        "additionalNotes": "",
+        "userProvidedTags": []
     },
     "aiSuggestedTags": [
         {
-            "name": "segmentación-red",
-            "description": "Temas relacionados con la separación lógica de redes mediante VLANs y políticas de firewall"
+            "name": "protocolos-acceso",
+            "description": "Discusión sobre la interpretación y comunicación de los niveles de restricción de acceso."
         },
         {
-            "name": "políticas-firewall",
-            "description": "Configuración y gestión de reglas de acceso en firewalls corporativos"
+            "name": "migración-datos",
+            "description": "Problemas y seguimiento de la migración de librerías compartidas a nuevas plataformas."
         },
         {
-            "name": "portal-web-interno",
-            "description": "Aplicaciones web on-premise para uso corporativo interno"
+            "name": "gestión-parches",
+            "description": "Dificultades con la plataforma de gestión de parches y diferencias entre servidores."
         },
         {
-            "name": "autenticación-windows",
-            "description": "Integración con Active Directory y autenticación integrada de Windows (IWA, Kerberos, NTLM)"
+            "name": "conectividad-sedes",
+            "description": "Problemas de conectividad entre sedes y la necesidad de sesiones de trabajo técnico."
         },
         {
-            "name": "troubleshooting-conectividad",
-            "description": "Diagnóstico y resolución de problemas de acceso y conectividad de red"
-        },
-        {
-            "name": "logging-auditoría",
-            "description": "Implementación de registros y trazabilidad de eventos de seguridad"
-        },
-        {
-            "name": "cambios-controlados",
-            "description": "Gestión de cambios con ventanas de implementación y planes de rollback"
-        },
-        {
-            "name": "mínimo-privilegio",
-            "description": "Aplicación del principio de acceso mínimo necesario en configuraciones de seguridad"
-        },
-        {
-            "name": "iis-windows-server",
-            "description": "Administración de servicios web en Internet Information Services sobre plataforma Windows Server"
-        },
-        {
-            "name": "criterios-aceptación",
-            "description": "Definición de pruebas funcionales y técnicas para validar implementaciones"
+            "name": "soporte-remoto",
+            "description": "Impacto del bloqueo de herramientas de soporte remoto y comparación con videocolaboración."
         }
     ],
     "generalInfo": {
-        "client": "Clínica Santa Aurora S.A.",
-        "subject": "Habilitación acceso VLAN Usuarios → Portal Web On-Prem (Redes/Seguridad)",
-        "meetingDate": "12/02/2026",
-        "scheduledStartTime": "09:00",
-        "actualStartTime": "00:00",
-        "scheduledEndTime": "10:00",
-        "actualEndTime": "00:36",
+        "client": "Minera Goldfields",
+        "subject": "Seguimiento servicio Nexcorp 2026",
+        "meetingDate": "2026-02-26",
+        "scheduledStartTime": "10:00",
+        "actualStartTime": "10:05",
+        "scheduledEndTime": "11:30",
+        "actualEndTime": "11:35",
         "location": "Microsoft Teams",
-        "preparedBy": "Juan Perez"
+        "preparedBy": "Victor Soto"
     },
     "participants": {
         "invited": [
             {
-                "fullName": "Camila Soto",
-                "initials": "CS"
-            },
-            {
-                "fullName": "Paula Rojas",
-                "initials": "PR"
-            },
-            {
-                "fullName": "Marco Álvarez",
-                "initials": "MA"
-            },
-            {
-                "fullName": "Tomás Cárdenas",
-                "initials": "TC"
-            },
-            {
-                "fullName": "Ignacio Valdés",
-                "initials": "IV"
+                "fullName": "Pedro Sánchez",
+                "initials": "PS"
             }
         ],
         "attendees": [
             {
-                "fullName": "Camila Soto",
-                "initials": "CS"
+                "fullName": "Sofía Martínez",
+                "initials": "SM"
             },
             {
-                "fullName": "Paula Rojas",
-                "initials": "PR"
+                "fullName": "Andrés Silva",
+                "initials": "AS"
             },
             {
-                "fullName": "Marco Álvarez",
-                "initials": "MA"
+                "fullName": "Diego Fuentes",
+                "initials": "DF"
             },
             {
-                "fullName": "Tomás Cárdenas",
-                "initials": "TC"
+                "fullName": "Mauricio Ríos",
+                "initials": "MR"
             },
             {
-                "fullName": "Ignacio Valdés",
-                "initials": "IV"
+                "fullName": "Camila Torres",
+                "initials": "CT"
             }
         ],
         "copyRecipients": [
             {
-                "fullName": "Matias Maldonado",
-                "initials": "MM"
+                "fullName": "Ana Martínez",
+                "initials": "AM"
             }
         ]
     },
@@ -163,104 +123,412 @@
                 "sectionTitle": "Introducción",
                 "sectionType": "introduction",
                 "content": {
-                    "summary": "Se revisó la restricción de acceso entre la VLAN de usuarios y la VLAN de servidores que impide el ingreso al portal web on-premise desde la red corporativa. Se identificó que el servicio sólo es accesible desde la VLAN de TI y que la segmentación inter-VLAN opera con una política \"deny by default\" administrada en el firewall (gateway de todas las VLAN).",
+                    "summary": "La reunión se centró en el seguimiento de incidencias operativas y solicitudes de infraestructura, con un enfoque en la interpretación de nuevos protocolos de ciberseguridad y la migración de archivos.",
                     "topicsList": [
-                        "Habilitación de acceso inter-VLAN al portal on-premise",
-                        "Definición de reglas, protocolos y controles de seguridad",
-                        "Plan de pruebas, observabilidad y ventana de cambio"
+                        "Apertura y presentación del problema de protocolos de acceso",
+                        "Detalle y ejemplos de interpretación de protocolos",
+                        "Incidencias de migración a plataforma colaborativa",
+                        "Seguimiento de tickets escalados y accesos",
+                        "Nuevo edificio corporativo y cuentas requeridas",
+                        "Instalación de equipamiento y problemas de video",
+                        "Solicitud de cuenta y problemas con plataforma de parches",
+                        "Diferencias entre plataformas y falta de datos",
+                        "Escalamiento y seguimiento del ticket",
+                        "Reacción sobre limitaciones y seguridad",
+                        "Instalación de estaciones de trabajo y gestión de inventario",
+                        "Problema de almacenamiento local y respaldos",
+                        "Cierre de sección y entrega de la palabra a infraestructura",
+                        "Conectividad entre sedes y VLAN",
+                        "Coordinación de sesión para controladores de dominio",
+                        "Telefonía IP y control de accesos físicos",
+                        "Migración de servicios y problemas de resolución DNS",
+                        "Propiedad de administración y alcance de responsabilidades",
+                        "Sistemas de reportes y aplicaciones críticas",
+                        "Integración LDAP y seguimiento del requerimiento de reportes",
+                        "Bloqueo de herramienta de soporte remoto y su impacto",
+                        "Problemas de visibilidad de equipos en red y comunicación con el área técnica",
+                        "Posibles causas y comportamiento aleatorio del bloqueo",
+                        "Coordinación con región norte sobre políticas y planes de desinstalación",
+                        "Comparación herramienta de videocolaboración vs soporte remoto y problemas prácticos",
+                        "Licencia de herramienta de soporte, revisión y convocatoria de sesiones",
+                        "Seguimiento de servidores y cierre"
                     ]
                 }
             },
             {
                 "sectionId": "SCOPE-002",
-                "sectionTitle": "Habilitación de acceso inter-VLAN al portal on-premise",
+                "sectionTitle": "Apertura y presentación del problema de protocolos de acceso",
                 "sectionType": "topic",
                 "content": {
-                    "summary": "Paula Rojas y Marco Álvarez expusieron que los usuarios de la VLAN corporativa no acceden al portal, mientras que desde la VLAN de TI funciona correctamente. Tomás Cárdenas confirmó que el firewall opera como gateway inter-VLAN y que la segmentación se rige por deny-by-default, por lo que el problema es de políticas y no de ruteo.",
+                    "summary": "Se discutió la malinterpretación de los niveles de restricción de acceso y su impacto en la operación diaria.",
                     "details": [
                         {
-                            "label": "Restricción actual",
-                            "description": "El portal sólo responde desde la VLAN de TI (10.20.99.0/24). Desde la VLAN corporativa de usuarios (10.20.10.0/24) no hay acceso."
-                        },
-                        {
-                            "label": "Arquitectura confirmada",
-                            "description": "Firewall es gateway de todas las VLAN. Política base: deny inter-VLAN, se habilita por excepción."
-                        },
-                        {
-                            "label": "Impacto operativo",
-                            "description": "El portal es crítico para solicitudes internas. Actualmente se está resolviendo por correo debido a timeouts desde equipos de usuarios."
-                        },
-                        {
-                            "label": "Componente DNS",
-                            "description": "Portal accesible por FQDN interno: intranet.clinicasantaaurora.local, que resuelve a IP 10.20.30.20 del IIS."
-                        },
-                        {
-                            "label": "Infraestructura del portal",
-                            "description": "Windows Server con IIS en VLAN de servidores (10.20.30.0/24). Base SQL en la misma VLAN. No hay DMZ para este servicio."
+                            "label": "Hecho",
+                            "description": "Se solicitó revisar la comunicación y formación para evitar que perfiles de nivel básico bloqueen el ingreso a sistemas."
                         }
                     ]
                 }
             },
             {
                 "sectionId": "SCOPE-003",
-                "sectionTitle": "Definición de reglas, protocolos y controles de seguridad",
+                "sectionTitle": "Detalle y ejemplos de interpretación de protocolos",
                 "sectionType": "topic",
                 "content": {
-                    "summary": "Ignacio Valdés propuso la habilitación mínima necesaria: permitir HTTPS desde VLAN Usuarios hacia el host del IIS, sin habilitar acceso a SQL ni a otros servidores. Se discutió ICMP como herramienta de troubleshooting (manteniéndolo bloqueado salvo necesidad), la validez de DNS (FQDN resuelve correctamente) y la autenticación integrada Windows (IWA), evitando proxy/intercept TLS en tráfico interno.",
+                    "summary": "Se clarificaron las diferencias entre los niveles de acceso y se dieron ejemplos de bloqueos en turnos nocturnos.",
                     "details": [
                         {
-                            "label": "Regla host-based propuesta",
-                            "description": "src 10.20.10.0/24 → dst 10.20.30.20 → TCP/443 con logging habilitado. TCP/80 opcional sólo si existe redirección HTTP→HTTPS en IIS."
-                        },
-                        {
-                            "label": "Scope de acceso",
-                            "description": "Mantener DENY para el resto de VLAN Servidores (10.20.30.0/24). Sin abrir SQL ni shares ni otros servidores."
-                        },
-                        {
-                            "label": "ICMP",
-                            "description": "Se mantiene bloqueado por estándar. Se evaluará sólo si el troubleshooting lo requiere."
-                        },
-                        {
-                            "label": "Autenticación IWA",
-                            "description": "Autenticación integrada Windows (Kerberos/NTLM). No se recomienda proxy/intercept TLS para tráfico interno."
-                        },
-                        {
-                            "label": "Naming de objetos",
-                            "description": "NET_VLAN_USUARIOS_10.20.10.0_24, HOST_INTRANET_10.20.30.20, SVC_HTTPS_443. Regla: ALLOW_USUARIOS_TO_INTRANET_HTTPS."
-                        },
-                        {
-                            "label": "Recomendación de seguridad adicional",
-                            "description": "Proteger rutas administrativas por roles (AD group) a nivel aplicación, dado que no hay WAF interno."
+                            "label": "Hecho",
+                            "description": "Se recomendó ajustar políticas para personal en terreno."
                         }
                     ]
                 }
             },
             {
                 "sectionId": "SCOPE-004",
-                "sectionTitle": "Plan de pruebas, observabilidad y ventana de cambio",
+                "sectionTitle": "Incidencias de migración a plataforma colaborativa",
                 "sectionType": "topic",
                 "content": {
-                    "summary": "Camila Soto consolidó el scope (sólo navegador hacia portal) y definió criterios de aceptación, además de logging y posible export a syslog. Se acordó implementar la regla en ventana controlada con rollback por deshabilitación de la allow. Se dejó el punto de revisar posibles dependencias adicionales si algún módulo consume APIs internas fuera del host 10.20.30.20.",
+                    "summary": "Se revisó un ticket crítico de migración de librerías compartidas que lleva 95 días sin resolver.",
                     "details": [
                         {
-                            "label": "Criterios de aceptación",
-                            "description": "Carga página principal por HTTPS desde PC de VLAN usuarios. Autenticación integrada sin prompt de credenciales. Acceso a dos módulos críticos: creación de solicitud y consulta de estado."
-                        },
+                            "label": "Bloqueo",
+                            "description": "La sincronización sigue sin resolverse pese a reuniones con el área de soporte."
+                        }
+                    ]
+                }
+            },
+            {
+                "sectionId": "SCOPE-005",
+                "sectionTitle": "Seguimiento de tickets escalados y accesos",
+                "sectionType": "topic",
+                "content": {
+                    "summary": "Se detallaron casos abiertos relacionados con nuevos colaboradores y problemas de permisos.",
+                    "details": [
                         {
-                            "label": "Validación por logs",
-                            "description": "Revisión de logs FW: hits a la regla allow, sin drops relevantes. Logging habilitado mínimo 7 días con evaluación de export a syslog si es viable."
-                        },
+                            "label": "En curso",
+                            "description": "Varios asuntos están escalados a la casa matriz o a la región norte y todavía sin solución."
+                        }
+                    ]
+                }
+            },
+            {
+                "sectionId": "SCOPE-006",
+                "sectionTitle": "Nuevo edificio corporativo y cuentas requeridas",
+                "sectionType": "topic",
+                "content": {
+                    "summary": "Se solicitó la creación de 15 cuentas para el nuevo edificio corporativo.",
+                    "details": [
                         {
-                            "label": "Ventana de cambio",
-                            "description": "Implementación a las 18:30 con rollback simple por deshabilitación de la regla allow."
-                        },
+                            "label": "Pendiente",
+                            "description": "Falta la aprobación del subgerente de TI para proceder."
+                        }
+                    ]
+                }
+            },
+            {
+                "sectionId": "SCOPE-007",
+                "sectionTitle": "Instalación de equipamiento y problemas de video",
+                "sectionType": "topic",
+                "content": {
+                    "summary": "Se reportaron instalaciones con cableado provisional y problemas de detección de monitores externos.",
+                    "details": [
                         {
-                            "label": "Validación de dependencias adicionales",
-                            "description": "Revisar mediante F12/Network en navegador y logs FW si algún módulo consume APIs internas desde el cliente hacia hosts distintos a 10.20.30.20."
-                        },
+                            "label": "Riesgo",
+                            "description": "Instalaciones de cableado de red provisionales deben ser normalizadas."
+                        }
+                    ]
+                }
+            },
+            {
+                "sectionId": "SCOPE-008",
+                "sectionTitle": "Solicitud de cuenta y problemas con plataforma de parches",
+                "sectionType": "topic",
+                "content": {
+                    "summary": "Se presentó la solicitud de una cuenta de servicio y se detectaron limitaciones en la plataforma de gestión de parches.",
+                    "details": [
                         {
-                            "label": "Verificación de orden de reglas",
-                            "description": "Ubicar la regla allow antes de la deny general para que tenga match correctamente."
+                            "label": "Bloqueo",
+                            "description": "En servidores Linux no se está reportando el nivel de parches aplicados."
+                        }
+                    ]
+                }
+            },
+            {
+                "sectionId": "SCOPE-009",
+                "sectionTitle": "Diferencias entre plataformas y falta de datos",
+                "sectionType": "topic",
+                "content": {
+                    "summary": "Se discutió la diferencia entre los servidores locales de región norte y la consola centralizada en la casa matriz.",
+                    "details": [
+                        {
+                            "label": "Riesgo",
+                            "description": "La plataforma de parches en región norte utiliza servidores locales y difiere de la consola web centralizada."
+                        }
+                    ]
+                }
+            },
+            {
+                "sectionId": "SCOPE-010",
+                "sectionTitle": "Escalamiento y seguimiento del ticket",
+                "sectionType": "topic",
+                "content": {
+                    "summary": "Se mencionó la intención de escalar el problema con el proveedor.",
+                    "details": [
+                        {
+                            "label": "En curso",
+                            "description": "Se creó un ticket para escalar la inconsistencia con el proveedor."
+                        }
+                    ]
+                }
+            },
+            {
+                "sectionId": "SCOPE-011",
+                "sectionTitle": "Reacción sobre limitaciones y seguridad",
+                "sectionType": "topic",
+                "content": {
+                    "summary": "Mauricio expresó que la herramienta debe tener un alcance claro y rechazó soluciones que requieran modificar configuraciones de seguridad.",
+                    "details": [
+                        {
+                            "label": "Decisión",
+                            "description": "Rechazo a procedimientos que modifiquen políticas de seguridad por posibles riesgos."
+                        }
+                    ]
+                }
+            },
+            {
+                "sectionId": "SCOPE-012",
+                "sectionTitle": "Instalación de estaciones de trabajo y gestión de inventario",
+                "sectionType": "topic",
+                "content": {
+                    "summary": "La instalación de nuevas estaciones de trabajo se realizó con apoyo del equipo de soporte.",
+                    "details": [
+                        {
+                            "label": "Hecho",
+                            "description": "La instalación fue mayormente exitosa; algunos usuarios reportaron rendimiento inferior al esperado."
+                        }
+                    ]
+                }
+            },
+            {
+                "sectionId": "SCOPE-013",
+                "sectionTitle": "Problema de almacenamiento local y respaldos",
+                "sectionType": "topic",
+                "content": {
+                    "summary": "Se revisó un caso con usuarios que almacenan archivos localmente en lugar de usar las unidades de red.",
+                    "details": [
+                        {
+                            "label": "Riesgo",
+                            "description": "Usuarios almacenan archivos localmente, lo que provoca que respaldos automáticos no incluyan información crítica."
+                        }
+                    ]
+                }
+            },
+            {
+                "sectionId": "SCOPE-014",
+                "sectionTitle": "Cierre de sección y entrega de la palabra a infraestructura",
+                "sectionType": "topic",
+                "content": {
+                    "summary": "Andrés dio paso a la lámina del área de infraestructura y cedió la palabra a Mauricio y Camila.",
+                    "details": [
+                        {
+                            "label": "Hecho",
+                            "description": "Se continuó con los temas correspondientes al área de infraestructura."
+                        }
+                    ]
+                }
+            },
+            {
+                "sectionId": "SCOPE-015",
+                "sectionTitle": "Conectividad entre sedes y VLAN",
+                "sectionType": "topic",
+                "content": {
+                    "summary": "Se describieron problemas de conectividad entre la sede norte y la casa matriz.",
+                    "details": [
+                        {
+                            "label": "Bloqueo",
+                            "description": "Se requiere una sesión de trabajo técnica para revisar la conectividad entre sedes."
+                        }
+                    ]
+                }
+            },
+            {
+                "sectionId": "SCOPE-016",
+                "sectionTitle": "Coordinación de sesión para controladores de dominio",
+                "sectionType": "topic",
+                "content": {
+                    "summary": "Se confirmó la intención de realizar una sesión de trabajo para definir la nueva estructura de controladores de dominio.",
+                    "details": [
+                        {
+                            "label": "Pendiente",
+                            "description": "Hay una reunión agendada a las 11:00 para abordar la estructura de controladores de dominio."
+                        }
+                    ]
+                }
+            },
+            {
+                "sectionId": "SCOPE-017",
+                "sectionTitle": "Telefonía IP y control de accesos físicos",
+                "sectionType": "topic",
+                "content": {
+                    "summary": "Se solicitó una cotización para la actualización de la central telefónica.",
+                    "details": [
+                        {
+                            "label": "Pendiente",
+                            "description": "El asunto está en pausa por falta de respuesta del proveedor."
+                        }
+                    ]
+                }
+            },
+            {
+                "sectionId": "SCOPE-018",
+                "sectionTitle": "Migración de servicios y problemas de resolución DNS",
+                "sectionType": "topic",
+                "content": {
+                    "summary": "Un servidor de archivos fue migrado sin pruebas suficientes, provocando fallos en el acceso a documentos.",
+                    "details": [
+                        {
+                            "label": "Riesgo",
+                            "description": "No existe resolución por cercanía y las consultas DNS responden desde servidores en región norte."
+                        }
+                    ]
+                }
+            },
+            {
+                "sectionId": "SCOPE-019",
+                "sectionTitle": "Propiedad de administración y alcance de responsabilidades",
+                "sectionType": "topic",
+                "content": {
+                    "summary": "Se debatió la ambigüedad sobre si región norte administra servidores mientras la operación local gestiona los servicios.",
+                    "details": [
+                        {
+                            "label": "Riesgo",
+                            "description": "Se solicitó clarificar alcance para evitar responsabilidades mal atribuidas."
+                        }
+                    ]
+                }
+            },
+            {
+                "sectionId": "SCOPE-020",
+                "sectionTitle": "Sistemas de reportes y aplicaciones críticas",
+                "sectionType": "topic",
+                "content": {
+                    "summary": "Se informó que la herramienta de business intelligence enfrenta problemas de conectividad.",
+                    "details": [
+                        {
+                            "label": "Pendiente",
+                            "description": "Se está evaluando la creación de un servidor local de business intelligence para reducir latencia."
+                        }
+                    ]
+                }
+            },
+            {
+                "sectionId": "SCOPE-021",
+                "sectionTitle": "Integración LDAP y seguimiento del requerimiento de reportes",
+                "sectionType": "topic",
+                "content": {
+                    "summary": "Se confirmó la entrega de la cuenta de servicio para la integración con el sistema externo.",
+                    "details": [
+                        {
+                            "label": "Hecho",
+                            "description": "El área de desarrollo continúa la implementación."
+                        }
+                    ]
+                }
+            },
+            {
+                "sectionId": "SCOPE-022",
+                "sectionTitle": "Bloqueo de herramienta de soporte remoto y su impacto",
+                "sectionType": "topic",
+                "content": {
+                    "summary": "Mauricio informó que hubo bloqueos que dejaron sin respuesta varias estaciones de trabajo.",
+                    "details": [
+                        {
+                            "label": "Bloqueo",
+                            "description": "El bloqueo de la herramienta de soporte remoto impidió la asistencia en varios equipos."
+                        }
+                    ]
+                }
+            },
+            {
+                "sectionId": "SCOPE-023",
+                "sectionTitle": "Problemas de visibilidad de equipos en red y comunicación con el área técnica",
+                "sectionType": "topic",
+                "content": {
+                    "summary": "Mauricio y el equipo de soporte reportaron que ciertos equipos no aparecían en el inventario de red.",
+                    "details": [
+                        {
+                            "label": "Riesgo",
+                            "description": "Hay incertidumbre sobre por qué ciertos equipos aparecen como 'no visibles' pero están operativos."
+                        }
+                    ]
+                }
+            },
+            {
+                "sectionId": "SCOPE-024",
+                "sectionTitle": "Posibles causas y comportamiento aleatorio del bloqueo",
+                "sectionType": "topic",
+                "content": {
+                    "summary": "Se discutió la posibilidad de que el bloqueo provenga de capas de seguridad como firewall perimetral.",
+                    "details": [
+                        {
+                            "label": "Riesgo",
+                            "description": "El bloqueo parece aleatorio y podría estar relacionado con capas de seguridad."
+                        }
+                    ]
+                }
+            },
+            {
+                "sectionId": "SCOPE-025",
+                "sectionTitle": "Coordinación con región norte sobre políticas y planes de desinstalación",
+                "sectionType": "topic",
+                "content": {
+                    "summary": "Mauricio explicó que coordinará con región norte la revisión de las políticas de seguridad.",
+                    "details": [
+                        {
+                            "label": "Pendiente",
+                            "description": "Se evalúa una desinstalación masiva de la herramienta no autorizada en equipos de usuarios."
+                        }
+                    ]
+                }
+            },
+            {
+                "sectionId": "SCOPE-026",
+                "sectionTitle": "Comparación herramienta de videocolaboración vs soporte remoto y problemas prácticos",
+                "sectionType": "topic",
+                "content": {
+                    "summary": "Diego y Mauricio compararon herramientas y discutieron problemas prácticos.",
+                    "details": [
+                        {
+                            "label": "Riesgo",
+                            "description": "La herramienta de videocolaboración presenta problemas para el control remoto en escenarios de múltiples pantallas."
+                        }
+                    ]
+                }
+            },
+            {
+                "sectionId": "SCOPE-027",
+                "sectionTitle": "Licencia de herramienta de soporte, revisión y convocatoria de sesiones",
+                "sectionType": "topic",
+                "content": {
+                    "summary": "Sofía indicó que la organización tiene licencia vigente para la herramienta de soporte dedicada.",
+                    "details": [
+                        {
+                            "label": "Decisión",
+                            "description": "Se acordó realizar sesiones de coordinación y fijar fechas concretas."
+                        }
+                    ]
+                }
+            },
+            {
+                "sectionId": "SCOPE-028",
+                "sectionTitle": "Seguimiento de servidores y cierre",
+                "sectionType": "topic",
+                "content": {
+                    "summary": "Sofía comentó la necesidad de clarificar el alcance y flujo de administración de servidores.",
+                    "details": [
+                        {
+                            "label": "Pendiente",
+                            "description": "Se realizarán sesiones de seguimiento para clarificar el alcance y flujo de administración de servidores."
                         }
                     ]
                 }
@@ -271,33 +539,57 @@
         "items": [
             {
                 "agreementId": "AGR-001",
-                "subject": "Envío de checklist de pruebas",
-                "body": "Enviar checklist de pruebas funcionales y detalle de configuración/naming de objetos de firewall antes de la ventana de cambio.",
-                "responsible": "Camila Soto",
+                "subject": "Revisión de comunicación de protocolos de acceso",
+                "body": "Revisar la comunicación y formación para evitar que perfiles de nivel básico bloqueen el ingreso a sistemas.",
+                "responsible": "Sofía Martínez",
                 "dueDate": null,
                 "status": "pending"
             },
             {
                 "agreementId": "AGR-002",
-                "subject": "Implementación de regla allow en firewall",
-                "body": "Implementar regla allow (src 10.20.10.0/24 → dst 10.20.30.20 → TCP/443 con log) a las 18:30. Verificar orden de reglas (allow sobre deny general). Incluir TCP/80 opcional si existe redirección HTTP→HTTPS en IIS.",
-                "responsible": "Paula Rojas",
-                "dueDate": "2026-02-12T18:30:00Z",
+                "subject": "Coordinación de soporte para migración de librerías",
+                "body": "Volver a reportar al área de desarrollo y coordinar nueva instancia de soporte para el caso de migración de librerías.",
+                "responsible": "Andrés Silva",
+                "dueDate": null,
                 "status": "pending"
             },
             {
                 "agreementId": "AGR-003",
-                "subject": "Ejecución de pruebas funcionales",
-                "body": "Ejecutar pruebas funcionales posterior al cambio: ingreso al portal, creación de solicitud y consulta de estado desde estación de VLAN usuarios.",
-                "responsible": "Marco Álvarez",
-                "dueDate": "2026-02-12T18:30:00Z",
+                "subject": "Activación de accesos para nuevos colaboradores",
+                "body": "Contactar a los nuevos colaboradores para que activen sus accesos y evitar que las cuentas queden bloqueadas nuevamente.",
+                "responsible": "Camila Torres",
+                "dueDate": null,
                 "status": "pending"
             },
             {
                 "agreementId": "AGR-004",
-                "subject": "Gestión de logging y observabilidad",
-                "body": "Mantener logging habilitado en la regla allow al menos 7 días. Evaluar export a syslog si es viable; caso contrario, mantener registro local del firewall.",
-                "responsible": "Paula Rojas",
+                "subject": "Aprobación de formularios para cuentas del nuevo edificio",
+                "body": "Hablar con el subgerente de TI para solicitar la aprobación de los formularios de las 15 cuentas del nuevo edificio.",
+                "responsible": "Sofía Martínez",
+                "dueDate": null,
+                "status": "pending"
+            },
+            {
+                "agreementId": "AGR-005",
+                "subject": "Evaluación de instalaciones de red en el nuevo edificio",
+                "body": "Enviar fotos y evidencia de las instalaciones de red en el nuevo edificio para evaluar normalización por la empresa instaladora.",
+                "responsible": "Diego Fuentes",
+                "dueDate": null,
+                "status": "pending"
+            },
+            {
+                "agreementId": "AGR-006",
+                "subject": "Sesión de trabajo para revisar conectividad entre sedes",
+                "body": "Coordinar y solicitar la sesión de trabajo con el equipo de redes y el área de telecomunicaciones para revisar la conectividad entre sedes y el ticket asociado.",
+                "responsible": "Mauricio Ríos",
+                "dueDate": null,
+                "status": "pending"
+            },
+            {
+                "agreementId": "AGR-007",
+                "subject": "Organización de sesiones de seguimiento",
+                "body": "Organizar y convocar sesiones de seguimiento para validar el bloqueo de la herramienta de soporte remoto y el estado de los equipos no visibles.",
+                "responsible": "Sofía Martínez",
                 "dueDate": null,
                 "status": "pending"
             }
@@ -307,26 +599,26 @@
         "items": [
             {
                 "requirementId": "REQ-001",
-                "entity": "Clínica Santa Aurora S.A. (TI)",
-                "body": "Confirmar si existe redirección HTTP→HTTPS en el IIS que requiera habilitar TCP/80 además de TCP/443.",
-                "responsible": "Paula Rojas",
-                "priority": "medium",
+                "entity": "Área de infraestructura",
+                "body": "Hacer seguimiento y escalar el ticket con el proveedor sobre la discrepancia de datos en la plataforma de parches.",
+                "responsible": "",
+                "priority": "high",
                 "status": "open"
             },
             {
                 "requirementId": "REQ-002",
-                "entity": "Clínica Santa Aurora S.A. (TI)",
-                "body": "Validar si algún módulo del portal consume APIs internas adicionales desde el cliente hacia hosts distintos a 10.20.30.20.",
-                "responsible": "Paula Rojas",
+                "entity": "Área de comunicaciones",
+                "body": "Solicitar formalmente ampliación de capacidad de disco y la adición de un segundo disco para alojar logs en el servidor afectado.",
+                "responsible": "",
                 "priority": "medium",
                 "status": "open"
             },
             {
                 "requirementId": "REQ-003",
-                "entity": "Clínica Santa Aurora S.A. (TI / Seguridad)",
-                "body": "Revisar y reforzar el control de endpoints administrativos del portal mediante roles/grupos AD a nivel aplicación, considerando que no hay WAF interno.",
-                "responsible": "Paula Rojas",
-                "priority": "high",
+                "entity": "Equipo local (Operaciones)",
+                "body": "Realizar una prueba en entorno controlado para validar si la herramienta de parches funciona correctamente con equipos locales y documentar resultados.",
+                "responsible": "",
+                "priority": "medium",
                 "status": "open"
             }
         ]
@@ -335,9 +627,12 @@
         "items": [
             {
                 "meetingId": "MEET-001",
-                "scheduledDate": "Por definir",
-                "agenda": "Seguimiento post-implementación: validación de logs, análisis de hits a la regla allow, confirmación de estabilidad operativa del portal y evaluación de dependencias adicionales detectadas.",
-                "attendees": []
+                "scheduledDate": "2026-02-27",
+                "agenda": "Sesión de trabajo para revisar la conectividad entre sedes y definir políticas de controladores de dominio.",
+                "attendees": [
+                    "Mauricio Ríos",
+                    "Sofía Martínez"
+                ]
             }
         ]
     }
