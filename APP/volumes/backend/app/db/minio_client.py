@@ -47,6 +47,7 @@ def _ensure_buckets(client: Minio) -> None:
         "minuetaitor-json",
         "minuetaitor-published",
         "minuetaitor-attach",
+        "minuetaitor-draft",
     ]
     for bucket in required:
         if not client.bucket_exists(bucket):
