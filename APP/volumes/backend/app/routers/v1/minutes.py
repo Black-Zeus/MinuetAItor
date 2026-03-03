@@ -1,14 +1,18 @@
 # routers/v1/minutes.py
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
+from typing import AsyncGenerator
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from db.session import get_db
+from db.redis import get_redis
 from schemas.auth import UserSession
 from schemas.minutes import (
     MinuteDetailResponse,
@@ -34,6 +38,11 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/minutes", tags=["Minutes"])
 bearer = HTTPBearer()
+
+SSE_CHANNEL         = "events:minutes"
+SSE_KEEPALIVE_SEC   = 15
+SSE_MAX_WAIT_SEC    = 360
+SSE_TERMINAL_EVENTS = {"completed", "failed"}
 
 
 async def current_user_dep(
@@ -75,7 +84,6 @@ async def generate_endpoint(
 
 
 # ─── GET /{record_id} ─────────────────────────────────────────────────────────
-# Declarado antes de /{transaction_id}/status para garantizar orden de resolución.
 
 @router.get(
     "/{record_id}",
@@ -88,11 +96,6 @@ def get_detail_endpoint(
     db:        Session     = Depends(get_db),
     session:   UserSession = Depends(current_user_dep),
 ):
-    """
-    Retorna metadata del record + canonical JSON desde MinIO.
-    Fuente según estado: ready-for-edit→v1.json | pending→draft_current.json |
-    preview/completed→vN.json | llm-failed/processing-error→content:null
-    """
     return get_minute_detail(db=db, record_id=record_id)
 
 
@@ -109,15 +112,11 @@ def save_endpoint(
     db:        Session     = Depends(get_db),
     session:   UserSession = Depends(current_user_dep),
 ):
-    """
-    Sobreescribe draft_current.json en minuetaitor-draft.
-    Solo válido en estado 'pending'. Idempotente. No crea versión ni cambia estado.
-    """
     save_minute_draft(db=db, record_id=record_id, content=body.content)
     return {"ok": True}
 
 
-# ─── POST /{record_id}/transition ────────────────────────────────────────────
+# ─── POST /{record_id}/transition ─────────────────────────────────────────────
 
 @router.post(
     "/{record_id}/transition",
@@ -131,22 +130,6 @@ async def transition_endpoint(
     db:        Session     = Depends(get_db),
     session:   UserSession = Depends(current_user_dep),
 ):
-    """
-    Cambia el estado del record aplicando la lógica propia de cada transición.
-
-    Transiciones válidas:
-    - ready-for-edit → pending        (inicia edición, copia draft)
-    - pending        → preview        (congela snapshot, encola PDF borrador)
-    - pending        → cancelled
-    - pending        → deleted
-    - preview        → pending        (retoma edición)
-    - preview        → completed      (publica, encola PDF final)
-    - preview        → cancelled
-    - preview        → deleted
-    - cancelled      → deleted
-    - llm-failed     → deleted
-    - processing-error → deleted
-    """
     return await transition_minute(
         db             = db,
         record_id      = record_id,
@@ -169,8 +152,52 @@ async def status_endpoint(
     db:             Session     = Depends(get_db),
     session:        UserSession = Depends(current_user_dep),
 ):
-    """Polling del estado de una transacción de generación de minuta."""
+    """Consulta puntual del estado. Útil para recuperar estado al recargar la página."""
     return await get_minute_status(db, transaction_id)
+
+
+# ─── GET /{transaction_id}/events  (SSE) ──────────────────────────────────────
+
+@router.get(
+    "/{transaction_id}/events",
+    summary        = "Stream SSE — escucha el resultado de generación en tiempo real",
+    response_class = StreamingResponse,
+)
+async def events_endpoint(
+    transaction_id: str,
+    db:             Session     = Depends(get_db),
+    session:        UserSession = Depends(current_user_dep),
+):
+    """
+    Server-Sent Events — el cliente escucha aquí hasta recibir "completed" o "failed".
+
+    Eventos:
+        keepalive  → ping cada 15s (el cliente los ignora)
+        completed  → { transaction_id, record_id }
+        failed     → { transaction_id, error }
+
+    El worker publica en Redis Pub/Sub (events:minutes) y este endpoint
+    hace forward al cliente. Si la transacción ya terminó al conectarse,
+    responde inmediatamente sin esperar.
+    """
+    tx_status = await get_minute_status(db, transaction_id)
+
+    # Si ya terminó → responder de inmediato sin suscribir a Pub/Sub
+    if tx_status.status in SSE_TERMINAL_EVENTS:
+        async def immediate() -> AsyncGenerator[str, None]:
+            data = {"transaction_id": transaction_id, "record_id": tx_status.record_id,
+                    "status": tx_status.status}
+            if tx_status.error_message:
+                data["error"] = tx_status.error_message
+            yield _sse_event(tx_status.status, data)
+        return StreamingResponse(immediate(), media_type="text/event-stream", headers=_sse_headers())
+
+    return StreamingResponse(
+        _sse_stream(transaction_id),
+        media_type = "text/event-stream",
+        headers    = _sse_headers(),
+    )
+
 
 # ─── GET / (list) ─────────────────────────────────────────────────────────────
 
@@ -195,3 +222,86 @@ def list_endpoint(
         client_id=client_id,
         project_id=project_id,
     )
+
+
+# ── Helpers SSE ───────────────────────────────────────────────────────────────
+
+def _sse_headers() -> dict:
+    return {
+        "Cache-Control":               "no-cache",
+        "X-Accel-Buffering":           "no",    # desactiva buffering en nginx
+        "Access-Control-Allow-Origin": "*",
+    }
+
+
+def _sse_event(event: str, data: dict) -> str:
+    return f"event: {event}\ndata: {json.dumps(data)}\n\n"
+
+
+async def _sse_stream(transaction_id: str) -> AsyncGenerator[str, None]:
+    redis  = await get_redis()
+    pubsub = redis.pubsub()
+    await pubsub.subscribe(SSE_CHANNEL)
+    logger.info("[sse] Suscrito | tx=%s", transaction_id)
+
+    try:
+        elapsed = 0.0
+        last_ping = 0.0
+
+        while elapsed < SSE_MAX_WAIT_SEC:
+            # Keepalive
+            if elapsed - last_ping >= SSE_KEEPALIVE_SEC:
+                yield "event: keepalive\ndata: {}\n\n"
+                last_ping = elapsed
+
+            try:
+                msg = await asyncio.wait_for(
+                    pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0),
+                    timeout=2.0,
+                )
+            except asyncio.TimeoutError:
+                elapsed += 1.0
+                continue
+
+            if not msg or msg["type"] != "message":
+                elapsed += 0.1
+                await asyncio.sleep(0.1)
+                continue
+
+            try:
+                event_data = json.loads(msg["data"])
+            except (json.JSONDecodeError, TypeError):
+                elapsed += 0.1
+                await asyncio.sleep(0.1)
+                continue
+
+            # Filtrar solo eventos de esta transacción
+            if event_data.get("transaction_id") != transaction_id:
+                elapsed += 0.1
+                await asyncio.sleep(0.1)
+                continue
+
+            event_name = event_data.get("event", "status")
+            yield _sse_event(event_name, event_data)
+            logger.info("[sse] Evento enviado | event=%s tx=%s", event_name, transaction_id)
+
+            if event_name in SSE_TERMINAL_EVENTS:
+                break
+
+            elapsed += 0.1
+            await asyncio.sleep(0.1)
+
+        else:
+            logger.warning("[sse] Timeout | tx=%s", transaction_id)
+            yield _sse_event("failed", {
+                "transaction_id": transaction_id,
+                "error": "Tiempo máximo de espera agotado. Consulta el estado con /status.",
+            })
+
+    finally:
+        try:
+            await pubsub.unsubscribe(SSE_CHANNEL)
+            await pubsub.close()
+        except Exception:
+            pass
+        logger.info("[sse] Stream cerrado | tx=%s", transaction_id)
