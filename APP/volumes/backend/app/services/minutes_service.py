@@ -1,30 +1,5 @@
 # services/minutes_service.py
 """
-Servicio de generación de minutas.
-
-Flujo (TWO-TRANSACTION PATTERN):
-  ── TX1: Intake ──────────────────────────────────────────────────────────────
-  1. Resolver IDs de catálogo desde BD
-  2. Crear Record (status_id=ACCEPTED) + MinuteTransaction (pending)
-  3. Leer archivos y subir a MinIO → minuetaitor-inputs/{record_id}/
-  4. Registrar Objects + RecordArtifacts de entrada en BD
-  5. db.commit() ← TX1 COMMIT: todo el intake queda persistido de forma inmutable
-  ── TX2: Procesamiento ───────────────────────────────────────────────────────
-  6. Construir AI input schema
-  7. Llamar a OpenAI (base64 inline en Chat Completions)
-  8. Guardar output JSON en MinIO → minuetaitor-json/{record_id}/
-  9. Registrar Objects + RecordArtifacts de salida en BD
-  10. Crear RecordVersion v1 + RecordDraft
-  11. Actualizar Record (active_version_id) + MinuteTransaction (completed)
-  12. db.commit() ← TX2 COMMIT: procesamiento exitoso
-  ── Manejo de errores en TX2 ─────────────────────────────────────────────────
-  - Cualquier excepción en TX2 hace db.rollback() (deshace solo los artefactos
-    de output parciales), luego commitea tx.status="failed" por separado.
-  - Los inputs (Objects en MinIO + BD) de TX1 NUNCA se pierden. La MinuteTransaction
-    error, garantizando auditoría forense completa.
-  - Los archivos en MinIO (inputs) se conservan como evidencia.
-
-SÍNCRONO en v1.
 TODO: mover a tarea async (Celery/ARQ) cuando el tiempo de procesamiento lo justifique.
 """
 from __future__ import annotations
@@ -34,7 +9,6 @@ import hashlib
 import io
 import json
 import logging
-import mimetypes
 import os
 import uuid
 from datetime import datetime, timezone
@@ -156,18 +130,6 @@ def _parse_time(value: Optional[str]):
         pass
     return None
 
-
-def _get_placeholder_client_id(db: Session) -> str:
-    from models.clients import Client
-    client = db.query(Client).filter_by(is_active=True).first()
-    if client is None:
-        raise RuntimeError(
-            "No existe ningún cliente activo en BD. "
-            "Crea un cliente antes de generar minutas."
-        )
-    return str(client.id)
-
-
 def _get_ai_profile_data(db: Session, profile_id: str) -> dict:
     try:
         from models.ai_profiles import AiProfile
@@ -278,8 +240,10 @@ def _build_ai_input_schema(
             "scheduledEndTime":   mi.scheduled_end_time,
         },
         "projectInfo": {
-            "client":  pi.client,
-            "project": pi.project,
+            "client":    pi.client,
+            "clientID":  pi.client_id,  
+            "project":   pi.project,
+            "projectID": pi.project_id, 
         },
         # ── CAMBIO CLAVE ──────────────────────────────────────────────────────
         # Renombrado de "participants" a "declaredParticipants".
@@ -543,7 +507,7 @@ def _call_openai(
     files_for_openai: list[tuple[str, bytes, str]],
     ai_input:       dict,
     trace_dir:      Optional[str],
-) -> dict:
+) -> tuple[dict, str, int, int]:
     """
     Construye el mensaje y llama a la API de OpenAI.
     Retorna el dict parseado del JSON de respuesta.
@@ -626,7 +590,12 @@ def _call_openai(
 
     # Parsear JSON
     try:
-        return json.loads(raw_text)
+        parsed = json.loads(raw_text)
+
+        tokens_in  = getattr(usage, "prompt_tokens",     0) if usage else 0
+        tokens_out = getattr(usage, "completion_tokens", 0) if usage else 0
+
+        return parsed, response.id, tokens_in, tokens_out
     except json.JSONDecodeError as e:
         logger.error(f"[openai] Output no es JSON válido: {e}\nRaw: {raw_text[:500]}")
         raise RuntimeError(f"La IA retornó un JSON inválido: {e}")
@@ -664,6 +633,10 @@ async def generate_minute(
     file_metadata:     list[dict]           = []
     trace_dir:         Optional[str]        = None
     tx:                Optional[MinuteTransaction] = None
+
+    openai_run_id:  str = ""
+    tokens_input:   int = 0
+    tokens_output:  int = 0
 
     logger.info(f"[minutes] Iniciando | record={record_id} tx={transaction_id} user={requested_by_id}")
 
@@ -714,7 +687,7 @@ async def generate_minute(
     # ── Resolver client_id / project_id ──────────────────────────────────────
     raw_client_id  = getattr(request.project_info, "client_id", None)
     raw_project_id = getattr(request.project_info, "project_id", None)
-    client_id  = raw_client_id  or _get_placeholder_client_id(db)
+    client_id  = raw_client_id  or None
     project_id = raw_project_id or None
 
     if not client_id:
@@ -847,6 +820,7 @@ async def generate_minute(
 
     tx.status          = "processing"
     tx.input_object_id = input_object_id
+    tx.openai_model      = settings.openai_model
 
     # ── TX1 COMMIT ────────────────────────────────────────────────────────────
     # Persiste de forma inmutable: Record + MinuteTransaction + Objects de input.
@@ -891,6 +865,7 @@ async def generate_minute(
 
     # ── 5. Llamar a OpenAI ────────────────────────────────────────────────────
     ai_output: Optional[dict] = None
+    openai_run_id: str = ""
 
     try:
         if not file_metadata:
@@ -920,7 +895,7 @@ async def generate_minute(
             f"archivos={len(files_for_openai)}"
         )
 
-        ai_output = _call_openai(prompt_system, files_for_openai, ai_input, trace_dir)
+        ai_output, openai_run_id, tokens_input, tokens_output = _call_openai(prompt_system, files_for_openai, ai_input, trace_dir)
 
         # Guardar output crudo ANTES de validar — si la estructura es inválida
         # igual queremos tenerlo en el trace para debugging.
@@ -1188,6 +1163,7 @@ async def generate_minute(
     # 8a: flush — persiste version + draft + todos los Objects pendientes de TX2
     #     Los artefactos NO están en la sesión todavía → trigger no se dispara
     db.flush()
+    tx.record_version_id = version_id
 
     # 8b: crear artefactos de INPUT ahora que tenemos version_id
     #     (no podían crearse en TX1 porque el trigger requiere record_version_id)
@@ -1222,9 +1198,12 @@ async def generate_minute(
     db.flush(todos_artefactos)
 
     # ── 9. TX2 COMMIT FINAL ───────────────────────────────────────────────────
-    tx.status           = "completed"
-    tx.completed_at     = _now_utc()
-    tx.record_version_id = version_id
+    tx.status            = "completed"
+    tx.completed_at      = _now_utc()
+    tx.output_object_id  = canonical_obj_id
+    tx.openai_run_id     = openai_run_id
+    tx.tokens_input      = tokens_input
+    tx.tokens_output     = tokens_output
 
     record.active_version_id  = version_id
     record.latest_version_num = 1

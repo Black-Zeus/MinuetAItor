@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, Enum, ForeignKey, JSON, String, Text, func
+from sqlalchemy import Column, DateTime, Enum, ForeignKey, JSON, String, Text, func, Integer
 from sqlalchemy.orm import relationship
 
 from db.base import Base
@@ -32,6 +32,8 @@ class MinuteTransaction(Base):
     openai_run_id    = Column(String(100), nullable=True)
     openai_model     = Column(String(80),  nullable=True)
     ai_profile_id    = Column(String(36),  ForeignKey("ai_profiles.id"), nullable=True)
+    tokens_input     = Column(Integer, nullable=True)
+    tokens_output    = Column(Integer, nullable=True)
 
     # sha256 → openai_file_id (archivos subidos a OpenAI, no son objetos MinIO)
     openai_file_ids = Column(JSON, nullable=True)
