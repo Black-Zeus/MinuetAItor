@@ -8,10 +8,10 @@
         "location": "Microsoft Teams"
     },
     "projectInfo": {
-        "client": "Minera Goldfields",
-        "project": "Servicios IT",
-        "clientId": "c1000000-0000-4000-a000-000000000001",
-        "projectId": "p1000000-0000-4000-a000-000000000001"
+        "client":    "Retail Pacífico",
+        "clientID":  "c1000000-0000-4000-a000-000000000003",
+        "project":   "Omnicanalidad 360",
+        "projectID": "p1000000-0000-4000-a000-000000000005"
     },
     "participants": {
         "attendees": [
