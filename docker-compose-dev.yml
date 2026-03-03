@@ -225,22 +225,22 @@ services:
       SMTP_TIMEOUT:    ${SMTP_TIMEOUT:-10}
 
       # ── MariaDB (necesario cuando TX2 de minutas se migre al worker) ──────────
-      # MARIADB_HOST:     ${MARIADB_HOST:-mariadb}
-      # MARIADB_PORT:     ${MARIADB_PORT:-3306}
-      # MARIADB_DATABASE: ${MARIADB_DATABASE}
-      # MARIADB_USER:     ${MARIADB_USER}
-      # MARIADB_PASSWORD: ${MARIADB_PASSWORD}
+      MARIADB_HOST:     ${MARIADB_HOST:-mariadb}
+      MARIADB_PORT:     ${MARIADB_PORT:-3306}
+      MARIADB_DATABASE: ${MARIADB_DATABASE}
+      MARIADB_USER:     ${MARIADB_USER}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD}
 
       # ── MinIO (necesario cuando TX2 de minutas se migre al worker) ────────────
-      # MINIO_HOST:          ${MINIO_HOST:-minio}
-      # MINIO_PORT:          ${MINIO_PORT:-9000}
-      # MINIO_ROOT_USER:     ${MINIO_ROOT_USER}
-      # MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_HOST:          ${MINIO_HOST:-minio}
+      MINIO_PORT:          ${MINIO_PORT:-9000}
+      MINIO_ROOT_USER:     ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
 
       # ── OpenAI (necesario cuando TX2 de minutas se migre al worker) ──────────
-      # OPENAI_API_KEY:    ${OPENAI_API_KEY}
-      # OPENAI_MODEL:      ${OPENAI_MODEL}
-      # OPENAI_MAX_TOKENS: ${OPENAI_MAX_TOKENS}
+      OPENAI_API_KEY:    ${OPENAI_API_KEY}
+      OPENAI_MODEL:      ${OPENAI_MODEL}
+      OPENAI_MAX_TOKENS: ${OPENAI_MAX_TOKENS}
 
     volumes:
       - ./APP/volumes/worker/app:/app
