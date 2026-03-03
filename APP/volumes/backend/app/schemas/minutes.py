@@ -1,48 +1,20 @@
 # schemas/minutes.py
 """
-Schemas para el endpoint POST /v1/minutes/generate
+Schemas para el módulo de minutas.
 
-El frontend (NewMinute.jsx) envía multipart/form-data con:
-  - input_json  : string JSON (este schema lo valida)
-  - files[]     : archivos adjuntos (transcripción, resumen, etc.)
-
-Estructura esperada del input_json (camelCase, compatible con NewMinute.jsx):
-{
-  "meetingInfo": {
-    "scheduledDate":      "2024-01-15",          -- requerido
-    "scheduledStartTime": "10:00",               -- requerido
-    "scheduledEndTime":   "11:30",               -- requerido
-    "actualStartTime":    "10:05",               -- opcional
-    "actualEndTime":      "11:35",               -- opcional
-    "location":           "Microsoft Teams",     -- opcional
-    "title":              "Reunión Q1 2024"      -- opcional
-  },
-  "projectInfo": {
-    "client":   "Empresa XYZ S.A.",              -- requerido
-    "project":  "Implementación CRM",            -- requerido
-    "category": "Tecnología"                     -- opcional
-  },
-  "participants": {
-    "attendees":       ["Juan Pérez", "María González"],  -- requerido, list[str]
-    "invited":         ["Pedro Sánchez"],                 -- opcional
-    "copyRecipients":  ["Ana Martínez"]                   -- opcional
-  },
-  "profileInfo": {
-    "profileId":   "uuid-del-perfil",            -- requerido
-    "profileName": "Perfil Ejecutivo"            -- requerido
-  },
-  "preparedBy":       "Laura Torres",            -- requerido, string
-  "additionalNotes":  "Notas opcionales",        -- opcional
-  "generationOptions": { "language": "es" }      -- opcional
-}
+Endpoints:
+  POST /v1/minutes/generate          → MinuteGenerateRequest / MinuteGenerateResponse
+  GET  /v1/minutes/{record_id}       → MinuteDetailResponse
+  PUT  /v1/minutes/{record_id}/save  → MinuteSaveRequest (body), 200 OK
+  POST /v1/minutes/{record_id}/transition → MinuteTransitionRequest / MinuteTransitionResponse
 """
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 from pydantic import BaseModel, Field
 
 
-# ── Sub-schemas del input JSON ────────────────────────────────────────────────
+# ── Sub-schemas del input generate ───────────────────────────────────────────
 
 class MinuteMeetingInfo(BaseModel):
     scheduled_date:       str           = Field(..., alias="scheduledDate")
@@ -59,20 +31,14 @@ class MinuteMeetingInfo(BaseModel):
 class MinuteProjectInfo(BaseModel):
     client:     str
     client_id:  Optional[str] = Field(None, alias="clientID")
-
     project:    str
     project_id: Optional[str] = Field(None, alias="projectID")
-    
     category:   Optional[str] = None
 
     model_config = {"populate_by_name": True}
 
 
 class MinuteParticipants(BaseModel):
-    """
-    attendees y invited son listas de strings (nombres completos).
-    El frontend convierte el textarea separado por coma a list[str].
-    """
     attendees:       list[str]
     invited:         list[str] = Field(default_factory=list)
     copy_recipients: list[str] = Field(default_factory=list, alias="copyRecipients")
@@ -93,16 +59,7 @@ class MinuteGenerationOptions(BaseModel):
     model_config = {"populate_by_name": True}
 
 
-# ── Request principal (body del JSON dentro del multipart) ────────────────────
-
 class MinuteGenerateRequest(BaseModel):
-    """
-    Corresponde a la estructura enviada por NewMinute.jsx.
-    El transactionId lo genera el backend — el frontend NO lo envía.
-
-    preparedBy es string simple (nombre del usuario logueado).
-    participants.attendees es list[str] (nombres).
-    """
     meeting_info:       MinuteMeetingInfo       = Field(..., alias="meetingInfo")
     project_info:       MinuteProjectInfo       = Field(..., alias="projectInfo")
     participants:       MinuteParticipants
@@ -117,14 +74,9 @@ class MinuteGenerateRequest(BaseModel):
     model_config = {"populate_by_name": True}
 
 
-# ── Responses ─────────────────────────────────────────────────────────────────
+# ── Responses generate / status ───────────────────────────────────────────────
 
 class MinuteGenerateResponse(BaseModel):
-    """
-    Respuesta al POST /generate — 202 Accepted.
-    El frontend usa transaction_id para polling y record_id para navegar al editor.
-    Se serializa en camelCase para el frontend.
-    """
     transaction_id: str
     record_id:      str
     status:         str
@@ -132,7 +84,6 @@ class MinuteGenerateResponse(BaseModel):
 
     model_config = {
         "populate_by_name": True,
-        # Serializar como camelCase hacia el frontend
         "alias_generator": lambda s: "".join(
             w.capitalize() if i else w for i, w in enumerate(s.split("_"))
         ),
@@ -140,9 +91,6 @@ class MinuteGenerateResponse(BaseModel):
 
 
 class MinuteStatusResponse(BaseModel):
-    """
-    Respuesta al GET /{transaction_id}/status.
-    """
     transaction_id: str
     record_id:      str
     status:         str
@@ -157,3 +105,89 @@ class MinuteStatusResponse(BaseModel):
             w.capitalize() if i else w for i, w in enumerate(s.split("_"))
         ),
     }
+
+
+# ── PASO 3: GET /minutes/{record_id} ─────────────────────────────────────────
+
+class MinuteRecordInfo(BaseModel):
+    id:                 str
+    status:             str
+    title:              str
+    client_id:          Optional[str] = Field(None, serialization_alias="clientId")
+    client_name:        Optional[str] = Field(None, serialization_alias="clientName")
+    project_id:         Optional[str] = Field(None, serialization_alias="projectId")
+    project_name:       Optional[str] = Field(None, serialization_alias="projectName")
+    active_version_id:  Optional[str] = Field(None, serialization_alias="activeVersionId")
+    active_version_num: Optional[int] = Field(None, serialization_alias="activeVersionNum")
+    document_date:      Optional[str] = Field(None, serialization_alias="documentDate")
+    location:           Optional[str] = None
+    prepared_by:        Optional[str] = Field(None, serialization_alias="preparedBy")
+    created_at:         Optional[str] = Field(None, serialization_alias="createdAt")
+
+    model_config = {"populate_by_name": True}
+
+
+class MinuteDetailResponse(BaseModel):
+    record:  MinuteRecordInfo
+    content: Optional[dict[str, Any]] = None
+
+    model_config = {"populate_by_name": True}
+
+
+# ── PASO 4: PUT /minutes/{record_id}/save ────────────────────────────────────
+
+class MinuteSaveRequest(BaseModel):
+    content: dict[str, Any]
+
+    model_config = {"populate_by_name": True}
+
+
+# ── PASO 5: POST /minutes/{record_id}/transition ─────────────────────────────
+
+class MinuteTransitionRequest(BaseModel):
+    target_status:  str           = Field(..., alias="targetStatus")
+    commit_message: Optional[str] = Field(None, alias="commitMessage")
+
+    model_config = {"populate_by_name": True}
+
+
+class MinuteTransitionResponse(BaseModel):
+    record_id:     str            = Field(..., serialization_alias="recordId")
+    status:        str
+    version_num:   Optional[int]  = Field(None, serialization_alias="versionNum")
+    version_id:    Optional[str]  = Field(None, serialization_alias="versionId")
+    message:       str
+
+    model_config = {"populate_by_name": True}
+
+# ── PASO LIST: GET /minutes ───────────────────────────────────────────────────
+
+class MinuteTagItem(BaseModel):
+    label: str
+    color: str
+
+    model_config = {"populate_by_name": True}
+
+
+class MinuteListItem(BaseModel):
+    id:           str
+    title:        str
+    date:         Optional[str] = None
+    time:         Optional[str] = None
+    status:       str
+    client:       Optional[str] = None
+    project:      Optional[str] = None
+    participants: list[str]     = Field(default_factory=list)
+    summary:      Optional[str] = None
+    tags:         list[MinuteTagItem] = Field(default_factory=list)
+
+    model_config = {"populate_by_name": True}
+
+
+class MinuteListResponse(BaseModel):
+    minutes: list[MinuteListItem]
+    total:   int
+    skip:    int
+    limit:   int
+
+    model_config = {"populate_by_name": True}
