@@ -1,98 +1,178 @@
 # worker.py
 """
-Worker de colas Redis.
-Procesa jobs de múltiples tipos usando BLPOP (blocking pop).
+Worker principal de MinuetAItor.
 
-Cola principal: queue:email
+Arquitectura:
+    - asyncio event loop único
+    - Semáforo para limitar concurrencia (MAX_CONCURRENT_JOBS)
+    - BLPOP sobre múltiples colas con prioridad
+    - Reintentos con backoff exponencial
+    - Dead Letter Queue para jobs que agotan reintentos
+    - Registro central de handlers (core/registry.py)
+    - Fácil extensión: agregar cola = registrar en queues/__init__.py
+
+Flujo por job:
+    BLPOP → parse JobEnvelope → buscar handler → ejecutar (asyncio Task)
+         → OK: log completed
+         → FAIL (reintentable): reencolar con attempt+1 + backoff
+         → FAIL (agotado): DLQ
 """
+from __future__ import annotations
 
-import json
-import logging
-import os
-import time
+import asyncio
+import traceback
 
-import redis
+from core.config       import settings
+from core.dlq          import send_to_dlq
+from core.job          import JobEnvelope
+from core.logging_config import get_logger, setup_logging
+from core.redis_client import close_redis, get_redis
+from core import registry
+from queues import register_all, QUEUE_PRIORITY
 
-from handlers.email_handler import handle_email_job
-
-# ── Logging ──────────────────────────────────────────────────────────────────
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s — %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
-logger = logging.getLogger("worker")
-
-# ── Configuración ─────────────────────────────────────────────────────────────
-REDIS_HOST = os.environ.get("REDIS_HOST", "redis")
-REDIS_PORT = int(os.environ.get("REDIS_PORT", "6379"))
-
-# Colas que escucha el worker (en orden de prioridad)
-QUEUES = ["queue:email"]
-
-# Tiempo máximo de espera en BLPOP (segundos); 0 = infinito
-BLPOP_TIMEOUT = 5
-
-# ── Dispatcher ───────────────────────────────────────────────────────────────
-HANDLERS = {
-    "email": handle_email_job,
-    # Agrega nuevos tipos aquí:
-    # "pdf": handle_pdf_job,
-    # "ai": handle_ai_job,
-}
+logger = get_logger("worker.main")
 
 
-def process_job(queue: str, raw: str) -> None:
-    try:
-        job = json.loads(raw)
-        job_type = job.get("type")
+# ── Procesamiento de un job ───────────────────────────────────────────────────
 
-        if job_type not in HANDLERS:
-            logger.warning("Tipo de job desconocido: %s | queue=%s", job_type, queue)
+async def _execute_job(job: JobEnvelope, sem: asyncio.Semaphore) -> None:
+    """
+    Ejecuta un job dentro del semáforo de concurrencia.
+    Maneja reintentos y DLQ internamente.
+    """
+    async with sem:
+        handler = registry.get(job.queue, job.type)
+
+        if handler is None:
+            logger.warning(
+                "Sin handler | job_id=%s type=%s queue=%s — descartado",
+                job.job_id, job.type, job.queue,
+            )
             return
 
-        logger.info("Procesando job | type=%s | queue=%s", job_type, queue)
-        HANDLERS[job_type](job)
-        logger.info("Job completado  | type=%s", job_type)
+        try:
+            logger.info(
+                "Iniciando job | job_id=%s type=%s queue=%s attempt=%d",
+                job.job_id, job.type, job.queue, job.attempt,
+            )
+            await handler(job.payload)
+            logger.info(
+                "Job completado | job_id=%s type=%s attempt=%d",
+                job.job_id, job.type, job.attempt,
+            )
 
-    except json.JSONDecodeError as e:
-        logger.error("JSON inválido en cola %s | error=%s | raw=%s", queue, e, raw[:200])
-    except KeyError as e:
-        logger.error("Campo faltante en job | error=%s", e)
-    except Exception as e:
-        logger.exception("Error inesperado procesando job | error=%s", e)
+        except Exception as exc:
+            error_trace = traceback.format_exc()
+            logger.error(
+                "Job fallido | job_id=%s type=%s attempt=%d/%d | error=%s",
+                job.job_id, job.type, job.attempt, settings.MAX_RETRIES, exc,
+            )
+
+            redis = await get_redis()
+
+            if job.attempt < settings.MAX_RETRIES:
+                # ── Reintento con backoff exponencial ────────────────────────
+                delay = settings.RETRY_BACKOFF_BASE ** job.attempt
+                logger.info(
+                    "Reintentando en %.1fs | job_id=%s attempt=%d→%d",
+                    delay, job.job_id, job.attempt, job.attempt + 1,
+                )
+                await asyncio.sleep(delay)
+                next_job = job.next_attempt()
+                await redis.rpush(job.queue, next_job.to_json())
+
+            else:
+                # ── DLQ: agotó reintentos ─────────────────────────────────
+                await send_to_dlq(redis, job, error_trace)
 
 
-# ── Main loop ─────────────────────────────────────────────────────────────────
-def main() -> None:
-    logger.info("Worker iniciando | redis=%s:%s | queues=%s", REDIS_HOST, REDIS_PORT, QUEUES)
+# ── Loop principal ────────────────────────────────────────────────────────────
 
-    r: redis.Redis | None = None
+async def main_loop() -> None:
+    """
+    Loop principal del worker.
+
+    - Espera jobs con BLPOP (blocking, no gasta CPU)
+    - Lanza cada job como asyncio.Task independiente
+    - El semáforo limita cuántos corren en paralelo
+    - La reconexión Redis está encapsulada en get_redis()
+    """
+    sem = asyncio.Semaphore(settings.MAX_CONCURRENT_JOBS)
+    active_tasks: set[asyncio.Task] = set()
+
+    logger.info(
+        "Worker listo | queues=%s | max_concurrent=%d | max_retries=%d",
+        QUEUE_PRIORITY,
+        settings.MAX_CONCURRENT_JOBS,
+        settings.MAX_RETRIES,
+    )
 
     while True:
         try:
-            if r is None:
-                r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
-                r.ping()
-                logger.info("Conectado a Redis")
+            redis = await get_redis()
 
-            result = r.blpop(QUEUES, timeout=BLPOP_TIMEOUT)
+            # BLPOP bloquea hasta que llega un mensaje o timeout
+            result = await redis.blpop(QUEUE_PRIORITY, timeout=settings.BLPOP_TIMEOUT)
 
             if result is None:
-                continue  # timeout, vuelve a escuchar
+                # Timeout normal — volver a escuchar
+                continue
 
-            queue, raw = result
-            process_job(queue, raw)
+            queue_key, raw = result
 
-        except redis.ConnectionError as e:
-            logger.error("Redis desconectado | error=%s | reintentando en 5s...", e)
-            r = None
-            time.sleep(5)
+            try:
+                job = JobEnvelope.from_raw(raw, queue_key)
+            except Exception as parse_err:
+                logger.error(
+                    "Job inválido descartado | queue=%s error=%s raw=%.200s",
+                    queue_key, parse_err, raw,
+                )
+                continue
 
-        except KeyboardInterrupt:
-            logger.info("Worker detenido manualmente.")
+            # Lanzar como Task independiente para no bloquear el BLPOP
+            task = asyncio.create_task(
+                _execute_job(job, sem),
+                name=f"job-{job.job_id}",
+            )
+            active_tasks.add(task)
+            task.add_done_callback(active_tasks.discard)
+
+        except asyncio.CancelledError:
+            logger.info("Worker cancelado — esperando tasks activas...")
+            if active_tasks:
+                await asyncio.gather(*active_tasks, return_exceptions=True)
             break
+
+        except Exception as loop_err:
+            # Error inesperado en el loop — loguear y continuar
+            logger.exception("Error en el loop principal | error=%s", loop_err)
+            await asyncio.sleep(2)
+
+
+# ── Arranque ──────────────────────────────────────────────────────────────────
+
+async def main() -> None:
+    setup_logging()
+
+    logger.info("=" * 60)
+    logger.info("MinuetAItor Worker arrancando")
+    logger.info("Redis:  %s:%s", settings.REDIS_HOST, settings.REDIS_PORT)
+    logger.info("Env:    %s",    settings.ENV_NAME)
+    logger.info("=" * 60)
+
+    # Registrar todos los handlers antes de arrancar el loop
+    register_all()
+
+    # Log del mapa de handlers para confirmar configuración
+    for queue, types in registry.summary().items():
+        logger.info("  %-30s → %s", queue, types)
+
+    try:
+        await main_loop()
+    finally:
+        await close_redis()
+        logger.info("Worker detenido.")
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

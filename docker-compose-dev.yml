@@ -194,18 +194,54 @@ services:
     image: ${PROJECT_NAME}/worker:dev
     environment:
       ENV_NAME: ${ENV_NAME:-dev}
+      TZ: America/Santiago
+
+      # ── Redis ────────────────────────────────────────────────────────────────
       REDIS_HOST: ${REDIS_HOST:-redis}
       REDIS_PORT: ${REDIS_PORT:-6379}
-      # SMTP ↓
+      REDIS_DB:   ${REDIS_DB:-0}
+
+      # ── Worker: comportamiento ────────────────────────────────────────────────
+      WORKER_MAX_CONCURRENT:  ${WORKER_MAX_CONCURRENT:-5}    # jobs en paralelo
+      WORKER_MAX_RETRIES:     ${WORKER_MAX_RETRIES:-3}       # reintentos antes de DLQ
+      WORKER_RETRY_BACKOFF:   ${WORKER_RETRY_BACKOFF:-2.0}   # base backoff exponencial (seg)
+      WORKER_BLPOP_TIMEOUT:   ${WORKER_BLPOP_TIMEOUT:-5}     # timeout BLPOP (seg)
+
+      # ── Logging ───────────────────────────────────────────────────────────────
+      LOG_LEVEL:        ${LOG_LEVEL:-INFO}
+      LOG_DIR:          /var/log/app                          # montado como volumen
+      LOG_MAX_BYTES:    ${LOG_MAX_BYTES:-10485760}            # 10 MB por archivo
+      LOG_BACKUP_COUNT: ${LOG_BACKUP_COUNT:-5}               # 5 archivos → 50 MB historial
+
+      # ── SMTP ──────────────────────────────────────────────────────────────────
       SMTP_HOST:       ${SMTP_HOST:-mailpit}
       SMTP_PORT:       ${SMTP_PORT:-1025}
-      SMTP_USER:       ${SMTP_USER}
+      SMTP_USER:       ${SMTP_USER:-}
       SMTP_PASSWORD:   ${SMTP_PASSWORD:-}
       SMTP_FROM_NAME:  ${SMTP_FROM_NAME:-MinuetAItor}
       SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL}
       SMTP_USE_TLS:    ${SMTP_USE_TLS:-false}
       SMTP_USE_SSL:    ${SMTP_USE_SSL:-false}
       SMTP_TIMEOUT:    ${SMTP_TIMEOUT:-10}
+
+      # ── MariaDB (necesario cuando TX2 de minutas se migre al worker) ──────────
+      # MARIADB_HOST:     ${MARIADB_HOST:-mariadb}
+      # MARIADB_PORT:     ${MARIADB_PORT:-3306}
+      # MARIADB_DATABASE: ${MARIADB_DATABASE}
+      # MARIADB_USER:     ${MARIADB_USER}
+      # MARIADB_PASSWORD: ${MARIADB_PASSWORD}
+
+      # ── MinIO (necesario cuando TX2 de minutas se migre al worker) ────────────
+      # MINIO_HOST:          ${MINIO_HOST:-minio}
+      # MINIO_PORT:          ${MINIO_PORT:-9000}
+      # MINIO_ROOT_USER:     ${MINIO_ROOT_USER}
+      # MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+
+      # ── OpenAI (necesario cuando TX2 de minutas se migre al worker) ──────────
+      # OPENAI_API_KEY:    ${OPENAI_API_KEY}
+      # OPENAI_MODEL:      ${OPENAI_MODEL}
+      # OPENAI_MAX_TOKENS: ${OPENAI_MAX_TOKENS}
+
     volumes:
       - ./APP/volumes/worker/app:/app
       - ./APP/logs/worker:/var/log/app
