@@ -76,17 +76,22 @@ INSERT INTO record_types (code, name, description, is_active) VALUES
   ('REPORT',  'Informe',    'Informes técnicos/operativos', 1),
   ('EXPENSE', 'Rendición',  'Rendiciones de cuenta', 1);
 
--- Record statuses
+-- Record statuses  (reemplaza el INSERT anterior completo)
 INSERT INTO record_statuses (code, name, description, is_active) VALUES
-  ('ACCEPTED',        'Aceptado',       'Estado por defecto', 1),
-  ('NON_PRODUCIBLE',  'No producible',  'No debe emitirse/publicarse', 1),
-  ('OBSOLETE',        'Obsoleto',       'Reemplazado por reprocesamiento', 1);
+  ('in-progress',       'En procesamiento',   'LLM procesando (TX1 committed, TX2 en curso)', 1),
+  ('ready-for-edit',    'Listo para editar',  'LLM completó OK, borrador disponible', 1),
+  ('llm-failed',        'Fallo LLM',          'OpenAI retornó error (timeout, rate limit, bad request)', 1),
+  ('processing-error',  'Error de proceso',   'Error interno del backend (MinIO, BD, validación)', 1),
+  ('pending',           'En edición',         'Usuario editando activamente', 1),
+  ('preview',           'En revisión',        'Hard lock de edición, en revisión previa a publicación', 1),
+  ('completed',         'Completado',         'Publicada oficialmente (terminal, no eliminable)', 1),
+  ('cancelled',         'Cancelado',          'Anulada', 1),
+  ('deleted',           'Eliminado',          'Soft delete (terminal, no visible en operaciones normales)', 1);
 
--- Version statuses
+-- Version statuses  (reemplaza el INSERT anterior completo)
 INSERT INTO version_statuses (code, name, description, is_active) VALUES
-  ('PUBLISHED',   'Publicado',    'Versión vigente/publicada', 1),
-  ('SUPERSEDED',  'Reemplazado',  'Reemplazada por una posterior', 1),
-  ('REVOKED',     'Revocado',     'No vigente por decisión administrativa', 1);
+  ('snapshot',  'Snapshot',  'Versión creada al transicionar de estado', 1),
+  ('final',     'Final',     'Versión al llegar a completed', 1);
 
 -- Artifact states
 -- DRAFT/PUBLISHED/ARCHIVED: estados de ciclo de vida del artefacto en el flujo de publicación
@@ -110,12 +115,13 @@ INSERT INTO artifact_types (code, name, description, is_active) VALUES
   ('PUBLISHED_PDF',     'PDF Publicado',    'Documento final publicado (PDF)', 1),
   ('ATTACHMENT_IMAGE',  'Imagen Adjunta',   'Adjuntos (imágenes/otros)', 1);
 
--- Buckets MinIO
+-- Buckets MinIO  (reemplaza el INSERT anterior completo)
 INSERT INTO buckets (code, name, description, is_active) VALUES
   ('inputs_container',      'minuetaitor-inputs',     'Entradas (transcripción/resumen)', 1),
   ('json_container',        'minuetaitor-json',       'JSONs (original/canonical)', 1),
   ('published_container',   'minuetaitor-published',  'Salidas publicadas (PDF)', 1),
-  ('attachments_container', 'minuetaitor-attach',     'Adjuntos (imágenes/otros)', 1);
+  ('attachments_container', 'minuetaitor-attach',     'Adjuntos (imágenes/otros)', 1),
+  ('draft_container',       'minuetaitor-draft',      'Draft actual editable (draft_current.json)', 1);
 
 -- Dashboard widgets base (alineado a DASHBOARD_WIDGETS_DEFAULT)
 INSERT INTO dashboard_widgets (code, name, description, is_active) VALUES
