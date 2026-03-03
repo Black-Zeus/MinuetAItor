@@ -57,9 +57,13 @@ class MinuteMeetingInfo(BaseModel):
 
 
 class MinuteProjectInfo(BaseModel):
-    client:   str
-    project:  str
-    category: Optional[str] = None
+    client:     str
+    client_id:  Optional[str] = Field(None, alias="clientID")
+
+    project:    str
+    project_id: Optional[str] = Field(None, alias="projectID")
+    
+    category:   Optional[str] = None
 
     model_config = {"populate_by_name": True}
 

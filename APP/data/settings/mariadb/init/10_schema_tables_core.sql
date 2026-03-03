@@ -1027,6 +1027,9 @@ CREATE TABLE minute_transactions (
   openai_thread_id    VARCHAR(100) NULL,
   openai_run_id       VARCHAR(100) NULL,
   openai_model        VARCHAR(80)  NULL,
+  tokens_input        INT UNSIGNED NULL,
+  tokens_output       INT UNSIGNED NULL,
+
   ai_profile_id       CHAR(36)     NULL,
 
   -- Mapa sha256→file_id de archivos subidos a OpenAI (no son objetos MinIO)
