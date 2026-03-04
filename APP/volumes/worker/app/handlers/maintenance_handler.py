@@ -3,7 +3,8 @@
 Handler de jobs de tipo 'maintenance'.
 
 Agrupa tareas de mantenimiento del sistema: backups, limpiezas, etc.
-Cada subtipo se despacha internamente por el campo "action" del payload.
+Cada subtipo se despacha internamente por el campo "action" del payload
+o por el job.type del envelope.
 
 Payload esperado:
 {
@@ -21,6 +22,7 @@ import asyncio
 from typing import Any
 
 from core.logging_config import get_logger
+from core.job import JobEnvelope
 
 logger = get_logger("worker.handler.maintenance")
 
@@ -43,7 +45,8 @@ async def _handle_cleanup_sessions(payload: dict[str, Any]) -> None:
 
 
 async def _handle_cleanup_temp_files(payload: dict[str, Any]) -> None:
-    logger.info("Limpiando archivos temporales...")
+    max_age_days = payload.get("max_age_days", 7)
+    logger.info("Limpiando archivos temporales con más de %d días...", max_age_days)
     # TODO: limpiar /app/assets/temp/ con más de N días
     await asyncio.sleep(0)
     logger.info("Archivos temporales limpiados.")
@@ -58,15 +61,29 @@ _ACTIONS: dict[str, Any] = {
 }
 
 
-async def handle_maintenance_job(payload: dict[str, Any]) -> None:
-    action = payload.get("action")
-
+async def handle_maintenance_job(job: JobEnvelope) -> None:
+    """
+    Handle maintenance jobs recibiendo el envelope completo.
+    
+    La acción puede venir de dos fuentes:
+    1. Del campo 'action' en el payload (formato nuevo recomendado)
+    2. Del job.type del envelope (para compatibilidad con jobs existentes)
+    """
+    payload = job.payload
+    
+    # Prioridad: campo 'action' en payload > job.type
+    action = payload.get("action") or job.type
+    
     if not action:
-        raise ValueError("Payload de maintenance sin campo 'action'")
+        raise ValueError("No se pudo determinar la acción para el job de maintenance")
 
     handler = _ACTIONS.get(action)
 
     if handler is None:
         raise ValueError(f"Acción de maintenance desconocida: {action!r}")
 
+    logger.info(
+        "Ejecutando acción de mantenimiento | action=%s job_id=%s type=%s attempt=%d",
+        action, job.job_id, job.type, job.attempt
+    )
     await handler(payload)

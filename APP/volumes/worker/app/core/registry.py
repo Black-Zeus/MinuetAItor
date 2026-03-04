@@ -18,11 +18,12 @@ import asyncio
 from typing import Callable, Coroutine, Any
 
 from core.logging_config import get_logger
+from core.job import JobEnvelope  # Importar JobEnvelope
 
 logger = get_logger("worker.registry")
 
-# Tipo de un handler: función async que recibe el payload dict
-HandlerFn = Callable[[dict[str, Any]], Coroutine[Any, Any, None]]
+# Tipo de un handler: función async que recibe el JobEnvelope completo
+HandlerFn = Callable[[JobEnvelope], Coroutine[Any, Any, None]]
 
 # { queue_name: { job_type: handler_fn } }
 _registry: dict[str, dict[str, HandlerFn]] = {}

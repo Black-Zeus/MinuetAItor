@@ -191,3 +191,77 @@ class MinuteListResponse(BaseModel):
     limit:   int
 
     model_config = {"populate_by_name": True}
+
+# ── Agregar al final de schemas/minutes.py ────────────────────────────────────
+from typing import Any
+
+class MinuteRecordInfo(BaseModel):
+    """Metadata del Record, embebida en MinuteDetailResponse."""
+    id:                 str
+    status:             str
+    title:              Optional[str] = None
+    client_id:          Optional[str] = None
+    client_name:        Optional[str] = None
+    project_id:         Optional[str] = None
+    project_name:       Optional[str] = None
+    active_version_id:  Optional[str] = None
+    active_version_num: Optional[int] = None
+    document_date:      Optional[str] = None
+    location:           Optional[str] = None
+    prepared_by:        Optional[str] = None
+    created_at:         Optional[str] = None
+
+    model_config = {"populate_by_name": True}
+
+
+class MinuteDetailResponse(BaseModel):
+    """Respuesta al GET /{record_id}."""
+    record:  MinuteRecordInfo
+    content: Optional[Any] = None   # JSON de la minuta o null si no disponible
+
+    model_config = {"populate_by_name": True}
+
+
+class MinuteSaveRequest(BaseModel):
+    """Body del PUT /{record_id}/save."""
+    content: dict
+
+
+class MinuteTransitionRequest(BaseModel):
+    """Body del POST /{record_id}/transition."""
+    target_status:  str
+    commit_message: Optional[str] = None
+
+
+class MinuteTransitionResponse(BaseModel):
+    """Respuesta al POST /{record_id}/transition."""
+    record_id:   str
+    status:      str
+    version_num: Optional[int] = None
+    version_id:  Optional[str] = None
+    message:     str
+
+    model_config = {"populate_by_name": True}
+
+
+class MinuteListItem(BaseModel):
+    id:           str
+    title:        Optional[str]       = None
+    date:         Optional[str]       = None
+    time:         Optional[str]       = None
+    status:       str
+    client:       Optional[str]       = None
+    project:      Optional[str]       = None
+    participants: list[str]           = []
+    summary:      Optional[str]       = None
+    tags:         list[dict]          = []
+
+    model_config = {"populate_by_name": True}
+
+
+class MinuteListResponse(BaseModel):
+    """Respuesta al GET /."""
+    minutes: list[MinuteListItem]
+    total:   int
+    skip:    int
+    limit:   int
