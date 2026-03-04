@@ -5,16 +5,34 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
+# Instalar dependencias del sistema
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
-  && rm -rf /var/lib/apt/lists/*
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
 
+# Crear usuario no-root
 RUN useradd -m appuser
-USER appuser
 
+# Copiar y instalar dependencias Python
 COPY --chown=appuser:appuser APP/volumes/worker/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Instalar watchdog para autoreload en desarrollo
+RUN pip install --no-cache-dir watchdog
+
+# Copiar el código de la aplicación
 COPY --chown=appuser:appuser APP/volumes/worker/ /app
 
-CMD ["sh","-lc","celery -A tasks worker --loglevel=INFO"]
+# Crear directorios necesarios con permisos
+RUN mkdir -p /app/assets/prompts /app/assets/temp /var/log/app && \
+    chown -R appuser:appuser /app/assets /var/log/app
+
+# Exponer puerto para métricas si es necesario
+# EXPOSE 8000
+
+# Usuario no-root
+USER appuser
+
+# Comando por defecto (será sobrescrito por docker-compose en desarrollo)
+CMD ["python", "worker.py"]

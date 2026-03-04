@@ -22,6 +22,8 @@ from __future__ import annotations
 import asyncio
 import traceback
 
+
+from pathlib import Path
 from core.config       import settings
 from core.dlq          import send_to_dlq
 from core.job          import JobEnvelope
@@ -55,7 +57,8 @@ async def _execute_job(job: JobEnvelope, sem: asyncio.Semaphore) -> None:
                 "Iniciando job | job_id=%s type=%s queue=%s attempt=%d",
                 job.job_id, job.type, job.queue, job.attempt,
             )
-            await handler(job.payload)
+            # PASAMOS EL JOB COMPLETO, NO SOLO EL PAYLOAD
+            await handler(job)
             logger.info(
                 "Job completado | job_id=%s type=%s attempt=%d",
                 job.job_id, job.type, job.attempt,
@@ -88,17 +91,15 @@ async def _execute_job(job: JobEnvelope, sem: asyncio.Semaphore) -> None:
 
 # ── Loop principal ────────────────────────────────────────────────────────────
 
+# worker.py - Actualizar el main_loop
 async def main_loop() -> None:
     """
-    Loop principal del worker.
-
-    - Espera jobs con BLPOP (blocking, no gasta CPU)
-    - Lanza cada job como asyncio.Task independiente
-    - El semáforo limita cuántos corren en paralelo
-    - La reconexión Redis está encapsulada en get_redis()
+    Loop principal del worker con manejo mejorado de errores de Redis.
     """
     sem = asyncio.Semaphore(settings.MAX_CONCURRENT_JOBS)
     active_tasks: set[asyncio.Task] = set()
+    consecutive_errors = 0
+    max_consecutive_errors = 5
 
     logger.info(
         "Worker listo | queues=%s | max_concurrent=%d | max_retries=%d",
@@ -110,6 +111,7 @@ async def main_loop() -> None:
     while True:
         try:
             redis = await get_redis()
+            consecutive_errors = 0  # Resetear contador al conectar exitosamente
 
             # BLPOP bloquea hasta que llega un mensaje o timeout
             result = await redis.blpop(QUEUE_PRIORITY, timeout=settings.BLPOP_TIMEOUT)
@@ -143,17 +145,49 @@ async def main_loop() -> None:
                 await asyncio.gather(*active_tasks, return_exceptions=True)
             break
 
-        except Exception as loop_err:
-            # Error inesperado en el loop — loguear y continuar
-            logger.exception("Error en el loop principal | error=%s", loop_err)
+        except (ConnectionError, TimeoutError, OSError) as redis_err:
+            consecutive_errors += 1
+            logger.error(
+                "Error de conexión Redis | error=%s | consecutivos=%d/%d",
+                redis_err, consecutive_errors, max_consecutive_errors
+            )
+            
+            if consecutive_errors >= max_consecutive_errors:
+                logger.critical(
+                    "Demasiados errores consecutivos de Redis | reiniciando..."
+                )
+                # Forzar reinicio de la conexión
+                await close_redis()
+                consecutive_errors = 0
+            
             await asyncio.sleep(2)
 
+        except Exception as loop_err:
+            logger.exception("Error inesperado en el loop principal | error=%s", loop_err)
+            await asyncio.sleep(2)
 
 # ── Arranque ──────────────────────────────────────────────────────────────────
 
 async def main() -> None:
     setup_logging()
-
+    
+    # Validar rutas
+    prompt_path = Path(settings.PROMPT_PATH_BASE) / settings.OPENAI_SYSTEM_PROMPT
+    if not prompt_path.exists():
+        logger.error(f"⚠️  Archivo de prompt NO encontrado: {prompt_path}")
+        logger.error("   El worker funcionará pero usará prompt por defecto")
+    else:
+        logger.info(f"✓ Prompt cargado: {prompt_path}")
+    
+    temp_path = Path(settings.TRACE_BASE_DIR)
+    if not temp_path.exists():
+        logger.warning(f"⚠️  Directorio temp no existe: {temp_path}")
+        try:
+            temp_path.mkdir(parents=True, exist_ok=True)
+            logger.info(f"✓ Directorio temp creado: {temp_path}")
+        except Exception as e:
+            logger.error(f"✗ No se pudo crear temp: {e}")
+            
     logger.info("=" * 60)
     logger.info("MinuetAItor Worker arrancando")
     logger.info("Redis:  %s:%s", settings.REDIS_HOST, settings.REDIS_PORT)
