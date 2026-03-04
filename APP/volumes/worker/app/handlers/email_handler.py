@@ -2,80 +2,81 @@
 """
 Handler de jobs de tipo 'email'.
 
-Payload esperado (dentro de JobEnvelope.payload):
-{
-    "to":         ["user@example.com"],
-    "subject":    "Asunto",
-    "body":       "<h1>Hola</h1>",
-    "cc":         ["cc@example.com"],       # opcional
-    "bcc":        ["bcc@example.com"],      # opcional
-    "email_type": "html",                   # "html" | "text"
-    "reply_to":   "no-reply@example.com"   # opcional
-}
+Envía correos electrónicos usando SMTP.
 
-El handler es async pero el envío SMTP es síncrono (smtplib).
-Se ejecuta en un executor para no bloquear el event loop.
+Payload esperado:
+{
+    "to": "destinatario@ejemplo.com",
+    "subject": "Asunto del correo",
+    "body": "Contenido del correo",
+    "html": "<p>Contenido HTML</p>",  # opcional
+    "attachments": [...]  # opcional
+}
 """
 from __future__ import annotations
 
 import asyncio
 import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
+from email.message import EmailMessage
 from typing import Any
 
 from core.config import settings
 from core.logging_config import get_logger
+from core.job import JobEnvelope
 
 logger = get_logger("worker.handler.email")
 
 
-def _send_sync(payload: dict[str, Any]) -> None:
+async def handle_email_job(job: JobEnvelope) -> None:
     """
-    Envío SMTP síncrono.
-    Se llama desde run_in_executor para no bloquear asyncio.
+    Envía un correo electrónico.
     """
-    to:         list[str] = payload["to"]
-    subject:    str       = payload["subject"]
-    body:       str       = payload["body"]
-    cc:         list[str] = payload.get("cc")  or []
-    bcc:        list[str] = payload.get("bcc") or []
-    email_type: str       = payload.get("email_type", "html")
-    reply_to:   str | None = payload.get("reply_to")
+    payload = job.payload
+    to = payload.get("to")
+    subject = payload.get("subject", "Notificación MinuetAItor")
+    body = payload.get("body", "")
+    html = payload.get("html")
+    
+    if not to:
+        raise ValueError("El campo 'to' es requerido para enviar email")
+    
+    logger.info(
+        "Enviando email | to=%s subject=%s job_id=%s attempt=%d",
+        to, subject, job.job_id, job.attempt,
+    )
+    
+    # Ejecutar la operación SMTP en un executor para no bloquear el event loop
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, _send_email_sync, to, subject, body, html)
+    
+    logger.info("Email enviado | to=%s", to)
 
-    msg = MIMEMultipart("alternative")
+
+def _send_email_sync(to: str, subject: str, body: str, html: str | None = None) -> None:
+    """
+    Función síncrona para enviar email usando SMTP.
+    """
+    msg = EmailMessage()
     msg["Subject"] = subject
-    msg["From"]    = f"{settings.SMTP_FROM_NAME} <{settings.SMTP_FROM_EMAIL}>"
-    msg["To"]      = ", ".join(to)
-    if cc:
-        msg["Cc"] = ", ".join(cc)
-    if reply_to:
-        msg["Reply-To"] = reply_to
-
-    subtype = "html" if email_type == "html" else "plain"
-    msg.attach(MIMEText(body, subtype, "utf-8"))
-
-    all_recipients = to + cc + bcc
-
-    smtp_cls = smtplib.SMTP_SSL if settings.SMTP_USE_SSL else smtplib.SMTP
-
-    with smtp_cls(settings.SMTP_HOST, settings.SMTP_PORT, timeout=settings.SMTP_TIMEOUT) as server:
-        if settings.SMTP_USE_TLS and not settings.SMTP_USE_SSL:
+    msg["From"] = f"{settings.SMTP_FROM_NAME} <{settings.SMTP_FROM_EMAIL}>"
+    msg["To"] = to
+    
+    if html:
+        msg.set_content(body)
+        msg.add_alternative(html, subtype="html")
+    else:
+        msg.set_content(body)
+    
+    with smtplib.SMTP(
+        host=settings.SMTP_HOST,
+        port=settings.SMTP_PORT,
+        timeout=settings.SMTP_TIMEOUT
+    ) as server:
+        if settings.SMTP_USE_TLS:
             server.starttls()
+        
         if settings.SMTP_USER and settings.SMTP_PASSWORD:
             server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-        server.sendmail(settings.SMTP_FROM_EMAIL, all_recipients, msg.as_string())
-
-    logger.info(
-        "Email enviado | to=%s subject=%r",
-        to, subject[:60],
-    )
-
-
-async def handle_email_job(payload: dict[str, Any]) -> None:
-    """
-    Handler principal — async wrapper sobre el envío SMTP síncrono.
-    El executor evita bloquear el event loop durante la conexión SMTP.
-    """
-    loop = asyncio.get_event_loop()
-    await loop.run_in_executor(None, _send_sync, payload)
+        
+        server.send_message(msg)
+        logger.debug("Email enviado síncronamente | to=%s", to)

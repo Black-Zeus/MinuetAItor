@@ -1,2 +1,8 @@
 # Worker dependencies
 redis[asyncio]==5.2.1
+openai>=1.0.0
+minio==7.2.15
+sqlalchemy==2.0.36
+pymysql 
+watchdog>=4.0.0  # Para autoreload en desarrollo
+python-dotenv>=1.0.0
