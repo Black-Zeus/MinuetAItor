@@ -193,59 +193,71 @@ services:
       dockerfile: ./Data/dokerFile/dev_qa/Dockerfile.worker
     image: ${PROJECT_NAME}/worker:dev
     environment:
+      # ── Configuración General ─────────────────────────────────────────────────
       ENV_NAME: ${ENV_NAME:-dev}
       TZ: America/Santiago
 
-      # ── Redis ────────────────────────────────────────────────────────────────
-      REDIS_HOST: ${REDIS_HOST:-redis}
-      REDIS_PORT: ${REDIS_PORT:-6379}
-      REDIS_DB:   ${REDIS_DB:-0}
+      # ── Rutas del Worker ─────────────────────────────────────────────────────
+      PROMPT_PATH_BASE: "/app/assets/prompts"      # Directorio de prompts
+      TRACE_BASE_DIR:   "/app/assets/temp"         # Directorio para trazas/debug
 
-      # ── Worker: comportamiento ────────────────────────────────────────────────
-      WORKER_MAX_CONCURRENT:  ${WORKER_MAX_CONCURRENT:-5}    # jobs en paralelo
-      WORKER_MAX_RETRIES:     ${WORKER_MAX_RETRIES:-3}       # reintentos antes de DLQ
-      WORKER_RETRY_BACKOFF:   ${WORKER_RETRY_BACKOFF:-2.0}   # base backoff exponencial (seg)
-      WORKER_BLPOP_TIMEOUT:   ${WORKER_BLPOP_TIMEOUT:-5}     # timeout BLPOP (seg)
+      # ── Redis ────────────────────────────────────────────────────────────────
+      REDIS_HOST:      ${REDIS_HOST:-redis}
+      REDIS_PORT:      ${REDIS_PORT:-6379}
+      REDIS_DB:        ${REDIS_DB:-0}
+      REDIS_TIMEOUT:   ${REDIS_TIMEOUT:-30}        # Timeout de operaciones
+      REDIS_KEEPALIVE: ${REDIS_KEEPALIVE:-60}      # Keepalive en segundos
+
+      # ── Comportamiento del Worker ────────────────────────────────────────────
+      WORKER_MAX_CONCURRENT:  ${WORKER_MAX_CONCURRENT:-5}    # Jobs en paralelo
+      WORKER_MAX_RETRIES:     ${WORKER_MAX_RETRIES:-3}       # Reintentos antes de DLQ
+      WORKER_RETRY_BACKOFF:   ${WORKER_RETRY_BACKOFF:-2.0}   # Base backoff exponencial
+      WORKER_BLPOP_TIMEOUT:   ${WORKER_BLPOP_TIMEOUT:-5}     # Timeout BLPOP (seg)
 
       # ── Logging ───────────────────────────────────────────────────────────────
       LOG_LEVEL:        ${LOG_LEVEL:-INFO}
-      LOG_DIR:          /var/log/app                          # montado como volumen
-      LOG_MAX_BYTES:    ${LOG_MAX_BYTES:-10485760}            # 10 MB por archivo
-      LOG_BACKUP_COUNT: ${LOG_BACKUP_COUNT:-5}               # 5 archivos → 50 MB historial
+      LOG_DIR:          /var/log/app                # Montado como volumen
+      LOG_MAX_BYTES:    ${LOG_MAX_BYTES:-10485760}  # 10 MB por archivo
+      LOG_BACKUP_COUNT: ${LOG_BACKUP_COUNT:-5}      # 5 archivos → 50 MB historial
 
-      # ── SMTP ──────────────────────────────────────────────────────────────────
+      # ── SMTP / Email ──────────────────────────────────────────────────────────
       SMTP_HOST:       ${SMTP_HOST:-mailpit}
       SMTP_PORT:       ${SMTP_PORT:-1025}
       SMTP_USER:       ${SMTP_USER:-}
       SMTP_PASSWORD:   ${SMTP_PASSWORD:-}
       SMTP_FROM_NAME:  ${SMTP_FROM_NAME:-MinuetAItor}
-      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-no-reply@minuetaitor.cl}
       SMTP_USE_TLS:    ${SMTP_USE_TLS:-false}
       SMTP_USE_SSL:    ${SMTP_USE_SSL:-false}
       SMTP_TIMEOUT:    ${SMTP_TIMEOUT:-10}
 
-      # ── MariaDB (necesario cuando TX2 de minutas se migre al worker) ──────────
+      # ── Base de Datos (MariaDB) ───────────────────────────────────────────────
       MARIADB_HOST:     ${MARIADB_HOST:-mariadb}
       MARIADB_PORT:     ${MARIADB_PORT:-3306}
-      MARIADB_DATABASE: ${MARIADB_DATABASE}
-      MARIADB_USER:     ${MARIADB_USER}
+      MARIADB_DATABASE: ${MARIADB_DATABASE:-minuetaitor}
+      MARIADB_USER:     ${MARIADB_USER:-minuetaitor}
       MARIADB_PASSWORD: ${MARIADB_PASSWORD}
 
-      # ── MinIO (necesario cuando TX2 de minutas se migre al worker) ────────────
+      # ── MinIO (Almacenamiento de objetos) ─────────────────────────────────────
       MINIO_HOST:          ${MINIO_HOST:-minio}
       MINIO_PORT:          ${MINIO_PORT:-9000}
-      MINIO_ROOT_USER:     ${MINIO_ROOT_USER}
+      MINIO_ROOT_USER:     ${MINIO_ROOT_USER:-minioadmin}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_SECURE:        ${MINIO_SECURE:-false}
 
-      # ── OpenAI (necesario cuando TX2 de minutas se migre al worker) ──────────
-      OPENAI_API_KEY:    ${OPENAI_API_KEY}
-      OPENAI_MODEL:      ${OPENAI_MODEL}
-      OPENAI_MAX_TOKENS: ${OPENAI_MAX_TOKENS}
+      # ── OpenAI (Generación de minutas) ────────────────────────────────────────
+      OPENAI_API_KEY:       ${OPENAI_API_KEY}
+      OPENAI_MODEL:         ${OPENAI_MODEL:-gpt-4o}
+      OPENAI_MAX_TOKENS:    ${OPENAI_MAX_TOKENS:-16000}
+      OPENAI_TIMEOUT:       ${OPENAI_TIMEOUT:-300}
+      OPENAI_SYSTEM_PROMPT: ${OPENAI_SYSTEM_PROMPT:-system_prompt_v06.txt}
 
     volumes:
       - ./APP/volumes/worker/app:/app
       - ./APP/logs/worker:/var/log/app
-    command: ["python", "-u", "worker.py"]
+      - ./APP/data/settings/worker/prompts:/app/assets/prompts  
+      - ./APP/data/settings/worker/temp:/app/assets/temp        
+    command: watchmedo auto-restart --patterns='*.py' --recursive -- python /app/worker.py
     depends_on:
       redis:
         condition: service_healthy
