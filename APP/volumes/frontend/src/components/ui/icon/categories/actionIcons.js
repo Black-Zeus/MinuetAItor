@@ -22,6 +22,7 @@ import {
 
 export const actionIcons = {
   edit: FaPenToSquare,
+  pen: FaPenToSquare,
   FaEdit: FaPenToSquare,
   delete: FaTrash,
   download: FaDownload,
@@ -56,8 +57,9 @@ export const actionIcons = {
   FaPhone,
   FaEnvelope,
   FaToggleOn,
-   userCheck: FaUserCheck,
+  userCheck: FaUserCheck,
   FaUserCheck,
-   calendarPlus: FaCalendarPlus,
+  calendarPlus: FaCalendarPlus,
   FaCalendarPlus,
+  filterClear: FaEraser
 };
