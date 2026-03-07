@@ -47,3 +47,4 @@ Thumbs.db
 
 #temp json AI Response
 APP/volumes/backend/app/assets/temp/*
+APP/data/settings/worker/temp/*
