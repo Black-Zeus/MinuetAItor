@@ -156,6 +156,7 @@ services:
       OPENAI_MAX_TOKENS: ${OPENAI_MAX_TOKENS}
       MINUTES_MAX_FILE_SIZE_MB: ${MINUTES_MAX_FILE_SIZE_MB}
       MINUTES_RATE_LIMIT_PER_DAY: ${MINUTES_RATE_LIMIT_PER_DAY}
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET}
     env_file:
       - ./APP/volumes/backend/.env
     volumes:
@@ -251,6 +252,14 @@ services:
       OPENAI_MAX_TOKENS:    ${OPENAI_MAX_TOKENS:-16000}
       OPENAI_TIMEOUT:       ${OPENAI_TIMEOUT:-300}
       OPENAI_SYSTEM_PROMPT: ${OPENAI_SYSTEM_PROMPT:-system_prompt_v06.txt}
+
+      # ── Backend interno ────────────────────────────────────────
+      BACKEND_INTERNAL_URL: http://${PROJECT_NAME}-backend:8000
+      INTERNAL_API_SECRET:  ${INTERNAL_API_SECRET}
+      BACKEND_TIMEOUT:      ${BACKEND_TIMEOUT:-30}
+
+      # ── Trace / Debug ────────────────────────────────────────
+      TRACE_ENABLED:  ${TRACE_ENABLED:-false}
 
     volumes:
       - ./APP/volumes/worker/app:/app
