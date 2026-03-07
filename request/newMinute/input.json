@@ -1,17 +1,19 @@
 {
     "meetingInfo": {
-        "scheduledDate": "2024-01-15",
-        "scheduledStartTime": "10:00",
-        "scheduledEndTime": "11:30",
-        "actualStartTime": "10:05",
-        "actualEndTime": "11:35",
-        "location": "Microsoft Teams"
+        "scheduledDate": "2026-03-06",
+        "scheduledStartTime": "09:00",
+        "scheduledEndTime": "10:00",
+        "actualStartTime": "09:05",
+        "actualEndTime": "10:10",
+        "location": "Microsoft Teams",
+        "title": "Reunión de seguimiento semanal"
     },
     "projectInfo": {
-        "client":    "Retail Pacífico",
-        "clientID":  "c1000000-0000-4000-a000-000000000003",
-        "project":   "Omnicanalidad 360",
-        "projectID": "p1000000-0000-4000-a000-000000000005"
+        "client": "Clínica Santa Aurora S.A.",
+        "clientID": "c1000000-0000-4000-a000-000000000003",
+        "project": "Desarrollo Web Corporativo",
+        "projectID": "p1000000-0000-4000-a000-000000000005",
+        "category": "Operaciones"
     },
     "participants": {
         "attendees": [
@@ -30,8 +32,8 @@
         "profileId": "70aa9c64-1593-11f1-8403-da1169052fe5",
         "profileName": "Reunión de Seguimiento Semanal (Weekly Status)"
     },
-    "preparedBy": "Victor Soto",
-    "additionalNotes": "",
+    "preparedBy": "Juan Pérez",
+    "additionalNotes": "Revisar estado de avance del módulo de autenticación.",
     "generationOptions": {
         "language": "es"
     }
