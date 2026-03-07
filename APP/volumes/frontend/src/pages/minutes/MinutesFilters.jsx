@@ -21,12 +21,16 @@ const safeArray = (v) => (Array.isArray(v) ? v : []);
 // completed      Publicada y aprobada, inmutable — solo descarga
 // cancelled      Anulada, visible solo para trazabilidad
 // ====================================
+// Orden refleja el ciclo de vida. "deleted" excluido — no visible en operaciones normales.
 const STATUS_OPTIONS = [
-  { id: "in-progress",    name: "En Progreso",       icon: "spinner"      },
-  { id: "ready-for-edit", name: "Lista para edición", icon: "edit"         },
-  { id: "pending",        name: "Pendiente",          icon: "clock"        },
-  { id: "completed",      name: "Completada",         icon: "checkCircle"  },
-  { id: "cancelled",      name: "Anulada",            icon: "ban"          },
+  { id: "in-progress",      name: "En procesamiento"  },
+  { id: "ready-for-edit",   name: "Listo para editar" },
+  { id: "pending",          name: "En edición"        },
+  { id: "preview",          name: "En revisión"       },
+  { id: "completed",        name: "Completado"        },
+  { id: "cancelled",        name: "Cancelado"         },
+  { id: "llm-failed",       name: "Fallo IA"          },
+  { id: "processing-error", name: "Error de proceso"  },
 ];
 
 const FILTER_LABELS = {
@@ -50,34 +54,11 @@ const FILTER_ICONS = {
 // Muestra el ciclo de vida debajo de los filtros como referencia visual
 // ====================================
 const LIFECYCLE_STEPS = [
-  {
-    id:      "in-progress",
-    label:   "En Progreso",
-    icon:    "FaSpinner",
-    color:   "text-[#1e3a8a] dark:text-blue-400",
-    tooltip: "La minuta fue enviada al agente IA y está siendo procesada",
-  },
-  {
-    id:      "ready-for-edit",
-    label:   "Lista para edición",
-    icon:    "FaPenToSquare",
-    color:   "text-orange-500 dark:text-orange-400",
-    tooltip: "La IA completó el procesamiento — el usuario debe revisar y validar el contenido",
-  },
-  {
-    id:      "pending",
-    label:   "Pendiente",
-    icon:    "FaClock",
-    color:   "text-yellow-500 dark:text-yellow-400",
-    tooltip: "Enviada a los participantes — se aprobará de forma tácita si no hay observaciones",
-  },
-  {
-    id:      "completed",
-    label:   "Completada",
-    icon:    "FaCircleCheck",
-    color:   "text-green-600 dark:text-green-400",
-    tooltip: "Minuta oficial aprobada e inmutable — solo disponible para descarga",
-  },
+  { id: "in-progress",    label: "En procesamiento",  color: "text-[#1e3a8a] dark:text-blue-400"     },
+  { id: "ready-for-edit", label: "Listo para editar",  color: "text-orange-500 dark:text-orange-400" },
+  { id: "pending",        label: "En edición",         color: "text-yellow-500 dark:text-yellow-400" },
+  { id: "preview",        label: "En revisión",        color: "text-indigo-600 dark:text-indigo-400" },
+  { id: "completed",      label: "Completado",         color: "text-green-600 dark:text-green-400"   },
 ];
 
 const StatusLifecycle = () => (
@@ -106,15 +87,20 @@ const StatusLifecycle = () => (
       {/* Separador */}
       <span className="mx-2 text-gray-200 dark:text-gray-700 text-sm font-light">|</span>
 
-      {/* Anulada — destacada en rojo con leyenda */}
+      {/* Cancelado */}
       <div className="flex items-center gap-1.5">
         <Icon name="FaBan" className="text-[10px] text-red-400 dark:text-red-500 shrink-0" />
-        <span className="text-xs font-medium text-red-500 dark:text-red-400 transition-theme">
-          Anulada
-        </span>
-        <span className={`text-xs ${TXT_META} transition-theme`}>
-          — cualquier estado activo puede ser anulado
-        </span>
+        <span className="text-xs font-medium text-red-500 dark:text-red-400 transition-theme">Cancelado</span>
+        <span className={`text-xs ${TXT_META} transition-theme`}>— cualquier estado activo puede cancelarse</span>
+      </div>
+
+      <span className="mx-2 text-gray-200 dark:text-gray-700 text-sm font-light">|</span>
+
+      {/* Fallo IA / Error proceso */}
+      <div className="flex items-center gap-1.5">
+        <Icon name="FaTriangleExclamation" className="text-[10px] text-rose-400 dark:text-rose-500 shrink-0" />
+        <span className="text-xs font-medium text-rose-500 dark:text-rose-400 transition-theme">Fallo IA / Error proceso</span>
+        <span className={`text-xs ${TXT_META} transition-theme`}>— estados de error, requieren revisión</span>
       </div>
 
     </div>
@@ -274,12 +260,9 @@ const MinutesFilters = ({ filters, onFilterChange, onClearFilters, onApplyFilter
         </div>
       </div>
 
-      {/* ── CICLO DE VIDA — siempre visible ── */}
-      <StatusLifecycle />
-
-      {/* ── FILTROS ── */}
+      {/* ── FILTROS — entre las líneas divisoras, visibles solo al expandir ── */}
       {filtersExpanded && (
-        <>
+        <div className="border-b border-secondary-200 dark:border-secondary-700/60 transition-theme pb-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 items-end mt-6">
 
             {visibleFilters.client && (
@@ -361,8 +344,11 @@ const MinutesFilters = ({ filters, onFilterChange, onClearFilters, onApplyFilter
             </div>
           </div>
 
-        </>
+        </div>
       )}
+
+      {/* ── CICLO DE VIDA — siempre visible, siempre al fondo ── */}
+      <StatusLifecycle />
     </div>
   );
 };
