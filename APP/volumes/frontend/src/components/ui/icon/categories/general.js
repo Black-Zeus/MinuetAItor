@@ -43,6 +43,7 @@ export const generalIcons = {
   chartBar: FaChartBar,
   chartPie: FaChartPie,
   diagram: FaDiagramProject,
+  diagramProject: FaDiagramProject,
   gauge: FaGaugeHigh,
   branch: FaCodeBranch,
   

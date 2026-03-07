@@ -26,6 +26,7 @@ export const statusIcons = {
   circleInfo: FaCircleInfo,
   question: FaCircleQuestion,
   warning: FaTriangleExclamation,
+  triangleExclamation: FaTriangleExclamation,
   ban: FaBan,
   spinner: FaSpinner,
   pause: FaCirclePause,
