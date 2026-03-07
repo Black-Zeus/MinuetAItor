@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     jwt_secret: str
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60
+    
+    # Internal API — autenticación entre servicios Docker (worker → backend)
+    internal_api_secret: str = "-"
 
     # Geo
     geo_db_path: str = "/app/assets/dbGeo/dbip-city-lite.mmdb"

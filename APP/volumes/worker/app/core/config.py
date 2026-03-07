@@ -21,6 +21,16 @@ class WorkerConfig:
     RETRY_BACKOFF_BASE:  float = float(os.environ.get("WORKER_RETRY_BACKOFF", "2.0"))
     BLPOP_TIMEOUT:       int   = int(os.environ.get("WORKER_BLPOP_TIMEOUT",   "5"))
 
+    # ── Backend interno ───────────────────────────────────────────────────────
+    BACKEND_INTERNAL_URL: str  = os.environ.get("BACKEND_INTERNAL_URL", "http://minuetaitor-backend:8000")
+    INTERNAL_API_SECRET:  str  = os.environ.get("INTERNAL_API_SECRET",  "-")
+    BACKEND_TIMEOUT:      int  = int(os.environ.get("BACKEND_TIMEOUT",  "30"))
+
+    # ── Trace / Debug ─────────────────────────────────────────────────────────
+    TRACE_ENABLED:   bool = os.environ.get("TRACE_ENABLED",   "false").lower() == "true"
+    TRACE_BASE_DIR:  str  = os.environ.get("TRACE_BASE_DIR",  "/app/assets/temp")
+    PROMPT_PATH_BASE: str = os.environ.get("PROMPT_PATH_BASE", "/app/assets/prompts")
+
     # ── SMTP ──────────────────────────────────────────────────────────────────
     SMTP_HOST:       str  = os.environ.get("SMTP_HOST",       "mailpit")
     SMTP_PORT:       int  = int(os.environ.get("SMTP_PORT",   "1025"))
