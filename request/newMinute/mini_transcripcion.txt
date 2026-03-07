@@ -1,0 +1,21 @@
+[00:00] Juan Pérez: Buenas tardes a todos. Comenzamos la reunión de seguimiento semanal del proyecto Desarrollo Web Corporativo para Clínica Santa Aurora.
+
+[00:45] María González: Hola Juan, gracias. Tengo pendiente reportar el estado del módulo de autenticación.
+
+[01:30] Juan Pérez: Perfecto María, cuéntanos.
+
+[02:00] María González: El módulo de login con SSO ya está integrado con el directorio activo del cliente. Quedan por resolver dos issues: el timeout de sesión y la pantalla de error personalizada.
+
+[03:15] Carlos Rodríguez: Desde infraestructura confirmamos que el servidor de staging ya tiene los certificados SSL instalados. Podemos hacer el deploy esta semana.
+
+[04:00] Juan Pérez: Excelente. ¿Cuál es el plazo para cerrar los dos issues pendientes de María?
+
+[04:30] María González: Con dos días de trabajo debería estar listo. Puedo comprometer el viernes.
+
+[05:00] Juan Pérez: Perfecto. Quedamos entonces: María cierra los dos issues de autenticación antes del viernes, Carlos coordina el deploy a staging el viernes en la tarde.
+
+[05:45] Carlos Rodríguez: Confirmado.
+
+[06:00] María González: De acuerdo.
+
+[06:30] Juan Pérez: Para la próxima reunión revisaremos los resultados del deploy y avanzaremos con el módulo de agenda médica. Nos vemos el próximo jueves a la misma hora. Gracias a todos.

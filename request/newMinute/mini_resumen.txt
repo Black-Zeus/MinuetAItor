@@ -1,0 +1,13 @@
+Reunión de seguimiento semanal del proyecto Desarrollo Web Corporativo - Clínica Santa Aurora S.A.
+
+RESUMEN EJECUTIVO:
+Se revisó el estado del módulo de autenticación SSO. La integración con el directorio activo está completa. Quedan pendientes el ajuste del timeout de sesión y la pantalla de error personalizada, comprometidos para el viernes.
+
+Infraestructura confirmó que el servidor de staging tiene SSL instalado y está listo para el deploy.
+
+COMPROMISOS:
+- María González: cerrar issues de autenticación (timeout + pantalla error) — viernes 07/03/2026
+- Carlos Rodríguez: deploy a staging — viernes 07/03/2026 tarde
+
+PRÓXIMA REUNIÓN:
+Jueves 12/03/2026 a las 09:00 — revisión de resultados del deploy y módulo de agenda médica.
