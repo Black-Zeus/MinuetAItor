@@ -1,156 +1,153 @@
 // src/pages/minutes/Minutes.jsx
-import React, { useState, useEffect, useMemo } from "react";
-import minutesData from "@/data/minutes.json";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 
-import MinutesHeader from "./MinutesHeader";
-import MinutesFilters from "./MinutesFilters";
-import MinutesResults from "./MinutesResults";
-import MinuteCard from "./MinuteCard";
+import MinutesHeader    from "./MinutesHeader";
+import MinutesFilters   from "./MinutesFilters";
+import MinutesResults   from "./MinutesResults";
+import MinuteCard       from "./MinuteCard";
+import MinutesPagination from "./MinutesPagination";
 import PageLoadingSpinner from "@/components/ui/modal/types/system/PageLoadingSpinner";
 
-/** Helpers defensivos */
-const normalizeText = (v) => String(v ?? "").trim().toLowerCase();
+import { listMinutes, transitionMinute } from "@/services/minutesService";
 
-const parseDateAny = (v) => {
-  const s = String(v ?? "").trim();
-  if (!s) return null;
+// ─── Constantes ───────────────────────────────────────────────────────────────
+const PAGE_SIZE = 12;
 
-  // YYYY-MM-DD
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
-    const d = new Date(`${s}T00:00:00`);
-    return Number.isNaN(d.getTime()) ? null : d;
-  }
-
-  // DD/MM/YYYY
-  const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  if (m) {
-    const dd = Number(m[1]);
-    const mm = Number(m[2]);
-    const yy = Number(m[3]);
-    const d = new Date(yy, mm - 1, dd);
-    return Number.isNaN(d.getTime()) ? null : d;
-  }
-
-  const d = new Date(s);
-  return Number.isNaN(d.getTime()) ? null : d;
+const EMPTY_FILTERS = {
+  status:    "",
+  client_id: "",
+  project_id: "",
 };
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Extrae listas únicas de clientes y proyectos desde los items ya cargados.
+ * Se usa para poblar los selects de filtros sin un endpoint dedicado.
+ */
+const extractOptions = (minutes) => {
+  const clientMap  = new Map();
+  const projectMap = new Map();
+
+  (minutes ?? []).forEach((m) => {
+    if (m.client_id  && m.client)  clientMap.set(m.client_id,  m.client);
+    if (m.project_id && m.project) projectMap.set(m.project_id, m.project);
+  });
+
+  // Fallback: si el backend no devuelve client_id/project_id,
+  // usar el texto como id para que los filtros funcionen igual.
+  // (Actualmente list_minutes devuelve solo el nombre, no el id FK).
+  // En ese caso los filtros de cliente/proyecto se desactivan hasta
+  // que el backend exponga un endpoint dedicado o incluya los IDs.
+
+  return {
+    clients:  [...clientMap.entries()].map(([id, name]) => ({ id, name })),
+    projects: [...projectMap.entries()].map(([id, name]) => ({ id, name })),
+  };
+};
+
+// ─── Componente ───────────────────────────────────────────────────────────────
 const Minutes = () => {
-  const [isLoading, setIsLoading] = useState(true);
+  // ── Estado de carga ──────────────────────────────────────────────────────
+  const [isLoading,    setIsLoading]    = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error,        setError]        = useState(null);
 
-  // 1) Estado que controla el UI (lo que el usuario va seleccionando)
-  const [filtersDraft, setFiltersDraft] = useState({
-    client: "",
-    project: "",
-    status: "",
-    dateFrom: "",
-    dateTo: "",
-  });
+  // ── Datos ────────────────────────────────────────────────────────────────
+  const [minutes, setMinutes] = useState([]);
+  const [total,   setTotal]   = useState(0);
 
-  // 2) Estado que se usa realmente para filtrar (se actualiza al presionar "Filtrar")
-  const [appliedFilters, setAppliedFilters] = useState({
-    client: "",
-    project: "",
-    status: "",
-    dateFrom: "",
-    dateTo: "",
-  });
+  // ── Paginación ───────────────────────────────────────────────────────────
+  const [currentPage, setCurrentPage] = useState(1);
 
-  useEffect(() => {
-    const t = setTimeout(() => setIsLoading(false), 250);
-    return () => clearTimeout(t);
+  // ── Filtros (draft = lo que el usuario está editando en el form) ──────────
+  const [filtersDraft, setFiltersDraft] = useState({ ...EMPTY_FILTERS });
+
+  // ── Filtros aplicados (se usan para la query real) ────────────────────────
+  const [appliedFilters, setAppliedFilters] = useState({ ...EMPTY_FILTERS });
+
+  // ─── Fetch principal ──────────────────────────────────────────────────────
+  const fetchMinutes = useCallback(async (page, filters, showSpinner = false) => {
+    if (showSpinner) setIsLoading(true);
+    else             setIsRefreshing(true);
+    setError(null);
+
+    try {
+      const skip = (page - 1) * PAGE_SIZE;
+      const data = await listMinutes({
+        skip,
+        limit:         PAGE_SIZE,
+        status_filter: filters.status    || null,
+        client_id:     filters.client_id || null,
+        project_id:    filters.project_id || null,
+      });
+
+      setMinutes(data?.minutes ?? []);
+      setTotal(data?.total    ?? 0);
+    } catch (err) {
+      setError("No se pudieron cargar las minutas. Intenta nuevamente.");
+      setMinutes([]);
+      setTotal(0);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
   }, []);
 
-  const handleFilterChange = (filterName, value) => {
-    setFiltersDraft((prev) => ({ ...prev, [filterName]: value }));
-  };
+  // ── Carga inicial ─────────────────────────────────────────────────────────
+  useEffect(() => {
+    fetchMinutes(1, EMPTY_FILTERS, true);
+  }, [fetchMinutes]);
 
-  const handleClearFilters = () => {
-    const empty = { client: "", project: "", status: "", dateFrom: "", dateTo: "" };
-    setFiltersDraft(empty);
-    setAppliedFilters(empty);
+  // ── Cuando cambian filtros aplicados o página → re-fetch ──────────────────
+  useEffect(() => {
+    fetchMinutes(currentPage, appliedFilters, false);
+  }, [currentPage, appliedFilters, fetchMinutes]);
+
+  // ─── Handlers de filtros ──────────────────────────────────────────────────
+  const handleFilterChange = (name, value) => {
+    setFiltersDraft((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleApplyFilters = () => {
-    setAppliedFilters(filtersDraft);
+    setCurrentPage(1);
+    setAppliedFilters({ ...filtersDraft });
   };
 
-  // Mapas opcionales para resolver ID -> name (si tus selects usan id, pero minutes usa texto)
-  const clientById = useMemo(() => {
-    const map = new Map();
-    (minutesData?.clients ?? []).forEach((c) => {
-      const id = String(c?.id ?? "");
-      if (id) map.set(id, String(c?.name ?? c?.label ?? ""));
-    });
-    return map;
-  }, []);
+  const handleClearFilters = () => {
+    setFiltersDraft({ ...EMPTY_FILTERS });
+    setCurrentPage(1);
+    setAppliedFilters({ ...EMPTY_FILTERS });
+  };
 
-  const projectById = useMemo(() => {
-    const map = new Map();
-    (minutesData?.projects ?? []).forEach((p) => {
-      const id = String(p?.id ?? "");
-      if (id) map.set(id, String(p?.name ?? p?.label ?? ""));
-    });
-    return map;
-  }, []);
+  // ─── Handler de transición de estado (desde MinuteCard) ───────────────────
+  const handleStatusChange = useCallback(async (minuteId, targetStatus, commitMessage) => {
+    try {
+      await transitionMinute(minuteId, targetStatus, commitMessage ?? null);
+      // Refrescar la página actual silenciosamente
+      fetchMinutes(currentPage, appliedFilters, false);
+    } catch {
+      // El interceptor de axios ya muestra el toast de error
+    }
+  }, [currentPage, appliedFilters, fetchMinutes]);
 
-  // Derivar minutos filtradas (esto es lo que alimenta MinutesResults + grid)
-  const filteredMinutes = useMemo(() => {
-    const minutes = Array.isArray(minutesData?.minutes) ? minutesData.minutes : [];
+  // ─── Opciones para selects de filtros ────────────────────────────────────
+  // Se derivan de los registros ya cargados.
+  // Nota: el backend no devuelve client_id/project_id en el listado (solo name),
+  // por lo que los filtros por cliente/proyecto están preparados para cuando
+  // el backend los exponga. Por ahora el filtro de status es funcional.
+  const { clients, projects } = useMemo(() => extractOptions(minutes), [minutes]);
 
-    const fClient = String(appliedFilters?.client ?? "").trim();
-    const fProject = String(appliedFilters?.project ?? "").trim();
-    const fStatus = String(appliedFilters?.status ?? "").trim();
-    const fFrom = parseDateAny(appliedFilters?.dateFrom);
-    const fTo = parseDateAny(appliedFilters?.dateTo);
+  // ─── Paginación ───────────────────────────────────────────────────────────
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
-    // Resolver “valor seleccionado” a texto, si venía como id
-    const clientSelectedText = fClient ? (clientById.get(fClient) || fClient) : "";
-    const projectSelectedText = fProject ? (projectById.get(fProject) || fProject) : "";
+  const handlePageChange = (page) => {
+    if (page < 1 || page > totalPages) return;
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
-    return minutes.filter((m) => {
-      // Cliente: soporta minuto con clientId o client (texto)
-      if (fClient) {
-        const mClientId = String(m?.clientId ?? "");
-        const mClientText = String(m?.client ?? "");
-        const okById = mClientId && mClientId === fClient;
-        const okByText = normalizeText(mClientText) === normalizeText(clientSelectedText);
-        if (!okById && !okByText) return false;
-      }
-
-      // Proyecto: soporta minuto con projectId o project (texto)
-      if (fProject) {
-        const mProjectId = String(m?.projectId ?? "");
-        const mProjectText = String(m?.project ?? "");
-        const okById = mProjectId && mProjectId === fProject;
-        const okByText = normalizeText(mProjectText) === normalizeText(projectSelectedText);
-        if (!okById && !okByText) return false;
-      }
-
-      // Estado
-      if (fStatus) {
-        const mStatus = String(m?.status ?? "");
-        if (mStatus !== fStatus) return false;
-      }
-
-      // Rango de fechas: usa m.date (si no existe o no parsea, no pasa el filtro cuando hay rango)
-      if (fFrom || fTo) {
-        const mDate = parseDateAny(m?.date);
-        if (!mDate) return false;
-
-        if (fFrom && mDate < fFrom) return false;
-        if (fTo) {
-          // Inclusivo “hasta”: setea fin del día
-          const end = new Date(fTo);
-          end.setHours(23, 59, 59, 999);
-          if (mDate > end) return false;
-        }
-      }
-
-      return true;
-    });
-  }, [appliedFilters, clientById, projectById]);
-
+  // ─── Render ───────────────────────────────────────────────────────────────
   if (isLoading) {
     return <PageLoadingSpinner message="Cargando Minutas..." />;
   }
@@ -164,16 +161,57 @@ const Minutes = () => {
         onFilterChange={handleFilterChange}
         onClearFilters={handleClearFilters}
         onApplyFilters={handleApplyFilters}
-        data={minutesData}
+        clients={clients}
+        projects={projects}
       />
 
-      <MinutesResults count={filteredMinutes.length} />
+      <MinutesResults
+        count={minutes.length}
+        total={total}
+        isRefreshing={isRefreshing}
+        currentPage={currentPage}
+        totalPages={totalPages}
+        pageSize={PAGE_SIZE}
+      />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 mb-8">
-        {filteredMinutes.map((minute) => (
-          <MinuteCard key={minute.id} minute={minute} />
-        ))}
-      </div>
+      {/* Error state */}
+      {error && (
+        <div className="flex items-center justify-center py-16">
+          <p className="text-sm text-red-500 dark:text-red-400">{error}</p>
+        </div>
+      )}
+
+      {/* Empty state */}
+      {!error && minutes.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-16 gap-3">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            No se encontraron minutas con los filtros aplicados.
+          </p>
+        </div>
+      )}
+
+      {/* Grid */}
+      {!error && minutes.length > 0 && (
+        <>
+          <div className={`grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 mb-8 transition-opacity duration-200 ${isRefreshing ? "opacity-50 pointer-events-none" : "opacity-100"}`}>
+            {minutes.map((minute) => (
+              <MinuteCard
+                key={minute.id}
+                minute={minute}
+                onStatusChange={handleStatusChange}
+              />
+            ))}
+          </div>
+
+          {totalPages > 1 && (
+            <MinutesPagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={handlePageChange}
+            />
+          )}
+        </>
+      )}
     </div>
   );
 };
