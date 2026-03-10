@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Minuta de Reunión - Cliente Ready</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="document">
+
+    <!-- ========================================================= -->
+    <!-- ZONA OPCIONAL: PORTADA -->
+    <!-- Primera hoja visual con logos, título del proyecto y elaborador. -->
+    <!-- Activar / desactivar con data-hidden="false|true" -->
+    <!-- ========================================================= -->
+    <section class="page" data-section="cover" data-hidden="false">
+      <div class="cover-page">
+        <div class="cover-top">
+          <div class="logo-box">
+            <!-- Logo Cliente -->
+            <img src="{{branding.clientLogoUrl}}" alt="Logo Cliente" />
+          </div>
+
+          <div class="logo-box">
+            <!-- Logo Empresa / Integrador -->
+            <img src="{{branding.companyLogoUrl}}" alt="Logo Empresa" />
+          </div>
+        </div>
+
+        <div class="cover-center">
+          <div class="cover-card">
+            <div class="cover-header">
+              <p class="cover-kicker">Documento de sesión</p>
+              <h1 class="cover-title">{{generalInfo.subject}}</h1>
+              <p class="cover-subtitle">{{generalInfo.client}} · {{generalInfo.meetingDate}}</p>
+            </div>
+
+            <div class="cover-body">
+              <div class="cover-item">
+                <span class="label">Cliente</span>
+                <span class="value">{{generalInfo.client}}</span>
+              </div>
+
+              <div class="cover-item">
+                <span class="label">Proyecto</span>
+                <span class="value">{{inputInfo.projectInfo.project}}</span>
+              </div>
+
+              <div class="cover-item">
+                <span class="label">Título de la minuta</span>
+                <span class="value">{{inputInfo.projectInfo.minuteTitle}}</span>
+              </div>
+
+              <div class="cover-item">
+                <span class="label">Fecha de reunión</span>
+                <span class="value">{{generalInfo.meetingDate}}</span>
+              </div>
+
+              <div class="cover-item">
+                <span class="label">Elaborado por</span>
+                <span class="value">{{generalInfo.preparedBy}}</span>
+              </div>
+
+              <div class="cover-item">
+                <span class="label">Perfil IA</span>
+                <span class="value">{{inputInfo.profileInfo.profileName}}</span>
+              </div>
+            </div>
+
+            <div class="cover-footer">
+              Documento generado a partir de transcripción y resumen estructurado procesados por IA.
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="page-number">Página 1</div>
+    </section>
+
+    <!-- ========================================================= -->
+    <!-- ZONA OPCIONAL: CARÁTULA / FICHA -->
+    <!-- Tabla resumen de la minuta: cliente, proyecto, versión, fecha, estado. -->
+    <!-- Activar / desactivar con data-hidden="false|true" -->
+    <!-- ========================================================= -->
+    <section class="page" data-section="summary-sheet" data-hidden="false">
+      <div class="doc-header">
+        <div class="doc-header-title">
+          <h1 class="doc-title">Carátula / Ficha de Documento</h1>
+          <p class="doc-subtitle">Resumen documental para uso de cliente, control interno y circulación formal.</p>
+        </div>
+        <div class="doc-header-meta">
+          <div>Documento: Minuta de Reunión</div>
+          <div>Generado: {{metadata.generatedAt}}</div>
+        </div>
+      </div>
+
+      <table class="info-table">
+        <tbody>
+          <tr>
+            <th class="field">Cliente</th>
+            <td colspan="2">{{generalInfo.client}}</td>
+            <th class="field">Proyecto</th>
+            <td colspan="2">{{inputInfo.projectInfo.project}}</td>
+          </tr>
+          <tr>
+            <th class="field">Título</th>
+            <td colspan="2">{{generalInfo.subject}}</td>
+            <th class="field">Versión</th>
+            <td colspan="2">{{metadata.version}}</td>
+          </tr>
+          <tr>
+            <th class="field">Fecha reunión</th>
+            <td colspan="2">{{generalInfo.meetingDate}}</td>
+            <th class="field">Estado</th>
+            <td colspan="2">{{document.status}}</td>
+          </tr>
+          <tr>
+            <th class="field">Lugar / Plataforma</th>
+            <td colspan="2">{{generalInfo.location}}</td>
+            <th class="field">Elaborado por</th>
+            <td colspan="2">{{generalInfo.preparedBy}}</td>
+          </tr>
+          <tr>
+            <th class="field">Perfil IA</th>
+            <td colspan="2">{{inputInfo.profileInfo.profileName}}</td>
+            <th class="field">Adjuntos origen</th>
+            <td colspan="2">{{inputInfo.attachmentsSummary}}</td>
+          </tr>
+          <tr>
+            <th class="field">Observación</th>
+            <td colspan="5">{{inputInfo.additionalNotes}}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2 class="section-title">Etiquetas sugeridas por IA</h2>
+      <div class="section-note">Bloque opcional para referencia rápida de temas dominantes detectados por la IA.</div>
+      <div class="tag-list">
+        {{#aiSuggestedTags}}
+          <span class="tag">{{name}}</span>
+        {{/aiSuggestedTags}}
+      </div>
+
+      <div class="footer-legend">
+        Nota: en caso de no utilizar esta hoja, puede desactivarse sin afectar la minuta principal.
+      </div>
+      <div class="page-number">Página 2</div>
+    </section>
+
+    <!-- ========================================================= -->
+    <!-- MINUTA PRINCIPAL -->
+    <!-- ========================================================= -->
+    <section class="page" data-section="main-minute" data-hidden="false">
+      <div class="doc-header">
+        <div class="doc-header-title">
+          <h1 class="doc-title">Minuta de Reunión</h1>
+          <p class="doc-subtitle">{{generalInfo.client}} · {{inputInfo.projectInfo.project}} · {{generalInfo.meetingDate}}</p>
+        </div>
+        <div class="doc-header-meta">
+          <div>Versión: {{metadata.version}}</div>
+          <div>Preparado por: {{generalInfo.preparedBy}}</div>
+        </div>
+      </div>
+
+      <h2 class="section-title">1. Información General</h2>
+      <table class="info-table">
+        <tbody>
+          <tr>
+            <th class="field">Cliente</th>
+            <td colspan="2">{{generalInfo.client}}</td>
+            <th class="field">Proyecto</th>
+            <td colspan="2">{{inputInfo.projectInfo.project}}</td>
+          </tr>
+          <tr>
+            <th class="field">Tema reunión</th>
+            <td colspan="2">{{generalInfo.subject}}</td>
+            <th class="field">Preparado por</th>
+            <td colspan="2">{{generalInfo.preparedBy}}</td>
+          </tr>
+          <tr>
+            <th class="field">Fecha sesión</th>
+            <td colspan="2">{{generalInfo.meetingDate}}</td>
+            <th class="field">Plataforma</th>
+            <td colspan="2">{{generalInfo.location}}</td>
+          </tr>
+
+          <tr class="separator">
+            <td colspan="6">HORARIOS DE LA SESIÓN</td>
+          </tr>
+
+          <tr>
+            <th class="field">Programado</th>
+            <td colspan="2">Inicio: {{generalInfo.scheduledStartTime}} · Término: {{generalInfo.scheduledEndTime}}</td>
+            <th class="field">Observado</th>
+            <td colspan="2">Inicio: {{generalInfo.actualStartTime}} · Término: {{generalInfo.actualEndTime}}</td>
+          </tr>
+
+          <tr>
+            <th class="field">Notas</th>
+            <td colspan="5">{{inputInfo.additionalNotes}}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2 class="section-title">2. Participantes</h2>
+      <div class="section-note">Distribución formal de invitados, asistentes efectivos y destinatarios en copia de la presente minuta.</div>
+
+      <table class="data-table participants-table">
+        <thead>
+          <tr>
+            <th colspan="2">Invitados</th>
+            <th colspan="2">Asistentes</th>
+            <th colspan="2">Copia Minuta</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td colspan="2">
+              <div class="participant-list">
+                {{#participants.invited}}
+                <div class="participant-grid">
+                  <div>{{fullName}}</div>
+                  <div class="initials">{{initials}}</div>
+                </div>
+                {{/participants.invited}}
+              </div>
+            </td>
+
+            <td colspan="2">
+              <div class="participant-list">
+                {{#participants.attendees}}
+                <div class="participant-grid">
+                  <div>{{fullName}}</div>
+                  <div class="initials">{{initials}}</div>
+                </div>
+                {{/participants.attendees}}
+              </div>
+            </td>
+
+            <td colspan="2">
+              <div class="participant-list">
+                {{#participants.copyRecipients}}
+                <div class="participant-grid">
+                  <div>{{fullName}}</div>
+                  <div class="initials">{{initials}}</div>
+                </div>
+                {{/participants.copyRecipients}}
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2 class="section-title">3. Alcances</h2>
+      <div class="section-note">Cuerpo principal de la minuta, estructurado desde <code>scope.sections</code> para conservar semántica y trazabilidad.</div>
+
+      {{#scope.sections}}
+      <section class="scope-block">
+        <div class="scope-head">
+          <div class="scope-title-wrap">
+            <h3 class="scope-title">{{sectionTitle}}</h3>
+            <div class="scope-meta">{{sectionId}}</div>
+          </div>
+          <div class="scope-type">
+            <span class="chip">{{sectionType}}</span>
+          </div>
+        </div>
+
+        <div class="scope-summary">{{content.summary}}</div>
+
+        <div class="scope-inner">
+          {{#content.topicsList.length}}
+          <h4 class="section-subtitle">Temas incluidos</h4>
+          <ul class="clean-list">
+            {{#content.topicsList}}
+            <li>{{.}}</li>
+            {{/content.topicsList}}
+          </ul>
+          {{/content.topicsList.length}}
+
+          {{#content.details.length}}
+          <h4 class="section-subtitle">Detalle</h4>
+          <table class="detail-table">
+            <tbody>
+              {{#content.details}}
+              <tr>
+                <th>{{label}}</th>
+                <td>{{description}}</td>
+              </tr>
+              {{/content.details}}
+            </tbody>
+          </table>
+          {{/content.details.length}}
+        </div>
+      </section>
+      {{/scope.sections}}
+
+      <h2 class="section-title">4. Acuerdos</h2>
+      <div class="section-note">Tabla formal de compromisos acordados durante la sesión.</div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="width:20%">Asunto</th>
+            <th>Detalle</th>
+            <th style="width:15%">Responsable</th>
+            <th style="width:12%">Vencimiento</th>
+            <th style="width:11%">Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{#agreements.items}}
+          <tr>
+            <td>{{subject}}</td>
+            <td>{{body}}</td>
+            <td>{{responsible}}</td>
+            <td>{{dueDate}}</td>
+            <td><span class="badge status-{{statusClass}}">{{status}}</span></td>
+          </tr>
+          {{/agreements.items}}
+        </tbody>
+      </table>
+
+      <h2 class="section-title">5. Requerimientos</h2>
+      <div class="section-note">Solicitudes, dependencias o necesidades identificadas, con prioridad y estado.</div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="width:18%">Entidad</th>
+            <th>Detalle</th>
+            <th style="width:15%">Responsable</th>
+            <th style="width:11%">Prioridad</th>
+            <th style="width:11%">Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{#requirements.items}}
+          <tr>
+            <td>{{entity}}</td>
+            <td>{{body}}</td>
+            <td>{{responsible}}</td>
+            <td><span class="badge priority-{{priorityClass}}">{{priority}}</span></td>
+            <td><span class="badge status-{{statusClass}}">{{status}}</span></td>
+          </tr>
+          {{/requirements.items}}
+        </tbody>
+      </table>
+
+      <h2 class="section-title">6. Próximas reuniones</h2>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="width:16%">Fecha</th>
+            <th>Agenda</th>
+            <th style="width:22%">Asistentes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{#upcomingMeetings.items}}
+          <tr>
+            <td>{{scheduledDate}}</td>
+            <td>{{agenda}}</td>
+            <td>{{attendeesText}}</td>
+          </tr>
+          {{/upcomingMeetings.items}}
+        </tbody>
+      </table>
+
+      <div class="page-number">Página 3</div>
+    </section>
+
+    <!-- ========================================================= -->
+    <!-- ZONA OPCIONAL: CONTROL DE VERSIONES -->
+    <!-- Historial de versiones del documento generado desde la Línea de Tiempo. -->
+    <!-- Activar / desactivar con data-hidden="false|true" -->
+    <!-- ========================================================= -->
+    <section class="page" data-section="version-control" data-hidden="false">
+      <div class="doc-header">
+        <div class="doc-header-title">
+          <h1 class="doc-title">Control de Versiones</h1>
+          <p class="doc-subtitle">Historial documental para trazabilidad del contenido emitido.</p>
+        </div>
+        <div class="doc-header-meta">
+          <div>Documento: Minuta</div>
+          <div>Versión actual: {{metadata.version}}</div>
+        </div>
+      </div>
+
+      <div class="section-note">
+        Esta hoja está pensada para poblarse desde tu línea de tiempo o historial de generación documental.
+      </div>
+
+      <table class="data-table timeline-table">
+        <thead>
+          <tr>
+            <th>Versión</th>
+            <th>Fecha</th>
+            <th>Autor</th>
+            <th>Descripción del cambio</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{#document.versionHistory}}
+          <tr>
+            <td>{{version}}</td>
+            <td>{{date}}</td>
+            <td>{{author}}</td>
+            <td>{{description}}</td>
+            <td>{{status}}</td>
+          </tr>
+          {{/document.versionHistory}}
+
+          {{^document.versionHistory}}
+          <tr>
+            <td colspan="5" class="empty-state">Sin historial de versiones registrado.</td>
+          </tr>
+          {{/document.versionHistory}}
+        </tbody>
+      </table>
+
+      <div class="page-number">Página 4</div>
+    </section>
+
+    <!-- ========================================================= -->
+    <!-- ZONA OPCIONAL: FIRMAS / APROBACIÓN -->
+    <!-- Hoja con cuadros de firma para los participantes clave. -->
+    <!-- Activar / desactivar con data-hidden="false|true" -->
+    <!-- ========================================================= -->
+    <section class="page" data-section="signatures" data-hidden="false">
+      <div class="doc-header">
+        <div class="doc-header-title">
+          <h1 class="doc-title">Firmas / Aprobación</h1>
+          <p class="doc-subtitle">Espacio destinado a validación formal del documento, según el flujo definido por cliente o proyecto.</p>
+        </div>
+        <div class="doc-header-meta">
+          <div>Cliente: {{generalInfo.client}}</div>
+          <div>Fecha: {{generalInfo.meetingDate}}</div>
+        </div>
+      </div>
+
+      <div class="section-note">
+        Puedes poblar esta hoja con participantes clave, aprobadores, jefaturas o comité de revisión.
+      </div>
+
+      <div class="signature-grid">
+        <div class="signature-box">
+          <div class="signature-line">
+            <div class="signature-name">{{approval.signer1.name}}</div>
+            <div class="signature-role">{{approval.signer1.role}}</div>
+          </div>
+        </div>
+
+        <div class="signature-box">
+          <div class="signature-line">
+            <div class="signature-name">{{approval.signer2.name}}</div>
+            <div class="signature-role">{{approval.signer2.role}}</div>
+          </div>
+        </div>
+
+        <div class="signature-box">
+          <div class="signature-line">
+            <div class="signature-name">{{approval.signer3.name}}</div>
+            <div class="signature-role">{{approval.signer3.role}}</div>
+          </div>
+        </div>
+
+        <div class="signature-box">
+          <div class="signature-line">
+            <div class="signature-name">{{approval.signer4.name}}</div>
+            <div class="signature-role">{{approval.signer4.role}}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer-legend">
+        Esta hoja puede mantenerse visible sólo cuando el flujo documental requiera firma o aprobación formal.
+      </div>
+
+      <div class="page-number">Página 5</div>
+    </section>
+
+  </div>
+</body>
+</html>

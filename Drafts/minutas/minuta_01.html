@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Minuta de Reunión</title>
+    <style>
+        :root {
+            --color-primary: #1f3c88;
+            --color-primary-dark: #162d66;
+            --color-secondary: #e9eef8;
+            --color-accent: #dbe5f7;
+            --color-border: #cfd7e6;
+            --color-text: #1f2937;
+            --color-text-soft: #4b5563;
+            --color-muted: #6b7280;
+            --color-bg: #f5f7fb;
+            --color-white: #ffffff;
+            --shadow: 0 6px 20px rgba(15, 23, 42, 0.08);
+            --radius: 14px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background: var(--color-bg);
+            color: var(--color-text);
+            font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+            line-height: 1.5;
+            font-size: 14px;
+        }
+
+        .document {
+            width: 100%;
+        }
+
+        .page {
+            width: 210mm;
+            min-height: 297mm;
+            margin: 12mm auto;
+            background: var(--color-white);
+            box-shadow: var(--shadow);
+            padding: 15mm 15mm 15mm 15mm;
+            position: relative;
+            page-break-after: always;
+        }
+
+        .page:last-child {
+            page-break-after: auto;
+        }
+
+        .page-number {
+            position: absolute;
+            bottom: 10mm;
+            right: 16mm;
+            font-size: 11px;
+            color: var(--color-muted);
+        }
+
+        .cover-page {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-height: calc(297mm - 30mm);
+        }
+
+        .cover-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 20px;
+        }
+
+        .logo-box {
+            width: 220px;
+            height: 90px;
+            border: 1.5px dashed var(--color-border);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--color-muted);
+            background: #fafcff;
+            overflow: hidden;
+        }
+
+        .logo-box img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            display: block;
+        }
+
+        .cover-center {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 0;
+        }
+
+        .cover-card {
+            width: 100%;
+            border: 1px solid var(--color-border);
+            border-radius: 18px;
+            overflow: hidden;
+            background: linear-gradient(180deg, #f9fbff 0%, #ffffff 100%);
+        }
+
+        .cover-header {
+            background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+            color: white;
+            padding: 28px 32px;
+        }
+
+        .cover-title {
+            margin: 0;
+            font-size: 30px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+        }
+
+        .cover-subtitle {
+            margin: 10px 0 0 0;
+            font-size: 15px;
+            opacity: 0.92;
+        }
+
+        .cover-body {
+            padding: 28px 32px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 18px 28px;
+        }
+
+        .cover-item {
+            border-bottom: 1px solid var(--color-border);
+            padding-bottom: 10px;
+        }
+
+        .cover-item .label {
+            display: block;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--color-muted);
+            margin-bottom: 6px;
+            letter-spacing: 0.6px;
+        }
+
+        .cover-item .value {
+            font-size: 17px;
+            font-weight: 600;
+            color: var(--color-text);
+        }
+
+        .cover-footer {
+            border-top: 1px solid var(--color-border);
+            padding: 18px 32px 24px;
+            color: var(--color-text-soft);
+            font-size: 13px;
+        }
+
+        .section-title {
+            margin: 0 0 14px 0;
+            padding: 10px 14px;
+            background: var(--color-secondary);
+            border-left: 5px solid var(--color-primary);
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--color-primary-dark);
+        }
+
+        .subsection-title {
+            margin: 22px 0 10px;
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--color-primary-dark);
+        }
+
+        .table-block {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 18px;
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            overflow: hidden;
+            table-layout: fixed;
+        }
+
+        .table-block th,
+        .table-block td {
+            border: 1px solid var(--color-border);
+            padding: 10px 12px;
+            vertical-align: top;
+            text-align: left;
+            word-break: break-word;
+        }
+
+        .table-block th {
+            background: #f7f9fc;
+            color: var(--color-text-soft);
+            font-weight: 700;
+        }
+
+        .tabla-info th.field-th {
+            background: #f8fafd;
+            color: var(--color-text-soft);
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .tabla-info td.value {
+            background: #ffffff;
+            color: var(--color-text);
+        }
+
+        .tabla-info td.value.soft {
+            background: #fcfdff;
+        }
+
+        .tabla-info .section-separator td {
+            background: #eef3fc;
+            color: var(--color-primary-dark);
+            font-weight: 700;
+            text-align: center;
+            padding: 10px 12px;
+        }
+
+        .tabla-info .value-inline {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 18px;
+            align-items: center;
+        }
+
+        .tabla-info .value-inline span {
+            display: inline-flex;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .tabla-info .value-inline strong {
+            color: var(--color-primary-dark);
+        }
+
+        .tabla-info .muted {
+            color: var(--color-muted);
+        }
+
+        .value-center {
+            text-align: center;
+        }
+
+        .participants-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 14px;
+            margin-top: 8px;
+        }
+
+        .participants-card {
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            overflow: hidden;
+            background: #fcfdff;
+            min-height: 180px;
+        }
+
+        .participants-card h4 {
+            margin: 0;
+            padding: 10px 12px;
+            background: #eef3fc;
+            color: var(--color-primary-dark);
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .participants-card ul {
+            margin: 0;
+            padding: 12px 18px 14px 28px;
+        }
+
+        .participants-card li {
+            margin-bottom: 8px;
+            color: var(--color-text);
+        }
+
+        .intro-box {
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            background: #eef5ff;
+            padding: 14px 16px;
+            margin-bottom: 18px;
+        }
+
+        .topic-card {
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            margin-bottom: 14px;
+            overflow: hidden;
+            background: white;
+        }
+
+        .topic-header {
+            padding: 10px 14px;
+            background: #f5f8ff;
+            border-bottom: 1px solid var(--color-border);
+            font-weight: 700;
+            color: var(--color-primary-dark);
+        }
+
+        .topic-body {
+            padding: 14px;
+        }
+
+        .topic-meta {
+            font-size: 12px;
+            color: var(--color-muted);
+            margin-bottom: 8px;
+        }
+
+        .rich-text p {
+            margin: 0 0 10px;
+            text-align: justify;
+        }
+
+        .rich-text ul,
+        .rich-text ol {
+            margin: 0 0 10px 18px;
+            padding: 0;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 700;
+            background: var(--color-accent);
+            color: var(--color-primary-dark);
+        }
+
+        .signature-blocks {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 24px;
+            margin-top: 30px;
+        }
+
+        .signature-box {
+            border-top: 1px solid var(--color-border);
+            padding-top: 10px;
+            min-height: 70px;
+        }
+
+        .signature-box .name {
+            font-weight: 700;
+            color: var(--color-text);
+        }
+
+        .signature-box .role {
+            font-size: 13px;
+            color: var(--color-muted);
+        }
+
+        .small-text {
+            font-size: 12px;
+            color: var(--color-muted);
+        }
+
+        .no-break {
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
+        @media print {
+            body {
+                background: white;
+            }
+
+            .page {
+                margin: 0;
+                width: 210mm;
+                min-height: 297mm;
+                box-shadow: none;
+                padding: 15mm 15mm 15mm 15mm;
+            }
+        }
+
+        @page {
+            size: A4;
+            margin: 0;
+        }
+
+        .participants-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+
+        .participants-table .col-name {
+            width: calc(100% - 72px);
+        }
+
+        .participants-table .col-abbr {
+            width: 72px;
+        }
+
+        .participants-table td {
+            padding: 9px 12px;
+            border-top: 1px solid var(--color-border);
+            vertical-align: middle;
+        }
+
+        .participants-table tbody tr:first-child td {
+            border-top: none;
+        }
+
+        .participant-name {
+            color: var(--color-text);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .participant-abbr {
+            text-align: center;
+            font-weight: 700;
+            color: var(--color-primary-dark);
+            background: #f7f9fc;
+            border-left: 1px solid var(--color-border);
+            white-space: nowrap;
+        }
+
+
+        .tabla-participantes {
+            table-layout: fixed;
+        }
+
+        .tabla-participantes th {
+            background: #eef3fc;
+            color: var(--color-primary-dark);
+            font-weight: 700;
+            text-align: left;
+        }
+
+        .tabla-participantes td {
+            background: #ffffff;
+            color: var(--color-text);
+            vertical-align: middle;
+        }
+
+        .tabla-participantes .abbr-cell {
+            text-align: center;
+            font-weight: 700;
+            color: var(--color-primary-dark);
+            background: #f8fafd;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="document">
+
+        <!-- PORTADA -->
+        <section class="page">
+            <div class="cover-page">
+                <div class="cover-top">
+                    <div class="logo-box">
+                        <img src="https://via.placeholder.com/220x90?text=Logo+Cliente" alt="Logo Cliente">
+                    </div>
+
+                    <div class="logo-box">
+                        <img src="https://via.placeholder.com/220x90?text=Logo+Empresa" alt="Logo Empresa">
+                    </div>
+                </div>
+
+                <div class="cover-center">
+                    <div class="cover-card">
+                        <div class="cover-header">
+                            <h1 class="cover-title">MINUTA DE REUNIÓN</h1>
+                            <p class="cover-subtitle">Documento de seguimiento, acuerdos y trazabilidad de sesión</p>
+                        </div>
+
+                        <div class="cover-body">
+                            <div class="cover-item">
+                                <span class="label">Nombre de la sesión</span>
+                                <span class="value">Revisión de Avance Proyecto de Integración</span>
+                            </div>
+
+                            <div class="cover-item">
+                                <span class="label">Cliente</span>
+                                <span class="value">Nombre Cliente S.A.</span>
+                            </div>
+
+                            <div class="cover-item">
+                                <span class="label">Proyecto</span>
+                                <span class="value">Proyecto Plataforma de Gestión Documental</span>
+                            </div>
+
+                            <div class="cover-item">
+                                <span class="label">Fecha de sesión</span>
+                                <span class="value">07-03-2026</span>
+                            </div>
+
+                            <div class="cover-item">
+                                <span class="label">Versión del documento</span>
+                                <span class="value">v1.0</span>
+                            </div>
+
+                            <div class="cover-item">
+                                <span class="label">Preparado por</span>
+                                <span class="value">Nombre del responsable</span>
+                            </div>
+                        </div>
+
+                        <div class="cover-footer">
+                            Documento emitido para registro formal de la sesión, control de acuerdos, requerimientos y
+                            seguimiento de actividades asociadas.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="small-text">
+                    Empresa emisora · Área / Unidad responsable · Documento confidencial de trabajo
+                </div>
+            </div>
+            <div class="page-number">Página 1</div>
+        </section>
+
+        <!-- INFORMACIÓN GENERAL / PARTICIPANTES -->
+        <section class="page">
+            <h2 class="section-title">1. Información General</h2>
+
+            <table class="table-block tabla-info">
+                <colgroup>
+                    <col style="width: 16%">
+                    <col style="width: 17%">
+                    <col style="width: 17%">
+                    <col style="width: 16%">
+                    <col style="width: 17%">
+                    <col style="width: 17%">
+                </colgroup>
+                <tbody>
+                    <tr>
+                        <th class="field-th">Cliente</th>
+                        <td class="value" colspan="2">Nombre Cliente S.A.</td>
+
+                        <th class="field-th">Elaborado por</th>
+                        <td class="value" colspan="2">Nombre del responsable</td>
+                    </tr>
+
+                    <tr>
+                        <th class="field-th">Proyecto</th>
+                        <td class="value" colspan="2">Proyecto Plataforma de Gestión Documental</td>
+
+                        <th class="field-th">Fecha sesión</th>
+                        <td class="value" colspan="2">07-03-2026</td>
+                    </tr>
+
+                    <tr>
+                        <th class="field-th">Tema reunión</th>
+                        <td class="value" colspan="2">Revisión de avance</td>
+
+                        <th class="field-th">Plataforma</th>
+                        <td class="value" colspan="2">Microsoft Teams</td>
+                    </tr>
+
+                    <tr class="section-separator">
+                        <td colspan="6">HORARIOS DE LA SESIÓN</td>
+                    </tr>
+
+                    <tr>
+                        <th class="field-th">Programado</th>
+                        <td class="value soft" colspan="2">
+                            <div class="value-inline">
+                                <span><strong>Inicio:</strong> 10:00</span>
+                                <span><strong>Término:</strong> 11:00</span>
+                            </div>
+                        </td>
+
+                        <th class="field-th">Duración</th>
+                        <td class="value soft" colspan="2">01:00 h</td>
+                    </tr>
+
+                    <tr>
+                        <th class="field-th">Real</th>
+                        <td class="value soft" colspan="2">
+                            <div class="value-inline">
+                                <span><strong>Inicio:</strong> 10:08</span>
+                                <span><strong>Término:</strong> 11:17</span>
+                            </div>
+                        </td>
+
+                        <th class="field-th">Detalle</th>
+                        <td class="value soft" colspan="2">Sesión extendida por 9 min</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3 class="subsection-title">2. Participantes</h3>
+
+            <table class="table-block tabla-participantes">
+                <colgroup>
+                    <col style="width: 24%;">
+                    <col style="width: 9%;">
+                    <col style="width: 24%;">
+                    <col style="width: 9%;">
+                    <col style="width: 24%;">
+                    <col style="width: 10%;">
+                </colgroup>
+                <thead>
+                    <tr>
+                        <th colspan="2" style="text-align: center;">Invitados</th>
+                        <th colspan="2" style="text-align: center;">Asistentes</th>
+                        <th colspan="2" style="text-align: center;">Copia Minuta</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Juan Pérez</td>
+                        <td class="abbr-cell">JP</td>
+                        <td>Juan Pérez</td>
+                        <td class="abbr-cell">JP</td>
+                        <td>Mesa de soporte</td>
+                        <td class="abbr-cell">MS</td>
+                    </tr>
+                    <tr>
+                        <td>María González</td>
+                        <td class="abbr-cell">MG</td>
+                        <td>Ana Torres</td>
+                        <td class="abbr-cell">AT</td>
+                        <td>PMO / Coordinación</td>
+                        <td class="abbr-cell">PMO</td>
+                    </tr>
+                    <tr>
+                        <td>Carlos Soto</td>
+                        <td class="abbr-cell">CS</td>
+                        <td>Víctor Soto</td>
+                        <td class="abbr-cell">VS</td>
+                        <td>Equipo documental</td>
+                        <td class="abbr-cell">ED</td>
+                    </tr>
+                    <tr>
+                        <td>Ana Torres</td>
+                        <td class="abbr-cell">AT</td>
+                        <td colspan="2" style="text-align: center;">-</td>
+                        <td colspan="2" style="text-align: center;">-</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="page-number">Página 2</div>
+        </section>
+
+        <!-- ALCANCES -->
+        <section class="page">
+            <h2 class="section-title">3. Alcances</h2>
+
+            <div class="intro-box">
+                <strong>Introducción:</strong>
+                <div class="rich-text" style="margin-top:8px;">
+                    <p>La presente sesión tuvo por objetivo revisar el estado actual del proyecto, validar observaciones
+                        levantadas por las partes involucradas y establecer lineamientos de continuidad.</p>
+                    <p><strong>Puntos del orden del día:</strong></p>
+                    <ol>
+                        <li>Estado general del proyecto.</li>
+                        <li>Observaciones y contingencias.</li>
+                        <li>Definiciones operativas.</li>
+                    </ol>
+                </div>
+            </div>
+
+            <div class="topic-card no-break">
+                <div class="topic-header">Tema 1 · Estado general del proyecto</div>
+                <div class="topic-body">
+                    <div class="topic-meta">
+                        <span class="badge">Tema tratado</span>
+                    </div>
+                    <div class="rich-text">
+                        <p>Se presentó el estado general del proyecto, señalando el porcentaje de avance comprometido a
+                            la fecha, los hitos ejecutados y las actividades aún pendientes. Se indicó que las tareas
+                            críticas mantienen dependencia de validaciones funcionales por parte del cliente.</p>
+                        <p>Asimismo, se revisó la disponibilidad de entornos, accesos y documentación de apoyo necesaria
+                            para continuar con las siguientes etapas.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="topic-card no-break">
+                <div class="topic-header">Tema 2 · Observaciones y contingencias</div>
+                <div class="topic-body">
+                    <div class="topic-meta">
+                        <span class="badge">Seguimiento</span>
+                    </div>
+                    <div class="rich-text">
+                        <p>Se expusieron observaciones relacionadas con tiempos de respuesta, disponibilidad de
+                            información base y necesidad de estandarizar los insumos entregados entre áreas. Se señaló
+                            la conveniencia de formalizar un flujo único para requerimientos documentales y técnicos.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="topic-card no-break">
+                <div class="topic-header">Tema 3 · Definiciones operativas</div>
+                <div class="topic-body">
+                    <div class="topic-meta">
+                        <span class="badge">Definición</span>
+                    </div>
+                    <div class="rich-text">
+                        <p>Se acordó trabajar sobre una estructura común de entrega, distinguiendo claramente entre
+                            antecedentes base, evidencia de ejecución, validaciones y documentos de cierre. Esta
+                            definición permitirá mejorar trazabilidad y reducir iteraciones innecesarias.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="page-number">Página 3</div>
+        </section>
+
+        <!-- ACUERDOS / REQUERIMIENTOS -->
+        <section class="page">
+            <h2 class="section-title">4. Acuerdos</h2>
+
+            <table class="table-block tabla-acuerdos">
+                <thead>
+                    <tr>
+                        <th style="width:20%;">Asunto</th>
+                        <th style="width:60%;">Cuerpo</th>
+                        <th style="width:20%;">Encargado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Entrega de antecedentes</td>
+                        <td>Se acuerda consolidar y remitir los antecedentes técnicos pendientes en un único paquete
+                            documental, siguiendo la estructura definida en sesión.</td>
+                        <td>Equipo Proyecto</td>
+                    </tr>
+                    <tr>
+                        <td>Validación funcional</td>
+                        <td>El cliente revisará los puntos observados y emitirá retroalimentación formal para continuar
+                            con la siguiente etapa del proyecto.</td>
+                        <td>Cliente</td>
+                    </tr>
+                    <tr>
+                        <td>Actualización de minuta</td>
+                        <td>El preparador del documento incorporará observaciones de revisión y emitirá nueva versión
+                            para trazabilidad y conformidad.</td>
+                        <td>Preparador Minuta</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h2 class="section-title">5. Requerimientos</h2>
+
+            <table class="table-block tabla-requerimientos">
+                <thead>
+                    <tr>
+                        <th style="width:20%;">Entidad</th>
+                        <th style="width:60%;">Cuerpo</th>
+                        <th style="width:20%;">Encargado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Área TI</td>
+                        <td>Habilitación de acceso a entorno de pruebas y validación de permisos requeridos por los
+                            participantes técnicos.</td>
+                        <td>Administrador TI</td>
+                    </tr>
+                    <tr>
+                        <td>Cliente</td>
+                        <td>Remisión de documentación base actualizada para continuidad del análisis y cierre de
+                            observaciones abiertas.</td>
+                        <td>Contraparte Cliente</td>
+                    </tr>
+                    <tr>
+                        <td>PMO</td>
+                        <td>Definir formato oficial de control de seguimiento para las actividades y acuerdos derivados
+                            de la sesión.</td>
+                        <td>Coordinación PMO</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="page-number">Página 4</div>
+        </section>
+
+        <!-- PRÓXIMAS REUNIONES / FIRMAS -->
+        <section class="page">
+            <h2 class="section-title">6. Próximas Reuniones</h2>
+
+            <table class="table-block tabla-reuniones">
+                <thead>
+                    <tr>
+                        <th style="width:22%;">Fecha</th>
+                        <th style="width:78%;">Puntos a tratar</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Por definir</td>
+                        <td>
+                            Revisión de cumplimiento de acuerdos, validación de documentación pendiente, estado de
+                            requerimientos abiertos y planificación de siguiente hito.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>15-03-2026</td>
+                        <td>
+                            Seguimiento de avances técnicos, revisión de evidencias entregadas y cierre de observaciones
+                            de la presente minuta.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3 class="subsection-title">Observaciones Finales</h3>
+            <div class="rich-text">
+                <p>La presente minuta resume los aspectos tratados durante la sesión y constituye un documento de
+                    trazabilidad para fines de control, seguimiento y coordinación entre las partes involucradas.</p>
+                <p>Cualquier observación, ajuste o complemento deberá ser incorporado en la siguiente iteración de
+                    revisión del documento, manteniendo la debida trazabilidad en la hoja de versiones.</p>
+            </div>
+
+            <div class="page-number">Página 5</div>
+        </section>
+
+        <!-- CONTROL DE VERSIONES -->
+        <section class="page">
+            <h2 class="section-title">7. Control de Versiones</h2>
+
+            <table class="table-block">
+                <thead>
+                    <tr>
+                        <th style="width:12%;">Versión</th>
+                        <th style="width:16%;">Fecha</th>
+                        <th style="width:18%;">Autor</th>
+                        <th style="width:36%;">Descripción del cambio</th>
+                        <th style="width:18%;">Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>v0.1</td>
+                        <td>07-03-2026</td>
+                        <td>Nombre Preparador</td>
+                        <td>Primera emisión del documento con estructura base de la sesión.</td>
+                        <td>Borrador inicial</td>
+                    </tr>
+                    <tr>
+                        <td>v0.2</td>
+                        <td>08-03-2026</td>
+                        <td>Nombre Preparador</td>
+                        <td>Incorporación de observaciones de asistentes y ajuste de redacción en sección de alcances.
+                        </td>
+                        <td>En revisión</td>
+                    </tr>
+                    <tr>
+                        <td>v1.0</td>
+                        <td>09-03-2026</td>
+                        <td>Nombre Aprobador</td>
+                        <td>Versión aprobada y distribuida a participantes y destinatarios en copia.</td>
+                        <td>Emitido</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="page-number">Página 6</div>
+        </section>
+
+    </div>
+</body>
+
+</html>
