@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Minuta de Reunión - Cliente Ready</title>
+ <style>
+
+:root{
+  --primary:#1f3c88;
+  --primary-dark:#162d66;
+  --primary-soft:#eef3fc;
+  --secondary:#f8fafc;
+  --surface:#ffffff;
+  --bg:#f2f4f8;
+  --text:#1f2937;
+  --muted:#667085;
+  --line:#d6deea;
+  --line-strong:#bcc8da;
+  --success-bg:#ecfdf3;
+  --success-tx:#166534;
+  --warning-bg:#fff7ed;
+  --warning-tx:#9a3412;
+  --danger-bg:#fef2f2;
+  --danger-tx:#991b1b;
+  --neutral-bg:#f3f4f6;
+  --neutral-tx:#4b5563;
+  --shadow:0 10px 28px rgba(15,23,42,.08);
+  --radius:12px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;
+  padding:16px;
+  background:var(--bg);
+  color:var(--text);
+  font-family:"Segoe UI", Tahoma, Arial, sans-serif;
+  font-size:13px;
+  line-height:1.5;
+}
+.document{width:100%}
+.page{
+  width:210mm;
+  min-height:297mm;
+  margin:10mm auto;
+  background:var(--surface);
+  box-shadow:var(--shadow);
+  padding:14mm 15mm 16mm 15mm;
+  position:relative;
+  page-break-after:always;
+}
+.page:last-child{page-break-after:auto}
+.page-number{
+  position:absolute; right:15mm; bottom:8mm; color:var(--muted); font-size:11px;
+}
+.doc-header{
+  display:flex; justify-content:space-between; align-items:flex-start; gap:16px;
+  padding-bottom:12px; border-bottom:2px solid var(--primary); margin-bottom:14px;
+}
+.doc-title{margin:0; font-size:22px; line-height:1.2; color:var(--primary-dark); font-weight:700}
+.doc-subtitle{margin:6px 0 0 0; font-size:12px; color:var(--muted)}
+.doc-header-meta{min-width:180px; text-align:right; font-size:12px; color:var(--muted)}
+.cover-page{display:flex; flex-direction:column; min-height:calc(297mm - 30mm)}
+.cover-top{display:flex; justify-content:space-between; align-items:flex-start; gap:24px}
+.logo-box{
+  width:220px; height:80px; border:1px solid var(--line-strong); border-radius:10px;
+  display:flex; align-items:center; justify-content:center; color:var(--muted);
+  font-size:12px; background:#fcfdff; overflow:hidden;
+}
+.cover-center{flex:1; display:flex; align-items:center; justify-content:center}
+.cover-card{width:100%; border:1px solid var(--line); border-radius:18px; overflow:hidden; background:#fff}
+.cover-header{padding:26px 30px; background:linear-gradient(180deg,#f7faff 0%, #eef3fc 100%); border-bottom:1px solid var(--line)}
+.cover-kicker{margin:0 0 8px 0; text-transform:uppercase; letter-spacing:.8px; font-size:11px; color:var(--primary); font-weight:700}
+.cover-title{margin:0; font-size:28px; line-height:1.18; color:var(--primary-dark); font-weight:700}
+.cover-subtitle{margin:8px 0 0 0; font-size:14px; color:var(--muted)}
+.cover-body{padding:20px 30px 24px; display:grid; grid-template-columns:1fr 1fr; gap:16px 28px}
+.cover-item{padding-bottom:8px; border-bottom:1px solid var(--line)}
+.cover-item .label{display:block; margin-bottom:4px; font-size:11px; color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:.4px}
+.cover-item .value{font-size:15px; color:var(--text); font-weight:600}
+.cover-footer{padding:14px 30px 20px; border-top:1px solid var(--line); color:var(--muted); font-size:12px}
+.section-title{
+  margin:18px 0 10px 0; padding:8px 12px; border-left:4px solid var(--primary);
+  background:var(--primary-soft); border-radius:10px; color:var(--primary-dark); font-size:16px; font-weight:700;
+}
+.section-subtitle{margin:14px 0 8px 0; color:var(--primary-dark); font-size:13px; font-weight:700}
+.section-note{margin:-2px 0 10px 0; font-size:12px; color:var(--muted)}
+.info-table,.data-table{
+  width:100%; border-collapse:collapse; table-layout:fixed; border:1px solid var(--line);
+  border-radius:12px; overflow:hidden; margin-bottom:14px;
+}
+.info-table th,.info-table td,.data-table th,.data-table td{
+  border:1px solid var(--line); padding:9px 10px; text-align:left; vertical-align:top; word-break:break-word;
+}
+.info-table th,.data-table thead th{background:#f7faff; color:var(--primary-dark); font-weight:700}
+.info-table .field{width:16%; background:#fbfcfe; color:var(--muted); font-size:12px; font-weight:700}
+.info-table .separator td{background:var(--primary-soft); color:var(--primary-dark); font-weight:700; text-align:center; letter-spacing:.3px}
+.participants-table th{text-align:center}
+.participants-table td{vertical-align:top}
+.abbr{text-align:center; font-weight:700; color:var(--primary-dark); background:var(--primary-soft)}
+.scope-block{
+  border:1px solid var(--line); border-radius:12px; overflow:hidden; margin-bottom:12px; background:#fff;
+}
+.scope-head{
+  display:flex; justify-content:space-between; align-items:flex-start; gap:12px;
+  padding:10px 12px; background:#f8fbff; border-bottom:1px solid var(--line);
+}
+.scope-title{margin:0; font-size:14px; color:var(--primary-dark); font-weight:700}
+.scope-meta{margin-top:3px; font-size:11px; color:var(--muted)}
+.chip,.badge{
+  display:inline-block; padding:4px 8px; border-radius:999px; font-size:11px; font-weight:700;
+}
+.chip{background:var(--primary-soft); color:var(--primary-dark)}
+.scope-summary{padding:12px; font-size:13px}
+.scope-inner{padding:0 12px 12px 12px}
+.clean-list{margin:0; padding-left:18px}
+.clean-list li{margin:4px 0}
+.detail-table{
+  width:100%; border-collapse:collapse; table-layout:fixed; margin-top:8px; border:1px solid var(--line);
+  border-radius:10px; overflow:hidden;
+}
+.detail-table th,.detail-table td{border:1px solid var(--line); padding:8px 9px; text-align:left; vertical-align:top}
+.detail-table th{width:18%; background:#fbfcfe; color:var(--primary-dark)}
+.badge.status-pending{background:var(--warning-bg);color:var(--warning-tx)}
+.badge.status-open{background:#eff6ff;color:var(--primary-dark)}
+.badge.status-closed{background:var(--success-bg);color:var(--success-tx)}
+.badge.status-neutral{background:var(--neutral-bg);color:var(--neutral-tx)}
+.badge.priority-high{background:var(--danger-bg);color:var(--danger-tx)}
+.badge.priority-medium{background:var(--warning-bg);color:var(--warning-tx)}
+.badge.priority-low{background:#eff6ff;color:var(--primary-dark)}
+.badge.priority-neutral{background:var(--neutral-bg);color:var(--neutral-tx)}
+.empty-state{color:var(--muted); font-style:italic}
+.timeline-table td:first-child,.timeline-table th:first-child{width:14%}
+.timeline-table td:nth-child(2),.timeline-table th:nth-child(2){width:12%}
+.signature-grid{display:grid; grid-template-columns:1fr 1fr; gap:26px; margin-top:28px}
+.signature-box{
+  min-height:120px; border:1px solid var(--line); border-radius:12px; padding:14px 16px;
+  display:flex; flex-direction:column; justify-content:flex-end;
+}
+.signature-line{border-top:1px solid var(--line-strong); margin-top:40px; padding-top:8px}
+.signature-name{font-weight:700; color:var(--text)}
+.signature-role{font-size:12px; color:var(--muted)}
+.footer-legend{margin-top:14px; font-size:11.5px; color:var(--muted)}
+[data-hidden="true"]{display:none !important}
+@media print{
+  body{background:#fff; padding:0}
+  .page{width:210mm; min-height:297mm; margin:0; box-shadow:none; padding:14mm 15mm 16mm 15mm}
+}
+@page{size:A4; margin:0}
+
+ </style>
+</head>
+<body>
+  <div class="document">
+
+    <!-- ========================================================= -->
+    <!-- ZONA OPCIONAL: PORTADA -->
+    <!-- Primera hoja visual con logos, título del proyecto y elaborador. -->
+    <!-- Activar / desactivar con data-hidden="false|true" -->
+    <!-- ========================================================= -->
+    <section class="page" data-section="cover" data-hidden="false">
+      <div class="cover-page">
+        <div class="cover-top">
+          <div class="logo-box">Logo Cliente</div>
+          <div class="logo-box">Logo Empresa</div>
+        </div>
+
+        <div class="cover-center">
+          <div class="cover-card">
+            <div class="cover-header">
+              <p class="cover-kicker">Documento de sesión</p>
+              <h1 class="cover-title">Reunión de seguimiento semanal</h1>
+              <p class="cover-subtitle">Clínica Santa Aurora S.A. · 2026-03-06</p>
+            </div>
+
+            <div class="cover-body">
+              <div class="cover-item">
+                <span class="label">Cliente</span>
+                <span class="value">Clínica Santa Aurora S.A.</span>
+              </div>
+
+              <div class="cover-item">
+                <span class="label">Proyecto</span>
+                <span class="value">Desarrollo Web Corporativo</span>
+              </div>
+
+              <div class="cover-item">
+                <span class="label">Título de la minuta</span>
+                <span class="value">Reunión de seguimiento semanal</span>
+              </div>
+
+              <div class="cover-item">
+                <span class="label">Fecha de reunión</span>
+                <span class="value">2026-03-06</span>
+              </div>
+
+              <div class="cover-item">
+                <span class="label">Elaborado por</span>
+                <span class="value">Juan Pérez</span>
+              </div>
+
+              <div class="cover-item">
+                <span class="label"></span>
+                <span class="value"></span>
+              </div>
+            </div>
+
+            <div class="cover-footer">
+              
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="page-number">Página 1</div>
+    </section>
+
+    <!-- ========================================================= -->
+    <!-- ZONA OPCIONAL: CARÁTULA / FICHA -->
+    <!-- Tabla resumen de la minuta: cliente, proyecto, versión, fecha, estado. -->
+    <!-- Activar / desactivar con data-hidden="false|true" -->
+    <!-- ========================================================= -->
+    <section class="page" data-section="summary-sheet" data-hidden="false">
+      <div class="doc-header">
+        <div>
+          <h1 class="doc-title">Carátula / Ficha de Documento</h1>
+          <p class="doc-subtitle">Resumen documental para uso de cliente, control interno y circulación formal.</p>
+        </div>
+        <div class="doc-header-meta">
+          <div>Documento: Minuta de Reunión</div>
+          <div>Generado: 2023-11-27T18:47:00Z</div>
+        </div>
+      </div>
+
+      <table class="info-table">
+        <tbody>
+          <tr>
+            <th class="field">Cliente</th>
+            <td colspan="2">Clínica Santa Aurora S.A.</td>
+            <th class="field">Proyecto</th>
+            <td colspan="2">Desarrollo Web Corporativo</td>
+          </tr>
+          <tr>
+            <th class="field">Título</th>
+            <td colspan="2">Reunión de seguimiento semanal</td>
+            <th class="field">Versión</th>
+            <td colspan="2">1.0</td>
+          </tr>
+          <tr>
+            <th class="field">Fecha reunión</th>
+            <td colspan="2">2026-03-06</td>
+            <th class="field">Estado</th>
+            <td colspan="2">Emitida</td>
+          </tr>
+          <tr>
+            <th class="field">Lugar / Plataforma</th>
+            <td colspan="2">Microsoft Teams</td>
+            <th class="field">Elaborado por</th>
+            <td colspan="2">Juan Pérez</td>
+          </tr>
+          <tr>
+            <th class="field">Observación</th>
+            <td colspan="5">Revisar estado de avance del módulo de autenticación.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="footer-legend">
+        Nota: en caso de no utilizar esta hoja, puede desactivarse sin afectar la minuta principal.
+      </div>
+      <div class="page-number">Página 2</div>
+    </section>
+
+    <!-- ========================================================= -->
+    <!-- MINUTA PRINCIPAL -->
+    <!-- ========================================================= -->
+    <section class="page" data-section="main-minute" data-hidden="false">
+      <div class="doc-header">
+        <div>
+          <h1 class="doc-title">Minuta de Reunión</h1>
+          <p class="doc-subtitle">Clínica Santa Aurora S.A. · Desarrollo Web Corporativo · 2026-03-06</p>
+        </div>
+        <div class="doc-header-meta">
+          <div>Versión: 1.0</div>
+          <div>Preparado por: Juan Pérez</div>
+        </div>
+      </div>
+
+      <h2 class="section-title">1. Información General</h2>
+      <table class="info-table">
+        <tbody>
+          <tr>
+            <th class="field">Cliente</th>
+            <td colspan="2">Clínica Santa Aurora S.A.</td>
+            <th class="field">Proyecto</th>
+            <td colspan="2">Desarrollo Web Corporativo</td>
+          </tr>
+          <tr>
+            <th class="field">Tema reunión</th>
+            <td colspan="2">Reunión de seguimiento semanal</td>
+            <th class="field">Preparado por</th>
+            <td colspan="2">Juan Pérez</td>
+          </tr>
+          <tr>
+            <th class="field">Fecha sesión</th>
+            <td colspan="2">2026-03-06</td>
+            <th class="field">Plataforma</th>
+            <td colspan="2">Microsoft Teams</td>
+          </tr>
+          <tr class="separator">
+            <td colspan="6">HORARIOS DE LA SESIÓN</td>
+          </tr>
+          <tr>
+            <th class="field">Programado</th>
+            <td colspan="2"><strong>Inicio</strong>: 09:00</td><td><strong>Término</strong>: 10:00</td><td colspan="2"><strong>Duración</strong>: 1 h 00 min</td>
+          </tr>
+          <tr>
+            <th class="field">Observado</th>
+            <td colspan="2"><strong>Inicio</strong>: 09:05</td><td><strong>Término</strong>: 10:10</td><td colspan="2"><strong>Duración</strong>: 1 h 05 min</td>
+          </tr>
+          <tr>
+            <th class="field">Notas</th>
+            <td colspan="5">Revisar estado de avance del módulo de autenticación.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2 class="section-title">2. Participantes</h2>
+      <div class="section-note">Distribución formal de invitados, asistentes efectivos y destinatarios en copia de la presente minuta.</div>
+      <table class="data-table participants-table">
+        <thead>
+          <tr>
+            <th colspan="2">Invitados</th>
+            <th colspan="2">Asistentes</th>
+            <th colspan="2">Copia Minuta</th>
+          </tr>
+          <tr>
+            <th>Nombre</th><th>Abrev.</th>
+            <th>Nombre</th><th>Abrev.</th>
+            <th>Nombre</th><th>Abrev.</th>
+          </tr>
+        </thead>
+        <tbody>
+          
+        <tr>
+          <td>Pedro Sánchez</td>
+          <td class="abbr">PS</td>
+          <td>Juan Pérez</td>
+          <td class="abbr">JP</td>
+          <td>Ana Martínez</td>
+          <td class="abbr">AM</td>
+        </tr>
+        
+        <tr>
+          <td></td>
+          <td class="abbr"></td>
+          <td>María González</td>
+          <td class="abbr">MG</td>
+          <td></td>
+          <td class="abbr"></td>
+        </tr>
+        
+        <tr>
+          <td></td>
+          <td class="abbr"></td>
+          <td>Carlos Rodríguez</td>
+          <td class="abbr">CR</td>
+          <td></td>
+          <td class="abbr"></td>
+        </tr>
+        
+        </tbody>
+      </table>
+
+      <h2 class="section-title">3. Alcances</h2>
+      <div class="section-note">Cuerpo principal de la minuta, estructurado desde la salida semántica de la IA.</div>
+      
+        <section class="scope-block">
+          <div class="scope-head">
+            <div class="scope-title-wrap">
+              <h3 class="scope-title">Introducción</h3>
+              <div class="scope-meta">SCOPE-001</div>
+            </div>
+            <div class="scope-type"><span class="chip">introduction</span></div>
+          </div>
+          <div class="scope-summary">Revisión semanal para el seguimiento del proyecto de Desarrollo Web Corporativo en Clínica Santa Aurora S.A.</div>
+          
+            <div class="scope-inner">
+              <h4 class="section-subtitle">Temas incluidos</h4>
+              <ul class="clean-list"><li>Estado del módulo de autenticación</li><li>Próximos pasos en desarrollo</li><li>Bloqueos del proyecto</li></ul>
+            </div>
+            
+          
+        </section>
+        
+
+        <section class="scope-block">
+          <div class="scope-head">
+            <div class="scope-title-wrap">
+              <h3 class="scope-title">Estado del módulo de autenticación</h3>
+              <div class="scope-meta">SCOPE-002</div>
+            </div>
+            <div class="scope-type"><span class="chip">topic</span></div>
+          </div>
+          <div class="scope-summary">Discusión sobre los avances y problemas del módulo de autenticación.</div>
+          
+          
+            <div class="scope-inner">
+              <h4 class="section-subtitle">Detalle</h4>
+              <table class="detail-table"><tbody><tr><th>En curso</th><td>El módulo de autenticación está en fase de pruebas finales.</td></tr><tr><th>Bloqueo</th><td>Se identificó un problema con la sincronización de usuarios en el módulo de autenticación.</td></tr></tbody></table>
+            </div>
+            
+        </section>
+        
+
+        <section class="scope-block">
+          <div class="scope-head">
+            <div class="scope-title-wrap">
+              <h3 class="scope-title">Próximos pasos en desarrollo</h3>
+              <div class="scope-meta">SCOPE-003</div>
+            </div>
+            <div class="scope-type"><span class="chip">topic</span></div>
+          </div>
+          <div class="scope-summary">Planificación de las actividades a seguir para el desarrollo del proyecto web.</div>
+          
+          
+            <div class="scope-inner">
+              <h4 class="section-subtitle">Detalle</h4>
+              <table class="detail-table"><tbody><tr><th>Pendiente</th><td>Definir el cronograma para la implementación de nuevos módulos.</td></tr></tbody></table>
+            </div>
+            
+        </section>
+        
+
+        <section class="scope-block">
+          <div class="scope-head">
+            <div class="scope-title-wrap">
+              <h3 class="scope-title">Bloqueos del proyecto</h3>
+              <div class="scope-meta">SCOPE-004</div>
+            </div>
+            <div class="scope-type"><span class="chip">topic</span></div>
+          </div>
+          <div class="scope-summary">Análisis de los bloqueos actuales que afectan al proyecto.</div>
+          
+          
+            <div class="scope-inner">
+              <h4 class="section-subtitle">Detalle</h4>
+              <table class="detail-table"><tbody><tr><th>Bloqueo</th><td>Retrasos en la aprobación del presupuesto por parte de la dirección.</td></tr></tbody></table>
+            </div>
+            
+        </section>
+        
+
+      <h2 class="section-title">4. Acuerdos</h2>
+      <div class="section-note">Tabla formal de compromisos acordados durante la sesión.</div>
+      
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th style="width:20%">Asunto</th>
+          <th>Detalle</th>
+          <th style="width:15%">Responsable</th>
+          <th style="width:12%">Vencimiento</th>
+          <th style="width:11%">Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Resolver bloqueo de sincronización</td>
+          <td>Juan Pérez trabajará en resolver el problema de sincronización de usuarios en el módulo de autenticación.</td>
+          <td>Juan Pérez</td>
+          <td>No definido</td>
+          <td><span class="badge status-pending">pending</span></td>
+        </tr>
+        
+        <tr>
+          <td>Planificación de nuevos módulos</td>
+          <td>María González coordinará la definición del cronograma para nuevos desarrollos.</td>
+          <td>María González</td>
+          <td>No definido</td>
+          <td><span class="badge status-pending">pending</span></td>
+        </tr>
+        </tbody>
+    </table>
+    
+
+      <h2 class="section-title">5. Requerimientos</h2>
+      <div class="section-note">Solicitudes, dependencias o necesidades identificadas, con prioridad y estado.</div>
+      
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th style="width:18%">Entidad</th>
+          <th>Detalle</th>
+          <th style="width:15%">Responsable</th>
+          <th style="width:11%">Prioridad</th>
+          <th style="width:11%">Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Dirección</td>
+          <td>Necesidad de aprobación del presupuesto para continuar con el desarrollo del proyecto.</td>
+          <td>No definido</td>
+          <td><span class="badge priority-medium">medium</span></td>
+          <td><span class="badge status-open">open</span></td>
+        </tr>
+        </tbody>
+    </table>
+    
+
+      <h2 class="section-title">6. Próximas reuniones</h2>
+      <div class="empty-state">No hay próximas reuniones registradas.</div>
+
+      <div class="page-number">Página 3</div>
+    </section>
+
+    <!-- ========================================================= -->
+    <!-- ZONA OPCIONAL: CONTROL DE VERSIONES -->
+    <!-- Historial de versiones del documento generado desde la Línea de Tiempo. -->
+    <!-- Activar / desactivar con data-hidden="false|true" -->
+    <!-- ========================================================= -->
+    <section class="page" data-section="version-control" data-hidden="false">
+      <div class="doc-header">
+        <div>
+          <h1 class="doc-title">Control de Versiones</h1>
+          <p class="doc-subtitle">Historial documental para trazabilidad del contenido emitido.</p>
+        </div>
+        <div class="doc-header-meta">
+          <div>Documento: Minuta</div>
+          <div>Versión actual: 1.0</div>
+        </div>
+      </div>
+
+      <div class="section-note">
+        Esta hoja está pensada para poblarse desde tu línea de tiempo o historial de generación documental.
+      </div>
+
+      <table class="data-table timeline-table">
+        <thead>
+          <tr>
+            <th>Versión</th>
+            <th>Fecha</th>
+            <th>Autor</th>
+            <th>Descripción del cambio</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>0.9</td>
+            <td>2026-03-06</td>
+            <td>Juan Pérez</td>
+            <td>Borrador inicial generado desde transcripción y resumen estructurado.</td>
+            <td>Borrador</td>
+          </tr>
+          <tr>
+            <td>1.0</td>
+            <td>2026-03-06</td>
+            <td>Juan Pérez</td>
+            <td>Versión emitida para revisión documental y validación con cliente.</td>
+            <td>Emitida</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="page-number">Página 4</div>
+    </section>
+
+    <!-- ========================================================= -->
+    <!-- ZONA OPCIONAL: FIRMAS / APROBACIÓN -->
+    <!-- Hoja con cuadros de firma para los participantes clave. -->
+    <!-- Activar / desactivar con data-hidden="false|true" -->
+    <!-- ========================================================= -->
+    <section class="page" data-section="signatures" data-hidden="false">
+      <div class="doc-header">
+        <div>
+          <h1 class="doc-title">Firmas / Aprobación</h1>
+          <p class="doc-subtitle">Espacio destinado a validación formal del documento, según el flujo definido por cliente o proyecto.</p>
+        </div>
+        <div class="doc-header-meta">
+          <div>Cliente: Clínica Santa Aurora S.A.</div>
+          <div>Fecha: 2026-03-06</div>
+        </div>
+      </div>
+
+      <div class="section-note">
+        Puedes poblar esta hoja con participantes clave, aprobadores, jefaturas o comité de revisión.
+      </div>
+
+      <div class="signature-grid">
+        <div class="signature-box">
+          <div class="signature-line">
+            <div class="signature-name">Juan Pérez</div>
+            <div class="signature-role">Preparador de la minuta</div>
+          </div>
+        </div>
+
+        <div class="signature-box">
+          <div class="signature-line">
+            <div class="signature-name">María González</div>
+            <div class="signature-role">Responsable funcional</div>
+          </div>
+        </div>
+
+        <div class="signature-box">
+          <div class="signature-line">
+            <div class="signature-name">Carlos Rodríguez</div>
+            <div class="signature-role">Líder técnico / aprobación operativa</div>
+          </div>
+        </div>
+
+        <div class="signature-box">
+          <div class="signature-line">
+            <div class="signature-name">Ana Martínez</div>
+            <div class="signature-role">Revisión ejecutiva / copia formal</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer-legend">
+        Esta hoja puede mantenerse visible sólo cuando el flujo documental requiera firma o aprobación formal.
+      </div>
+
+      <div class="page-number">Página 5</div>
+    </section>
+
+  </div>
+</body>
+</html>

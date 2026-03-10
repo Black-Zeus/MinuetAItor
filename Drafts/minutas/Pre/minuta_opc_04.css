@@ -1,0 +1,175 @@
+/* ============================================
+   MINUTA_OPC_04.CSS - Gobernanza / Comité
+   ============================================ */
+
+/* Variables específicas de gobernanza */
+:root {
+  --governance-color: #1a4b8c;
+  --governance-bg: #f8fbff;
+}
+
+/* Header de gobernanza */
+.company-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid var(--governance-color);
+}
+
+.company-logo {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--governance-color);
+  letter-spacing: 0.5px;
+}
+
+.company-logo span {
+  display: block;
+  font-size: 12px;
+  font-weight: 400;
+  color: #666;
+  letter-spacing: normal;
+}
+
+.document-code {
+  text-align: right;
+  font-size: 11px;
+  color: #666;
+  line-height: 1.4;
+}
+
+.document-code strong {
+  color: var(--governance-color);
+  font-size: 14px;
+}
+
+/* Tipografía de gobernanza */
+h1 {
+  font-size: 28px;
+  color: var(--governance-color);
+  font-weight: 600;
+  margin-bottom: 5px;
+  letter-spacing: -0.5px;
+}
+
+.subtitle {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 25px;
+  border-left: 3px solid var(--governance-color);
+  padding-left: 15px;
+}
+
+h2 {
+  font-size: 16px;
+  color: var(--governance-color);
+  font-weight: 600;
+  margin: 25px 0 15px 0;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #d0d7de;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Resolution box */
+.resolution-box {
+  padding: 16px 20px;
+  border-left: 5px solid var(--governance-color);
+  background: var(--governance-bg);
+  border-radius: 8px;
+  border-top: 1px solid #d0d7de;
+  border-right: 1px solid #d0d7de;
+  border-bottom: 1px solid #d0d7de;
+  margin-bottom: 20px;
+}
+
+.resolution-box strong {
+  color: var(--governance-color);
+  display: block;
+  margin-bottom: 8px;
+}
+
+/* Agenda grid */
+.agenda-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 25px;
+}
+
+.agenda-grid > div {
+  background: #f8fafc;
+  padding: 18px;
+  border-radius: 8px;
+}
+
+.agenda-grid h3 {
+  margin-top: 0;
+  margin-bottom: 12px;
+  color: var(--governance-color);
+}
+
+/* Scope blocks con color de gobernanza */
+.scope-block {
+  margin-bottom: 20px;
+  border-left: 3px solid var(--governance-color);
+  padding-left: 20px;
+}
+
+.scope-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.scope-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--governance-color);
+}
+
+.scope-tag {
+  font-size: 11px;
+  color: #666;
+  background: #eef2f6;
+  padding: 3px 8px;
+  border-radius: 20px;
+}
+
+.scope-summary {
+  color: #2d2d2d;
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+
+/* Detail list */
+.detail-list li::before {
+  color: var(--governance-color);
+}
+
+.detail-label {
+  font-weight: 600;
+  color: var(--governance-color);
+  min-width: 100px;
+  display: inline-block;
+}
+
+/* Badges específicos de gobernanza */
+.badge-approved {
+  background: #d4edda;
+  color: #155724;
+}
+
+.badge-rejected {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+/* Signature con color de gobernanza */
+.signature-name {
+  font-weight: 600;
+  color: var(--governance-color);
+}

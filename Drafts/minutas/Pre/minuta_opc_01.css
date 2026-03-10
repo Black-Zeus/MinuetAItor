@@ -1,0 +1,324 @@
+/* ============================================
+   MINUTA_OPC_01.CSS - Corporativa Completa
+   ============================================ */
+
+.doc-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--primary);
+  margin-bottom: 14px;
+}
+
+.doc-title {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.2;
+  color: var(--primary-dark);
+  font-weight: 700;
+}
+
+.doc-subtitle {
+  margin: 6px 0 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.doc-header-meta {
+  min-width: 180px;
+  text-align: right;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* Cover / Portada */
+.cover-page {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(297mm - 30mm);
+}
+
+.cover-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+}
+
+.logo-box {
+  width: 220px;
+  height: 80px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 12px;
+  background: #fcfdff;
+  overflow: hidden;
+}
+
+.cover-center {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cover-card {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.cover-header {
+  padding: 26px 30px;
+  background: linear-gradient(180deg, #f7faff 0%, #eef3fc 100%);
+  border-bottom: 1px solid var(--line);
+}
+
+.cover-kicker {
+  margin: 0 0 8px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  font-size: 11px;
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.cover-title {
+  margin: 0;
+  font-size: 28px;
+  line-height: 1.18;
+  color: var(--primary-dark);
+  font-weight: 700;
+}
+
+.cover-subtitle {
+  margin: 8px 0 0 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.cover-body {
+  padding: 20px 30px 24px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px 28px;
+}
+
+.cover-item {
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.cover-item .label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.cover-item .value {
+  font-size: 15px;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.cover-footer {
+  padding: 14px 30px 20px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* Tablas de información */
+.info-table,
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+
+.info-table th,
+.info-table td,
+.data-table th,
+.data-table td {
+  border: 1px solid var(--line);
+  padding: 9px 10px;
+  text-align: left;
+  vertical-align: top;
+  word-break: break-word;
+}
+
+.info-table th,
+.data-table thead th {
+  background: #f7faff;
+  color: var(--primary-dark);
+  font-weight: 700;
+}
+
+.info-table .field {
+  width: 16%;
+  background: #fbfcfe;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.info-table .separator td {
+  background: var(--primary-soft);
+  color: var(--primary-dark);
+  font-weight: 700;
+  text-align: center;
+  letter-spacing: 0.3px;
+}
+
+/* Participantes */
+.participants-table th {
+  text-align: center;
+}
+
+.participants-table td {
+  vertical-align: top;
+}
+
+.abbr {
+  text-align: center;
+  font-weight: 700;
+  color: var(--primary-dark);
+  background: var(--primary-soft);
+}
+
+/* Scope blocks */
+.scope-block {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 12px;
+  background: #fff;
+}
+
+.scope-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 12px;
+  background: #f8fbff;
+  border-bottom: 1px solid var(--line);
+}
+
+.scope-title {
+  margin: 0;
+  font-size: 14px;
+  color: var(--primary-dark);
+  font-weight: 700;
+}
+
+.scope-meta {
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.scope-summary {
+  padding: 12px;
+  font-size: 13px;
+}
+
+.scope-inner {
+  padding: 0 12px 12px 12px;
+}
+
+/* Detail table */
+.detail-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  margin-top: 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.detail-table th,
+.detail-table td {
+  border: 1px solid var(--line);
+  padding: 8px 9px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.detail-table th {
+  width: 18%;
+  background: #fbfcfe;
+  color: var(--primary-dark);
+}
+
+/* Timeline */
+.timeline-table td:first-child,
+.timeline-table th:first-child {
+  width: 14%;
+}
+
+.timeline-table td:nth-child(2),
+.timeline-table th:nth-child(2) {
+  width: 12%;
+}
+
+/* Signature grid */
+.signature-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 26px;
+  margin-top: 28px;
+}
+
+.signature-box {
+  min-height: 120px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.signature-line {
+  border-top: 1px solid var(--line-strong);
+  margin-top: 40px;
+  padding-top: 8px;
+}
+
+.signature-name {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.signature-role {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.footer-legend {
+  margin-top: 14px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+[data-hidden="true"] {
+  display: none !important;
+}
