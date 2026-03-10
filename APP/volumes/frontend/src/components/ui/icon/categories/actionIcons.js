@@ -18,6 +18,12 @@ import {
   FaToggleOn,
   FaUserCheck,
   FaCalendarPlus,
+  FaPaperPlane,
+  FaRotate,
+  FaRotateLeft,
+  FaComment,
+  FaArrowsRotate,
+  FaXmark,
 } from "react-icons/fa6";
 
 export const actionIcons = {
@@ -61,5 +67,15 @@ export const actionIcons = {
   FaUserCheck,
   calendarPlus: FaCalendarPlus,
   FaCalendarPlus,
-  filterClear: FaEraser
+  filterClear: FaEraser,
+
+    paperPlane: FaPaperPlane,
+  trash: FaTrash,
+  rotate: FaRotate,
+  rotateLeft: FaRotateLeft,
+  comment: FaComment,
+  arrowsRotate: FaArrowsRotate,
+  penToSquare: FaPenToSquare,
+  xmark: FaXmark,
+  FaXmark,
 };
