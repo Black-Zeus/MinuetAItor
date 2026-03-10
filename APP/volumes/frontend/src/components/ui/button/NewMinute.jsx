@@ -1,4 +1,4 @@
-// NewMinute.jsx
+// components/ui/button/NewMinute.jsx
 import ActionButton from "./ActionButton";
 import { FaPlus } from "react-icons/fa";
 import clientsData from "@/data/dataClientes.json";
@@ -6,15 +6,92 @@ import projectsData from "@/data/dataProjectos.json";
 import analysisProfiles from "@/data/analysisProfilesCatalog.json";
 import ModalManager from "@/components/ui/modal";
 import { useState, useCallback, useMemo } from "react";
+import { generateMinute } from "@/services/minutesService";
+import useAuthStore from "@/store/authStore";
 
 import logger from "@/utils/logger";
 const minLog = logger.scope("minute");
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Convierte un string multilinea en array de strings no vacíos.
+ * "Juan Pérez\nMaría González\n" → ["Juan Pérez", "María González"]
+ */
+const toStringArray = (str) =>
+  String(str ?? "")
+    .split("\n")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+/**
+ * Construye el payload JSON que espera POST /v1/minutes/generate
+ * en el campo "input_json".
+ *
+ * Recibe el formData del formulario + datos de lookup para resolver
+ * nombres a partir de IDs.
+ */
+const buildPayload = ({ formData, clients, projects, profiles, preparedBy }) => {
+  // Resolver nombres desde IDs
+  const client  = clients.find((c) => String(c.id) === String(formData.client));
+  const project = projects.find((p) => String(p.id) === String(formData.project));
+  const profile = profiles.find((p) => String(p.id) === String(formData.analysisProfile));
+
+  return {
+    meetingInfo: {
+      scheduledDate:      formData.scheduledDate      ?? "",
+      scheduledStartTime: formData.scheduledStartTime ?? "",
+      scheduledEndTime:   formData.scheduledEndTime   ?? "",
+      actualStartTime:    formData.actualStartTime    ?? "",
+      // Campos opcionales no capturados en el form actual — se envían vacíos
+      actualEndTime: "",
+      location:      "",
+    },
+    projectInfo: {
+      client:    String(client?.company  ?? "").trim(),
+      clientID:  String(client?.id       ?? "").trim(),
+      project:   String(project?.name    ?? "").trim(),
+      projectID: String(project?.id      ?? "").trim(),
+      category:  String(formData.analysisCategory ?? "").trim(),
+    },
+    participants: {
+      attendees:      toStringArray(formData.attendees),
+      invited:        [],   // Campo no capturado en el form actual
+      copyRecipients: toStringArray(formData.ccParticipants),
+    },
+    profileInfo: {
+      profileId:   String(profile?.id     ?? "").trim(),
+      profileName: String(profile?.nombre ?? "").trim(),
+    },
+    preparedBy: String(preparedBy ?? "").trim(),
+    additionalNotes: String(formData.additionalInfo ?? "").trim(),
+    generationOptions: {
+      language: "es",
+    },
+  };
+};
+
+/**
+ * Construye el array de archivos a enviar.
+ * - transcription: requerido (File)
+ * - summary:       opcional (File | null)
+ * Solo incluye archivos válidos (instancias de File).
+ */
+const buildFiles = (formData) => {
+  const files = [];
+  if (formData.transcription instanceof File) files.push(formData.transcription);
+  if (formData.summary instanceof File)       files.push(formData.summary);
+  return files;
+};
+
+// ─── NewMinuteForm ─────────────────────────────────────────────────────────────
+
 /**
  * NewMinuteForm - Formulario personalizado con combos dependientes
  * - Cliente -> Proyecto
  * - Categoría/Perfil (configuran el enfoque del análisis IA de la minuta: ajustan el prompt)
  */
-const NewMinuteForm = ({ onSubmit, onCancel }) => {
+const NewMinuteForm = ({ onSubmit, onCancel, isSubmitting }) => {
   const [formData, setFormData] = useState({
     client: "",
     project: "",
@@ -52,10 +129,7 @@ const NewMinuteForm = ({ onSubmit, onCancel }) => {
       a.localeCompare(b, "es")
     );
 
-    return unique.map((cat) => ({
-      value: cat,
-      label: cat,
-    }));
+    return unique.map((cat) => ({ value: cat, label: cat }));
   }, []);
 
   // Opciones de perfiles filtrados por categoría seleccionada (+ status true)
@@ -104,11 +178,7 @@ const NewMinuteForm = ({ onSubmit, onCancel }) => {
           .filter((p) => String(p?.categoria ?? "") === cat)
           .filter((p) => p?.status === true);
 
-        if (matches.length === 1) {
-          newData.analysisProfile = String(matches[0].id); // ✅ autoselección
-        } else {
-          newData.analysisProfile = ""; // ✅ resetea si hay 0 o >1
-        }
+        newData.analysisProfile = matches.length === 1 ? String(matches[0].id) : "";
       }
 
       return newData;
@@ -119,7 +189,7 @@ const NewMinuteForm = ({ onSubmit, onCancel }) => {
       setErrors((prev) => ({ ...prev, [name]: null }));
     }
 
-    // Si cambia categoría, también limpiar error de perfil (porque puede autoseleccionarse)
+    // Si cambia categoría, también limpiar error de perfil
     if (name === "analysisCategory" && errors.analysisProfile) {
       setErrors((prev) => ({ ...prev, analysisProfile: null }));
     }
@@ -130,29 +200,22 @@ const NewMinuteForm = ({ onSubmit, onCancel }) => {
     const newErrors = {};
 
     switch (step) {
-      case 0: // Información General
-        if (!formData.client) newErrors.client = "Cliente es requerido";
-        if (!formData.project) newErrors.project = "Proyecto es requerido";
-        if (!formData.analysisCategory)
-          newErrors.analysisCategory = "Categoría de análisis es requerida";
-        if (!formData.analysisProfile)
-          newErrors.analysisProfile = "Perfil de análisis es requerido";
+      case 0:
+        if (!formData.client)           newErrors.client           = "Cliente es requerido";
+        if (!formData.project)          newErrors.project          = "Proyecto es requerido";
+        if (!formData.analysisCategory) newErrors.analysisCategory = "Categoría de análisis es requerida";
+        if (!formData.analysisProfile)  newErrors.analysisProfile  = "Perfil de análisis es requerido";
         break;
 
-      case 1: // Adjuntos
-        if (!formData.transcription)
-          newErrors.transcription = "Transcripción es requerida";
+      case 1:
+        if (!formData.transcription) newErrors.transcription = "Transcripción es requerida";
         break;
 
-      case 2: // Fechas y Horarios
-        if (!formData.scheduledDate)
-          newErrors.scheduledDate = "Fecha programada es requerida";
-        if (!formData.scheduledStartTime)
-          newErrors.scheduledStartTime = "Hora inicio programada es requerida";
-        if (!formData.actualStartTime)
-          newErrors.actualStartTime = "Hora inicio real es requerida";
-        if (!formData.scheduledEndTime)
-          newErrors.scheduledEndTime = "Hora término es requerida";
+      case 2:
+        if (!formData.scheduledDate)      newErrors.scheduledDate      = "Fecha programada es requerida";
+        if (!formData.scheduledStartTime) newErrors.scheduledStartTime = "Hora inicio programada es requerida";
+        if (!formData.actualStartTime)    newErrors.actualStartTime    = "Hora inicio real es requerida";
+        if (!formData.scheduledEndTime)   newErrors.scheduledEndTime   = "Hora término es requerida";
         break;
 
       default:
@@ -216,6 +279,10 @@ const NewMinuteForm = ({ onSubmit, onCancel }) => {
     );
   }, [formData.project]);
 
+  // Determinar si el botón de avance/finalizar debe estar deshabilitado
+  const isLastStep      = currentStep === steps.length - 1;
+  const submitDisabled  = isLastStep && isSubmitting;
+
   return (
     <div className="flex flex-col w-full h-[700px]">
       {/* Header con indicador de pasos */}
@@ -255,7 +322,8 @@ const NewMinuteForm = ({ onSubmit, onCancel }) => {
 
       {/* Contenido con scroll */}
       <div className="flex-1 overflow-y-auto px-6 py-4 min-h-0">
-        {/* Paso 0: Información General */}
+
+        {/* ── Paso 0: Información General ── */}
         {currentStep === 0 && (
           <div className="space-y-4">
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
@@ -286,9 +354,7 @@ const NewMinuteForm = ({ onSubmit, onCancel }) => {
               >
                 <option value="">Seleccione una empresa</option>
                 {clientOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
               </select>
               {errors.client && (
@@ -318,14 +384,10 @@ const NewMinuteForm = ({ onSubmit, onCancel }) => {
                 `}
               >
                 <option value="">
-                  {formData.client
-                    ? "Seleccione un proyecto"
-                    : "Primero seleccione una empresa"}
+                  {formData.client ? "Seleccione un proyecto" : "Primero seleccione una empresa"}
                 </option>
                 {projectOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
               </select>
               {errors.project && (
@@ -340,9 +402,7 @@ const NewMinuteForm = ({ onSubmit, onCancel }) => {
               </label>
               <select
                 value={formData.analysisCategory}
-                onChange={(e) =>
-                  handleChange("analysisCategory", e.target.value)
-                }
+                onChange={(e) => handleChange("analysisCategory", e.target.value)}
                 className={`
                   w-full px-3 py-2 border rounded-lg
                   bg-white dark:bg-gray-800
@@ -356,21 +416,15 @@ const NewMinuteForm = ({ onSubmit, onCancel }) => {
               >
                 <option value="">Seleccione una categoría</option>
                 {categoryOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
               </select>
-
               {errors.analysisCategory && (
-                <p className="mt-1 text-sm text-red-500">
-                  {errors.analysisCategory}
-                </p>
+                <p className="mt-1 text-sm text-red-500">{errors.analysisCategory}</p>
               )}
-
               <p className="mt-2 text-xs text-gray-600 dark:text-gray-400">
-                Define el <strong>área técnica</strong> del análisis (por
-                ejemplo: Infraestructura, Seguridad, Software).
+                Define el <strong>área técnica</strong> del análisis (por ejemplo:
+                Infraestructura, Seguridad, Software).
               </p>
             </div>
 
@@ -381,9 +435,7 @@ const NewMinuteForm = ({ onSubmit, onCancel }) => {
               </label>
               <select
                 value={formData.analysisProfile}
-                onChange={(e) =>
-                  handleChange("analysisProfile", e.target.value)
-                }
+                onChange={(e) => handleChange("analysisProfile", e.target.value)}
                 disabled={!formData.analysisCategory}
                 className={`
                   w-full px-3 py-2 border rounded-lg
@@ -398,32 +450,22 @@ const NewMinuteForm = ({ onSubmit, onCancel }) => {
                 `}
               >
                 <option value="">
-                  {formData.analysisCategory
-                    ? "Seleccione un perfil"
-                    : "Primero seleccione una categoría"}
+                  {formData.analysisCategory ? "Seleccione un perfil" : "Primero seleccione una categoría"}
                 </option>
                 {analysisProfileOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
               </select>
-
               {errors.analysisProfile && (
-                <p className="mt-1 text-sm text-red-500">
-                  {errors.analysisProfile}
-                </p>
+                <p className="mt-1 text-sm text-red-500">{errors.analysisProfile}</p>
               )}
-
               {selectedProfile && (
                 <div className="mt-2 text-xs text-gray-600 dark:text-gray-400 p-2 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800 space-y-1">
-                  <p>
-                    <strong>Descripción:</strong> {selectedProfile.descripcion}
-                  </p>
+                  <p><strong>Descripción:</strong> {selectedProfile.descripcion}</p>
                   <p className="text-gray-500 dark:text-gray-500">
-                    Este perfil ajusta el <strong>prompt</strong> para orientar
-                    el análisis de la minuta (decisiones, riesgos, tareas y
-                    validaciones) sin alterar el formato de entrada/salida.
+                    Este perfil ajusta el <strong>prompt</strong> para orientar el
+                    análisis de la minuta (decisiones, riesgos, tareas y validaciones)
+                    sin alterar el formato de entrada/salida.
                   </p>
                 </div>
               )}
@@ -431,8 +473,7 @@ const NewMinuteForm = ({ onSubmit, onCancel }) => {
           </div>
         )}
 
-        {/* Los demás pasos quedan iguales a tu versión actual */}
-        {/* Paso 1: Adjuntos */}
+        {/* ── Paso 1: Adjuntos ── */}
         {currentStep === 1 && (
           <div className="space-y-4">
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
@@ -446,17 +487,12 @@ const NewMinuteForm = ({ onSubmit, onCancel }) => {
               <input
                 type="file"
                 accept=".txt,.doc,.docx,.pdf"
-                onChange={(e) =>
-                  handleChange("transcription", e.target.files?.[0] ?? null)
-                }
+                onChange={(e) => handleChange("transcription", e.target.files?.[0] ?? null)}
                 className={`
                   w-full px-3 py-2 border rounded-lg
                   bg-white dark:bg-gray-800
                   text-gray-900 dark:text-gray-100
-                  ${errors.transcription
-                    ? "border-red-500"
-                    : "border-gray-300 dark:border-gray-600"
-                  }
+                  ${errors.transcription ? "border-red-500" : "border-gray-300 dark:border-gray-600"}
                   file:mr-4 file:py-2 file:px-4
                   file:rounded-lg file:border-0
                   file:text-sm file:font-semibold
@@ -470,9 +506,7 @@ const NewMinuteForm = ({ onSubmit, onCancel }) => {
                 </p>
               )}
               {errors.transcription && (
-                <p className="mt-1 text-sm text-red-500">
-                  {errors.transcription}
-                </p>
+                <p className="mt-1 text-sm text-red-500">{errors.transcription}</p>
               )}
             </div>
 
@@ -483,9 +517,7 @@ const NewMinuteForm = ({ onSubmit, onCancel }) => {
               <input
                 type="file"
                 accept=".txt,.doc,.docx,.pdf"
-                onChange={(e) =>
-                  handleChange("summary", e.target.files?.[0] ?? null)
-                }
+                onChange={(e) => handleChange("summary", e.target.files?.[0] ?? null)}
                 className="
                   w-full px-3 py-2 border rounded-lg
                   bg-white dark:bg-gray-800
@@ -507,7 +539,7 @@ const NewMinuteForm = ({ onSubmit, onCancel }) => {
           </div>
         )}
 
-        {/* Paso 2: Fechas y Horarios */}
+        {/* ── Paso 2: Fechas y Horarios ── */}
         {currentStep === 2 && (
           <div className="space-y-4">
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
@@ -521,24 +553,17 @@ const NewMinuteForm = ({ onSubmit, onCancel }) => {
               <input
                 type="date"
                 value={formData.scheduledDate}
-                onChange={(e) =>
-                  handleChange("scheduledDate", e.target.value)
-                }
+                onChange={(e) => handleChange("scheduledDate", e.target.value)}
                 className={`
                   w-full px-3 py-2 border rounded-lg
                   bg-white dark:bg-gray-800
                   text-gray-900 dark:text-gray-100
-                  ${errors.scheduledDate
-                    ? "border-red-500 focus:ring-red-500"
-                    : "border-gray-300 dark:border-gray-600 focus:ring-blue-500"
-                  }
+                  ${errors.scheduledDate ? "border-red-500 focus:ring-red-500" : "border-gray-300 dark:border-gray-600 focus:ring-blue-500"}
                   focus:outline-none focus:ring-2
                 `}
               />
               {errors.scheduledDate && (
-                <p className="mt-1 text-sm text-red-500">
-                  {errors.scheduledDate}
-                </p>
+                <p className="mt-1 text-sm text-red-500">{errors.scheduledDate}</p>
               )}
             </div>
 
@@ -549,24 +574,17 @@ const NewMinuteForm = ({ onSubmit, onCancel }) => {
               <input
                 type="time"
                 value={formData.scheduledStartTime}
-                onChange={(e) =>
-                  handleChange("scheduledStartTime", e.target.value)
-                }
+                onChange={(e) => handleChange("scheduledStartTime", e.target.value)}
                 className={`
                   w-full px-3 py-2 border rounded-lg
                   bg-white dark:bg-gray-800
                   text-gray-900 dark:text-gray-100
-                  ${errors.scheduledStartTime
-                    ? "border-red-500 focus:ring-red-500"
-                    : "border-gray-300 dark:border-gray-600 focus:ring-blue-500"
-                  }
+                  ${errors.scheduledStartTime ? "border-red-500 focus:ring-red-500" : "border-gray-300 dark:border-gray-600 focus:ring-blue-500"}
                   focus:outline-none focus:ring-2
                 `}
               />
               {errors.scheduledStartTime && (
-                <p className="mt-1 text-sm text-red-500">
-                  {errors.scheduledStartTime}
-                </p>
+                <p className="mt-1 text-sm text-red-500">{errors.scheduledStartTime}</p>
               )}
             </div>
 
@@ -577,24 +595,17 @@ const NewMinuteForm = ({ onSubmit, onCancel }) => {
               <input
                 type="time"
                 value={formData.actualStartTime}
-                onChange={(e) =>
-                  handleChange("actualStartTime", e.target.value)
-                }
+                onChange={(e) => handleChange("actualStartTime", e.target.value)}
                 className={`
                   w-full px-3 py-2 border rounded-lg
                   bg-white dark:bg-gray-800
                   text-gray-900 dark:text-gray-100
-                  ${errors.actualStartTime
-                    ? "border-red-500 focus:ring-red-500"
-                    : "border-gray-300 dark:border-gray-600 focus:ring-blue-500"
-                  }
+                  ${errors.actualStartTime ? "border-red-500 focus:ring-red-500" : "border-gray-300 dark:border-gray-600 focus:ring-blue-500"}
                   focus:outline-none focus:ring-2
                 `}
               />
               {errors.actualStartTime && (
-                <p className="mt-1 text-sm text-red-500">
-                  {errors.actualStartTime}
-                </p>
+                <p className="mt-1 text-sm text-red-500">{errors.actualStartTime}</p>
               )}
             </div>
 
@@ -605,30 +616,23 @@ const NewMinuteForm = ({ onSubmit, onCancel }) => {
               <input
                 type="time"
                 value={formData.scheduledEndTime}
-                onChange={(e) =>
-                  handleChange("scheduledEndTime", e.target.value)
-                }
+                onChange={(e) => handleChange("scheduledEndTime", e.target.value)}
                 className={`
                   w-full px-3 py-2 border rounded-lg
                   bg-white dark:bg-gray-800
                   text-gray-900 dark:text-gray-100
-                  ${errors.scheduledEndTime
-                    ? "border-red-500 focus:ring-red-500"
-                    : "border-gray-300 dark:border-gray-600 focus:ring-blue-500"
-                  }
+                  ${errors.scheduledEndTime ? "border-red-500 focus:ring-red-500" : "border-gray-300 dark:border-gray-600 focus:ring-blue-500"}
                   focus:outline-none focus:ring-2
                 `}
               />
               {errors.scheduledEndTime && (
-                <p className="mt-1 text-sm text-red-500">
-                  {errors.scheduledEndTime}
-                </p>
+                <p className="mt-1 text-sm text-red-500">{errors.scheduledEndTime}</p>
               )}
             </div>
           </div>
         )}
 
-        {/* Paso 3: Participantes */}
+        {/* ── Paso 3: Participantes ── */}
         {currentStep === 3 && (
           <div className="space-y-4">
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
@@ -644,9 +648,7 @@ const NewMinuteForm = ({ onSubmit, onCancel }) => {
                 value={formData.attendees}
                 onChange={(e) => handleChange("attendees", e.target.value)}
                 rows={5}
-                placeholder={
-                  "Ingrese los nombres de los asistentes a la reunión (uno por línea)\nEjemplo:\nJuan Pérez\nMaría González\nRoberto Silva"
-                }
+                placeholder={"Ingrese los nombres de los asistentes a la reunión (uno por línea)\nEjemplo:\nJuan Pérez\nMaría González\nRoberto Silva"}
                 className="
                   w-full px-3 py-2 border rounded-lg
                   bg-white dark:bg-gray-800
@@ -666,9 +668,7 @@ const NewMinuteForm = ({ onSubmit, onCancel }) => {
                 value={formData.ccParticipants}
                 onChange={(e) => handleChange("ccParticipants", e.target.value)}
                 rows={5}
-                placeholder={
-                  "Ingrese los nombres de quienes recibirán copia de la minuta (uno por línea)\nEjemplo:\nAna Martínez - Gerente General\nCarlos López - Jefe de Proyecto"
-                }
+                placeholder={"Ingrese los nombres de quienes recibirán copia de la minuta (uno por línea)\nEjemplo:\nAna Martínez - Gerente General\nCarlos López - Jefe de Proyecto"}
                 className="
                   w-full px-3 py-2 border rounded-lg
                   bg-white dark:bg-gray-800
@@ -682,7 +682,7 @@ const NewMinuteForm = ({ onSubmit, onCancel }) => {
           </div>
         )}
 
-        {/* Paso 4: Información Adicional */}
+        {/* ── Paso 4: Información Adicional ── */}
         {currentStep === 4 && (
           <div className="space-y-4">
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
@@ -695,13 +695,9 @@ const NewMinuteForm = ({ onSubmit, onCancel }) => {
               </label>
               <textarea
                 value={formData.additionalInfo}
-                onChange={(e) =>
-                  handleChange("additionalInfo", e.target.value)
-                }
+                onChange={(e) => handleChange("additionalInfo", e.target.value)}
                 rows={8}
-                placeholder={
-                  "Ingrese información adicional sobre la reunión\n\nEjemplos:\n- Objetivos específicos de la reunión\n- Contexto o antecedentes relevantes\n- Temas prioritarios a tratar\n- Observaciones especiales"
-                }
+                placeholder={"Ingrese información adicional sobre la reunión\n\nEjemplos:\n- Objetivos específicos de la reunión\n- Contexto o antecedentes relevantes\n- Temas prioritarios a tratar\n- Observaciones especiales"}
                 className="
                   w-full px-3 py-2 border rounded-lg
                   bg-white dark:bg-gray-800
@@ -715,7 +711,7 @@ const NewMinuteForm = ({ onSubmit, onCancel }) => {
           </div>
         )}
 
-        {/* Paso 5: Confirmación */}
+        {/* ── Paso 5: Confirmación ── */}
         {currentStep === 5 && (
           <div className="space-y-4">
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
@@ -726,54 +722,37 @@ const NewMinuteForm = ({ onSubmit, onCancel }) => {
               {/* 1) Información General */}
               <div className="border-l-4 border-blue-500 pl-4">
                 <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-3 flex items-center">
-                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-500 text-white text-xs mr-2">
-                    1
-                  </span>
+                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-500 text-white text-xs mr-2">1</span>
                   Información General
                 </h4>
-
                 <div className="space-y-2 text-sm">
                   <div className="flex">
-                    <span className="font-medium text-gray-700 dark:text-gray-300 w-44">
-                      Empresa:
-                    </span>
+                    <span className="font-medium text-gray-700 dark:text-gray-300 w-44">Empresa:</span>
                     <span className="text-gray-600 dark:text-gray-400">
                       {String(selectedClient?.company ?? "").trim() || "Sin información proporcionada"}
                     </span>
                   </div>
-
                   <div className="flex">
-                    <span className="font-medium text-gray-700 dark:text-gray-300 w-44">
-                      Proyecto:
-                    </span>
+                    <span className="font-medium text-gray-700 dark:text-gray-300 w-44">Proyecto:</span>
                     <span className="text-gray-600 dark:text-gray-400">
                       {String(selectedProject?.name ?? "").trim() || "Sin información proporcionada"}
                     </span>
                   </div>
-
                   <div className="flex">
-                    <span className="font-medium text-gray-700 dark:text-gray-300 w-44">
-                      Categoría (análisis IA):
-                    </span>
+                    <span className="font-medium text-gray-700 dark:text-gray-300 w-44">Categoría (análisis IA):</span>
                     <span className="text-gray-600 dark:text-gray-400">
                       {String(formData.analysisCategory ?? "").trim() || "Sin información proporcionada"}
                     </span>
                   </div>
-
                   <div className="flex">
-                    <span className="font-medium text-gray-700 dark:text-gray-300 w-44">
-                      Perfil (análisis IA):
-                    </span>
+                    <span className="font-medium text-gray-700 dark:text-gray-300 w-44">Perfil (análisis IA):</span>
                     <span className="text-gray-600 dark:text-gray-400">
                       {String(selectedProfile?.nombre ?? "").trim() || "Sin información proporcionada"}
                     </span>
                   </div>
-
                   {selectedProfile?.descripcion && (
                     <div className="mt-2 text-xs text-gray-600 dark:text-gray-400 p-2 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800">
-                      <p>
-                        <strong>Descripción:</strong> {String(selectedProfile.descripcion).trim()}
-                      </p>
+                      <p><strong>Descripción:</strong> {String(selectedProfile.descripcion).trim()}</p>
                     </div>
                   )}
                 </div>
@@ -782,28 +761,20 @@ const NewMinuteForm = ({ onSubmit, onCancel }) => {
               {/* 2) Adjuntos */}
               <div className="border-l-4 border-purple-500 pl-4">
                 <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-3 flex items-center">
-                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-purple-500 text-white text-xs mr-2">
-                    2
-                  </span>
+                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-purple-500 text-white text-xs mr-2">2</span>
                   Adjuntos
                 </h4>
-
                 <div className="space-y-2 text-sm">
                   <div className="flex">
-                    <span className="font-medium text-gray-700 dark:text-gray-300 w-44">
-                      Transcripción:
-                    </span>
+                    <span className="font-medium text-gray-700 dark:text-gray-300 w-44">Transcripción:</span>
                     <span className="text-gray-600 dark:text-gray-400">
-                      {formData.transcription?.name ? formData.transcription.name : "No cargada"}
+                      {formData.transcription?.name ?? "No cargada"}
                     </span>
                   </div>
-
                   <div className="flex">
-                    <span className="font-medium text-gray-700 dark:text-gray-300 w-44">
-                      Resumen:
-                    </span>
+                    <span className="font-medium text-gray-700 dark:text-gray-300 w-44">Resumen:</span>
                     <span className="text-gray-600 dark:text-gray-400">
-                      {formData.summary?.name ? formData.summary.name : "No cargado (opcional)"}
+                      {formData.summary?.name ?? "No cargado (opcional)"}
                     </span>
                   </div>
                 </div>
@@ -812,47 +783,25 @@ const NewMinuteForm = ({ onSubmit, onCancel }) => {
               {/* 3) Fechas y Horarios */}
               <div className="border-l-4 border-green-500 pl-4">
                 <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-3 flex items-center">
-                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-500 text-white text-xs mr-2">
-                    3
-                  </span>
+                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-500 text-white text-xs mr-2">3</span>
                   Fechas y Horarios
                 </h4>
-
                 <div className="space-y-2 text-sm">
                   <div className="flex">
-                    <span className="font-medium text-gray-700 dark:text-gray-300 w-44">
-                      Fecha programada:
-                    </span>
-                    <span className="text-gray-600 dark:text-gray-400">
-                      {String(formData.scheduledDate ?? "").trim() || "Sin información proporcionada"}
-                    </span>
+                    <span className="font-medium text-gray-700 dark:text-gray-300 w-44">Fecha programada:</span>
+                    <span className="text-gray-600 dark:text-gray-400">{formData.scheduledDate || "Sin información"}</span>
                   </div>
-
                   <div className="flex">
-                    <span className="font-medium text-gray-700 dark:text-gray-300 w-44">
-                      Inicio programado:
-                    </span>
-                    <span className="text-gray-600 dark:text-gray-400">
-                      {String(formData.scheduledStartTime ?? "").trim() || "Sin información proporcionada"}
-                    </span>
+                    <span className="font-medium text-gray-700 dark:text-gray-300 w-44">Inicio programado:</span>
+                    <span className="text-gray-600 dark:text-gray-400">{formData.scheduledStartTime || "Sin información"}</span>
                   </div>
-
                   <div className="flex">
-                    <span className="font-medium text-gray-700 dark:text-gray-300 w-44">
-                      Inicio real:
-                    </span>
-                    <span className="text-gray-600 dark:text-gray-400">
-                      {String(formData.actualStartTime ?? "").trim() || "Sin información proporcionada"}
-                    </span>
+                    <span className="font-medium text-gray-700 dark:text-gray-300 w-44">Inicio real:</span>
+                    <span className="text-gray-600 dark:text-gray-400">{formData.actualStartTime || "Sin información"}</span>
                   </div>
-
                   <div className="flex">
-                    <span className="font-medium text-gray-700 dark:text-gray-300 w-44">
-                      Término programado:
-                    </span>
-                    <span className="text-gray-600 dark:text-gray-400">
-                      {String(formData.scheduledEndTime ?? "").trim() || "Sin información proporcionada"}
-                    </span>
+                    <span className="font-medium text-gray-700 dark:text-gray-300 w-44">Término programado:</span>
+                    <span className="text-gray-600 dark:text-gray-400">{formData.scheduledEndTime || "Sin información"}</span>
                   </div>
                 </div>
               </div>
@@ -860,44 +809,30 @@ const NewMinuteForm = ({ onSubmit, onCancel }) => {
               {/* 4) Participantes */}
               <div className="border-l-4 border-amber-500 pl-4">
                 <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-3 flex items-center">
-                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-500 text-white text-xs mr-2">
-                    4
-                  </span>
+                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-500 text-white text-xs mr-2">4</span>
                   Participantes
                 </h4>
-
                 <div className="space-y-3 text-sm">
                   <div>
                     <div className="flex">
-                      <span className="font-medium text-gray-700 dark:text-gray-300 w-44">
-                        Participantes:
-                      </span>
+                      <span className="font-medium text-gray-700 dark:text-gray-300 w-44">Participantes:</span>
                       <span className="text-gray-600 dark:text-gray-400">
-                        {String(formData.attendees ?? "").trim()
-                          ? "Ver listado"
-                          : "Sin información proporcionada"}
+                        {String(formData.attendees ?? "").trim() ? "Ver listado" : "Sin información proporcionada"}
                       </span>
                     </div>
-
                     {String(formData.attendees ?? "").trim() && (
                       <pre className="mt-2 text-xs whitespace-pre-wrap break-words p-3 rounded bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">
                         {String(formData.attendees).trim()}
                       </pre>
                     )}
                   </div>
-
                   <div>
                     <div className="flex">
-                      <span className="font-medium text-gray-700 dark:text-gray-300 w-44">
-                        Copia (CC):
-                      </span>
+                      <span className="font-medium text-gray-700 dark:text-gray-300 w-44">Copia (CC):</span>
                       <span className="text-gray-600 dark:text-gray-400">
-                        {String(formData.ccParticipants ?? "").trim()
-                          ? "Ver listado"
-                          : "Sin información proporcionada"}
+                        {String(formData.ccParticipants ?? "").trim() ? "Ver listado" : "Sin información proporcionada"}
                       </span>
                     </div>
-
                     {String(formData.ccParticipants ?? "").trim() && (
                       <pre className="mt-2 text-xs whitespace-pre-wrap break-words p-3 rounded bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">
                         {String(formData.ccParticipants).trim()}
@@ -910,28 +845,31 @@ const NewMinuteForm = ({ onSubmit, onCancel }) => {
               {/* 5) Información Adicional */}
               <div className="border-l-4 border-gray-500 pl-4">
                 <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-3 flex items-center">
-                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-600 text-white text-xs mr-2">
-                    5
-                  </span>
+                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-600 text-white text-xs mr-2">5</span>
                   Información Adicional
                 </h4>
-
                 <div className="text-sm">
                   {String(formData.additionalInfo ?? "").trim() ? (
                     <pre className="text-xs whitespace-pre-wrap break-words p-3 rounded bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">
                       {String(formData.additionalInfo).trim()}
                     </pre>
                   ) : (
-                    <p className="text-gray-600 dark:text-gray-400">
-                      Sin información adicional.
-                    </p>
+                    <p className="text-gray-600 dark:text-gray-400">Sin información adicional.</p>
                   )}
                 </div>
               </div>
             </div>
+
+            {/* Aviso de procesamiento asíncrono */}
+            <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+              <p className="text-xs text-amber-700 dark:text-amber-300">
+                <strong>ℹ️ Procesamiento asíncrono:</strong> Al confirmar, la minuta será enviada al
+                procesador IA. Recibirás una notificación cuando esté lista para edición.
+                El proceso puede tardar unos minutos.
+              </p>
+            </div>
           </div>
         )}
-
       </div>
 
       {/* Footer con botones */}
@@ -939,6 +877,7 @@ const NewMinuteForm = ({ onSubmit, onCancel }) => {
         <div className="flex justify-between">
           <button
             onClick={currentStep === 0 ? onCancel : handlePrevious}
+            disabled={isSubmitting}
             className="
               px-4 py-2 text-sm font-medium
               text-gray-700 dark:text-gray-300
@@ -948,6 +887,7 @@ const NewMinuteForm = ({ onSubmit, onCancel }) => {
               hover:bg-gray-50 dark:hover:bg-gray-700
               focus:outline-none focus:ring-2 focus:ring-blue-500
               transition-colors
+              disabled:opacity-50 disabled:cursor-not-allowed
             "
           >
             {currentStep === 0 ? "Cancelar" : "Anterior"}
@@ -955,6 +895,7 @@ const NewMinuteForm = ({ onSubmit, onCancel }) => {
 
           <button
             onClick={handleNext}
+            disabled={submitDisabled}
             className="
               px-4 py-2 text-sm font-medium
               text-white
@@ -963,9 +904,21 @@ const NewMinuteForm = ({ onSubmit, onCancel }) => {
               hover:bg-blue-700
               focus:outline-none focus:ring-2 focus:ring-blue-500
               transition-colors
+              disabled:opacity-50 disabled:cursor-not-allowed
+              flex items-center gap-2
             "
           >
-            {currentStep === steps.length - 1 ? "Finalizar" : "Siguiente"}
+            {isLastStep && isSubmitting ? (
+              <>
+                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Enviando...
+              </>
+            ) : (
+              isLastStep ? "Finalizar" : "Siguiente"
+            )}
           </button>
         </div>
       </div>
@@ -973,10 +926,27 @@ const NewMinuteForm = ({ onSubmit, onCancel }) => {
   );
 };
 
+// ─── NewMinute ─────────────────────────────────────────────────────────────────
+
 /**
  * NewMinute Component
+ *
+ * Botón que abre el asistente de preparación de minutas.
+ * Al finalizar el formulario construye el payload multipart/form-data
+ * y llama a POST /v1/minutes/generate.
+ *
+ * Props:
+ *   onSuccess (Function) — callback opcional invocado tras crear la minuta exitosamente.
+ *                          Recibe { transactionId, recordId } para que el padre
+ *                          pueda refrescar el listado o iniciar polling.
  */
-const NewMinute = () => {
+const NewMinute = ({ onSuccess }) => {
+  // Leer el usuario autenticado desde el authStore para "preparedBy"
+  const user = useAuthStore((s) => s.user);
+
+  // Estado de envío — se pasa al form para deshabilitar botones mientras se procesa
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const handleNewMinute = () => {
     ModalManager.show({
       type: "custom",
@@ -985,16 +955,61 @@ const NewMinute = () => {
       showFooter: false,
       content: (
         <NewMinuteForm
-          onSubmit={(data) => {
-            minLog.log("Minuta creada:", data);
+          isSubmitting={isSubmitting}
+          onSubmit={async (formData) => {
+            setIsSubmitting(true);
+            try {
+              // 1. Construir el payload JSON con los metadatos
+              const payload = buildPayload({
+                formData,
+                clients:  clientsData?.clients  ?? [],
+                projects: projectsData?.projects ?? [],
+                profiles: analysisProfiles       ?? [],
+                preparedBy: user?.full_name ?? "",
+              });
 
-            ModalManager.success({
-              title: "Minuta Creada",
-              message: "La minuta ha sido creada exitosamente.",
-            });
+              // 2. Recolectar archivos a enviar
+              const files = buildFiles(formData);
+
+              minLog.log("Enviando minuta al backend", { payload, files: files.map((f) => f.name) });
+
+              // 3. Llamar al servicio → multipart/form-data
+              const result = await generateMinute(payload, files);
+
+              minLog.log("Minuta creada:", result);
+
+              // 4. Cerrar modal y mostrar confirmación
+              ModalManager.closeAll();
+              ModalManager.success({
+                title: "Minuta en Procesamiento",
+                message:
+                  "La minuta fue enviada al procesador IA. Recibirás una notificación cuando esté lista para edición.",
+              });
+
+              // 5. Notificar al padre si tiene callback (para refrescar listado)
+              onSuccess?.({ transactionId: result?.transactionId, recordId: result?.recordId });
+
+            } catch (err) {
+              minLog.error("Error al crear minuta:", err);
+
+              // Extraer mensaje del error del backend (formato { success, error: { detail } })
+              const detail =
+                err?.response?.data?.error?.detail ??
+                err?.response?.data?.detail ??
+                err?.message ??
+                "Ocurrió un error inesperado al crear la minuta.";
+
+              ModalManager.show({
+                type: "error",
+                title: "Error al crear minuta",
+                message: detail,
+              });
+            } finally {
+              setIsSubmitting(false);
+            }
           }}
           onCancel={() => {
-            ModalManager.closeAll()
+            ModalManager.closeAll();
           }}
         />
       ),
