@@ -1,6 +1,5 @@
 /**
  * pages/minuteEditor/MinuteEditorTabs.jsx
- * Barra de navegación por pestañas con contadores dinámicos desde el store.
  */
 
 import React from 'react';
@@ -8,31 +7,36 @@ import Icon from '@components/ui/icon/iconManager';
 import useMinuteEditorStore from '@store/minuteEditorStore';
 
 const TABS = [
-  { id: 'info',         label: 'Información General', icon: 'clipboardList', counter: null },
-  { id: 'participants', label: 'Participantes',        icon: 'users',         counter: 'participants' },
-  { id: 'scope',        label: 'Alcance y Contenido',  icon: 'diagramProject',counter: 'scopeSections' },
-  { id: 'agreements',   label: 'Acuerdos',             icon: 'check',         counter: 'agreements' },
-  { id: 'requirements', label: 'Requerimientos',       icon: 'thumbtack',     counter: 'requirements' },
-  { id: 'tags',         label: 'Tags',                 icon: 'tags',          counter: 'tags' },
-  { id: 'next',         label: 'Próximas Reuniones',   icon: 'calendar',      counter: 'upcomingMeetings' },
-  { id: 'timeline',     label: 'Línea de Tiempo',      icon: 'history',       counter: 'timeline' },
-  { id: 'pdfformat',    label: 'Formato PDF',          icon: 'fileLines',     counter: null },
-  { id: 'metadata',     label: 'Metadata',             icon: 'gear',          counter: null },
+  { id: 'info',         label: 'Información General', icon: 'clipboardList',  counter: null },
+  { id: 'participants', label: 'Participantes',        icon: 'users',          counter: 'participants' },
+  { id: 'scope',        label: 'Alcance y Contenido',  icon: 'diagramProject', counter: 'scopeSections' },
+  { id: 'agreements',   label: 'Acuerdos',             icon: 'check',          counter: 'agreements' },
+  { id: 'requirements', label: 'Requerimientos',       icon: 'thumbtack',      counter: 'requirements' },
+  { id: 'tags',         label: 'Tags',                 icon: 'tags',           counter: 'tags' },
+  { id: 'next',         label: 'Próximas Reuniones',   icon: 'calendar',       counter: 'upcomingMeetings' },
+  { id: 'timeline',     label: 'Línea de Tiempo',      icon: 'history',        counter: 'timeline' },
+  { id: 'pdfformat',    label: 'Formato PDF',          icon: 'fileLines',      counter: null },
+  { id: 'preview',      label: 'Envío',                icon: 'paperPlane',     counter: null },
+  { id: 'metadata',     label: 'Metadata',             icon: 'gear',           counter: null },
 ];
 
 const MinuteEditorTabs = () => {
-  const { activeTab, setActiveTab, participants, scopeSections, agreements, requirements, aiTags, userTags, upcomingMeetings, timeline } = useMinuteEditorStore();
+  const {
+    activeTab, setActiveTab,
+    participants, scopeSections, agreements, requirements,
+    aiTags, userTags, upcomingMeetings, timeline,
+  } = useMinuteEditorStore();
 
   const getCounter = (key) => {
     switch (key) {
-      case 'participants':   return participants.length;
-      case 'scopeSections':  return scopeSections.length;
-      case 'agreements':     return agreements.length;
-      case 'requirements':   return requirements.length;
-      case 'tags':           return aiTags.length + userTags.length;
+      case 'participants':     return participants.length;
+      case 'scopeSections':    return scopeSections.length;
+      case 'agreements':       return agreements.length;
+      case 'requirements':     return requirements.length;
+      case 'tags':             return aiTags.length + userTags.length;
       case 'upcomingMeetings': return upcomingMeetings.length;
-      case 'timeline':       return timeline.length;
-      default:               return null;
+      case 'timeline':         return timeline.length;
+      default:                 return null;
     }
   };
 
@@ -42,7 +46,6 @@ const MinuteEditorTabs = () => {
         {TABS.map(tab => {
           const isActive = activeTab === tab.id;
           const count    = tab.counter ? getCounter(tab.counter) : null;
-
           return (
             <button
               key={tab.id}

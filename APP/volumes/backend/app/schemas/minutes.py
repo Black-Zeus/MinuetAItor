@@ -3,14 +3,20 @@
 Schemas para el módulo de minutas.
 
 Endpoints:
-  POST /v1/minutes/generate          → MinuteGenerateRequest / MinuteGenerateResponse
-  GET  /v1/minutes/{record_id}       → MinuteDetailResponse
-  PUT  /v1/minutes/{record_id}/save  → MinuteSaveRequest (body), 200 OK
+  POST /v1/minutes/generate               → MinuteGenerateRequest / MinuteGenerateResponse
+  GET  /v1/minutes/{record_id}            → MinuteDetailResponse
+  PUT  /v1/minutes/{record_id}/save       → MinuteSaveRequest (body), 200 OK
   POST /v1/minutes/{record_id}/transition → MinuteTransitionRequest / MinuteTransitionResponse
+
+Valores de content_type en MinuteDetailResponse:
+  "ai_output"  → JSON original generado por la IA (schema_output_v1.json, inmutable)
+  "draft"      → Borrador en edición activa (draft_current.json, formato editor)
+  "snapshot"   → Versión publicada o en revisión (schema_output_vN.json, formato editor)
+  None         → Estado sin contenido (in-progress, llm-failed, processing-error)
 """
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 from pydantic import BaseModel, Field
 
 
@@ -128,8 +134,21 @@ class MinuteRecordInfo(BaseModel):
 
 
 class MinuteDetailResponse(BaseModel):
-    record:  MinuteRecordInfo
-    content: Optional[dict[str, Any]] = None
+    """
+    Respuesta al GET /{record_id}.
+
+    content_type indica al frontend qué mapper debe usar para cargar el contenido:
+      - "ai_output"  → mapIAResponseToEditorState()   (formato IA, solo en ready-for-edit)
+      - "draft"      → loadFromDraft()                 (formato editor, en pending)
+      - "snapshot"   → loadFromDraft()                 (formato editor, en preview/completed)
+      - None         → sin contenido (in-progress, llm-failed, processing-error)
+    """
+    record:       MinuteRecordInfo
+    content:      Optional[dict[str, Any]] = None
+    content_type: Optional[Literal["ai_output", "draft", "snapshot"]] = Field(
+        None,
+        serialization_alias="contentType",
+    )
 
     model_config = {"populate_by_name": True}
 
@@ -137,6 +156,14 @@ class MinuteDetailResponse(BaseModel):
 # ── PASO 4: PUT /minutes/{record_id}/save ────────────────────────────────────
 
 class MinuteSaveRequest(BaseModel):
+    """
+    Body del PUT /{record_id}/save.
+
+    content debe ser el payload en formato editor (getExportPayload del store):
+      meetingInfo, meetingTimes, participants[], scopeSections[], agreements[],
+      requirements[], aiTags[], userTags[], upcomingMeetings[], metadataLocked,
+      additionalNote, timeline[], pdfFormat
+    """
     content: dict[str, Any]
 
     model_config = {"populate_by_name": True}
@@ -152,13 +179,14 @@ class MinuteTransitionRequest(BaseModel):
 
 
 class MinuteTransitionResponse(BaseModel):
-    record_id:     str            = Field(..., serialization_alias="recordId")
-    status:        str
-    version_num:   Optional[int]  = Field(None, serialization_alias="versionNum")
-    version_id:    Optional[str]  = Field(None, serialization_alias="versionId")
-    message:       str
+    record_id:   str           = Field(..., serialization_alias="recordId")
+    status:      str
+    version_num: Optional[int] = Field(None, serialization_alias="versionNum")
+    version_id:  Optional[str] = Field(None, serialization_alias="versionId")
+    message:     str
 
     model_config = {"populate_by_name": True}
+
 
 # ── PASO LIST: GET /minutes ───────────────────────────────────────────────────
 
@@ -172,14 +200,14 @@ class MinuteTagItem(BaseModel):
 class MinuteListItem(BaseModel):
     id:           str
     title:        str
-    date:         Optional[str] = None
-    time:         Optional[str] = None
+    date:         Optional[str]           = None
+    time:         Optional[str]           = None
     status:       str
-    client:       Optional[str] = None
-    project:      Optional[str] = None
-    participants: list[str]     = Field(default_factory=list)
-    summary:      Optional[str] = None
-    tags:         list[MinuteTagItem] = Field(default_factory=list)
+    client:       Optional[str]           = None
+    project:      Optional[str]           = None
+    participants: list[str]               = Field(default_factory=list)
+    summary:      Optional[str]           = None
+    tags:         list[MinuteTagItem]     = Field(default_factory=list)
 
     model_config = {"populate_by_name": True}
 
@@ -191,77 +219,3 @@ class MinuteListResponse(BaseModel):
     limit:   int
 
     model_config = {"populate_by_name": True}
-
-# ── Agregar al final de schemas/minutes.py ────────────────────────────────────
-from typing import Any
-
-class MinuteRecordInfo(BaseModel):
-    """Metadata del Record, embebida en MinuteDetailResponse."""
-    id:                 str
-    status:             str
-    title:              Optional[str] = None
-    client_id:          Optional[str] = None
-    client_name:        Optional[str] = None
-    project_id:         Optional[str] = None
-    project_name:       Optional[str] = None
-    active_version_id:  Optional[str] = None
-    active_version_num: Optional[int] = None
-    document_date:      Optional[str] = None
-    location:           Optional[str] = None
-    prepared_by:        Optional[str] = None
-    created_at:         Optional[str] = None
-
-    model_config = {"populate_by_name": True}
-
-
-class MinuteDetailResponse(BaseModel):
-    """Respuesta al GET /{record_id}."""
-    record:  MinuteRecordInfo
-    content: Optional[Any] = None   # JSON de la minuta o null si no disponible
-
-    model_config = {"populate_by_name": True}
-
-
-class MinuteSaveRequest(BaseModel):
-    """Body del PUT /{record_id}/save."""
-    content: dict
-
-
-class MinuteTransitionRequest(BaseModel):
-    """Body del POST /{record_id}/transition."""
-    target_status:  str
-    commit_message: Optional[str] = None
-
-
-class MinuteTransitionResponse(BaseModel):
-    """Respuesta al POST /{record_id}/transition."""
-    record_id:   str
-    status:      str
-    version_num: Optional[int] = None
-    version_id:  Optional[str] = None
-    message:     str
-
-    model_config = {"populate_by_name": True}
-
-
-class MinuteListItem(BaseModel):
-    id:           str
-    title:        Optional[str]       = None
-    date:         Optional[str]       = None
-    time:         Optional[str]       = None
-    status:       str
-    client:       Optional[str]       = None
-    project:      Optional[str]       = None
-    participants: list[str]           = []
-    summary:      Optional[str]       = None
-    tags:         list[dict]          = []
-
-    model_config = {"populate_by_name": True}
-
-
-class MinuteListResponse(BaseModel):
-    """Respuesta al GET /."""
-    minutes: list[MinuteListItem]
-    total:   int
-    skip:    int
-    limit:   int

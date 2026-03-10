@@ -1,6 +1,7 @@
 /**
  * pages/minuteEditor/sections/cards/MinuteEditorCardParticipationSummary.jsx
  * Card de solo lectura: resumen de participación calculado desde el store.
+ * Muestra conteos sin porcentaje (removido).
  */
 
 import React from 'react';
@@ -12,9 +13,9 @@ export const MinuteEditorCardParticipationSummary = () => {
   const { invited, attendees, copy } = getParticipationSummary();
 
   const rows = [
-    { label: 'Invitados',   value: `${invited}   persona${invited   !== 1 ? 's' : ''}` },
-    { label: 'Asistentes',  value: `${attendees} persona${attendees !== 1 ? 's' : ''}` },
-    { label: 'Con Copia',   value: `${copy}      persona${copy      !== 1 ? 's' : ''}` },
+    { label: 'Invitados',  value: `${invited} persona${invited !== 1 ? 's' : ''}` },
+    { label: 'Asistentes', value: `${attendees} persona${attendees !== 1 ? 's' : ''}` },
+    { label: 'Con Copia',  value: `${copy} persona${copy !== 1 ? 's' : ''}` },
   ];
 
   return (
@@ -33,7 +34,7 @@ export const MinuteEditorCardParticipationSummary = () => {
         {rows.map(({ label, value }) => (
           <div key={label} className="flex items-center justify-between gap-3">
             <span className="text-sm text-gray-500 dark:text-gray-400 transition-theme">{label}</span>
-            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 transition-theme">{value.trim()}</span>
+            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 transition-theme">{value}</span>
           </div>
         ))}
       </div>

@@ -1,31 +1,28 @@
 /**
  * pages/minuteEditor/sections/MinuteEditorSectionTimeline.jsx
- * Tab "Línea de Tiempo": historial de versiones publicadas de la minuta.
- *
- * Cada entrada representa un "Publicar PDF". Muestra versión, fecha,
- * autor, observación del publicador y resumen de cambios.
- *
- * Datos: estáticos demo (en producción vendrán del backend).
- * No permite edición de entradas pasadas (solo lectura + trazabilidad).
+ * Historial de versiones. Cada entrada expandida muestra botones
+ * "Visualizar" (modal) y "Descargar" PDF de esa versión.
  */
 
 import React, { useState } from 'react';
 import Icon from '@components/ui/icon/iconManager';
+import ModalManager from '@components/ui/modal';
 import useMinuteEditorStore from '@/store/minuteEditorStore';
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-const formatDate = (isoStr) => {
-  if (!isoStr) return '—';
+const fmtDate = (iso) => {
+  if (!iso) return '—';
   try {
-    return new Date(isoStr).toLocaleString('es-CL', {
+    return new Date(iso).toLocaleString('es-CL', {
       day: '2-digit', month: '2-digit', year: 'numeric',
       hour: '2-digit', minute: '2-digit',
     });
-  } catch { return isoStr; }
+  } catch { return iso; }
 };
 
-// Badge de versión con colores escalonados
+// ── Badge versión ─────────────────────────────────────────────────────────────
+
 const VersionBadge = ({ version, isLatest }) => (
   <span className={`inline-flex items-center px-3 py-1 rounded-lg text-xs font-bold font-mono border transition-theme
     ${isLatest
@@ -38,10 +35,91 @@ const VersionBadge = ({ version, isLatest }) => (
   </span>
 );
 
-// ── Tarjeta de entrada del timeline ──────────────────────────────────────────
+// ── Modal de visualización de PDF por versión (mockup) ────────────────────────
+
+const PdfVersionModalContent = ({ entry }) => (
+  <div className="flex flex-col gap-3 h-full">
+    <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-50 dark:bg-amber-900/15 border border-amber-200/60 dark:border-amber-700/40 transition-theme">
+      <Icon name="triangleExclamation" className="text-amber-500 shrink-0 text-xs" />
+      <p className="text-xs text-amber-800 dark:text-amber-300 transition-theme">
+        Mockup. El PDF real de <strong>{entry.version}</strong> se servirá desde MinIO cuando el worker PDF esté activo.
+      </p>
+    </div>
+
+    <div className="flex-1 overflow-auto bg-gray-100 dark:bg-gray-900 rounded-xl p-4 transition-theme flex items-center justify-center">
+      <div
+        className="bg-white shadow-xl rounded flex flex-col items-center justify-center gap-4"
+        style={{ width: '420px', minHeight: '560px', fontFamily: 'sans-serif', padding: '48px 40px' }}
+      >
+        {/* Ícono documento */}
+        <div style={{ width: '72px', height: '72px', background: '#eff6ff', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <span style={{ fontSize: '32px' }}>📄</span>
+        </div>
+
+        {/* Versión */}
+        <div style={{ textAlign: 'center' }}>
+          <p style={{ fontSize: '22px', fontWeight: 'bold', color: '#1d4ed8', margin: 0 }}>{entry.version}</p>
+          <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>Minuta de Reunión</p>
+        </div>
+
+        {/* Datos */}
+        <div style={{ width: '100%', background: '#f9fafb', borderRadius: '12px', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12px', color: '#374151' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ color: '#9ca3af' }}>Publicado por</span>
+            <span style={{ fontWeight: '600' }}>{entry.publishedBy || '—'}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ color: '#9ca3af' }}>Fecha</span>
+            <span style={{ fontWeight: '600' }}>{fmtDate(entry.publishedAt)}</span>
+          </div>
+          {entry.observation && (
+            <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '8px', marginTop: '4px' }}>
+              <p style={{ color: '#9ca3af', marginBottom: '4px' }}>Observación</p>
+              <p style={{ color: '#374151', lineHeight: 1.5 }}>{entry.observation}</p>
+            </div>
+          )}
+        </div>
+
+        <p style={{ fontSize: '10px', color: '#d1d5db', textAlign: 'center', marginTop: '8px' }}>
+          PDF pendiente de generación por worker PDF
+        </p>
+      </div>
+    </div>
+  </div>
+);
+
+// ── Tarjeta de versión ────────────────────────────────────────────────────────
 
 const TimelineEntry = ({ entry, isLatest, isLast }) => {
   const [expanded, setExpanded] = useState(isLatest);
+
+  const handleVisualize = () => {
+    ModalManager.custom({
+      title:      `Vista Previa PDF — ${entry.version}`,
+      size:       'large',
+      showFooter: false,
+      content:    <PdfVersionModalContent entry={entry} />,
+    });
+  };
+
+  const handleDownload = () => {
+    const text = [
+      `Minuta ${entry.version}`,
+      `Publicado por: ${entry.publishedBy || '—'}`,
+      `Fecha: ${entry.publishedAt || '—'}`,
+      `Observación: ${entry.observation || '—'}`,
+      `Resumen de cambios: ${entry.changesSummary || '—'}`,
+      '',
+      '[PDF pendiente de generación por worker PDF]',
+    ].join('\n');
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `minuta_${entry.version}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="flex gap-4">
@@ -56,58 +134,64 @@ const TimelineEntry = ({ entry, isLatest, isLast }) => {
         {!isLast && <div className="w-px flex-1 bg-gray-200 dark:bg-gray-700 mt-1 transition-theme" />}
       </div>
 
-      {/* Contenido */}
-      <div className={`flex-1 pb-6 ${isLast ? '' : ''}`}>
-        <div
-          className={`rounded-xl border transition-theme overflow-hidden
-            ${isLatest
-              ? 'border-primary-200/60 dark:border-primary-700/40 shadow-sm'
-              : 'border-gray-200/50 dark:border-gray-700/50'
-            }`}
+      {/* Tarjeta */}
+      <div className="flex-1 pb-6">
+        <div className={`rounded-xl border transition-theme overflow-hidden
+          ${isLatest
+            ? 'border-primary-200/60 dark:border-primary-700/40 shadow-sm'
+            : 'border-gray-200/50 dark:border-gray-700/50'
+          }`}
         >
-          {/* Header de la tarjeta */}
+          {/* Header colapsable */}
           <button
             type="button"
             onClick={() => setExpanded(v => !v)}
             className={`w-full flex items-center justify-between gap-3 px-5 py-4 text-left transition-theme
               ${isLatest
-                ? 'bg-primary-50/40 dark:bg-primary-900/10 hover:bg-primary-50/70 dark:hover:bg-primary-900/20'
-                : 'bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750'
+                ? 'bg-primary-50/40 dark:bg-primary-900/10 hover:bg-primary-50/60 dark:hover:bg-primary-900/15'
+                : 'bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50'
               }`}
           >
-            <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-3 min-w-0">
               <VersionBadge version={entry.version} isLatest={isLatest} />
-              <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 transition-theme">
-                {entry.observation || 'Sin observación registrada'}
-              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-gray-900 dark:text-white truncate transition-theme">
+                  {entry.observation || entry.changesSummary || 'Publicación'}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 transition-theme">
+                  {entry.publishedBy || '—'} · {fmtDate(entry.publishedAt)}
+                </p>
+              </div>
             </div>
-
-            <div className="flex items-center gap-3 shrink-0">
-              <span className="text-xs font-mono text-gray-500 dark:text-gray-400 transition-theme whitespace-nowrap">
-                {formatDate(entry.publishedAt)}
-              </span>
-              <Icon
-                name={expanded ? 'chevronUp' : 'chevronDown'}
-                className="text-gray-400 dark:text-gray-500 transition-theme text-xs"
-              />
-            </div>
+            <Icon
+              name={expanded ? 'chevronUp' : 'chevronDown'}
+              className="text-gray-400 dark:text-gray-500 shrink-0 transition-theme"
+            />
           </button>
 
-          {/* Detalle expandible */}
+          {/* Detalle */}
           {expanded && (
-            <div className="px-5 py-4 border-t border-gray-100 dark:border-gray-700/50 bg-white dark:bg-gray-800 space-y-3 transition-theme">
-
-              <div className="flex items-start gap-3">
-                <div className="w-6 h-6 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center shrink-0 mt-0.5">
-                  <Icon name="user" className="text-xs text-gray-500 dark:text-gray-400" />
+            <div className={`px-5 py-4 space-y-4 border-t transition-theme
+              ${isLatest
+                ? 'bg-primary-50/20 dark:bg-primary-900/5 border-primary-100 dark:border-primary-800/30'
+                : 'bg-gray-50/50 dark:bg-gray-900/20 border-gray-100 dark:border-gray-700/50'
+              }`}
+            >
+              {/* Observación */}
+              {entry.observation && (
+                <div className="flex items-start gap-3">
+                  <div className="w-6 h-6 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center shrink-0 mt-0.5">
+                    <Icon name="comment" className="text-xs text-gray-500 dark:text-gray-400" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 transition-theme">Observación</p>
+                    <p className="text-sm text-gray-700 dark:text-gray-300 transition-theme leading-relaxed">{entry.observation}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 transition-theme">Publicado por</p>
-                  <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 transition-theme">{entry.publishedBy || '—'}</p>
-                </div>
-              </div>
+              )}
 
-              {entry.changesSummary && (
+              {/* Resumen de cambios */}
+              {entry.changesSummary && entry.changesSummary !== entry.observation && (
                 <div className="flex items-start gap-3">
                   <div className="w-6 h-6 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center shrink-0 mt-0.5">
                     <Icon name="fileLines" className="text-xs text-gray-500 dark:text-gray-400" />
@@ -119,14 +203,51 @@ const TimelineEntry = ({ entry, isLatest, isLast }) => {
                 </div>
               )}
 
-              <div className="flex items-center gap-3">
-                <div className="w-6 h-6 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center shrink-0">
-                  <Icon name="clock" className="text-xs text-gray-500 dark:text-gray-400" />
+              {/* Timestamp + Autor */}
+              <div className="flex flex-wrap gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-6 h-6 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center shrink-0">
+                    <Icon name="clock" className="text-xs text-gray-500 dark:text-gray-400" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 transition-theme">Timestamp</p>
+                    <p className="text-xs font-mono text-gray-700 dark:text-gray-300 transition-theme">
+                      {entry.publishedAt ? new Date(entry.publishedAt).toISOString() : '—'}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 transition-theme">Timestamp</p>
-                  <p className="text-xs font-mono text-gray-700 dark:text-gray-300 transition-theme">{entry.publishedAt || '—'}</p>
+                <div className="flex items-center gap-3">
+                  <div className="w-6 h-6 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center shrink-0">
+                    <Icon name="user" className="text-xs text-gray-500 dark:text-gray-400" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 transition-theme">Publicado por</p>
+                    <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 transition-theme">{entry.publishedBy || '—'}</p>
+                  </div>
                 </div>
+              </div>
+
+              {/* ── Acciones PDF ── */}
+              <div className="pt-2 border-t border-gray-100 dark:border-gray-700/50 transition-theme flex items-center gap-3 flex-wrap">
+                <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 transition-theme">
+                  PDF {entry.version}:
+                </span>
+                <button
+                  type="button"
+                  onClick={handleVisualize}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-50 dark:bg-primary-900/20 hover:bg-primary-100 dark:hover:bg-primary-900/30 text-primary-700 dark:text-primary-300 border border-primary-200/50 dark:border-primary-700/50 text-xs font-semibold transition-theme"
+                >
+                  <Icon name="eye" className="text-xs" />
+                  Visualizar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDownload}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 border border-gray-200/50 dark:border-gray-600/50 text-xs font-semibold transition-theme"
+                >
+                  <Icon name="download" className="text-xs" />
+                  Descargar
+                </button>
               </div>
 
             </div>
@@ -141,14 +262,12 @@ const TimelineEntry = ({ entry, isLatest, isLast }) => {
 
 const MinuteEditorSectionTimeline = () => {
   const { timeline } = useMinuteEditorStore();
-
-  // Orden cronológico inverso: la versión más reciente primero
   const sorted = [...timeline].sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
 
   return (
     <div className="space-y-6">
 
-      {/* Header informativo */}
+      {/* Header */}
       <div className="bg-white dark:bg-gray-800 rounded-xl p-6 transition-theme shadow-md border border-gray-200/50 dark:border-gray-700/50">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div>
@@ -157,12 +276,10 @@ const MinuteEditorSectionTimeline = () => {
               Línea de Tiempo
             </h2>
             <p className="text-sm text-gray-600 dark:text-gray-300 transition-theme">
-              Historial de versiones publicadas. Solo lectura — propósito de trazabilidad y auditoría.
+              Historial de versiones publicadas. Solo lectura — trazabilidad y auditoría.
             </p>
           </div>
-
-          {/* Stats rápidos */}
-          <div className="flex items-center gap-4 shrink-0">
+          <div className="flex items-center gap-6 shrink-0">
             <div className="text-center">
               <p className="text-2xl font-bold font-mono text-primary-600 dark:text-primary-400 transition-theme">{timeline.length}</p>
               <p className="text-xs text-gray-500 dark:text-gray-400 transition-theme">versión{timeline.length !== 1 ? 'es' : ''}</p>
@@ -173,19 +290,19 @@ const MinuteEditorSectionTimeline = () => {
               </p>
               <p className="text-xs text-gray-500 dark:text-gray-400 transition-theme">actual</p>
             </div>
+            {sorted[sorted.length - 1]?.publishedAt && (
+              <div className="text-center hidden sm:block">
+                <p className="text-xs font-mono text-gray-500 dark:text-gray-400 transition-theme">
+                  {new Date(sorted[sorted.length - 1].publishedAt).toLocaleDateString('es-CL')}
+                </p>
+                <p className="text-xs text-gray-400 dark:text-gray-600 transition-theme">creación</p>
+              </div>
+            )}
           </div>
-        </div>
-
-        {/* Aviso demo */}
-        <div className="mt-4 flex items-start gap-3 px-4 py-3 rounded-xl bg-amber-50 dark:bg-amber-900/15 border border-amber-200/60 dark:border-amber-700/40 transition-theme">
-          <Icon name="triangleExclamation" className="text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
-          <p className="text-xs text-amber-800 dark:text-amber-300 transition-theme">
-            <span className="font-semibold">Modo demo:</span> los registros mostrados son estáticos. En producción cada "Publicar PDF" generará una entrada nueva en la base de datos y este historial se cargará desde el backend.
-          </p>
         </div>
       </div>
 
-      {/* Timeline */}
+      {/* Entradas */}
       <div className="bg-white dark:bg-gray-800 rounded-xl p-6 transition-theme shadow-md border border-gray-200/50 dark:border-gray-700/50">
         {timeline.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
