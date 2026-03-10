@@ -11,7 +11,7 @@ import Icon from '@components/ui/icon/iconManager';
 import ModalManager from '@components/ui/modal';
 import useMinuteEditorStore from '@/store/minuteEditorStore';
 
-const MinuteEditorSectionNextMeetings = () => {
+const MinuteEditorSectionNextMeetings = ({ isReadOnly = false }) => {
     const {
         upcomingMeetings,
         addUpcomingMeeting,
@@ -153,14 +153,16 @@ const MinuteEditorSectionNextMeetings = () => {
                     </p>
                 </div>
 
-                <button
+                {!isReadOnly && (
+                  <button
                     type="button"
                     onClick={() => openForm()}
                     className="px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white transition-theme shadow-md text-sm font-medium"
-                >
+                  >
                     <Icon name="plus" className="mr-2" />
                     Agregar reunión
-                </button>
+                  </button>
+                )}
             </div>
 
             <div className="mt-6 overflow-x-auto">
@@ -170,7 +172,7 @@ const MinuteEditorSectionNextMeetings = () => {
                             <th className="pb-3 pr-4">ID</th>
                             <th className="pb-3 pr-4">Fecha</th>
                             <th className="pb-3 pr-4">Agenda</th>
-                            <th className="pb-3">Acciones</th>
+                            {!isReadOnly && <th className="pb-3">Acciones</th>}
                         </tr>
                     </thead>
 
@@ -199,27 +201,28 @@ const MinuteEditorSectionNextMeetings = () => {
                                         <span className="line-clamp-2">{m.agenda}</span>
                                     </td>
 
-                                    <td className="py-3">
+                                    {!isReadOnly && (
+                                      <td className="py-3">
                                         <div className="flex items-center gap-2">
-                                            <button
-                                                type="button"
-                                                onClick={() => openForm(m)}
-                                                className="px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition-theme text-xs"
-                                                title="Editar"
-                                            >
-                                                <Icon name="edit" />
-                                            </button>
-
-                                            <button
-                                                type="button"
-                                                onClick={() => handleDelete(m.id, m.agenda)}
-                                                className="px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-theme text-xs"
-                                                title="Eliminar"
-                                            >
-                                                <Icon name="delete" />
-                                            </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => openForm(m)}
+                                            className="px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition-theme text-xs"
+                                            title="Editar"
+                                          >
+                                            <Icon name="edit" />
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleDelete(m.id, m.agenda)}
+                                            className="px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-theme text-xs"
+                                            title="Eliminar"
+                                          >
+                                            <Icon name="delete" />
+                                          </button>
                                         </div>
-                                    </td>
+                                      </td>
+                                    )}
                                 </tr>
                             ))
                         )}

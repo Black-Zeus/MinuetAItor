@@ -23,12 +23,14 @@ from schemas.minutes import (
     MinuteTransitionRequest,
     MinuteTransitionResponse,
     MinuteListResponse,
+    MinuteVersionsResponse,
 )
 from services.auth_service import get_current_user
 from services.minutes_service import (
     generate_minute,
     get_minute_detail,
     get_minute_status,
+    get_minute_versions,
     save_minute_draft,
     transition_minute,
     list_minutes,
@@ -197,6 +199,22 @@ async def events_endpoint(
         media_type = "text/event-stream",
         headers    = _sse_headers(),
     )
+
+
+# ─── GET /{record_id}/versions ───────────────────────────────────────────────
+
+@router.get(
+    "/{record_id}/versions",
+    response_model = MinuteVersionsResponse,
+    status_code    = status.HTTP_200_OK,
+    summary        = "Historial de versiones de una minuta",
+)
+def versions_endpoint(
+    record_id: str,
+    db:        Session     = Depends(get_db),
+    session:   UserSession = Depends(current_user_dep),
+):
+    return get_minute_versions(db=db, record_id=record_id)
 
 
 # ─── GET / (list) ─────────────────────────────────────────────────────────────

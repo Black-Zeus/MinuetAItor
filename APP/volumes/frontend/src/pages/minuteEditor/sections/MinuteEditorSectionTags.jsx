@@ -27,7 +27,7 @@ import ModalManager from '@components/ui/modal';
 import useMinuteEditorStore from '@/store/minuteEditorStore';
 import tagsCatalog from '@/data/dataTags.json';
 
-const MinuteEditorSectionTags = () => {
+const MinuteEditorSectionTags = ({ isReadOnly = false }) => {
     const { aiTags, userTags, deleteAiTag, addUserTag, deleteUserTag } = useMinuteEditorStore();
 
     // DDL usuario (catálogo)
@@ -419,7 +419,8 @@ const MinuteEditorSectionTags = () => {
                                                 </div>
                                             </td>
 
-                                            <td className="py-3">
+                                            {!isReadOnly && (
+                                              <td className="py-3">
                                                 <div className="flex items-center gap-2">
                                                     <button
                                                         type="button"
@@ -430,7 +431,6 @@ const MinuteEditorSectionTags = () => {
                                                         <Icon name="edit" />
                                                         {aiToUserAlias?.[t.id] ? 'Editar' : 'Convertir'}
                                                     </button>
-
                                                     <button
                                                         type="button"
                                                         onClick={() => handleDeleteAiTag(t.id, t.name)}
@@ -441,7 +441,8 @@ const MinuteEditorSectionTags = () => {
                                                         Eliminar
                                                     </button>
                                                 </div>
-                                            </td>
+                                              </td>
+                                            )}
                                         </tr>
                                     );
                                 })
@@ -493,15 +494,17 @@ const MinuteEditorSectionTags = () => {
                             ))}
                         </select>
 
-                        <button
+                        {!isReadOnly && (
+                          <button
                             type="button"
                             onClick={handleAddUserTagFromCatalog}
                             disabled={!selectedCatalogId}
                             className="px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 disabled:bg-gray-300 disabled:hover:bg-gray-300 dark:disabled:bg-gray-700 text-white transition-theme shadow-sm text-sm font-medium whitespace-nowrap"
-                        >
+                          >
                             <Icon name="plus" className="mr-1" />
                             Agregar
-                        </button>
+                          </button>
+                        )}
                     </div>
                 </div>
 
@@ -545,7 +548,8 @@ const MinuteEditorSectionTags = () => {
                                             </div>
                                         </td>
 
-                                        <td className="py-3">
+                                        {!isReadOnly && (
+                                          <td className="py-3">
                                             <button
                                                 type="button"
                                                 onClick={() => handleDeleteUserTag(t.id, t.name)}
@@ -554,7 +558,8 @@ const MinuteEditorSectionTags = () => {
                                                 <Icon name="delete" />
                                                 Eliminar
                                             </button>
-                                        </td>
+                                          </td>
+                                        )}
                                     </tr>
                                 ))
                             )}

@@ -535,6 +535,7 @@ async def transition_minute(
             id=new_version_id, record_id=record_id, version_num=new_version_num,
             status_id=snapshot_status_id, published_by=actor_user_id,
             schema_version="1.0", template_version="1.0",
+            summary_text=commit_message,
         )
         db.add(new_version)
         db.flush()
@@ -568,6 +569,7 @@ async def transition_minute(
             id=new_version_id, record_id=record_id, version_num=new_version_num,
             status_id=snapshot_status_id, published_by=actor_user_id,
             schema_version="1.0", template_version="1.0",
+            summary_text=commit_message,
         )
         db.add(new_version)
         db.flush()
@@ -690,3 +692,59 @@ def list_minutes(
 
     from schemas.minutes import MinuteListResponse
     return MinuteListResponse(minutes=items, total=total, skip=skip, limit=limit)
+
+# ─── get_minute_versions ──────────────────────────────────────────────────────
+
+def get_minute_versions(db: Session, record_id: str) -> "MinuteVersionsResponse":
+    """
+    Retorna todas las RecordVersion de una minuta ordenadas por version_num desc.
+    Incluye autor (nombre completo o username), fecha, estado y commit_message.
+    """
+    from schemas.minutes import MinuteVersionsResponse, MinuteVersionItem
+    from models.version_statuses import VersionStatus
+
+    record = db.query(Record).filter(Record.id == record_id, Record.deleted_at.is_(None)).first()
+    if record is None:
+        raise HTTPException(status_code=404,
+            detail={"error": "record_not_found", "message": f"Minuta '{record_id}' no encontrada."})
+
+    versions_rows = (
+        db.query(RecordVersion)
+        .filter(RecordVersion.record_id == record_id, RecordVersion.deleted_at.is_(None))
+        .order_by(RecordVersion.version_num.desc())
+        .all()
+    )
+
+    VERSION_STATUS_LABELS = {
+        "snapshot": "Borrador",
+        "final":    "Publicada",
+    }
+
+    items = []
+    for v in versions_rows:
+        # Autor
+        published_by_name = None
+        if v.published_by_user:
+            profile = getattr(v.published_by_user, "profile", None)
+            published_by_name = (
+                getattr(profile, "full_name", None)
+                or getattr(v.published_by_user, "username", None)
+            )
+
+        # Estado
+        vs: VersionStatus = v.status
+        status_code  = vs.code  if vs else "unknown"
+        status_label = VERSION_STATUS_LABELS.get(status_code, status_code)
+
+        items.append(MinuteVersionItem(
+            version_id    = str(v.id),
+            version_num   = int(v.version_num),
+            version_label = f"v{v.version_num}",
+            status_code   = status_code,
+            status_label  = status_label,
+            published_at  = v.published_at.isoformat() if v.published_at else None,
+            published_by  = published_by_name,
+            commit_message = v.summary_text,
+        ))
+
+    return MinuteVersionsResponse(record_id=record_id, versions=items)

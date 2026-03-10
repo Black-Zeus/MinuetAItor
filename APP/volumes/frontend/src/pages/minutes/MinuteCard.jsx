@@ -16,17 +16,6 @@ const DEMO_PDF_URL = "/pdf/demo.pdf";
 
 // ============================================================
 // STATUS CONFIG — 9 estados según record_statuses en BD
-//
-// Transiciones válidas (del backend):
-//   ready-for-edit   → pending | deleted
-//   pending          → preview | cancelled | deleted
-//   preview          → pending | completed | cancelled | deleted
-//   cancelled        → deleted
-//   llm-failed       → deleted
-//   processing-error → deleted
-//   completed        → (terminal)
-//   deleted          → (terminal, nunca se muestra)
-//   in-progress      → (solo lectura, la IA está procesando)
 // ============================================================
 const STATUS_CONFIG = {
   "in-progress": {
@@ -76,9 +65,6 @@ const STATUS_CONFIG = {
   },
 };
 
-// TAG_COLORS — mapea el color hex que devuelve el backend a clases Tailwind.
-// El backend envía hex (#FF1744) como color de tag.
-// Para el listado usamos un mapa de categorías semánticas como fallback.
 const TAG_COLOR_FALLBACK = "bg-primary-100 text-primary-700 dark:bg-primary-900/20 dark:text-primary-200";
 
 const safeArray    = (v)      => (Array.isArray(v) ? v : []);
@@ -132,7 +118,7 @@ const triggerBrowserDownload = async (url, filename) => {
 };
 
 // ============================================================
-// MODALS
+// MODAL: Descarga PDF
 // ============================================================
 const showDownloadModal = ({ filename }) => {
   const handleDownload = async () => {
@@ -167,127 +153,89 @@ const showDownloadModal = ({ filename }) => {
   });
 };
 
-// ── Publicar (preview → completed) ──────────────────────────────────────────
-const showConfirmPublishModal = async ({ minuteId, onConfirm }) => {
-  try {
-    const confirmed = await ModalManager.confirm({
-      title:       "Publicar minuta",
-      message:
-        "Al publicar, la minuta quedará en estado Completado y no podrá ser modificada nuevamente.\n\n" +
-        "Esta acción indica que los participantes han aprobado el contenido y el documento se considera oficial.",
-      confirmText: "Publicar minuta",
-      cancelText:  "Cancelar",
-    });
-    if (confirmed) onConfirm?.(minuteId, "completed");
-  } catch {
-    minuteLog.log("Publicación cancelada");
-  }
-};
+// ============================================================
+// MODAL: Anular — componente React controlado
+// ============================================================
+const CancelModalContent = ({ minuteId, onConfirm }) => {
+  const [motivo,      setMotivo]      = React.useState("");
+  const [hasError,    setHasError]    = React.useState(false);
+  const [submitting,  setSubmitting]  = React.useState(false);
+  const mountedRef = React.useRef(true);
+  React.useEffect(() => () => { mountedRef.current = false; }, []);
 
-// ── Enviar a revisión (pending → preview) ───────────────────────────────────
-const showConfirmPreviewModal = async ({ minuteId, onConfirm }) => {
-  try {
-    const confirmed = await ModalManager.confirm({
-      title:       "Enviar a revisión",
-      message:
-        "La minuta pasará a estado En revisión.\n\n" +
-        "La edición quedará bloqueada hasta que sea aprobada o devuelta para correcciones.",
-      confirmText: "Enviar a revisión",
-      cancelText:  "Cancelar",
-    });
-    if (confirmed) onConfirm?.(minuteId, "preview");
-  } catch {
-    minuteLog.log("Envío a revisión cancelado");
-  }
-};
-
-// ── Devolver a edición (preview → pending) ───────────────────────────────────
-const showConfirmReturnToPendingModal = async ({ minuteId, onConfirm }) => {
-  try {
-    const confirmed = await ModalManager.confirm({
-      title:       "Devolver a edición",
-      message:
-        "La minuta volverá a estado En edición y podrá ser modificada nuevamente.",
-      confirmText: "Devolver a edición",
-      cancelText:  "Cancelar",
-    });
-    if (confirmed) onConfirm?.(minuteId, "pending");
-  } catch {
-    minuteLog.log("Devolución cancelada");
-  }
-};
-
-// ── Anular ───────────────────────────────────────────────────────────────────
-const showConfirmCancelModal = ({ minuteId, currentUser = "Usuario", onConfirm }) => {
-  let motivoValue = "";
-
-  const handleSubmit = () => {
-    if (!motivoValue.trim()) {
-      const input = document.getElementById("cancel-motivo-input");
-      if (input) { input.focus(); input.classList.add("!border-red-500", "!ring-red-500/20"); }
-      const error = document.getElementById("cancel-motivo-error");
-      if (error) error.classList.remove("hidden");
-      return;
+  const handleSubmit = async () => {
+    if (!motivo.trim()) { setHasError(true); return; }
+    setSubmitting(true);
+    try {
+      await onConfirm?.(minuteId, "cancelled", motivo.trim());
+      ModalManager.closeAll?.();
+    } catch {
+      // El interceptor de axios ya muestra el toast de error
+      if (mountedRef.current) setSubmitting(false);
     }
-    ModalManager.closeAll?.();
-    onConfirm?.(minuteId, "cancelled", motivoValue.trim());
   };
 
+  return (
+    <div className="p-6 space-y-5">
+      <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/15 border border-red-200/60 dark:border-red-700/40">
+        <Icon name="triangleExclamation" className="text-red-500 dark:text-red-400 mt-0.5 shrink-0 text-sm" />
+        <p className="text-sm text-red-700 dark:text-red-300 leading-relaxed">
+          La minuta pasará a estado <strong>Cancelado</strong> y no podrá ser editada ni descargada.
+          El registro quedará visible para fines de trazabilidad.
+        </p>
+      </div>
+
+      <div className="space-y-1.5">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          Motivo <span className="text-red-500">*</span>
+        </label>
+        <textarea
+          rows={3}
+          value={motivo}
+          placeholder="Describe el motivo de la anulación..."
+          onChange={(e) => { setMotivo(e.target.value); if (e.target.value.trim()) setHasError(false); }}
+          className={[
+            "w-full px-3 py-2 rounded-lg text-sm resize-none transition-colors",
+            "bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200",
+            "placeholder-gray-400 dark:placeholder-gray-500",
+            "focus:outline-none focus:ring-4",
+            hasError
+              ? "border border-red-500 focus:border-red-500 focus:ring-red-500/10"
+              : "border border-gray-200 dark:border-gray-700 focus:border-primary-500 focus:ring-primary-500/10",
+          ].join(" ")}
+        />
+        {hasError && (
+          <p className="text-xs text-red-500 mt-1">El motivo es obligatorio para anular la minuta.</p>
+        )}
+      </div>
+
+      <div className="flex gap-3 pt-1">
+        <button
+          onClick={() => ModalManager.closeAll?.()}
+          disabled={submitting}
+          className="flex-1 px-4 py-2 rounded-lg text-sm font-medium border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors disabled:opacity-50"
+        >
+          Cancelar
+        </button>
+        <button
+          onClick={handleSubmit}
+          disabled={submitting}
+          className="flex-1 px-4 py-2 rounded-lg text-sm font-medium bg-red-500 hover:bg-red-600 active:bg-red-700 text-white transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+        >
+          {submitting && <Icon name="spinner" className="animate-spin text-xs" />}
+          {submitting ? "Anulando..." : "Anular minuta"}
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const showConfirmCancelModal = ({ minuteId, onConfirm }) => {
   ModalManager.custom({
     title:      "Anular minuta",
     size:       "small",
     showFooter: false,
-    content: (
-      <div className="p-6 space-y-5">
-        <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/15 border border-red-200/60 dark:border-red-700/40">
-          <Icon name="FaTriangleExclamation" className="text-red-500 dark:text-red-400 mt-0.5 shrink-0 text-sm" />
-          <p className="text-sm text-red-700 dark:text-red-300 leading-relaxed">
-            La minuta pasará a estado <strong>Cancelado</strong> y no podrá ser editada ni descargada.
-            El registro quedará visible para fines de trazabilidad.
-          </p>
-        </div>
-        <div className="space-y-1.5">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Usuario</label>
-          <input
-            type="text" value={currentUser} readOnly
-            className="w-full px-3 py-2 rounded-lg text-sm border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 text-gray-500 dark:text-gray-400 cursor-not-allowed select-none"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Motivo <span className="text-red-500">*</span>
-          </label>
-          <textarea
-            id="cancel-motivo-input" rows={3}
-            placeholder="Describe el motivo de la anulación..."
-            onChange={(e) => {
-              motivoValue = e.target.value;
-              const error = document.getElementById("cancel-motivo-error");
-              if (error) error.classList.add("hidden");
-              e.target.classList.remove("!border-red-500", "!ring-red-500/20");
-            }}
-            className="w-full px-3 py-2 rounded-lg text-sm resize-none border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-colors"
-          />
-          <p id="cancel-motivo-error" className="hidden text-xs text-red-500 mt-1">
-            El motivo es obligatorio para anular la minuta.
-          </p>
-        </div>
-        <div className="flex gap-3 pt-1">
-          <button
-            onClick={() => ModalManager.closeAll?.()}
-            className="flex-1 px-4 py-2 rounded-lg text-sm font-medium border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={handleSubmit}
-            className="flex-1 px-4 py-2 rounded-lg text-sm font-medium bg-red-500 hover:bg-red-600 active:bg-red-700 text-white transition-colors"
-          >
-            Anular minuta
-          </button>
-        </div>
-      </div>
-    ),
+    content:    <CancelModalContent minuteId={minuteId} onConfirm={onConfirm} />,
   });
 };
 
@@ -390,27 +338,17 @@ const CardBody = ({ minute }) => {
 // ============================================================
 // SUBCOMPONENTE: CardFooter
 //
-// Lógica de botones por estado:
+// Acciones por estado (simplificadas — transiciones solo en editor):
 //
-//   in-progress      → [-]      [-]       [-]        [Anular]  (solo anular)
-//   ready-for-edit   → [Editar] [-]       [-]        [Anular]
-//   pending          → [Editar] [Revisión][-]        [Anular]
-//   preview          → [-]      [Publicar][Devolver]  [Anular]
-//   completed        → [-]      [-]       [Descargar] [-]      (solo descarga)
-//   cancelled        → footer sin acciones
-//   llm-failed       → footer de error (sin acciones activas)
-//   processing-error → footer de error (sin acciones activas)
-//   deleted          → footer sin acciones
-//
-// Transiciones:
-//   ready-for-edit → pending          (btn Editar navega al editor)
-//   pending        → preview          (btn Enviar a revisión)
-//   pending        → cancelled        (btn Anular)
-//   preview        → completed        (btn Publicar)
-//   preview        → pending          (btn Devolver a edición)
-//   preview        → cancelled        (btn Anular)
-//   in-progress    → cancelled        (btn Anular)
-//   ready-for-edit → cancelled        (btn Anular — vía commit_message)
+//   in-progress      → [Anular]                          (1 botón)
+//   ready-for-edit   → [Editar]  [Anular]                (2 botones)
+//   pending          → [Editar]  [Anular]                (2 botones)
+//   preview          → [Ver]     [Anular]                (2 botones)
+//   completed        → [Ver]     [Descargar PDF]         (2 botones)
+//   cancelled        → sin acciones
+//   llm-failed       → mensaje de error, sin acciones
+//   processing-error → mensaje de error, sin acciones
+//   deleted          → sin acciones
 // ============================================================
 
 const BTN_BASE = [
@@ -433,55 +371,46 @@ const BTN_HOVER_SUCCESS = [
   "dark:hover:bg-green-900/20 dark:hover:text-green-400 dark:hover:border-green-700",
 ].join(" ");
 
-const BTN_HOVER_WARNING = [
-  "cursor-pointer",
-  "hover:bg-yellow-50 hover:text-yellow-600 hover:border-yellow-200",
-  "dark:hover:bg-yellow-900/20 dark:hover:text-yellow-400 dark:hover:border-yellow-700",
-].join(" ");
-
 const BTN_HOVER_DANGER = [
   "cursor-pointer",
   "hover:bg-red-50 hover:text-red-600 hover:border-red-200",
   "dark:hover:bg-red-900/20 dark:hover:text-red-400 dark:hover:border-red-700",
 ].join(" ");
 
-const BTN_DISABLED = "opacity-40 cursor-not-allowed";
-
-const FooterBtn = ({ icon, tooltip, onClick, disabled = false, variant = "default" }) => {
+const FooterBtn = ({ icon, label, tooltip, onClick, variant = "default" }) => {
   const variantMap = {
     default: BTN_HOVER_DEFAULT,
     success: BTN_HOVER_SUCCESS,
-    warning: BTN_HOVER_WARNING,
     danger:  BTN_HOVER_DANGER,
   };
-  const hoverClass = variantMap[variant] ?? BTN_HOVER_DEFAULT;
-  const stateClass = disabled ? BTN_DISABLED : hoverClass;
 
   return (
-    <button onClick={disabled ? undefined : onClick} className={`${BTN_BASE} ${stateClass}`}>
+    <button onClick={onClick} className={`${BTN_BASE} ${variantMap[variant] ?? BTN_HOVER_DEFAULT}`}>
       {icon}
-      <span className="
-        pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 -translate-x-1/2
-        px-2.5 py-1.5 rounded-lg bg-gray-800 dark:bg-gray-700
-        text-white text-xs font-normal leading-snug
-        w-max max-w-[180px] text-center
-        opacity-0 group-hover:opacity-100 transition-opacity duration-150
-        z-[9999] shadow-lg
-      ">
-        {tooltip}
-        <span className="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-gray-800 dark:border-t-gray-700" />
-      </span>
+      {label && <span className="ml-1">{label}</span>}
+      {tooltip && (
+        <span className="
+          pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 -translate-x-1/2
+          px-2.5 py-1.5 rounded-lg bg-gray-800 dark:bg-gray-700
+          text-white text-xs font-normal leading-snug
+          w-max max-w-[180px] text-center
+          opacity-0 group-hover:opacity-100 transition-opacity duration-150
+          z-[9999] shadow-lg
+        ">
+          {tooltip}
+          <span className="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-gray-800 dark:border-t-gray-700" />
+        </span>
+      )}
     </button>
   );
 };
 
 const CardFooter = ({ minute, onStatusChange }) => {
-  const navigate  = useNavigate();
-  const minuteId  = minute?.id;
-  const status    = String(minute?.status ?? "in-progress");
-  const filename  = buildMinuteFilename(minute?.title, minute?.date);
+  const navigate = useNavigate();
+  const minuteId = minute?.id;
+  const status   = String(minute?.status ?? "in-progress");
+  const filename = buildMinuteFilename(minute?.title, minute?.date);
 
-  // ── Booleans de estado ──────────────────────────────────────────────────
   const isInProgress      = status === "in-progress";
   const isReadyForEdit    = status === "ready-for-edit";
   const isPending         = status === "pending";
@@ -490,10 +419,13 @@ const CardFooter = ({ minute, onStatusChange }) => {
   const isCancelled       = status === "cancelled";
   const isLlmFailed       = status === "llm-failed";
   const isProcessingError = status === "processing-error";
-  const isDeleted         = status === "deleted";
 
-  // ── Estados terminales / sin acciones ───────────────────────────────────
-  if (isCancelled || isDeleted) {
+  const goToEditor  = () => { if (minuteId) navigate(`/minutes/process/${minuteId}`); };
+  const handleCancel = () => showConfirmCancelModal({ minuteId, onConfirm: onStatusChange });
+  const handleDownload = () => showDownloadModal({ filename });
+
+  // ── Sin acciones ─────────────────────────────────────────────────────────
+  if (isCancelled) {
     return (
       <div className="px-4 py-3 border-t border-secondary-200 dark:border-secondary-700/60 transition-theme flex items-center justify-center">
         <span className="text-xs text-gray-400 dark:text-gray-500 italic">Sin acciones disponibles</span>
@@ -501,7 +433,7 @@ const CardFooter = ({ minute, onStatusChange }) => {
     );
   }
 
-  // ── Estados de error — solo muestra info, sin acciones ──────────────────
+  // ── Error ─────────────────────────────────────────────────────────────────
   if (isLlmFailed || isProcessingError) {
     return (
       <div className="px-4 py-3 border-t border-secondary-200 dark:border-secondary-700/60 transition-theme flex items-center justify-center gap-2">
@@ -513,127 +445,84 @@ const CardFooter = ({ minute, onStatusChange }) => {
     );
   }
 
-  // ── Completed — solo descarga ───────────────────────────────────────────
+  // ── Completed: Ver + Descargar ────────────────────────────────────────────
   if (isCompleted) {
     return (
       <div className="p-4 border-t border-secondary-200 dark:border-secondary-700/60 transition-theme">
-        <button
-          onClick={() => showDownloadModal({ filename })}
-          className={`${BTN_BASE} ${BTN_HOVER_SUCCESS} w-full`}
-        >
-          <Icon name="download" />
-          <span className="ml-1">Descargar PDF</span>
-        </button>
+        <div className="grid grid-cols-2 gap-2">
+          <FooterBtn
+            icon={<Icon name="eye" />}
+            label="Ver"
+            tooltip="Ver minuta (solo lectura)"
+            onClick={goToEditor}
+          />
+          <FooterBtn
+            icon={<Icon name="download" />}
+            label="Descargar"
+            tooltip="Descargar PDF"
+            onClick={handleDownload}
+            variant="success"
+          />
+        </div>
       </div>
     );
   }
 
-  // ── Handlers ────────────────────────────────────────────────────────────
-  const handleEdit       = () => { if (minuteId) navigate(`/minutes/process/${minuteId}`); };
-  const handleToPreview  = () => showConfirmPreviewModal({ minuteId, onConfirm: onStatusChange });
-  const handlePublish    = () => showConfirmPublishModal({ minuteId, onConfirm: onStatusChange });
-  const handleReturn     = () => showConfirmReturnToPendingModal({ minuteId, onConfirm: onStatusChange });
-  const handleCancel     = () => showConfirmCancelModal({ minuteId, onConfirm: onStatusChange });
-
-  // ── Reglas de disponibilidad por estado ─────────────────────────────────
-  //
-  //   in-progress:    canEdit=F  canToPreview=F  canPublish=F  canReturn=F  canCancel=T
-  //   ready-for-edit: canEdit=T  canToPreview=F  canPublish=F  canReturn=F  canCancel=T
-  //   pending:        canEdit=T  canToPreview=T  canPublish=F  canReturn=F  canCancel=T
-  //   preview:        canEdit=F  canToPreview=F  canPublish=T  canReturn=T  canCancel=T
-
-  const canEdit      = isReadyForEdit || isPending;
-  const canToPreview = isPending;
-  const canPublish   = isPreview;
-  const canReturn    = isPreview;
-  const canCancel    = isInProgress || isReadyForEdit || isPending || isPreview;
-
-  // ── Tooltips ─────────────────────────────────────────────────────────────
-  const tooltipEdit = canEdit
-    ? "Editar contenido de la minuta"
-    : isInProgress
-      ? "La minuta aún está siendo procesada por la IA"
-      : isPreview
-        ? "La edición está bloqueada durante la revisión"
-        : "Sin acceso de edición en este estado";
-
-  const tooltipPreview = canToPreview
-    ? "Enviar a revisión — bloquea la edición hasta aprobación"
-    : isPreview
-      ? "La minuta ya está en revisión"
-      : isInProgress || isReadyForEdit
-        ? "Primero edita y guarda la minuta"
-        : "No disponible en este estado";
-
-  const tooltipPublish = canPublish
-    ? "Publicar minuta — acción irreversible, pasa a Completado"
-    : isCompleted
-      ? "La minuta ya fue publicada"
-      : "Solo disponible en estado En revisión";
-
-  const tooltipReturn = canReturn
-    ? "Devolver a edición — desbloquea modificaciones"
-    : "Solo disponible en estado En revisión";
-
-  const tooltipCancel = canCancel
-    ? "Anular minuta — quedará visible solo para trazabilidad"
-    : "No disponible en este estado";
-
-  // ── Layout del footer según estado ───────────────────────────────────────
-  //
-  //   in-progress:    [Edit↓] [Preview↓] [Publish↓]  [Anular]   (3 deshabilitados + anular)
-  //   ready-for-edit: [Editar][Preview↓] [Publish↓]  [Anular]
-  //   pending:        [Editar][Revisión]  [Publish↓]  [Anular]
-  //   preview:        [Edit↓] [Return]   [Publicar]  [Anular]
-
-  return (
-    <div className="p-4 border-t border-secondary-200 dark:border-secondary-700/60 transition-theme">
-      <div className="grid grid-cols-4 gap-2">
-
-        {/* EDITAR */}
-        <FooterBtn
-          icon={<Icon name="edit" />}
-          tooltip={tooltipEdit}
-          onClick={handleEdit}
-          disabled={!canEdit}
-        />
-
-        {/* ENVIAR A REVISIÓN / DEVOLVER */}
-        {isPreview ? (
-          <FooterBtn
-            icon={<Icon name="FaRotateLeft" />}
-            tooltip={tooltipReturn}
-            onClick={handleReturn}
-            disabled={!canReturn}
-            variant="warning"
-          />
-        ) : (
-          <FooterBtn
-            icon={<Icon name="FaMagnifyingGlass" />}
-            tooltip={tooltipPreview}
-            onClick={handleToPreview}
-            disabled={!canToPreview}
-          />
-        )}
-
-        {/* PUBLICAR */}
-        <FooterBtn
-          icon={<Icon name="checkCircle" />}
-          tooltip={tooltipPublish}
-          onClick={handlePublish}
-          disabled={!canPublish}
-          variant="success"
-        />
-
-        {/* ANULAR */}
+  // ── In-progress: solo Anular ──────────────────────────────────────────────
+  if (isInProgress) {
+    return (
+      <div className="p-4 border-t border-secondary-200 dark:border-secondary-700/60 transition-theme">
         <FooterBtn
           icon={<Icon name="ban" />}
-          tooltip={tooltipCancel}
+          label="Anular"
+          tooltip="Anular minuta"
           onClick={handleCancel}
-          disabled={!canCancel}
           variant="danger"
         />
+      </div>
+    );
+  }
 
+  // ── Preview: Ver + Anular ─────────────────────────────────────────────────
+  if (isPreview) {
+    return (
+      <div className="p-4 border-t border-secondary-200 dark:border-secondary-700/60 transition-theme">
+        <div className="grid grid-cols-2 gap-2">
+          <FooterBtn
+            icon={<Icon name="eye" />}
+            label="Ver"
+            tooltip="Ver minuta en revisión (solo lectura)"
+            onClick={goToEditor}
+          />
+          <FooterBtn
+            icon={<Icon name="ban" />}
+            label="Anular"
+            tooltip="Anular minuta"
+            onClick={handleCancel}
+            variant="danger"
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // ── Ready-for-edit / Pending: Editar + Anular ─────────────────────────────
+  return (
+    <div className="p-4 border-t border-secondary-200 dark:border-secondary-700/60 transition-theme">
+      <div className="grid grid-cols-2 gap-2">
+        <FooterBtn
+          icon={<Icon name="edit" />}
+          label="Editar"
+          tooltip={isReadyForEdit ? "Abrir editor — primera edición" : "Continuar edición"}
+          onClick={goToEditor}
+        />
+        <FooterBtn
+          icon={<Icon name="ban" />}
+          label="Anular"
+          tooltip="Anular minuta"
+          onClick={handleCancel}
+          variant="danger"
+        />
       </div>
     </div>
   );
@@ -643,7 +532,7 @@ const CardFooter = ({ minute, onStatusChange }) => {
 // COMPONENTE PRINCIPAL
 // ============================================================
 const MinuteCard = ({ minute, onStatusChange }) => {
-  const status      = String(minute?.status ?? "in-progress");
+  const status       = String(minute?.status ?? "in-progress");
   const statusConfig = getStatusCfg(status);
 
   return (

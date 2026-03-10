@@ -81,7 +81,7 @@ const ParticipantFormFields = ({ data, onChange }) => (
 
 // ── Componente principal ──────────────────────────────────────────────────────
 
-const MinuteEditorSectionParticipants = () => {
+const MinuteEditorSectionParticipants = ({ isReadOnly = false }) => {
   const { participants, addParticipant, updateParticipant, deleteParticipant } = useMinuteEditorStore();
 
   const openForm = (existing = null) => {
@@ -147,14 +147,16 @@ const MinuteEditorSectionParticipants = () => {
             Tabla editable. El campo correo es mockup — la lógica de BD se habilitará próximamente.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => openForm()}
-          className="px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white transition-theme shadow-md text-sm font-medium"
-        >
-          <Icon name="userPlus" className="mr-2" />
-          Agregar participante
-        </button>
+        {!isReadOnly && (
+          <button
+            type="button"
+            onClick={() => openForm()}
+            className="px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white transition-theme shadow-md text-sm font-medium"
+          >
+            <Icon name="userPlus" className="mr-2" />
+            Agregar participante
+          </button>
+        )}
       </div>
 
       {/* Tabla */}
@@ -165,7 +167,7 @@ const MinuteEditorSectionParticipants = () => {
               <th className="pb-3 pr-4">Nombre</th>
               <th className="pb-3 pr-4">Email</th>
               <th className="pb-3 pr-4">Tipo</th>
-              <th className="pb-3">Acciones</th>
+              {!isReadOnly && <th className="pb-3">Acciones</th>}
             </tr>
           </thead>
 
@@ -206,26 +208,28 @@ const MinuteEditorSectionParticipants = () => {
                     </td>
 
                     {/* Acciones */}
-                    <td className="py-3">
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => openForm(p)}
-                          className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-theme"
-                          title="Editar"
-                        >
-                          <Icon name="pen" className="text-xs" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(p.id, p.fullName || p.name)}
-                          className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-theme"
-                          title="Eliminar"
-                        >
-                          <Icon name="trash" className="text-xs" />
-                        </button>
-                      </div>
-                    </td>
+                    {!isReadOnly && (
+                      <td className="py-3">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => openForm(p)}
+                            className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-theme"
+                            title="Editar"
+                          >
+                            <Icon name="pen" className="text-xs" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(p.id, p.fullName || p.name)}
+                            className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-theme"
+                            title="Eliminar"
+                          >
+                            <Icon name="trash" className="text-xs" />
+                          </button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 );
               })

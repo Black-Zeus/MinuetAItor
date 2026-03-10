@@ -69,7 +69,7 @@ const formatDateForView = (raw) => {
   return s;
 };
 
-export const MinuteEditorCardMeeting = () => {
+export const MinuteEditorCardMeeting = ({ isReadOnly = false }) => {
   const { meetingInfo, updateMeetingInfo, pdfFormat } = useMinuteEditorStore();
   const [editing, setEditing] = useState(false);
 
@@ -93,14 +93,16 @@ export const MinuteEditorCardMeeting = () => {
           Información de la reunión
         </h2>
 
-        <button
-          type="button"
-          onClick={() => setEditing((v) => !v)}
-          className="px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition-theme text-sm"
-        >
-          <Icon name={editing ? "lock" : "edit"} className="mr-2" />
-          {editing ? "Bloquear" : "Editar"}
-        </button>
+        {!isReadOnly && (
+          <button
+            type="button"
+            onClick={() => setEditing((v) => !v)}
+            className="px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition-theme text-sm"
+          >
+            <Icon name={editing ? "lock" : "edit"} className="mr-2" />
+            {editing ? "Bloquear" : "Editar"}
+          </button>
+        )}
       </div>
 
       <div className="mt-5 space-y-4 flex-1">
@@ -116,7 +118,7 @@ export const MinuteEditorCardMeeting = () => {
             Fecha
           </span>
 
-          {editing ? (
+          {editing && !isReadOnly ? (
             <input
               type="date"
               value={meetingDateInputValue}
@@ -144,7 +146,7 @@ export const MinuteEditorCardMeeting = () => {
             Asunto
           </span>
 
-          {editing ? (
+          {editing && !isReadOnly ? (
             <textarea
               rows={4}
               value={meetingInfo.subject ?? ""}

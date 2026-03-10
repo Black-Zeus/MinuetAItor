@@ -114,3 +114,21 @@ export const getMinuteStatus = async (transactionId) => {
   const res = await api.get(`${BASE}/${transactionId}/status`);
   return unwrap(res);
 };
+
+// ─── VERSIONS (timeline) ──────────────────────────────────────────────────────
+/**
+ * GET /v1/minutes/{record_id}/versions
+ *
+ * Retorna el historial de versiones de una minuta, ordenado de más reciente
+ * a más antigua. Cada versión incluye autor, fecha, estado y commit_message.
+ *
+ * @param {string} recordId
+ * @returns {Promise<{ recordId, versions: Array<{
+ *   versionId, versionNum, versionLabel, statusCode, statusLabel,
+ *   publishedAt, publishedBy, commitMessage
+ * }> }>}
+ */
+export const getMinuteVersions = async (recordId) => {
+  const res = await api.get(`${BASE}/${recordId}/versions`);
+  return unwrap(res);
+};

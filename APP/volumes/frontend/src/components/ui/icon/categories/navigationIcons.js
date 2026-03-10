@@ -8,6 +8,8 @@ import {
   FaArrowUpRightFromSquare,
   FaHouse,
   FaDoorOpen,
+  FaArrowLeft,
+  FaEllipsisVertical,
 } from "react-icons/fa6";
 
 export const navigationIcons = {
@@ -30,4 +32,8 @@ export const navigationIcons = {
   FaArrowUpRightFromSquare,
   FaHouse,
   FaDoorOpen,
+  FaArrowLeft,
+  arrowLeft: FaArrowLeft,
+  FaEllipsisVertical,
+  ellipsisVertical: FaEllipsisVertical,
 };
