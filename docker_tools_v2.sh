@@ -945,35 +945,116 @@ drop_persistence() {
     
     echo -e "${RED}${BOLD}⚠️  ADVERTENCIA: Esta acción eliminará:${NC}"
     echo -e "   • Datos de bases de datos (volumes/*)"
-    echo -e "   • node_modules"
-    echo -e "   • package-lock.json"
-    echo -e "   • __pycache__"
+    echo -e "   • node_modules, package-lock.json y __pycache__"
+    echo -e "   • Datos de APP/data/*_data"
+    echo -e "   • Logs de APP/logs"
     echo ""
     
     if confirm_action "¿Eliminar todas las persistencias?" "no"; then
-        # Verificar contenedores en ejecución
-        local active_containers=$(docker ps --format "{{.Names}}")
         
-        # Eliminar volúmenes de servicios específicos
-        for service in mailpit mariadb minio rabbitmq redis redisinsight; do
-            if echo "$active_containers" | grep -q "$service"; then
-                echo -e "${YELLOW}⚠️  $service está en ejecución - NO se elimina${NC}"
-            else
-                if [[ -d "volumes/$service" ]]; then
-                    rm -rf "volumes/$service" 2>/dev/null && \
-                        echo -e "${GREEN}✅ Eliminado: volumes/$service${NC}" || \
-                        echo -e "${RED}❌ Error al eliminar volumes/$service${NC}"
+        # ===========================================
+        # CAMBIAR PERMISOS (siempre se ejecuta)
+        # ===========================================
+        echo -e "${YELLOW}Cambiando permisos de archivos...${NC}"
+        
+        # Cambiar permisos de data
+        if [[ -d ./APP/data ]]; then
+            sudo chown -R vsoto:vsoto ./APP/data/*_data 2>/dev/null
+            echo -e "${GREEN}✅ Permisos actualizados: APP/data/*_data${NC}"
+        fi
+        
+        # Cambiar permisos de logs
+        if [[ -d ./APP/logs ]]; then
+            sudo chown -R vsoto:vsoto ./APP/logs 2>/dev/null
+            echo -e "${GREEN}✅ Permisos actualizados: APP/logs${NC}"
+        fi
+        
+        echo ""
+        
+        # ===========================================
+        # 1. VOLÚMENES DOCKER
+        # ===========================================
+        if confirm_action "¿Eliminar volúmenes de Docker (volumes/*)?" "no"; then
+            # Verificar contenedores en ejecución
+            local active_containers=$(docker ps --format "{{.Names}}")
+            
+            # Eliminar volúmenes de servicios específicos
+            for service in mailpit mariadb minio rabbitmq redis redisinsight; do
+                if echo "$active_containers" | grep -q "$service"; then
+                    echo -e "${YELLOW}⚠️  $service está en ejecución - NO se elimina${NC}"
+                else
+                    if [[ -d "volumes/$service" ]]; then
+                        rm -rf "volumes/$service" 2>/dev/null && \
+                            echo -e "${GREEN}✅ Eliminado: volumes/$service${NC}" || \
+                            echo -e "${RED}❌ Error al eliminar volumes/$service${NC}"
+                    fi
                 fi
-            fi
-        done
+            done
+        else
+            echo -e "${YELLOW}⏭️  Omitida eliminación de volúmenes Docker${NC}"
+        fi
         
-        # Eliminar node_modules y package-lock.json
-        find . -type d -name "node_modules" -exec rm -rf {} + 2>/dev/null && \
-            echo -e "${GREEN}✅ Eliminados: node_modules${NC}"
-        find . -type f -name "package-lock.json" -exec rm -f {} + 2>/dev/null && \
-            echo -e "${GREEN}✅ Eliminados: package-lock.json${NC}"
-        find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null && \
-            echo -e "${GREEN}✅ Eliminados: __pycache__${NC}"
+        # ===========================================
+        # 2. NODE_MODULES, PACKAGE-LOCK Y PYCACHE
+        # ===========================================
+        if confirm_action "¿Eliminar node_modules, package-lock.json y __pycache__?" "no"; then
+            # node_modules
+            find . -type d -name "node_modules" -exec rm -rf {} + 2>/dev/null && \
+                echo -e "${GREEN}✅ Eliminados: node_modules${NC}"
+            
+            # package-lock.json
+            find . -type f -name "package-lock.json" -exec rm -f {} + 2>/dev/null && \
+                echo -e "${GREEN}✅ Eliminados: package-lock.json${NC}"
+            
+            # __pycache__
+            find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null && \
+                echo -e "${GREEN}✅ Eliminados: __pycache__${NC}"
+        else
+            echo -e "${YELLOW}⏭️  Omitida eliminación de node_modules, package-lock y __pycache__${NC}"
+        fi
+        
+        # ===========================================
+        # 3. APP/DATA/*_DATA
+        # ===========================================
+        if confirm_action "¿Eliminar carpetas APP/data/*_data?" "no"; then
+            if [[ -d ./APP/data ]]; then
+                local data_found=false
+                for data_dir in ./APP/data/*_data; do
+                    if [[ -d "$data_dir" ]]; then
+                        data_found=true
+                        rm -rf "$data_dir" 2>/dev/null && \
+                            echo -e "${GREEN}✅ Eliminado: $data_dir${NC}" || \
+                            echo -e "${RED}❌ Error al eliminar $data_dir${NC}"
+                    fi
+                done
+                if [[ "$data_found" == false ]]; then
+                    echo -e "${YELLOW}⚠️  No se encontraron carpetas *_data en APP/data${NC}"
+                fi
+            else
+                echo -e "${YELLOW}⚠️  No existe el directorio APP/data${NC}"
+            fi
+        else
+            echo -e "${YELLOW}⏭️  Omitida eliminación de APP/data/*_data${NC}"
+        fi
+        
+        # ===========================================
+        # 4. APP/LOGS
+        # ===========================================
+        if confirm_action "¿Eliminar contenido de APP/logs?" "no"; then
+            if [[ -d ./APP/logs ]]; then
+                if [[ -n "$(ls -A ./APP/logs 2>/dev/null)" ]]; then
+                    rm -rf ./APP/logs/* 2>/dev/null && \
+                        echo -e "${GREEN}✅ Eliminados: APP/logs${NC}" || \
+                        echo -e "${RED}❌ Error al eliminar APP/logs${NC}"
+                else
+                    echo -e "${YELLOW}⚠️  APP/logs ya está vacío${NC}"
+                fi
+            else
+                echo -e "${YELLOW}⚠️  No existe el directorio APP/logs${NC}"
+            fi
+        else
+            echo -e "${YELLOW}⏭️  Omitida eliminación de APP/logs${NC}"
+        fi
     fi
     
     pause
