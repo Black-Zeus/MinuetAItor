@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Minuta de Reunión</title>
+    <style>
+        :root {
+            --color-primary: #1f3c88;
+            --color-primary-dark: #162d66;
+            --color-primary-soft: #eef3fc;
+            --color-secondary: #f6f8fc;
+            --color-accent: #dbe5f7;
+            --color-border: #d7deeb;
+            --color-border-strong: #bfc9dd;
+            --color-text: #1f2937;
+            --color-text-soft: #4b5563;
+            --color-muted: #6b7280;
+            --color-bg: #f3f5f9;
+            --color-white: #ffffff;
+            --color-success: #166534;
+            --color-warning: #92400e;
+            --color-danger: #991b1b;
+            --shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+            --radius: 12px;
+            --radius-lg: 16px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background: var(--color-bg);
+            color: var(--color-text);
+            font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+            line-height: 1.5;
+            font-size: 13.5px;
+        }
+
+        .document {
+            width: 100%;
+        }
+
+        .page {
+            width: 210mm;
+            min-height: 297mm;
+            margin: 12mm auto;
+            background: var(--color-white);
+            box-shadow: var(--shadow);
+            padding: 14mm 14mm 16mm 14mm;
+            position: relative;
+            page-break-after: always;
+        }
+
+        .page:last-child {
+            page-break-after: auto;
+        }
+
+        .page-number {
+            position: absolute;
+            bottom: 8mm;
+            right: 14mm;
+            font-size: 11px;
+            color: var(--color-muted);
+        }
+
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 18px;
+            margin-bottom: 14px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        .page-header-left {
+            min-width: 0;
+        }
+
+        .page-header-title {
+            margin: 0;
+            font-size: 17px;
+            font-weight: 700;
+            color: var(--color-primary-dark);
+        }
+
+        .page-header-meta {
+            margin-top: 4px;
+            font-size: 12px;
+            color: var(--color-muted);
+        }
+
+        .page-header-right {
+            text-align: right;
+            font-size: 12px;
+            color: var(--color-muted);
+            white-space: nowrap;
+        }
+
+        .logo-box {
+            width: 210px;
+            height: 76px;
+            border: 1px dashed var(--color-border-strong);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--color-muted);
+            background: #fafcff;
+            overflow: hidden;
+        }
+
+        .logo-box img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            display: block;
+        }
+
+        .cover-page {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-height: calc(297mm - 30mm);
+        }
+
+        .cover-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 20px;
+        }
+
+        .cover-center {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 26px 0;
+        }
+
+        .cover-card {
+            width: 100%;
+            border: 1px solid var(--color-border);
+            border-radius: 18px;
+            overflow: hidden;
+            background: linear-gradient(180deg, #f9fbff 0%, #ffffff 100%);
+        }
+
+        .cover-header {
+            background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+            color: white;
+            padding: 26px 30px;
+        }
+
+        .cover-title {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+        }
+
+        .cover-subtitle {
+            margin: 8px 0 0 0;
+            font-size: 14px;
+            opacity: 0.94;
+        }
+
+        .cover-body {
+            padding: 24px 30px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px 28px;
+        }
+
+        .cover-item {
+            border-bottom: 1px solid var(--color-border);
+            padding-bottom: 8px;
+            min-width: 0;
+        }
+
+        .cover-item .label {
+            display: block;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--color-muted);
+            margin-bottom: 5px;
+            letter-spacing: 0.5px;
+        }
+
+        .cover-item .value {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--color-text);
+            word-break: break-word;
+        }
+
+        .cover-footer {
+            border-top: 1px solid var(--color-border);
+            padding: 16px 30px 20px;
+            color: var(--color-text-soft);
+            font-size: 12.5px;
+        }
+
+        .small-text {
+            font-size: 11.5px;
+            color: var(--color-muted);
+        }
+
+        .section-title {
+            margin: 0 0 12px 0;
+            padding: 10px 14px;
+            background: var(--color-primary-soft);
+            border-left: 5px solid var(--color-primary);
+            border-radius: 10px;
+            font-size: 17px;
+            font-weight: 700;
+            color: var(--color-primary-dark);
+        }
+
+        .subsection-title {
+            margin: 18px 0 8px;
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--color-primary-dark);
+        }
+
+        .section-note {
+            margin: -2px 0 12px;
+            font-size: 12px;
+            color: var(--color-muted);
+        }
+
+        .table-block {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 16px;
+            border: 1px solid var(--color-border);
+            border-radius: 10px;
+            overflow: hidden;
+            table-layout: fixed;
+        }
+
+        .table-block th,
+        .table-block td {
+            border: 1px solid var(--color-border);
+            padding: 9px 11px;
+            vertical-align: top;
+            text-align: left;
+            word-break: break-word;
+        }
+
+        .table-block thead th {
+            background: #f7f9fc;
+            color: var(--color-primary-dark);
+            font-weight: 700;
+        }
+
+        .tabla-info th.field-th {
+            background: #f8fafd;
+            color: var(--color-text-soft);
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .tabla-info td.value {
+            background: #ffffff;
+            color: var(--color-text);
+        }
+
+        .tabla-info td.value.soft {
+            background: #fcfdff;
+        }
+
+        .tabla-info .section-separator td {
+            background: #eef3fc;
+            color: var(--color-primary-dark);
+            font-weight: 700;
+            text-align: center;
+            padding: 9px 12px;
+            letter-spacing: 0.3px;
+        }
+
+        .value-inline {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 14px;
+            align-items: center;
+        }
+
+        .value-inline span {
+            display: inline-flex;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .value-inline strong {
+            color: var(--color-primary-dark);
+        }
+
+        .muted {
+            color: var(--color-muted);
+        }
+
+        .intro-box {
+            border: 1px solid var(--color-border);
+            border-radius: 10px;
+            background: #f8fbff;
+            padding: 12px 14px;
+            margin-bottom: 16px;
+        }
+
+        .rich-text p {
+            margin: 0 0 8px;
+            text-align: justify;
+        }
+
+        .rich-text ul,
+        .rich-text ol {
+            margin: 0 0 8px 18px;
+            padding: 0;
+        }
+
+        .rich-text li {
+            margin-bottom: 4px;
+        }
+
+        .topic-card {
+            border: 1px solid var(--color-border);
+            border-radius: 10px;
+            margin-bottom: 12px;
+            overflow: hidden;
+            background: white;
+        }
+
+        .topic-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            background: #f5f8ff;
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        .topic-title {
+            font-weight: 700;
+            color: var(--color-primary-dark);
+            margin: 0;
+            font-size: 14px;
+        }
+
+        .topic-body {
+            padding: 12px 14px;
+        }
+
+        .topic-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 10px;
+        }
+
+        .topic-box {
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            padding: 10px 11px;
+            background: #fcfdff;
+        }
+
+        .topic-box-title {
+            margin: 0 0 6px;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--color-primary-dark);
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 700;
+            background: var(--color-accent);
+            color: var(--color-primary-dark);
+            white-space: nowrap;
+        }
+
+        .badge.status-pendiente {
+            background: #fff7ed;
+            color: var(--color-warning);
+        }
+
+        .badge.status-en-curso {
+            background: #eff6ff;
+            color: var(--color-primary-dark);
+        }
+
+        .badge.status-cerrado {
+            background: #ecfdf3;
+            color: var(--color-success);
+        }
+
+        .badge.priority-alta {
+            background: #fef2f2;
+            color: var(--color-danger);
+        }
+
+        .badge.priority-media {
+            background: #fff7ed;
+            color: var(--color-warning);
+        }
+
+        .badge.priority-baja {
+            background: #eff6ff;
+            color: var(--color-primary-dark);
+        }
+
+        .tabla-participantes th {
+            background: #eef3fc;
+            color: var(--color-primary-dark);
+            font-weight: 700;
+            text-align: center;
+        }
+
+        .tabla-participantes td {
+            background: #ffffff;
+            color: var(--color-text);
+            vertical-align: middle;
+        }
+
+        .tabla-participantes .name-cell {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .tabla-participantes .abbr-cell {
+            text-align: center;
+            font-weight: 700;
+            color: var(--color-primary-dark);
+            background: #f8fafd;
+            white-space: nowrap;
+        }
+
+        .signature-blocks {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 24px;
+            margin-top: 24px;
+        }
+
+        .signature-box {
+            border-top: 1px solid var(--color-border);
+            padding-top: 10px;
+            min-height: 70px;
+        }
+
+        .signature-box .name {
+            font-weight: 700;
+            color: var(--color-text);
+        }
+
+        .signature-box .role {
+            font-size: 12px;
+            color: var(--color-muted);
+        }
+
+        .empty-state {
+            color: var(--color-muted);
+            font-style: italic;
+        }
+
+        .no-break {
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
+        [data-hidden="true"] {
+            display: none !important;
+        }
+
+        @media print {
+            body {
+                background: white;
+            }
+
+            .page {
+                margin: 0;
+                width: 210mm;
+                min-height: 297mm;
+                box-shadow: none;
+                padding: 14mm 14mm 16mm 14mm;
+            }
+        }
+
+        @page {
+            size: A4;
+            margin: 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="document">
+
+        <!-- ========================================================= -->
+        <!-- PORTADA (OPCIONAL) -->
+        <!-- ========================================================= -->
+        <section class="page" data-section="cover" data-hidden="false">
+            <div class="cover-page">
+                <div class="cover-top">
+                    <div class="logo-box">
+                        <img src="{{branding.clientLogoUrl}}" alt="Logo Cliente">
+                    </div>
+
+                    <div class="logo-box">
+                        <img src="{{branding.companyLogoUrl}}" alt="Logo Empresa">
+                    </div>
+                </div>
+
+                <div class="cover-center">
+                    <div class="cover-card">
+                        <div class="cover-header">
+                            <h1 class="cover-title">{{document.title}}</h1>
+                            <p class="cover-subtitle">{{document.subtitle}}</p>
+                        </div>
+
+                        <div class="cover-body">
+                            <div class="cover-item">
+                                <span class="label">Nombre de la sesión</span>
+                                <span class="value" data-field="meeting.title">{{meeting.title}}</span>
+                            </div>
+
+                            <div class="cover-item">
+                                <span class="label">Cliente</span>
+                                <span class="value" data-field="meeting.client">{{meeting.client}}</span>
+                            </div>
+
+                            <div class="cover-item">
+                                <span class="label">Proyecto</span>
+                                <span class="value" data-field="meeting.project">{{meeting.project}}</span>
+                            </div>
+
+                            <div class="cover-item">
+                                <span class="label">Fecha de sesión</span>
+                                <span class="value" data-field="meeting.sessionDate">{{meeting.sessionDate}}</span>
+                            </div>
+
+                            <div class="cover-item">
+                                <span class="label">Versión del documento</span>
+                                <span class="value" data-field="document.version">{{document.version}}</span>
+                            </div>
+
+                            <div class="cover-item">
+                                <span class="label">Preparado por</span>
+                                <span class="value" data-field="document.preparedBy">{{document.preparedBy}}</span>
+                            </div>
+                        </div>
+
+                        <div class="cover-footer" data-field="document.coverDescription">
+                            {{document.coverDescription}}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="small-text" data-field="document.footerLegend">
+                    {{document.footerLegend}}
+                </div>
+            </div>
+            <div class="page-number">Página 1</div>
+        </section>
+
+        <!-- ========================================================= -->
+        <!-- INFORMACIÓN GENERAL / PARTICIPANTES -->
+        <!-- ========================================================= -->
+        <section class="page" data-section="general">
+            <div class="page-header">
+                <div class="page-header-left">
+                    <h1 class="page-header-title">{{meeting.title}}</h1>
+                    <div class="page-header-meta">
+                        {{meeting.client}} · {{meeting.project}} · {{meeting.sessionDate}}
+                    </div>
+                </div>
+                <div class="page-header-right">
+                    <div>Versión: {{document.version}}</div>
+                    <div>Estado: {{document.status}}</div>
+                </div>
+            </div>
+
+            <h2 class="section-title">1. Información General</h2>
+
+            <table class="table-block tabla-info">
+                <colgroup>
+                    <col style="width: 16%">
+                    <col style="width: 17%">
+                    <col style="width: 17%">
+                    <col style="width: 16%">
+                    <col style="width: 17%">
+                    <col style="width: 17%">
+                </colgroup>
+                <tbody>
+                    <tr>
+                        <th class="field-th">Cliente</th>
+                        <td class="value" colspan="2" data-field="meeting.client">{{meeting.client}}</td>
+
+                        <th class="field-th">Elaborado por</th>
+                        <td class="value" colspan="2" data-field="document.preparedBy">{{document.preparedBy}}</td>
+                    </tr>
+
+                    <tr>
+                        <th class="field-th">Proyecto</th>
+                        <td class="value" colspan="2" data-field="meeting.project">{{meeting.project}}</td>
+
+                        <th class="field-th">Fecha sesión</th>
+                        <td class="value" colspan="2" data-field="meeting.sessionDate">{{meeting.sessionDate}}</td>
+                    </tr>
+
+                    <tr>
+                        <th class="field-th">Tema reunión</th>
+                        <td class="value" colspan="2" data-field="meeting.subject">{{meeting.subject}}</td>
+
+                        <th class="field-th">Plataforma</th>
+                        <td class="value" colspan="2" data-field="meeting.platform">{{meeting.platform}}</td>
+                    </tr>
+
+                    <tr class="section-separator">
+                        <td colspan="6">HORARIOS DE LA SESIÓN</td>
+                    </tr>
+
+                    <tr>
+                        <th class="field-th">Programado</th>
+                        <td class="value soft" colspan="2">
+                            <div class="value-inline">
+                                <span><strong>Inicio:</strong> <span
+                                        data-field="meeting.scheduledStart">{{meeting.scheduledStart}}</span></span>
+                                <span><strong>Término:</strong> <span
+                                        data-field="meeting.scheduledEnd">{{meeting.scheduledEnd}}</span></span>
+                            </div>
+                        </td>
+
+                        <th class="field-th">Duración planificada</th>
+                        <td class="value soft" colspan="2" data-field="meeting.scheduledDuration">
+                            {{meeting.scheduledDuration}}
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th class="field-th">Real</th>
+                        <td class="value soft" colspan="2">
+                            <div class="value-inline">
+                                <span><strong>Inicio:</strong> <span
+                                        data-field="meeting.actualStart">{{meeting.actualStart}}</span></span>
+                                <span><strong>Término:</strong> <span
+                                        data-field="meeting.actualEnd">{{meeting.actualEnd}}</span></span>
+                            </div>
+                        </td>
+
+                        <th class="field-th">Duración real</th>
+                        <td class="value soft" colspan="2" data-field="meeting.actualDuration">
+                            {{meeting.actualDuration}}
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th class="field-th">Observación horaria</th>
+                        <td class="value soft" colspan="5" data-field="meeting.timingNote">
+                            {{meeting.timingNote}}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3 class="subsection-title">2. Participantes</h3>
+            <div class="section-note">
+                Distribución de invitados, asistentes efectivos y destinatarios en copia de la presente minuta.
+            </div>
+
+            <table class="table-block tabla-participantes">
+                <colgroup>
+                    <col style="width: 24%">
+                    <col style="width: 9%">
+                    <col style="width: 24%">
+                    <col style="width: 9%">
+                    <col style="width: 24%">
+                    <col style="width: 10%">
+                </colgroup>
+                <thead>
+                    <tr>
+                        <th colspan="2">Invitados</th>
+                        <th colspan="2">Asistentes</th>
+                        <th colspan="2">Copia Minuta</th>
+                    </tr>
+                </thead>
+                <tbody data-repeat="participants.rows">
+                    <tr>
+                        <td class="name-cell" data-field="guests.name">{{row.guestName}}</td>
+                        <td class="abbr-cell" data-field="guests.abbr">{{row.guestAbbr}}</td>
+                        <td class="name-cell" data-field="attendees.name">{{row.attendeeName}}</td>
+                        <td class="abbr-cell" data-field="attendees.abbr">{{row.attendeeAbbr}}</td>
+                        <td class="name-cell" data-field="copy.name">{{row.copyName}}</td>
+                        <td class="abbr-cell" data-field="copy.abbr">{{row.copyAbbr}}</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="page-number">Página 2</div>
+        </section>
+
+        <!-- ========================================================= -->
+        <!-- ALCANCES -->
+        <!-- ========================================================= -->
+        <section class="page" data-section="scope">
+            <div class="page-header">
+                <div class="page-header-left">
+                    <h1 class="page-header-title">{{meeting.title}}</h1>
+                    <div class="page-header-meta">
+                        Resumen estructurado de contenidos tratados durante la sesión
+                    </div>
+                </div>
+                <div class="page-header-right">
+                    <div>Código: {{document.code}}</div>
+                    <div>Fecha: {{meeting.sessionDate}}</div>
+                </div>
+            </div>
+
+            <h2 class="section-title">3. Alcances</h2>
+
+            <div class="intro-box" data-section="scopeIntro" data-hidden="false">
+                <strong>Introducción:</strong>
+                <div class="rich-text" style="margin-top:8px;" data-field="scope.introductionHtml">
+                    {{scope.introductionHtml}}
+                </div>
+            </div>
+
+            <div data-repeat="scope.topics">
+                <div class="topic-card no-break">
+                    <div class="topic-header">
+                        <h3 class="topic-title">{{topic.title}}</h3>
+                        <span class="badge">{{topic.type}}</span>
+                    </div>
+
+                    <div class="topic-body">
+                        <div class="rich-text" data-field="topic.summaryHtml">
+                            {{topic.summaryHtml}}
+                        </div>
+
+                        <div class="topic-grid">
+                            <div class="topic-box" data-hidden="{{topic.keyPointsHidden}}">
+                                <div class="topic-box-title">Puntos clave</div>
+                                <div class="rich-text" data-field="topic.keyPointsHtml">
+                                    {{topic.keyPointsHtml}}
+                                </div>
+                            </div>
+
+                            <div class="topic-box" data-hidden="{{topic.observationsHidden}}">
+                                <div class="topic-box-title">Observaciones / Riesgos</div>
+                                <div class="rich-text" data-field="topic.observationsHtml">
+                                    {{topic.observationsHtml}}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="page-number">Página 3</div>
+        </section>
+
+        <!-- ========================================================= -->
+        <!-- ACUERDOS / REQUERIMIENTOS -->
+        <!-- ========================================================= -->
+        <section class="page" data-section="actions">
+            <div class="page-header">
+                <div class="page-header-left">
+                    <h1 class="page-header-title">{{meeting.title}}</h1>
+                    <div class="page-header-meta">
+                        Acuerdos adoptados y requerimientos levantados durante la sesión
+                    </div>
+                </div>
+                <div class="page-header-right">
+                    <div>Versión: {{document.version}}</div>
+                    <div>Estado: {{document.status}}</div>
+                </div>
+            </div>
+
+            <h2 class="section-title">4. Acuerdos</h2>
+
+            <table class="table-block tabla-acuerdos">
+                <thead>
+                    <tr>
+                        <th style="width:16%;">Asunto</th>
+                        <th style="width:36%;">Detalle</th>
+                        <th style="width:14%;">Encargado</th>
+                        <th style="width:10%;">Prioridad</th>
+                        <th style="width:12%;">Compromiso</th>
+                        <th style="width:12%;">Estado</th>
+                    </tr>
+                </thead>
+                <tbody data-repeat="agreements.items">
+                    <tr>
+                        <td data-field="agreement.subject">{{agreement.subject}}</td>
+                        <td data-field="agreement.body">{{agreement.body}}</td>
+                        <td data-field="agreement.owner">{{agreement.owner}}</td>
+                        <td data-field="agreement.priority">
+                            <span class="badge priority-{{agreement.priorityClass}}">
+                                {{agreement.priority}}
+                            </span>
+                        </td>
+                        <td data-field="agreement.dueDate">{{agreement.dueDate}}</td>
+                        <td data-field="agreement.status">
+                            <span class="badge status-{{agreement.statusClass}}">
+                                {{agreement.status}}
+                            </span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h2 class="section-title">5. Requerimientos</h2>
+
+            <table class="table-block tabla-requerimientos">
+                <thead>
+                    <tr>
+                        <th style="width:16%;">Entidad</th>
+                        <th style="width:36%;">Detalle</th>
+                        <th style="width:14%;">Encargado</th>
+                        <th style="width:10%;">Prioridad</th>
+                        <th style="width:12%;">Requerido para</th>
+                        <th style="width:12%;">Estado</th>
+                    </tr>
+                </thead>
+                <tbody data-repeat="requirements.items">
+                    <tr>
+                        <td data-field="requirement.entity">{{requirement.entity}}</td>
+                        <td data-field="requirement.body">{{requirement.body}}</td>
+                        <td data-field="requirement.owner">{{requirement.owner}}</td>
+                        <td data-field="requirement.priority">
+                            <span class="badge priority-{{requirement.priorityClass}}">
+                                {{requirement.priority}}
+                            </span>
+                        </td>
+                        <td data-field="requirement.targetDate">{{requirement.targetDate}}</td>
+                        <td data-field="requirement.status">
+                            <span class="badge status-{{requirement.statusClass}}">
+                                {{requirement.status}}
+                            </span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="page-number">Página 4</div>
+        </section>
+
+        <!-- ========================================================= -->
+        <!-- PRÓXIMAS REUNIONES / OBSERVACIONES -->
+        <!-- ========================================================= -->
+        <section class="page" data-section="nextMeetings">
+            <div class="page-header">
+                <div class="page-header-left">
+                    <h1 class="page-header-title">{{meeting.title}}</h1>
+                    <div class="page-header-meta">
+                        Planificación de continuidad y observaciones de cierre
+                    </div>
+                </div>
+                <div class="page-header-right">
+                    <div>Documento: {{document.code}}</div>
+                    <div>Fecha: {{meeting.sessionDate}}</div>
+                </div>
+            </div>
+
+            <h2 class="section-title">6. Próximas Reuniones</h2>
+
+            <table class="table-block tabla-reuniones">
+                <thead>
+                    <tr>
+                        <th style="width:16%;">Fecha</th>
+                        <th style="width:16%;">Objetivo</th>
+                        <th style="width:44%;">Puntos a tratar</th>
+                        <th style="width:24%;">Insumos previos</th>
+                    </tr>
+                </thead>
+                <tbody data-repeat="nextMeetings.items">
+                    <tr>
+                        <td data-field="nextMeeting.date">{{nextMeeting.date}}</td>
+                        <td data-field="nextMeeting.objective">{{nextMeeting.objective}}</td>
+                        <td data-field="nextMeeting.topics">{{nextMeeting.topics}}</td>
+                        <td data-field="nextMeeting.inputs">{{nextMeeting.inputs}}</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3 class="subsection-title">Observaciones Finales</h3>
+            <div class="intro-box">
+                <div class="rich-text" data-field="closingRemarks.html">
+                    {{closingRemarks.html}}
+                </div>
+            </div>
+
+            <div class="page-number">Página 5</div>
+        </section>
+
+        <!-- ========================================================= -->
+        <!-- CONTROL DE VERSIONES (OPCIONAL) -->
+        <!-- ========================================================= -->
+        <section class="page" data-section="versions" data-hidden="false">
+            <div class="page-header">
+                <div class="page-header-left">
+                    <h1 class="page-header-title">{{meeting.title}}</h1>
+                    <div class="page-header-meta">
+                        Historial de iteraciones y emisión del documento
+                    </div>
+                </div>
+                <div class="page-header-right">
+                    <div>Código: {{document.code}}</div>
+                    <div>Versión actual: {{document.version}}</div>
+                </div>
+            </div>
+
+            <h2 class="section-title">7. Control de Versiones</h2>
+
+            <table class="table-block">
+                <thead>
+                    <tr>
+                        <th style="width:12%;">Versión</th>
+                        <th style="width:16%;">Fecha</th>
+                        <th style="width:18%;">Autor</th>
+                        <th style="width:36%;">Descripción del cambio</th>
+                        <th style="width:18%;">Estado</th>
+                    </tr>
+                </thead>
+                <tbody data-repeat="versions.items">
+                    <tr>
+                        <td data-field="version.number">{{version.number}}</td>
+                        <td data-field="version.date">{{version.date}}</td>
+                        <td data-field="version.author">{{version.author}}</td>
+                        <td data-field="version.description">{{version.description}}</td>
+                        <td data-field="version.status">{{version.status}}</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="signature-blocks" data-section="approval" data-hidden="{{approval.hidden}}">
+                <div class="signature-box">
+                    <div class="name" data-field="approval.preparedByName">{{approval.preparedByName}}</div>
+                    <div class="role" data-field="approval.preparedByRole">{{approval.preparedByRole}}</div>
+                </div>
+                <div class="signature-box">
+                    <div class="name" data-field="approval.approvedByName">{{approval.approvedByName}}</div>
+                    <div class="role" data-field="approval.approvedByRole">{{approval.approvedByRole}}</div>
+                </div>
+            </div>
+
+            <div class="page-number">Página 6</div>
+        </section>
+
+    </div>
+</body>
+
+</html>
