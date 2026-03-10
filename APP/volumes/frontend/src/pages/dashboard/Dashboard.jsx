@@ -5,29 +5,30 @@
 
 import React, { useEffect, useState, useMemo } from "react";
 import { FaCalendarAlt, FaFileAlt, FaUsers } from "react-icons/fa";
+import { useNavigate } from "react-router-dom";
 
 import dashboardData from "@/data/dataDashBoard.json";
-import minutesData   from "@/data/minutes.json";
-import clientsData   from "@/data/dataClientes.json";
-import projectsData  from "@/data/dataProjectos.json";
+import minutesData from "@/data/minutes.json";
+import clientsData from "@/data/dataClientes.json";
+import projectsData from "@/data/dataProjectos.json";
 
-import DashboardHeader   from "./DashboardHeader";
-import MetricCard        from "./MetricCard";
-import PopularTags       from "./PopularTags";
+import DashboardHeader from "./DashboardHeader";
+import MetricCard from "./MetricCard";
+import PopularTags from "./PopularTags";
 import LastConectionInfo from "./LastConectionInfo";
-import MinutesSection    from "./MinutesSection";
+import MinutesSection from "./MinutesSection";
 import ConfidentialSection from "./ConfidentialSection";
-import PageLoadingSpinner  from "@/components/ui/modal/types/system/PageLoadingSpinner";
+import PageLoadingSpinner from "@/components/ui/modal/types/system/PageLoadingSpinner";
 
 import useBaseSiteStore from "@store/baseSiteStore"; // ← FIX: era dashboardStore
 
 import logger from '@/utils/logger';
 const dashboardLog = logger.scope("dashboard");
 
-export const TXT_TITLE    = "text-gray-900 dark:text-white";
+export const TXT_TITLE = "text-gray-900 dark:text-white";
 export const TXT_SUBTITLE = "text-gray-700 dark:text-gray-200";
-export const TXT_BODY     = "text-gray-600 dark:text-gray-300";
-export const TXT_META     = "text-gray-500 dark:text-gray-400";
+export const TXT_BODY = "text-gray-600 dark:text-gray-300";
+export const TXT_META = "text-gray-500 dark:text-gray-400";
 
 const randomN = (arr, n) => {
   if (!Array.isArray(arr) || arr.length === 0) return [];
@@ -35,17 +36,19 @@ const randomN = (arr, n) => {
 };
 
 const Dashboard = () => {
+  const navigate = useNavigate();
+
   // FIX: widgets viven en baseSiteStore.dashboard.widgets (no en dashboardStore)
   const widgets = useBaseSiteStore((s) => s.dashboard?.widgets ?? {});
-  const w       = (key) => widgets[key]?.enabled ?? true;
+  const w = (key) => widgets[key]?.enabled ?? true;
 
   const [isLoading, setIsLoading] = useState(true);
-  const [hasError,  setHasError]  = useState(false);
-  const [tagsData,  setTagsData]  = useState([]);
+  const [hasError, setHasError] = useState(false);
+  const [tagsData, setTagsData] = useState([]);
 
-  const [pendingMinutes,       setPendingMinutes]       = useState([]);
-  const [participatedMinutes,  setParticipatedMinutes]  = useState([]);
-  const [confidentialClients,  setConfidentialClients]  = useState([]);
+  const [pendingMinutes, setPendingMinutes] = useState([]);
+  const [participatedMinutes, setParticipatedMinutes] = useState([]);
+  const [confidentialClients, setConfidentialClients] = useState([]);
   const [confidentialProjects, setConfidentialProjects] = useState([]);
 
   const allClients = useMemo(() => clientsData?.clients || [], []);
@@ -79,13 +82,13 @@ const Dashboard = () => {
     load();
   }, []);
 
-  const handleUpdateClient  = (u) => setConfidentialClients((p)  => p.map((c) => c.id === u.id ? u : c));
-  const handleDeleteClient  = (id) => setConfidentialClients((p)  => p.filter((c) => c.id !== id));
-  const handleEditProject   = (u) => setConfidentialProjects((p) => p.map((c) => c.id === u.id ? u : c));
+  const handleUpdateClient = (u) => setConfidentialClients((p) => p.map((c) => c.id === u.id ? u : c));
+  const handleDeleteClient = (id) => setConfidentialClients((p) => p.filter((c) => c.id !== id));
+  const handleEditProject = (u) => setConfidentialProjects((p) => p.map((c) => c.id === u.id ? u : c));
   const handleDeleteProject = (id) => setConfidentialProjects((p) => p.filter((c) => c.id !== id));
 
   if (isLoading) return <PageLoadingSpinner message="Cargando dashboard..." />;
-  if (hasError)  return <div>Error al cargar los datos del dashboard.</div>;
+  if (hasError) return <div>Error al cargar los datos del dashboard.</div>;
 
   return (
     <div className="space-y-6 p-6 bg-background-light dark:bg-background-dark transition-theme min-h-screen">
@@ -93,6 +96,7 @@ const Dashboard = () => {
       <DashboardHeader
         userName={userName}
         subtitle="Resumen de tu actividad en MinuetAItor"
+        onNewMinute={() => navigate("/minutes")}
       />
 
       {w("stats") && (

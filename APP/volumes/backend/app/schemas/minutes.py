@@ -45,7 +45,7 @@ class MinuteProjectInfo(BaseModel):
 
 
 class MinuteParticipants(BaseModel):
-    attendees:       list[str]
+    attendees:       list[str] = Field(default_factory=list)
     invited:         list[str] = Field(default_factory=list)
     copy_recipients: list[str] = Field(default_factory=list, alias="copyRecipients")
 

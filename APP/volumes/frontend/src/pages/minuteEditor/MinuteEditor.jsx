@@ -40,9 +40,13 @@ const MinuteEditor = () => {
   const [recordMeta, setRecordMeta] = useState(null);
   const [isReadOnly, setIsReadOnly] = useState(false);
 
-  // Cuando el panel ejecuta una transición exitosa, actualiza el meta local
+  /**
+   * Callback que el Header invoca tras cada transición exitosa.
+   * Actualiza el status local para que el Header re-renderice
+   * con el estado correcto (ej: ready-for-edit → pending tras primer Guardar).
+   */
   const handleTransitionSuccess = (newStatus) => {
-    setRecordMeta(prev => prev ? { ...prev, status: newStatus } : prev);
+    setRecordMeta((prev) => prev ? { ...prev, status: newStatus } : prev);
     setIsReadOnly(!EDITABLE_STATUSES.has(newStatus));
   };
 
@@ -143,22 +147,32 @@ const MinuteEditor = () => {
   // ── Editor ───────────────────────────────────────────────────
   return (
     <div className="min-h-screen transition-theme">
-      <MinuteEditorHeader recordMeta={recordMeta} isReadOnly={isReadOnly} />
+      {/*
+        onTransitionSuccess conectado: el Header llama este callback tras
+        transitionMinute() exitoso, actualizando recordMeta.status en este
+        componente. Sin esto el status queda estancado (ej: ready-for-edit
+        tras el primer Guardar) y el siguiente Guardar intenta hacer
+        transition(pending→pending) dando 409.
+      */}
+      <MinuteEditorHeader
+        recordMeta={recordMeta}
+        isReadOnly={isReadOnly}
+        onTransitionSuccess={handleTransitionSuccess}
+      />
 
       <main className="max-w-7xl mx-auto px-4 py-6 space-y-6">
         {!isReadOnly && <MinuteEditorFindReplace />}
 
         <MinuteEditorTabs />
 
-        {/* Panel de transición de estado — visible cuando hay transiciones disponibles */}
-{activeTab === "info"         && <MinuteEditorSectionInfo         isReadOnly={isReadOnly} />}
+        {activeTab === "info"         && <MinuteEditorSectionInfo         isReadOnly={isReadOnly} />}
         {activeTab === "participants" && <MinuteEditorSectionParticipants isReadOnly={isReadOnly} />}
         {activeTab === "scope"        && <MinuteEditorSectionScope        isReadOnly={isReadOnly} />}
         {activeTab === "agreements"   && <MinuteEditorSectionAgreements   isReadOnly={isReadOnly} />}
         {activeTab === "requirements" && <MinuteEditorSectionRequirements isReadOnly={isReadOnly} />}
         {activeTab === "tags"         && <MinuteEditorSectionTags         isReadOnly={isReadOnly} />}
         {activeTab === "next"         && <MinuteEditorSectionNextMeetings isReadOnly={isReadOnly} />}
-        {activeTab === "timeline"     && <MinuteEditorSectionTimeline recordId={recordId} recordStatus={recordMeta?.status} />}
+        {activeTab === "timeline"     && <MinuteEditorSectionTimeline     recordId={recordId} recordStatus={recordMeta?.status} />}
         {activeTab === "pdfformat"    && <MinuteEditorSectionPdfFormat    isReadOnly={isReadOnly} />}
         {activeTab === "preview"      && <MinuteEditorSectionPreview      isReadOnly={isReadOnly} />}
         {activeTab === "metadata"     && <MinuteEditorSectionMetadata     isReadOnly={isReadOnly} />}

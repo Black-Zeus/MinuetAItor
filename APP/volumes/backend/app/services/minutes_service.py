@@ -30,6 +30,7 @@ from schemas.minutes import (
     MinuteStatusResponse,
     MinuteTransitionResponse,
 )
+from models.ai_profiles import AiProfile
 
 logger = logging.getLogger(__name__)
 
@@ -263,15 +264,15 @@ async def generate_minute(
 
     record = Record(
         id=record_id,
-        type_id=record_type_id,
+        record_type_id=record_type_id,
         status_id=status_in_prog_id,
         title=mi.title or f"{pi.client} — {mi.scheduled_date}",
         client_id=pi.client_id,
         project_id=pi.project_id,
         document_date=mi.scheduled_date,
         location=mi.location,
-        prepared_by=requested_by_id,
-        latest_version_num=1,
+        prepared_by_user_id=requested_by_id,
+        latest_version_num=0,
         created_by=requested_by_id,
     )
     db.add(record)
@@ -285,7 +286,6 @@ async def generate_minute(
         record_id=record_id,
         status="processing",
         requested_by=requested_by_id,
-        input_schema=input_schema,
     )
     db.add(tx)
 
@@ -297,14 +297,48 @@ async def generate_minute(
         raise HTTPException(status_code=500, detail="Error al crear el registro de minuta.")
 
     # ── Encolar job al worker ─────────────────────────────────────────────────
+    ai_profile_obj = db.query(AiProfile).filter(
+        AiProfile.id == request.profile_info.profile_id
+    ).first()
+
     job_payload = {
-        "type":               "generate_minute",
-        "transaction_id":     transaction_id,
-        "record_id":          record_id,
-        "requested_by_id":    requested_by_id,
-        "input_schema":       input_schema,
+        "type":            "generate_minute",
+        "transaction_id":  transaction_id,
+        "record_id":       record_id,
+        "requested_by_id": requested_by_id,
+
+        # Clave que el worker llama "ai_input_schema" (el backend la llama "input_schema")
+        "ai_input_schema": input_schema,
+
+        # Clave que el worker usa para descargar archivos de MinIO
+        # El worker espera: [{ fileName, mimeType, sha256, fileType }]
+        # obj_key tiene la forma "{record_id}/inputs/{filename}" — el worker usa solo el filename
+        "file_metadata": [
+            {
+                "fileName": m["filename"],
+                "mimeType": m["mime"],
+                "sha256":   m["sha256"],
+                "fileType": "transcript" if m["art_type_id"] == art_transcript_id else "summary",
+                "objKey":   m["obj_key"],
+            }
+            for m in input_objects_meta
+        ],
+
+        # Para el commit_tx2 al final del worker
         "input_objects_meta": input_objects_meta,
+
+        # Perfil IA con los 4 campos que el worker necesita
+        "ai_profile": {
+            "profile_id":          str(ai_profile_obj.id)              if ai_profile_obj else request.profile_info.profile_id,
+            "profile_name":        ai_profile_obj.name                 if ai_profile_obj else request.profile_info.profile_name,
+            "profile_description": ai_profile_obj.description or ""    if ai_profile_obj else "",
+            "profile_prompt":      ai_profile_obj.prompt      or ""    if ai_profile_obj else "",
+        },
+
+        # catalog_ids — el worker lo usa con .get() así que puede ir vacío por ahora
+        "catalog_ids": {},
     }
+    
     try:
         await _enqueue_job("queue:minutes", job_payload)
     except Exception as e:

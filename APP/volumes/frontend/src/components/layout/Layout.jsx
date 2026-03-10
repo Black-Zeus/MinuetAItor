@@ -1,20 +1,25 @@
 /**
  * Layout.jsx
  * Shell principal de la aplicación autenticada.
+ * Monta useMinuteSSE para notificaciones globales de minutas en procesamiento.
  */
 
 import React from 'react';
 import { Outlet } from 'react-router-dom';
-import Sidebar        from './sidebar/Sidebar';
-import Header         from './header/Header';
-import useAuthStore   from '@store/authStore';
+import Sidebar         from './sidebar/Sidebar';
+import Header          from './header/Header';
+import useAuthStore    from '@store/authStore';
 import useSessionStore from '@store/sessionStore';
+import { useMinuteSSE } from '@/hooks/useMinuteSSE';
 
 const Layout = ({ children }) => {
   const logout         = useAuthStore((s) => s.logout);
   const getDisplayData = useSessionStore((s) => s.getDisplayData);
   const userDisplay    = getDisplayData();
   const authz          = useSessionStore((s) => s.authz);
+
+  // Notificaciones SSE globales — escucha minutas en procesamiento
+  useMinuteSSE();
 
   const sidebarUser = {
     initials: userDisplay?.initials  || '?',

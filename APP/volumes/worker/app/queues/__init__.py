@@ -21,7 +21,7 @@ def register_all() -> None:
     Llamar una vez al arranque del worker, antes del loop principal.
     """
     # ── Cola: minutas (prioridad alta — flujo principal del producto) ─────────
-    registry.register("queue:minutes",     "minutes",         handle_minutes_job)
+    registry.register("queue:minutes",     "generate_minute",         handle_minutes_job)
 
     # ── Cola: email ───────────────────────────────────────────────────────────
     registry.register("queue:email",       "email",           handle_email_job)
