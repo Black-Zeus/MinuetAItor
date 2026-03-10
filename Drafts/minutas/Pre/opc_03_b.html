@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Minuta de Incidente / Troubleshooting</title>
+  
+  <link rel="stylesheet" href="general.css" />
+  <link rel="stylesheet" href="minuta_opc_03.css" />
+</head>
+<body>
+  <div class="document">
+    <!-- PÁGINA 1: CARÁTULA DE INCIDENTE -->
+    <div class="page">
+      <div class="company-header">
+        <div class="company-logo">
+          CLÍNICA SANTA AURORA S.A.
+          <span>Gestión de Incidentes · Tecnología</span>
+        </div>
+        <div class="document-code">
+          <strong>INCIDENTE-2026-042</strong>
+          <div>Versión 1.0</div>
+          <div>06 de marzo de 2026</div>
+        </div>
+      </div>
+
+      <h1>Reunión de Troubleshooting: Módulo de Autenticación</h1>
+      <div class="subtitle">Análisis, diagnóstico y plan de mitigación</div>
+
+      <div class="info-grid">
+        <div class="info-item">
+          <div class="info-label">Cliente</div>
+          <div class="info-value">Clínica Santa Aurora S.A.</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Proyecto</div>
+          <div class="info-value">Desarrollo Web Corporativo</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Fecha reunión</div>
+          <div class="info-value">06 marzo 2026</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Elaborado por</div>
+          <div class="info-value">Juan Pérez</div>
+        </div>
+      </div>
+
+      <div style="margin: 30px 0;">
+        <h2>Información de la sesión</h2>
+        <table>
+          <tr>
+            <th width="20%">Concepto</th>
+            <th width="40%">Programado</th>
+            <th width="40%">Real</th>
+          </tr>
+          <tr>
+            <td>Horario</td>
+            <td>09:00 - 10:00</td>
+            <td>09:05 - 10:10</td>
+          </tr>
+          <tr>
+            <td>Duración</td>
+            <td>1 hora</td>
+            <td>1 hora 5 minutos</td>
+          </tr>
+          <tr>
+            <td>Plataforma</td>
+            <td colspan="2">Microsoft Teams</td>
+          </tr>
+        </table>
+      </div>
+
+      <div class="problem-frame">
+        <strong>⚠️ SITUACIÓN OBSERVADA</strong>
+        Se identificó un problema con la sincronización de usuarios en el módulo de autenticación, afectando la estabilidad del sistema.
+      </div>
+
+      <div class="footer-note">
+        <span>Clínica Santa Aurora S.A. · Documento confidencial</span>
+        <span class="page-number">Página 1 de 4</span>
+      </div>
+    </div>
+
+    <!-- PÁGINA 2: PARTICIPANTES, CONTEXTO Y ANÁLISIS -->
+    <div class="page">
+      <h2>Participantes técnicos</h2>
+      <table>
+        <thead>
+          <tr>
+            <th width="33%">Invitados</th>
+            <th width="33%">Asistentes</th>
+            <th width="34%">Copia</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Pedro Sánchez (PS)</td>
+            <td><strong>Juan Pérez (JP)</strong><br>María González (MG)<br>Carlos Rodríguez (CR)</td>
+            <td>Ana Martínez (AM)</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2 style="margin-top: 35px;">Análisis del incidente</h2>
+      
+      <div class="flow">
+        <div class="step">
+          <h3>1. Hallazgos</h3>
+          <ul>
+            <li>Integración SSO completa con directorio activo</li>
+            <li>Issues de timeout de sesión identificados</li>
+            <li>Pantalla de error sin personalizar</li>
+            <li>Servidor staging listo con certificados SSL</li>
+          </ul>
+        </div>
+        <div class="step">
+          <h3>2. Diagnóstico</h3>
+          <ul>
+            <li>Timeout configurado en 5 minutos (debería ser 30)</li>
+            <li>Error 500 no capturado correctamente</li>
+            <li>Logs muestran desconexiones aleatorias</li>
+          </ul>
+        </div>
+        <div class="step">
+          <h3>3. Mitigación</h3>
+          <ul>
+            <li>Ajustar timeout a 30 minutos</li>
+            <li>Implementar página de error personalizada</li>
+            <li>Pruebas en staging antes de producción</li>
+          </ul>
+        </div>
+      </div>
+
+      <h2>Alcances de la sesión</h2>
+      
+      <div class="scope-block">
+        <div class="scope-header">
+          <span class="scope-title">Estado del módulo de autenticación</span>
+          <span class="scope-tag">SCOPE-002</span>
+        </div>
+        <div class="scope-summary">
+          El módulo de autenticación SSO está integrado con el directorio activo, con dos issues pendientes.
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Hecho:</span> Integración del módulo de login SSO con el directorio activo completa.
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Pendiente:</span> Resolver issues de timeout de sesión.
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Pendiente:</span> Personalización de la pantalla de error.
+        </div>
+      </div>
+
+      <div class="scope-block">
+        <div class="scope-header">
+          <span class="scope-title">Preparación del servidor de staging</span>
+          <span class="scope-tag">SCOPE-003</span>
+        </div>
+        <div class="scope-summary">
+          El servidor de staging está listo para el deploy con certificados SSL instalados.
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Hecho:</span> Certificados SSL instalados en el servidor de staging.
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Decisión:</span> Coordinar el deploy a staging el viernes en la tarde.
+        </div>
+      </div>
+
+      <div class="footer-note">
+        <span>Análisis preliminar - Pendiente de aprobación</span>
+        <span class="page-number">Página 2 de 4</span>
+      </div>
+    </div>
+
+    <!-- PÁGINA 3: ACUERDOS Y ACCIONES CORRECTIVAS -->
+    <div class="page">
+      <h2>Acciones correctivas</h2>
+      <table>
+        <thead>
+          <tr>
+            <th width="20%">Asunto</th>
+            <th width="45%">Detalle</th>
+            <th width="20%">Responsable</th>
+            <th width="15%">Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Cerrar issues de autenticación</strong></td>
+            <td>María González se comprometió a cerrar los issues de timeout de sesión y la pantalla de error personalizada antes del viernes.</td>
+            <td>María González</td>
+            <td><span class="badge badge-pending">Pendiente</span></td>
+          </tr>
+          <tr>
+            <td><strong>Coordinar deploy a staging</strong></td>
+            <td>Carlos Rodríguez coordinará el deploy del módulo al servidor de staging el viernes en la tarde.</td>
+            <td>Carlos Rodríguez</td>
+            <td><span class="badge badge-pending">Pendiente</span></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2 style="margin-top: 35px;">Requerimientos / Bloqueantes</h2>
+      <table>
+        <thead>
+          <tr>
+            <th width="20%">Entidad</th>
+            <th width="45%">Detalle</th>
+            <th width="15%">Prioridad</th>
+            <th width="20%">Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Dirección</td>
+            <td>Necesidad de aprobación del presupuesto para continuar con el desarrollo del proyecto.</td>
+            <td><span class="badge badge-medium">Media</span></td>
+            <td><span class="badge badge-open">Abierto</span></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2 style="margin-top: 35px;">Próxima reunión de seguimiento</h2>
+      <table>
+        <thead>
+          <tr>
+            <th width="20%">Fecha</th>
+            <th width="80%">Agenda</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>2026-03-12</td>
+            <td>Revisión de resultados del deploy y avance del módulo de agenda médica.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="footer-note">
+        <span>Las acciones tienen carácter correctivo inmediato</span>
+        <span class="page-number">Página 3 de 4</span>
+      </div>
+    </div>
+
+    <!-- PÁGINA 4: FIRMAS Y CIERRE -->
+    <div class="page">
+      <h2>Cierre del incidente y conformidad</h2>
+      <div class="subtitle" style="margin-bottom: 40px;">
+        Los abajo firmantes validan el plan de acción y el diagnóstico presentado
+      </div>
+
+      <div class="signatures">
+        <div>
+          <div class="signature-box">
+            <div class="signature-name">Juan Pérez</div>
+            <div class="signature-role">Preparador / Líder técnico</div>
+          </div>
+          <div style="margin-top: 10px; font-size: 11px; color: #999;">Firma: ___________________</div>
+        </div>
+
+        <div>
+          <div class="signature-box">
+            <div class="signature-name">María González</div>
+            <div class="signature-role">Responsable de desarrollo</div>
+          </div>
+          <div style="margin-top: 10px; font-size: 11px; color: #999;">Firma: ___________________</div>
+        </div>
+
+        <div>
+          <div class="signature-box">
+            <div class="signature-name">Carlos Rodríguez</div>
+            <div class="signature-role">DevOps / Infraestructura</div>
+          </div>
+          <div style="margin-top: 10px; font-size: 11px; color: #999;">Firma: ___________________</div>
+        </div>
+
+        <div>
+          <div class="signature-box">
+            <div class="signature-name">Ana Martínez</div>
+            <div class="signature-role">Calidad / QA</div>
+          </div>
+          <div style="margin-top: 10px; font-size: 11px; color: #999;">Firma: ___________________</div>
+        </div>
+      </div>
+
+      <div style="margin-top: 60px; background: #f8fafc; padding: 15px;">
+        <table style="margin: 0; background: white;">
+          <tr>
+            <th width="30%">Versión</th>
+            <th width="30%">Fecha</th>
+            <th width="40%">Descripción</th>
+          </tr>
+          <tr>
+            <td>0.9</td>
+            <td>06/03/2026</td>
+            <td>Borrador inicial con hallazgos</td>
+          </tr>
+          <tr>
+            <td><strong>1.0</strong></td>
+            <td>06/03/2026</td>
+            <td><strong>Plan de acción aprobado</strong></td>
+          </tr>
+        </table>
+      </div>
+
+      <div class="footer-note">
+        <span>Documento archivado en repositorio de incidentes</span>
+        <span class="page-number">Página 4 de 4</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
