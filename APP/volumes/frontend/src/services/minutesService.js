@@ -33,6 +33,50 @@ export const listMinutes = async ({
   return unwrap(res);
 };
 
+// ─── GENERATE ─────────────────────────────────────────────────────────────────
+/**
+ * POST /v1/minutes/generate
+ *
+ * Crea una nueva minuta enviando metadatos como JSON + archivos adjuntos.
+ * El request se envía como multipart/form-data:
+ *   - Campo "input_json": string JSON con todos los metadatos de la reunión
+ *   - Campo "files":      uno o más archivos (transcripción, resumen, etc.)
+ *
+ * La respuesta inmediata tiene status 202 y retorna { transactionId, recordId, status: "pending" }.
+ * El procesamiento IA es asíncrono — usar getMinuteStatus() para polling.
+ *
+ * @param {Object} payload         - Metadatos de la reunión (se serializa a JSON string)
+ * @param {File[]} files           - Array de archivos File (al menos uno requerido)
+ * @returns {Promise<{ transactionId: string, recordId: string, status: string }>}
+ *
+ * @example
+ * const result = await generateMinute(payload, [transcripcionFile, resumenFile]);
+ * // result.transactionId → usar para polling con getMinuteStatus()
+ * // result.recordId      → ID del registro creado en la BD
+ */
+export const generateMinute = async (payload, files = []) => {
+  const fd = new FormData();
+
+  // El backend espera el JSON como string en el campo "input_json"
+  fd.append("input_json", JSON.stringify(payload));
+
+  // Los archivos van todos bajo el mismo campo "files" (array)
+  files.forEach((file) => {
+    if (file instanceof File) {
+      fd.append("files", file);
+    }
+  });
+
+  // NO setear Content-Type manualmente — Axios lo genera con el boundary correcto
+  const res = await api.post(`${BASE}/generate`, fd, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
+
+  return unwrap(res);
+};
+
 // ─── DETAIL ───────────────────────────────────────────────────────────────────
 /**
  * GET /v1/minutes/{record_id}
