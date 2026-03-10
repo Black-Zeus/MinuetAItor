@@ -32,7 +32,7 @@ const PrioBadge = ({ prio }) => (
   </span>
 );
 
-const MinuteEditorSectionRequirements = () => {
+const MinuteEditorSectionRequirements = ({ isReadOnly = false }) => {
   const { requirements, addRequirement, updateRequirement, deleteRequirement } = useMinuteEditorStore();
 
   const openForm = (existing = null) => {
@@ -152,14 +152,16 @@ const MinuteEditorSectionRequirements = () => {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => openForm()}
-          className="px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white transition-theme shadow-md text-sm font-medium"
-        >
-          <Icon name="plus" className="mr-2" />
-          Agregar requerimiento
-        </button>
+        {!isReadOnly && (
+          <button
+            type="button"
+            onClick={() => openForm()}
+            className="px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white transition-theme shadow-md text-sm font-medium"
+          >
+            <Icon name="plus" className="mr-2" />
+            Agregar requerimiento
+          </button>
+        )}
       </div>
 
       <div className="mt-6 overflow-x-auto">
@@ -171,7 +173,7 @@ const MinuteEditorSectionRequirements = () => {
               <th className="pb-3 pr-4">Entidad</th>
               <th className="pb-3 pr-4">Responsable</th>
               <th className="pb-3 pr-4">Prioridad</th>
-              <th className="pb-3">Acciones</th>
+              {!isReadOnly && <th className="pb-3">Acciones</th>}
             </tr>
           </thead>
 
@@ -208,27 +210,28 @@ const MinuteEditorSectionRequirements = () => {
                     <PrioBadge prio={r.priority} />
                   </td>
 
-                  <td className="py-3">
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => openForm(r)}
-                        className="px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition-theme text-xs"
-                        title="Editar"
-                      >
-                        <Icon name="edit" />
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(r.id, r.body)}
-                        className="px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-theme text-xs"
-                        title="Eliminar"
-                      >
-                        <Icon name="delete" />
-                      </button>
-                    </div>
-                  </td>
+                  {!isReadOnly && (
+                    <td className="py-3">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openForm(r)}
+                          className="px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition-theme text-xs"
+                          title="Editar"
+                        >
+                          <Icon name="edit" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(r.id, r.body)}
+                          className="px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-theme text-xs"
+                          title="Eliminar"
+                        >
+                          <Icon name="delete" />
+                        </button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))
             )}

@@ -31,20 +31,23 @@ const TopicsList = ({
   updateSectionTopic,
   deleteSectionTopic,
   addSectionTopic,
+  isReadOnly = false,
 }) => (
   <div className="mt-5">
     <div className="flex items-center justify-between mb-3">
       <p className="text-xs font-bold tracking-wider text-gray-500 dark:text-gray-400 uppercase transition-theme">
         Temas tratados (editable)
       </p>
-      <button
-        type="button"
-        onClick={() => addSectionTopic(sectionId)}
-        className="px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-700 text-white transition-theme text-xs font-medium shadow-sm"
-      >
-        <Icon name="plus" className="mr-1" />
-        Agregar tema
-      </button>
+      {!isReadOnly && (
+        <button
+          type="button"
+          onClick={() => addSectionTopic(sectionId)}
+          className="px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-700 text-white transition-theme text-xs font-medium shadow-sm"
+        >
+          <Icon name="plus" className="mr-1" />
+          Agregar tema
+        </button>
+      )}
     </div>
 
     <ul className="space-y-2">
@@ -57,17 +60,20 @@ const TopicsList = ({
           <input
             type="text"
             value={topic.text}
-            onChange={(e) => updateSectionTopic(sectionId, topic.id, e.target.value)}
+            onChange={(e) => !isReadOnly && updateSectionTopic(sectionId, topic.id, e.target.value)}
+            readOnly={isReadOnly}
             className="flex-1 bg-transparent text-sm text-gray-900 dark:text-gray-100 transition-theme focus:outline-none border-b border-transparent focus:border-primary-400"
           />
-          <button
-            type="button"
-            onClick={() => deleteSectionTopic(sectionId, topic.id)}
-            className="px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-theme text-xs"
-            title="Eliminar tema"
-          >
-            <Icon name="delete" />
-          </button>
+          {!isReadOnly && (
+            <button
+              type="button"
+              onClick={() => deleteSectionTopic(sectionId, topic.id)}
+              className="px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-theme text-xs"
+              title="Eliminar tema"
+            >
+              <Icon name="delete" />
+            </button>
+          )}
         </li>
       ))}
       {topicsList.length === 0 && (
@@ -86,6 +92,7 @@ const DetailsList = ({
   updateSectionDetail,
   deleteSectionDetail,
   addSectionDetail,
+  isReadOnly = false,
 }) => (
   <div className="mt-5">
     <p className="text-xs font-bold tracking-wider text-gray-500 dark:text-gray-400 uppercase transition-theme mb-3">
@@ -103,29 +110,33 @@ const DetailsList = ({
               type="text"
               value={detail.label}
               onChange={(e) =>
-                updateSectionDetail(sectionId, detail.id, "label", e.target.value)
+                !isReadOnly && updateSectionDetail(sectionId, detail.id, "label", e.target.value)
               }
+              readOnly={isReadOnly}
               className="flex-1 bg-transparent text-sm font-semibold text-primary-700 dark:text-primary-300 transition-theme focus:outline-none border-b border-transparent focus:border-primary-400"
             />
-            <button
-              type="button"
-              onClick={() => deleteSectionDetail(sectionId, detail.id)}
-              className="px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-theme text-xs"
-              title="Eliminar detalle"
-            >
-              <Icon name="delete" />
-            </button>
+            {!isReadOnly && (
+              <button
+                type="button"
+                onClick={() => deleteSectionDetail(sectionId, detail.id)}
+                className="px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-theme text-xs"
+                title="Eliminar detalle"
+              >
+                <Icon name="delete" />
+              </button>
+            )}
           </div>
           <textarea
             value={detail.description}
             onChange={(e) =>
-              updateSectionDetail(
+              !isReadOnly && updateSectionDetail(
                 sectionId,
                 detail.id,
                 "description",
                 e.target.value
               )
             }
+            readOnly={isReadOnly}
             rows={3}
             className="mt-3 w-full bg-white/50 dark:bg-black/10 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm text-gray-900 dark:text-gray-100 transition-theme focus:outline-none focus:ring-2 focus:ring-primary-500/40 resize-none"
           />
@@ -138,21 +149,23 @@ const DetailsList = ({
       )}
     </div>
 
-    <div className="mt-4 flex justify-end">
-      <button
-        type="button"
-        onClick={() => addSectionDetail(sectionId)}
-        className="px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white transition-theme text-sm font-medium shadow-sm"
-      >
-        <Icon name="plus" className="mr-2" />
-        Agregar detalle
-      </button>
-    </div>
+    {!isReadOnly && (
+      <div className="mt-4 flex justify-end">
+        <button
+          type="button"
+          onClick={() => addSectionDetail(sectionId)}
+          className="px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white transition-theme text-sm font-medium shadow-sm"
+        >
+          <Icon name="plus" className="mr-2" />
+          Agregar detalle
+        </button>
+      </div>
+    )}
   </div>
 );
 
 // Componente principal
-const MinuteEditorSectionScope = () => {
+const MinuteEditorSectionScope = ({ isReadOnly = false }) => {
   const {
     scopeSections,
     updateSectionSummary,
@@ -306,6 +319,7 @@ const MinuteEditorSectionScope = () => {
                   updateSectionTopic={updateSectionTopic}
                   deleteSectionTopic={deleteSectionTopic}
                   addSectionTopic={addSectionTopic}
+                  isReadOnly={isReadOnly}
                 />
               )}
 
@@ -317,6 +331,7 @@ const MinuteEditorSectionScope = () => {
                   updateSectionDetail={updateSectionDetail}
                   deleteSectionDetail={deleteSectionDetail}
                   addSectionDetail={addSectionDetail}
+                  isReadOnly={isReadOnly}
                 />
               )}
             </div>

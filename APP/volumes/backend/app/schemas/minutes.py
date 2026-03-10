@@ -219,3 +219,24 @@ class MinuteListResponse(BaseModel):
     limit:   int
 
     model_config = {"populate_by_name": True}
+
+# ── VERSIONES: GET /minutes/{record_id}/versions ─────────────────────────────
+
+class MinuteVersionItem(BaseModel):
+    version_id:    str            = Field(..., serialization_alias="versionId")
+    version_num:   int            = Field(..., serialization_alias="versionNum")
+    version_label: str            = Field(..., serialization_alias="versionLabel")
+    status_code:   str            = Field(..., serialization_alias="statusCode")
+    status_label:  str            = Field(..., serialization_alias="statusLabel")
+    published_at:  Optional[str]  = Field(None, serialization_alias="publishedAt")
+    published_by:  Optional[str]  = Field(None, serialization_alias="publishedBy")
+    commit_message: Optional[str] = Field(None, serialization_alias="commitMessage")
+
+    model_config = {"populate_by_name": True}
+
+
+class MinuteVersionsResponse(BaseModel):
+    record_id: str               = Field(..., serialization_alias="recordId")
+    versions:  list[MinuteVersionItem]
+
+    model_config = {"populate_by_name": True}

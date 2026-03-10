@@ -20,7 +20,7 @@ import {
   FaMoon,
   FaLocationDot,
   FaNetworkWired,
-  FaClockRotateLeft
+  FaClockRotateLeft,
 } from "react-icons/fa6";
 
 export const baseIcons = {
@@ -68,5 +68,7 @@ export const baseIcons = {
   FaLocationDot,
   FaClockRotateLeft: FaClock,
   history: FaClockRotateLeft,
-  FaNetworkWired
+  FaNetworkWired,
+  person: FaUser,
+  FaPerson: FaUser,
 };

@@ -264,7 +264,7 @@ const DerivedField = ({ label, value }) => (
 // Toggle card para hojas adicionales
 // ─────────────────────────────────────────────────────────────
 
-const SheetToggleCard = ({ title, description, icon, enabled, onToggle, children }) => (
+const SheetToggleCard = ({ title, description, icon, enabled, onToggle, children, isReadOnly = false }) => (
   <article className={`rounded-xl border transition-theme overflow-hidden shadow-sm
     ${enabled
       ? 'border-primary-300/60 dark:border-primary-600/40'
@@ -295,8 +295,10 @@ const SheetToggleCard = ({ title, description, icon, enabled, onToggle, children
       <button
         type="button"
         onClick={onToggle}
+        disabled={isReadOnly}
         className={`relative w-12 h-6 rounded-full transition-colors duration-200 focus:outline-none
-          ${enabled ? 'bg-primary-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+          ${enabled ? 'bg-primary-500' : 'bg-gray-300 dark:bg-gray-600'}
+          ${isReadOnly ? 'opacity-50 cursor-not-allowed' : ''}`}
         aria-label={enabled ? 'Desactivar' : 'Activar'}
       >
         <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200
@@ -459,14 +461,16 @@ const SignaturePageConfig = () => {
         <p className="text-xs text-gray-500 dark:text-gray-400 transition-theme">
           Personas que firmarán/aprobarán el documento. Se generará un cuadro de firma por cada firmante.
         </p>
-        <button
-          type="button"
-          onClick={() => openForm()}
-          className="px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-xs font-semibold transition-all shadow-sm shrink-0"
-        >
-          <Icon name="plus" className="mr-1" />
-          Agregar
-        </button>
+        {!isReadOnly && (
+          <button
+            type="button"
+            onClick={() => openForm()}
+            className="px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-xs font-semibold transition-all shadow-sm shrink-0"
+          >
+            <Icon name="plus" className="mr-1" />
+            Agregar
+          </button>
+        )}
       </div>
 
       {signatories.length === 0 ? (
@@ -506,7 +510,7 @@ const PDF_SHEETS = [
 // Componente principal
 // ─────────────────────────────────────────────────────────────
 
-const MinuteEditorSectionPdfFormat = () => {
+const MinuteEditorSectionPdfFormat = ({ isReadOnly = false }) => {
   const { pdfFormat, togglePdfSheet } = useMinuteEditorStore();
   const [selectedTemplate, setSelectedTemplate] = useState('standard');
   const enabledCount = PDF_SHEETS.filter(s => pdfFormat[s.key]?.enabled).length;
@@ -536,7 +540,7 @@ const MinuteEditorSectionPdfFormat = () => {
 
         {/* Selector de template */}
         <div className="mt-5 border-t border-gray-100 dark:border-gray-700/50 pt-5 transition-theme">
-          <TemplateSelector selectedId={selectedTemplate} onChange={setSelectedTemplate} />
+          <TemplateSelector selectedId={selectedTemplate} onChange={isReadOnly ? undefined : setSelectedTemplate} />
         </div>
       </div>
 
@@ -550,6 +554,7 @@ const MinuteEditorSectionPdfFormat = () => {
             icon={icon}
             enabled={pdfFormat[key]?.enabled ?? false}
             onToggle={() => togglePdfSheet(key)}
+            isReadOnly={isReadOnly}
           >
             <ConfigComponent />
           </SheetToggleCard>

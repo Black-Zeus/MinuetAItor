@@ -26,9 +26,8 @@ import MinuteEditorSectionTimeline      from "./sections/MinuteEditorSectionTime
 import MinuteEditorSectionPdfFormat     from "./sections/MinuteEditorSectionPdfFormat";
 import MinuteEditorSectionPreview       from "./sections/MinuteEditorSectionPreview";
 import MinuteEditorSectionMetadata      from "./sections/MinuteEditorSectionMetadata";
-import MinuteEditorStatusPanel          from "./MinuteEditorStatusPanel";
 
-const EDITABLE_STATUSES = new Set(["pending"]);
+const EDITABLE_STATUSES = new Set(["pending", "ready-for-edit"]);
 
 const MinuteEditor = () => {
   const { id: recordId } = useParams();
@@ -152,22 +151,17 @@ const MinuteEditor = () => {
         <MinuteEditorTabs />
 
         {/* Panel de transición de estado — visible cuando hay transiciones disponibles */}
-        <MinuteEditorStatusPanel
-          recordMeta={recordMeta}
-          onTransitionSuccess={handleTransitionSuccess}
-        />
-
-        {activeTab === "info"         && <MinuteEditorSectionInfo         isReadOnly={isReadOnly} />}
+{activeTab === "info"         && <MinuteEditorSectionInfo         isReadOnly={isReadOnly} />}
         {activeTab === "participants" && <MinuteEditorSectionParticipants isReadOnly={isReadOnly} />}
         {activeTab === "scope"        && <MinuteEditorSectionScope        isReadOnly={isReadOnly} />}
         {activeTab === "agreements"   && <MinuteEditorSectionAgreements   isReadOnly={isReadOnly} />}
         {activeTab === "requirements" && <MinuteEditorSectionRequirements isReadOnly={isReadOnly} />}
         {activeTab === "tags"         && <MinuteEditorSectionTags         isReadOnly={isReadOnly} />}
         {activeTab === "next"         && <MinuteEditorSectionNextMeetings isReadOnly={isReadOnly} />}
-        {activeTab === "timeline"     && <MinuteEditorSectionTimeline />}
+        {activeTab === "timeline"     && <MinuteEditorSectionTimeline recordId={recordId} recordStatus={recordMeta?.status} />}
         {activeTab === "pdfformat"    && <MinuteEditorSectionPdfFormat    isReadOnly={isReadOnly} />}
-        {activeTab === "preview"      && <MinuteEditorSectionPreview />}
-        {activeTab === "metadata"     && <MinuteEditorSectionMetadata />}
+        {activeTab === "preview"      && <MinuteEditorSectionPreview      isReadOnly={isReadOnly} />}
+        {activeTab === "metadata"     && <MinuteEditorSectionMetadata     isReadOnly={isReadOnly} />}
       </main>
     </div>
   );

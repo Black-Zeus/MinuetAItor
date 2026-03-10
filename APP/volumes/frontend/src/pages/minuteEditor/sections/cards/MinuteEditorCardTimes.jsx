@@ -53,7 +53,7 @@ const SectionTitle = ({ children }) => (
   </div>
 );
 
-export const MinuteEditorCardTimes = () => {
+export const MinuteEditorCardTimes = ({ isReadOnly = false }) => {
   const { meetingTimes, updateMeetingTimes } = useMinuteEditorStore();
   const [editing, setEditing] = useState(false);
 
@@ -96,14 +96,16 @@ export const MinuteEditorCardTimes = () => {
           )}
         </div>
 
-        <button
-          type="button"
-          onClick={() => setEditing((v) => !v)}
-          className="px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition-theme text-sm shrink-0"
-        >
-          <Icon name={editing ? "lock" : "edit"} className="mr-2" />
-          {editing ? "Bloquear" : "Editar"}
-        </button>
+        {!isReadOnly && (
+          <button
+            type="button"
+            onClick={() => setEditing((v) => !v)}
+            className="px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition-theme text-sm shrink-0"
+          >
+            <Icon name={editing ? "lock" : "edit"} className="mr-2" />
+            {editing ? "Bloquear" : "Editar"}
+          </button>
+        )}
       </div>
 
       <div className="mt-5 space-y-5 flex-1">
@@ -111,7 +113,7 @@ export const MinuteEditorCardTimes = () => {
         <div className="space-y-4">
           <SectionTitle>Programado</SectionTitle>
 
-          {editing ? (
+          {editing && !isReadOnly ? (
             <>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -149,7 +151,7 @@ export const MinuteEditorCardTimes = () => {
         <div className="space-y-4">
           <SectionTitle>Real</SectionTitle>
 
-          {editing ? (
+          {editing && !isReadOnly ? (
             <>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
