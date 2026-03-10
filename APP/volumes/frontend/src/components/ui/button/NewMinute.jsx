@@ -1,41 +1,40 @@
 // components/ui/button/NewMinute.jsx
+/**
+ * NewMinute — Asistente de creación de minutas
+ *
+ * Cambios vs versión anterior:
+ *  - Importa useMinuteNotificationStore
+ *  - Tras crear la minuta exitosamente llama addPending(transactionId, recordId, clientName)
+ *    para que useMinuteSSE abra el canal SSE y notifique cuando esté lista.
+ */
+
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import ActionButton from "./ActionButton";
-import { FaPlus } from "react-icons/fa";
-import clientsData from "@/data/dataClientes.json";
-import projectsData from "@/data/dataProjectos.json";
-import analysisProfiles from "@/data/analysisProfilesCatalog.json";
+import Icon from "@/components/ui/icon/iconManager";
 import ModalManager from "@/components/ui/modal";
-import { useState, useCallback, useMemo } from "react";
 import { generateMinute } from "@/services/minutesService";
+import clientService from "@/services/clientService";
+import projectService from "@/services/projectService";
+import profileService, { profileCategoryService } from "@/services/profileService";
 import useAuthStore from "@/store/authStore";
+import useMinuteNotificationStore from "@/store/minuteNotificationStore";
 
 import logger from "@/utils/logger";
 const minLog = logger.scope("minute");
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/**
- * Convierte un string multilinea en array de strings no vacíos.
- * "Juan Pérez\nMaría González\n" → ["Juan Pérez", "María González"]
- */
 const toStringArray = (str) =>
   String(str ?? "")
     .split("\n")
     .map((s) => s.trim())
     .filter(Boolean);
 
-/**
- * Construye el payload JSON que espera POST /v1/minutes/generate
- * en el campo "input_json".
- *
- * Recibe el formData del formulario + datos de lookup para resolver
- * nombres a partir de IDs.
- */
-const buildPayload = ({ formData, clients, projects, profiles, preparedBy }) => {
-  // Resolver nombres desde IDs
-  const client  = clients.find((c) => String(c.id) === String(formData.client));
-  const project = projects.find((p) => String(p.id) === String(formData.project));
-  const profile = profiles.find((p) => String(p.id) === String(formData.analysisProfile));
+const buildPayload = ({ formData, clients, projects, profiles, categories, preparedBy }) => {
+  const client   = clients.find((c)   => String(c.id)  === String(formData.client));
+  const project  = projects.find((p)  => String(p.id)  === String(formData.project));
+  const profile  = profiles.find((p)  => String(p.id)  === String(formData.analysisProfile));
+  const category = categories.find((c) => String(c.id) === String(formData.analysisCategory));
 
   return {
     meetingInfo: {
@@ -43,25 +42,24 @@ const buildPayload = ({ formData, clients, projects, profiles, preparedBy }) => 
       scheduledStartTime: formData.scheduledStartTime ?? "",
       scheduledEndTime:   formData.scheduledEndTime   ?? "",
       actualStartTime:    formData.actualStartTime    ?? "",
-      // Campos opcionales no capturados en el form actual — se envían vacíos
-      actualEndTime: "",
-      location:      "",
+      actualEndTime:      "",
+      location:           "",
     },
     projectInfo: {
-      client:    String(client?.company  ?? "").trim(),
-      clientID:  String(client?.id       ?? "").trim(),
-      project:   String(project?.name    ?? "").trim(),
-      projectID: String(project?.id      ?? "").trim(),
-      category:  String(formData.analysisCategory ?? "").trim(),
+      client:    String(client?.name    ?? "").trim(),
+      clientID:  String(client?.id      ?? "").trim(),
+      project:   String(project?.name   ?? "").trim(),
+      projectID: String(project?.id     ?? "").trim(),
+      category:  String(category?.name  ?? "").trim(),
     },
     participants: {
       attendees:      toStringArray(formData.attendees),
-      invited:        [],   // Campo no capturado en el form actual
+      invited:        [],
       copyRecipients: toStringArray(formData.ccParticipants),
     },
     profileInfo: {
-      profileId:   String(profile?.id     ?? "").trim(),
-      profileName: String(profile?.nombre ?? "").trim(),
+      profileId:   String(profile?.id   ?? "").trim(),
+      profileName: String(profile?.name ?? "").trim(),
     },
     preparedBy: String(preparedBy ?? "").trim(),
     additionalNotes: String(formData.additionalInfo ?? "").trim(),
@@ -71,12 +69,6 @@ const buildPayload = ({ formData, clients, projects, profiles, preparedBy }) => 
   };
 };
 
-/**
- * Construye el array de archivos a enviar.
- * - transcription: requerido (File)
- * - summary:       opcional (File | null)
- * Solo incluye archivos válidos (instancias de File).
- */
 const buildFiles = (formData) => {
   const files = [];
   if (formData.transcription instanceof File) files.push(formData.transcription);
@@ -84,121 +76,178 @@ const buildFiles = (formData) => {
   return files;
 };
 
-// ─── NewMinuteForm ─────────────────────────────────────────────────────────────
+// ─── Spinner inline ───────────────────────────────────────────────────────────
 
-/**
- * NewMinuteForm - Formulario personalizado con combos dependientes
- * - Cliente -> Proyecto
- * - Categoría/Perfil (configuran el enfoque del análisis IA de la minuta: ajustan el prompt)
- */
-const NewMinuteForm = ({ onSubmit, onCancel, isSubmitting }) => {
+const InlineSpinner = ({ text = "Cargando..." }) => (
+  <div className="flex items-center justify-center gap-2 py-8 text-gray-500 dark:text-gray-400">
+    <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+    </svg>
+    <span className="text-sm">{text}</span>
+  </div>
+);
+
+// ─── NewMinuteFormInner ────────────────────────────────────────────────────────
+
+const NewMinuteFormInner = ({ onSubmit, onCancel, isSubmitting, onCatalogLoaded }) => {
   const [formData, setFormData] = useState({
-    client: "",
-    project: "",
-    analysisCategory: "",
-    analysisProfile: "",
-    transcription: null,
-    summary: null,
-    scheduledDate: "",
+    client:             "",
+    project:            "",
+    analysisCategory:   "",
+    analysisProfile:    "",
+    transcription:      null,
+    summary:            null,
+    scheduledDate:      "",
     scheduledStartTime: "",
-    actualStartTime: "",
-    scheduledEndTime: "",
-    attendees: "",
-    ccParticipants: "",
-    additionalInfo: "",
+    actualStartTime:    "",
+    scheduledEndTime:   "",
+    attendees:          "",
+    ccParticipants:     "",
+    additionalInfo:     "",
   });
 
-  const [errors, setErrors] = useState({});
+  const [errors, setErrors]           = useState({});
   const [currentStep, setCurrentStep] = useState(0);
 
-  // Opciones de clientes (solo empresa)
-  const clientOptions = useMemo(() => {
-    return (clientsData?.clients ?? []).map((client) => ({
-      value: String(client.id),
-      label: String(client.company ?? "").trim() || "(Empresa sin nombre)",
-    }));
-  }, []);
+  const [clients,    setClients]    = useState([]);
+  const [projects,   setProjects]   = useState([]);
+  const [profiles,   setProfiles]   = useState([]);
+  const [categories, setCategories] = useState([]);
 
-  // Categorías únicas desde catálogo (solo no vacías)
+  const [loadingCatalog,  setLoadingCatalog]  = useState(true);
+  const [loadingProjects, setLoadingProjects] = useState(false);
+  const [catalogError,    setCatalogError]    = useState(null);
+
+  const catalogLoaded = useRef(false);
+
+  useEffect(() => {
+    if (catalogLoaded.current) return;
+    catalogLoaded.current = true;
+
+    (async () => {
+      setLoadingCatalog(true);
+      setCatalogError(null);
+      try {
+        const [cr, pr, catR] = await Promise.all([
+          clientService.list({ isActive: true, limit: 200 }),
+          profileService.list({ isActive: true, limit: 200 }),
+          profileCategoryService.list({ isActive: true, limit: 200 }),
+        ]);
+        const c = cr.items   ?? [];
+        const p = pr.items   ?? [];
+        const k = catR.items ?? [];
+        setClients(c);
+        setProfiles(p);
+        setCategories(k);
+        onCatalogLoaded?.({ clients: c, profiles: p, categories: k, projects: [] });
+      } catch (err) {
+        minLog.error("Error cargando catálogos:", err);
+        setCatalogError("No se pudieron cargar los datos. Verifica tu conexión e intenta de nuevo.");
+      } finally {
+        setLoadingCatalog(false);
+      }
+    })();
+  }, [onCatalogLoaded]);
+
+  useEffect(() => {
+    if (!formData.client) { setProjects([]); return; }
+
+    (async () => {
+      setLoadingProjects(true);
+      try {
+        const r = await projectService.list({
+          isActive: true,
+          limit: 200,
+          filters: { clientId: formData.client },
+        });
+        const p = r.items ?? [];
+        setProjects(p);
+        onCatalogLoaded?.({ projects: p });
+      } catch (err) {
+        minLog.error("Error cargando proyectos:", err);
+        setProjects([]);
+      } finally {
+        setLoadingProjects(false);
+      }
+    })();
+  }, [formData.client, onCatalogLoaded]);
+
+  const clientOptions = useMemo(() =>
+    clients.map((c) => ({
+      value: String(c.id),
+      label: String(c.name ?? "").trim() || "(Sin nombre)",
+    })),
+  [clients]);
+
+  const projectOptions = useMemo(() =>
+    projects.map((p) => ({
+      value: String(p.id),
+      label: String(p.name ?? "").trim(),
+    })),
+  [projects]);
+
   const categoryOptions = useMemo(() => {
-    const cats = (analysisProfiles ?? [])
-      .map((p) => String(p?.categoria ?? "").trim())
-      .filter(Boolean);
-
-    const unique = Array.from(new Set(cats)).sort((a, b) =>
-      a.localeCompare(b, "es")
+    const catIdsWithProfiles = new Set(
+      profiles.map((p) => String(p.categoryId ?? p.category_id ?? ""))
     );
+    return categories
+      .filter((c) => catIdsWithProfiles.has(String(c.id)))
+      .map((c) => ({ value: String(c.id), label: String(c.name ?? "") }));
+  }, [categories, profiles]);
 
-    return unique.map((cat) => ({ value: cat, label: cat }));
-  }, []);
-
-  // Opciones de perfiles filtrados por categoría seleccionada (+ status true)
   const analysisProfileOptions = useMemo(() => {
-    const cat = String(formData.analysisCategory ?? "");
-    if (!cat) return [];
-
-    return (analysisProfiles ?? [])
-      .filter((p) => String(p?.categoria ?? "") === cat)
-      .filter((p) => p?.status === true)
-      .sort((a, b) =>
-        String(a?.nombre ?? "").localeCompare(String(b?.nombre ?? ""), "es")
-      )
+    if (!formData.analysisCategory) return [];
+    return profiles
+      .filter((p) => String(p.categoryId ?? p.category_id ?? "") === String(formData.analysisCategory))
+      .sort((a, b) => String(a.name ?? "").localeCompare(String(b.name ?? ""), "es"))
       .map((p) => ({
-        value: String(p.id),
-        label: p.nombre,
-        description: p.descripcion,
+        value:       String(p.id),
+        label:       String(p.name ?? ""),
+        description: String(p.description ?? ""),
       }));
-  }, [formData.analysisCategory]);
+  }, [profiles, formData.analysisCategory]);
 
-  // Función para obtener proyectos filtrados por cliente
-  const getProjectsByClient = useCallback((clientId) => {
-    if (!clientId) return [];
+  const selectedProfile = useMemo(() => {
+    if (!formData.analysisProfile) return null;
+    return analysisProfileOptions.find(
+      (p) => p.value === String(formData.analysisProfile)
+    ) ?? null;
+  }, [analysisProfileOptions, formData.analysisProfile]);
 
-    return (projectsData?.projects ?? [])
-      .filter((project) => String(project.clientId) === String(clientId))
-      .map((project) => ({
-        value: String(project.id),
-        label: project.name,
-      }));
-  }, []);
+  const selectedClient = useMemo(() =>
+    clients.find((c) => String(c.id) === String(formData.client)) ?? null,
+  [clients, formData.client]);
+
+  const selectedProject = useMemo(() =>
+    projects.find((p) => String(p.id) === String(formData.project)) ?? null,
+  [projects, formData.project]);
+
+  const selectedCategory = useMemo(() =>
+    categories.find((c) => String(c.id) === String(formData.analysisCategory)) ?? null,
+  [categories, formData.analysisCategory]);
 
   const handleChange = (name, value) => {
     setFormData((prev) => {
       const newData = { ...prev, [name]: value };
-
-      // Si cambia el cliente, resetear el proyecto
-      if (name === "client") {
-        newData.project = "";
-      }
-
-      // Si cambia la categoría, resetear perfil y autoseleccionar si hay 1 único
+      if (name === "client") newData.project = "";
       if (name === "analysisCategory") {
-        const cat = String(value ?? "");
-        const matches = (analysisProfiles ?? [])
-          .filter((p) => String(p?.categoria ?? "") === cat)
-          .filter((p) => p?.status === true);
-
-        newData.analysisProfile = matches.length === 1 ? String(matches[0].id) : "";
+        const catProfiles = profiles.filter(
+          (p) => String(p.categoryId ?? p.category_id ?? "") === String(value)
+        );
+        newData.analysisProfile = catProfiles.length === 1 ? String(catProfiles[0].id) : "";
       }
-
       return newData;
     });
 
-    // Limpiar error del campo actual
-    if (errors[name]) {
-      setErrors((prev) => ({ ...prev, [name]: null }));
-    }
-
-    // Si cambia categoría, también limpiar error de perfil
+    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: null }));
     if (name === "analysisCategory" && errors.analysisProfile) {
       setErrors((prev) => ({ ...prev, analysisProfile: null }));
     }
   };
 
-  // Validación por paso
   const validateStep = (step) => {
     const newErrors = {};
-
     switch (step) {
       case 0:
         if (!formData.client)           newErrors.client           = "Cliente es requerido";
@@ -206,34 +255,26 @@ const NewMinuteForm = ({ onSubmit, onCancel, isSubmitting }) => {
         if (!formData.analysisCategory) newErrors.analysisCategory = "Categoría de análisis es requerida";
         if (!formData.analysisProfile)  newErrors.analysisProfile  = "Perfil de análisis es requerido";
         break;
-
       case 1:
         if (!formData.transcription) newErrors.transcription = "Transcripción es requerida";
         break;
-
       case 2:
         if (!formData.scheduledDate)      newErrors.scheduledDate      = "Fecha programada es requerida";
         if (!formData.scheduledStartTime) newErrors.scheduledStartTime = "Hora inicio programada es requerida";
         if (!formData.actualStartTime)    newErrors.actualStartTime    = "Hora inicio real es requerida";
         if (!formData.scheduledEndTime)   newErrors.scheduledEndTime   = "Hora término es requerida";
         break;
-
       default:
         break;
     }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  // Navegación entre pasos
   const handleNext = () => {
     if (validateStep(currentStep)) {
-      if (currentStep < steps.length - 1) {
-        setCurrentStep(currentStep + 1);
-      } else {
-        handleSubmit();
-      }
+      if (currentStep < steps.length - 1) setCurrentStep(currentStep + 1);
+      else handleSubmit();
     }
   };
 
@@ -245,76 +286,43 @@ const NewMinuteForm = ({ onSubmit, onCancel, isSubmitting }) => {
     onSubmit?.(formData);
   };
 
-  // Obtener proyectos disponibles
-  const projectOptions = getProjectsByClient(formData.client);
-
-  // Perfil seleccionado (resolver por id)
-  const selectedProfile = useMemo(() => {
-    if (!formData.analysisProfile) return null;
-    return (analysisProfiles ?? []).find(
-      (p) => String(p.id) === String(formData.analysisProfile)
-    );
-  }, [formData.analysisProfile]);
-
-  // Definición de pasos
   const steps = [
-    { title: "Información General", number: 1 },
-    { title: "Adjuntos", number: 2 },
-    { title: "Fechas y Horarios", number: 3 },
-    { title: "Participantes", number: 4 },
+    { title: "Información General",   number: 1 },
+    { title: "Adjuntos",              number: 2 },
+    { title: "Fechas y Horarios",     number: 3 },
+    { title: "Participantes",         number: 4 },
     { title: "Información Adicional", number: 5 },
-    { title: "Confirmación", number: 6 },
+    { title: "Confirmación",          number: 6 },
   ];
 
-  // Helpers para confirmación (evita .find duplicados)
-  const selectedClient = useMemo(() => {
-    return (clientsData?.clients ?? []).find(
-      (c) => String(c.id) === String(formData.client)
-    );
-  }, [formData.client]);
-
-  const selectedProject = useMemo(() => {
-    return (projectsData?.projects ?? []).find(
-      (p) => String(p.id) === String(formData.project)
-    );
-  }, [formData.project]);
-
-  // Determinar si el botón de avance/finalizar debe estar deshabilitado
-  const isLastStep      = currentStep === steps.length - 1;
-  const submitDisabled  = isLastStep && isSubmitting;
+  const isLastStep     = currentStep === steps.length - 1;
+  const submitDisabled = (isLastStep && isSubmitting) || loadingCatalog || !!catalogError;
 
   return (
     <div className="flex flex-col w-full h-[700px]">
-      {/* Header con indicador de pasos */}
+
+      {/* Stepper */}
       <div className="flex-shrink-0 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center justify-between mb-4">
           {steps.map((step, idx) => (
             <div key={idx} className="flex items-center">
               <div
-                className={`
-                  flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold
+                className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold
                   ${idx === currentStep
                     ? "bg-blue-600 text-white"
                     : idx < currentStep
                       ? "bg-green-600 text-white"
                       : "bg-gray-300 dark:bg-gray-600 text-gray-600 dark:text-gray-400"
-                  }
-                `}
+                  }`}
               >
                 {idx < currentStep ? "✓" : step.number}
               </div>
               {idx < steps.length - 1 && (
-                <div
-                  className={`w-12 h-1 mx-2 ${idx < currentStep
-                    ? "bg-green-600"
-                    : "bg-gray-300 dark:bg-gray-600"
-                    }`}
-                />
+                <div className={`w-12 h-1 mx-2 ${idx < currentStep ? "bg-green-600" : "bg-gray-300 dark:bg-gray-600"}`} />
               )}
             </div>
           ))}
         </div>
-
         <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
           {steps[currentStep].title}
         </h3>
@@ -323,17 +331,22 @@ const NewMinuteForm = ({ onSubmit, onCancel, isSubmitting }) => {
       {/* Contenido con scroll */}
       <div className="flex-1 overflow-y-auto px-6 py-4 min-h-0">
 
-        {/* ── Paso 0: Información General ── */}
-        {currentStep === 0 && (
+        {loadingCatalog && <InlineSpinner text="Cargando catálogos..." />}
+        {!loadingCatalog && catalogError && (
+          <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-300">
+            {catalogError}
+          </div>
+        )}
+
+        {/* Paso 0: Información General */}
+        {!loadingCatalog && !catalogError && currentStep === 0 && (
           <div className="space-y-4">
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
               Seleccione cliente y proyecto. Luego configure el{" "}
               <strong>enfoque de análisis IA</strong> (categoría y perfil) que
-              ajustará el <strong>prompt</strong> utilizado para analizar la
-              minuta.
+              ajustará el <strong>prompt</strong> utilizado para analizar la minuta.
             </p>
 
-            {/* Cliente */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Empresa <span className="text-red-500">*</span>
@@ -341,61 +354,55 @@ const NewMinuteForm = ({ onSubmit, onCancel, isSubmitting }) => {
               <select
                 value={formData.client}
                 onChange={(e) => handleChange("client", e.target.value)}
-                className={`
-                  w-full px-3 py-2 border rounded-lg
-                  bg-white dark:bg-gray-800
-                  text-gray-900 dark:text-gray-100
-                  ${errors.client
-                    ? "border-red-500 focus:ring-red-500"
-                    : "border-gray-300 dark:border-gray-600 focus:ring-blue-500"
-                  }
-                  focus:outline-none focus:ring-2
-                `}
+                className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
+                  ${errors.client ? "border-red-500 focus:ring-red-500" : "border-gray-300 dark:border-gray-600 focus:ring-blue-500"}
+                  focus:outline-none focus:ring-2`}
               >
                 <option value="">Seleccione una empresa</option>
                 {clientOptions.map((opt) => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
               </select>
-              {errors.client && (
-                <p className="mt-1 text-sm text-red-500">{errors.client}</p>
-              )}
+              {errors.client && <p className="mt-1 text-sm text-red-500">{errors.client}</p>}
             </div>
 
-            {/* Proyecto */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Proyecto <span className="text-red-500">*</span>
               </label>
-              <select
-                value={formData.project}
-                onChange={(e) => handleChange("project", e.target.value)}
-                disabled={!formData.client}
-                className={`
-                  w-full px-3 py-2 border rounded-lg
-                  bg-white dark:bg-gray-800
-                  text-gray-900 dark:text-gray-100
-                  ${errors.project
-                    ? "border-red-500 focus:ring-red-500"
-                    : "border-gray-300 dark:border-gray-600 focus:ring-blue-500"
-                  }
-                  focus:outline-none focus:ring-2
-                  disabled:opacity-50 disabled:cursor-not-allowed
-                `}
-              >
-                <option value="">
-                  {formData.client ? "Seleccione un proyecto" : "Primero seleccione una empresa"}
-                </option>
-                {projectOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
-              {errors.project && (
-                <p className="mt-1 text-sm text-red-500">{errors.project}</p>
+              {loadingProjects ? (
+                <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 py-2">
+                  <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                  </svg>
+                  Cargando proyectos...
+                </div>
+              ) : (
+                <select
+                  value={formData.project}
+                  onChange={(e) => handleChange("project", e.target.value)}
+                  disabled={!formData.client}
+                  className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
+                    ${errors.project ? "border-red-500 focus:ring-red-500" : "border-gray-300 dark:border-gray-600 focus:ring-blue-500"}
+                    focus:outline-none focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  <option value="">
+                    {formData.client ? "Seleccione un proyecto" : "Primero seleccione una empresa"}
+                  </option>
+                  {projectOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              )}
+              {errors.project && <p className="mt-1 text-sm text-red-500">{errors.project}</p>}
+              {formData.client && !loadingProjects && projectOptions.length === 0 && (
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Este cliente no tiene proyectos activos.
+                </p>
               )}
             </div>
 
-            {/* Categoría */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Categoría de análisis IA <span className="text-red-500">*</span>
@@ -403,32 +410,21 @@ const NewMinuteForm = ({ onSubmit, onCancel, isSubmitting }) => {
               <select
                 value={formData.analysisCategory}
                 onChange={(e) => handleChange("analysisCategory", e.target.value)}
-                className={`
-                  w-full px-3 py-2 border rounded-lg
-                  bg-white dark:bg-gray-800
-                  text-gray-900 dark:text-gray-100
-                  ${errors.analysisCategory
-                    ? "border-red-500 focus:ring-red-500"
-                    : "border-gray-300 dark:border-gray-600 focus:ring-blue-500"
-                  }
-                  focus:outline-none focus:ring-2
-                `}
+                className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
+                  ${errors.analysisCategory ? "border-red-500 focus:ring-red-500" : "border-gray-300 dark:border-gray-600 focus:ring-blue-500"}
+                  focus:outline-none focus:ring-2`}
               >
                 <option value="">Seleccione una categoría</option>
                 {categoryOptions.map((opt) => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
               </select>
-              {errors.analysisCategory && (
-                <p className="mt-1 text-sm text-red-500">{errors.analysisCategory}</p>
-              )}
+              {errors.analysisCategory && <p className="mt-1 text-sm text-red-500">{errors.analysisCategory}</p>}
               <p className="mt-2 text-xs text-gray-600 dark:text-gray-400">
-                Define el <strong>área técnica</strong> del análisis (por ejemplo:
-                Infraestructura, Seguridad, Software).
+                Define el <strong>área técnica</strong> del análisis (por ejemplo: Infraestructura, Seguridad, Software).
               </p>
             </div>
 
-            {/* Perfil de Análisis */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Perfil de análisis IA <span className="text-red-500">*</span>
@@ -437,17 +433,9 @@ const NewMinuteForm = ({ onSubmit, onCancel, isSubmitting }) => {
                 value={formData.analysisProfile}
                 onChange={(e) => handleChange("analysisProfile", e.target.value)}
                 disabled={!formData.analysisCategory}
-                className={`
-                  w-full px-3 py-2 border rounded-lg
-                  bg-white dark:bg-gray-800
-                  text-gray-900 dark:text-gray-100
-                  ${errors.analysisProfile
-                    ? "border-red-500 focus:ring-red-500"
-                    : "border-gray-300 dark:border-gray-600 focus:ring-blue-500"
-                  }
-                  focus:outline-none focus:ring-2
-                  disabled:opacity-50 disabled:cursor-not-allowed
-                `}
+                className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
+                  ${errors.analysisProfile ? "border-red-500 focus:ring-red-500" : "border-gray-300 dark:border-gray-600 focus:ring-blue-500"}
+                  focus:outline-none focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed`}
               >
                 <option value="">
                   {formData.analysisCategory ? "Seleccione un perfil" : "Primero seleccione una categoría"}
@@ -456,15 +444,12 @@ const NewMinuteForm = ({ onSubmit, onCancel, isSubmitting }) => {
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
               </select>
-              {errors.analysisProfile && (
-                <p className="mt-1 text-sm text-red-500">{errors.analysisProfile}</p>
-              )}
+              {errors.analysisProfile && <p className="mt-1 text-sm text-red-500">{errors.analysisProfile}</p>}
               {selectedProfile && (
                 <div className="mt-2 text-xs text-gray-600 dark:text-gray-400 p-2 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800 space-y-1">
-                  <p><strong>Descripción:</strong> {selectedProfile.descripcion}</p>
+                  <p><strong>Descripción:</strong> {selectedProfile.description || "Sin descripción"}</p>
                   <p className="text-gray-500 dark:text-gray-500">
-                    Este perfil ajusta el <strong>prompt</strong> para orientar el
-                    análisis de la minuta (decisiones, riesgos, tareas y validaciones)
+                    Este perfil ajusta el <strong>prompt</strong> para orientar el análisis de la minuta
                     sin alterar el formato de entrada/salida.
                   </p>
                 </div>
@@ -473,13 +458,12 @@ const NewMinuteForm = ({ onSubmit, onCancel, isSubmitting }) => {
           </div>
         )}
 
-        {/* ── Paso 1: Adjuntos ── */}
-        {currentStep === 1 && (
+        {/* Paso 1: Adjuntos */}
+        {!loadingCatalog && !catalogError && currentStep === 1 && (
           <div className="space-y-4">
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
               Suba la transcripción (obligatoria) y el resumen (opcional)
             </p>
-
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Transcripción <span className="text-red-500">*</span>
@@ -488,28 +472,16 @@ const NewMinuteForm = ({ onSubmit, onCancel, isSubmitting }) => {
                 type="file"
                 accept=".txt,.doc,.docx,.pdf"
                 onChange={(e) => handleChange("transcription", e.target.files?.[0] ?? null)}
-                className={`
-                  w-full px-3 py-2 border rounded-lg
-                  bg-white dark:bg-gray-800
-                  text-gray-900 dark:text-gray-100
+                className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
                   ${errors.transcription ? "border-red-500" : "border-gray-300 dark:border-gray-600"}
-                  file:mr-4 file:py-2 file:px-4
-                  file:rounded-lg file:border-0
-                  file:text-sm file:font-semibold
-                  file:bg-blue-50 file:text-blue-700
-                  hover:file:bg-blue-100
-                `}
+                  file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0
+                  file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100`}
               />
               {formData.transcription && (
-                <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                  Archivo: {formData.transcription.name}
-                </p>
+                <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">Archivo: {formData.transcription.name}</p>
               )}
-              {errors.transcription && (
-                <p className="mt-1 text-sm text-red-500">{errors.transcription}</p>
-              )}
+              {errors.transcription && <p className="mt-1 text-sm text-red-500">{errors.transcription}</p>}
             </div>
-
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Resumen (opcional)
@@ -518,128 +490,81 @@ const NewMinuteForm = ({ onSubmit, onCancel, isSubmitting }) => {
                 type="file"
                 accept=".txt,.doc,.docx,.pdf"
                 onChange={(e) => handleChange("summary", e.target.files?.[0] ?? null)}
-                className="
-                  w-full px-3 py-2 border rounded-lg
-                  bg-white dark:bg-gray-800
-                  text-gray-900 dark:text-gray-100
+                className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
                   border-gray-300 dark:border-gray-600
-                  file:mr-4 file:py-2 file:px-4
-                  file:rounded-lg file:border-0
-                  file:text-sm file:font-semibold
-                  file:bg-blue-50 file:text-blue-700
-                  hover:file:bg-blue-100
-                "
+                  file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0
+                  file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
               />
               {formData.summary && (
-                <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                  Archivo: {formData.summary.name}
-                </p>
+                <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">Archivo: {formData.summary.name}</p>
               )}
             </div>
           </div>
         )}
 
-        {/* ── Paso 2: Fechas y Horarios ── */}
-        {currentStep === 2 && (
+        {/* Paso 2: Fechas y Horarios */}
+        {!loadingCatalog && !catalogError && currentStep === 2 && (
           <div className="space-y-4">
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
               Configure las fechas y horarios de la reunión
             </p>
-
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Fecha Programada <span className="text-red-500">*</span>
               </label>
-              <input
-                type="date"
-                value={formData.scheduledDate}
+              <input type="date" value={formData.scheduledDate}
                 onChange={(e) => handleChange("scheduledDate", e.target.value)}
-                className={`
-                  w-full px-3 py-2 border rounded-lg
-                  bg-white dark:bg-gray-800
-                  text-gray-900 dark:text-gray-100
+                className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
                   ${errors.scheduledDate ? "border-red-500 focus:ring-red-500" : "border-gray-300 dark:border-gray-600 focus:ring-blue-500"}
-                  focus:outline-none focus:ring-2
-                `}
+                  focus:outline-none focus:ring-2`}
               />
-              {errors.scheduledDate && (
-                <p className="mt-1 text-sm text-red-500">{errors.scheduledDate}</p>
-              )}
+              {errors.scheduledDate && <p className="mt-1 text-sm text-red-500">{errors.scheduledDate}</p>}
             </div>
-
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Hora Inicio Programada <span className="text-red-500">*</span>
               </label>
-              <input
-                type="time"
-                value={formData.scheduledStartTime}
+              <input type="time" value={formData.scheduledStartTime}
                 onChange={(e) => handleChange("scheduledStartTime", e.target.value)}
-                className={`
-                  w-full px-3 py-2 border rounded-lg
-                  bg-white dark:bg-gray-800
-                  text-gray-900 dark:text-gray-100
+                className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
                   ${errors.scheduledStartTime ? "border-red-500 focus:ring-red-500" : "border-gray-300 dark:border-gray-600 focus:ring-blue-500"}
-                  focus:outline-none focus:ring-2
-                `}
+                  focus:outline-none focus:ring-2`}
               />
-              {errors.scheduledStartTime && (
-                <p className="mt-1 text-sm text-red-500">{errors.scheduledStartTime}</p>
-              )}
+              {errors.scheduledStartTime && <p className="mt-1 text-sm text-red-500">{errors.scheduledStartTime}</p>}
             </div>
-
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Hora Inicio Real <span className="text-red-500">*</span>
               </label>
-              <input
-                type="time"
-                value={formData.actualStartTime}
+              <input type="time" value={formData.actualStartTime}
                 onChange={(e) => handleChange("actualStartTime", e.target.value)}
-                className={`
-                  w-full px-3 py-2 border rounded-lg
-                  bg-white dark:bg-gray-800
-                  text-gray-900 dark:text-gray-100
+                className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
                   ${errors.actualStartTime ? "border-red-500 focus:ring-red-500" : "border-gray-300 dark:border-gray-600 focus:ring-blue-500"}
-                  focus:outline-none focus:ring-2
-                `}
+                  focus:outline-none focus:ring-2`}
               />
-              {errors.actualStartTime && (
-                <p className="mt-1 text-sm text-red-500">{errors.actualStartTime}</p>
-              )}
+              {errors.actualStartTime && <p className="mt-1 text-sm text-red-500">{errors.actualStartTime}</p>}
             </div>
-
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Hora Término Programada <span className="text-red-500">*</span>
               </label>
-              <input
-                type="time"
-                value={formData.scheduledEndTime}
+              <input type="time" value={formData.scheduledEndTime}
                 onChange={(e) => handleChange("scheduledEndTime", e.target.value)}
-                className={`
-                  w-full px-3 py-2 border rounded-lg
-                  bg-white dark:bg-gray-800
-                  text-gray-900 dark:text-gray-100
+                className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
                   ${errors.scheduledEndTime ? "border-red-500 focus:ring-red-500" : "border-gray-300 dark:border-gray-600 focus:ring-blue-500"}
-                  focus:outline-none focus:ring-2
-                `}
+                  focus:outline-none focus:ring-2`}
               />
-              {errors.scheduledEndTime && (
-                <p className="mt-1 text-sm text-red-500">{errors.scheduledEndTime}</p>
-              )}
+              {errors.scheduledEndTime && <p className="mt-1 text-sm text-red-500">{errors.scheduledEndTime}</p>}
             </div>
           </div>
         )}
 
-        {/* ── Paso 3: Participantes ── */}
-        {currentStep === 3 && (
+        {/* Paso 3: Participantes */}
+        {!loadingCatalog && !catalogError && currentStep === 3 && (
           <div className="space-y-4">
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-              Ingrese la lista de asistentes a la reunión y las personas que
-              recibirán copia de la minuta
+              Ingrese la lista de asistentes a la reunión y las personas que recibirán copia de la minuta
             </p>
-
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Participantes Presentes
@@ -649,17 +574,10 @@ const NewMinuteForm = ({ onSubmit, onCancel, isSubmitting }) => {
                 onChange={(e) => handleChange("attendees", e.target.value)}
                 rows={5}
                 placeholder={"Ingrese los nombres de los asistentes a la reunión (uno por línea)\nEjemplo:\nJuan Pérez\nMaría González\nRoberto Silva"}
-                className="
-                  w-full px-3 py-2 border rounded-lg
-                  bg-white dark:bg-gray-800
-                  text-gray-900 dark:text-gray-100
-                  border-gray-300 dark:border-gray-600
-                  focus:outline-none focus:ring-2 focus:ring-blue-500
-                  resize-none
-                "
+                className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
+                  border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
               />
             </div>
-
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Destinatarios en Copia (CC)
@@ -669,26 +587,19 @@ const NewMinuteForm = ({ onSubmit, onCancel, isSubmitting }) => {
                 onChange={(e) => handleChange("ccParticipants", e.target.value)}
                 rows={5}
                 placeholder={"Ingrese los nombres de quienes recibirán copia de la minuta (uno por línea)\nEjemplo:\nAna Martínez - Gerente General\nCarlos López - Jefe de Proyecto"}
-                className="
-                  w-full px-3 py-2 border rounded-lg
-                  bg-white dark:bg-gray-800
-                  text-gray-900 dark:text-gray-100
-                  border-gray-300 dark:border-gray-600
-                  focus:outline-none focus:ring-2 focus:ring-blue-500
-                  resize-none
-                "
+                className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
+                  border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
               />
             </div>
           </div>
         )}
 
-        {/* ── Paso 4: Información Adicional ── */}
-        {currentStep === 4 && (
+        {/* Paso 4: Información Adicional */}
+        {!loadingCatalog && !catalogError && currentStep === 4 && (
           <div className="space-y-4">
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
               Agregue cualquier información extra relevante sobre la reunión
             </p>
-
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Información Adicional
@@ -698,115 +609,63 @@ const NewMinuteForm = ({ onSubmit, onCancel, isSubmitting }) => {
                 onChange={(e) => handleChange("additionalInfo", e.target.value)}
                 rows={8}
                 placeholder={"Ingrese información adicional sobre la reunión\n\nEjemplos:\n- Objetivos específicos de la reunión\n- Contexto o antecedentes relevantes\n- Temas prioritarios a tratar\n- Observaciones especiales"}
-                className="
-                  w-full px-3 py-2 border rounded-lg
-                  bg-white dark:bg-gray-800
-                  text-gray-900 dark:text-gray-100
-                  border-gray-300 dark:border-gray-600
-                  focus:outline-none focus:ring-2 focus:ring-blue-500
-                  resize-none
-                "
+                className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
+                  border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
               />
             </div>
           </div>
         )}
 
-        {/* ── Paso 5: Confirmación ── */}
-        {currentStep === 5 && (
+        {/* Paso 5: Confirmación */}
+        {!loadingCatalog && !catalogError && currentStep === 5 && (
           <div className="space-y-4">
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
               Revise la información ingresada antes de crear la minuta.
             </p>
-
             <div className="space-y-6">
-              {/* 1) Información General */}
+
               <div className="border-l-4 border-blue-500 pl-4">
                 <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-3 flex items-center">
                   <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-500 text-white text-xs mr-2">1</span>
                   Información General
                 </h4>
                 <div className="space-y-2 text-sm">
-                  <div className="flex">
-                    <span className="font-medium text-gray-700 dark:text-gray-300 w-44">Empresa:</span>
-                    <span className="text-gray-600 dark:text-gray-400">
-                      {String(selectedClient?.company ?? "").trim() || "Sin información proporcionada"}
-                    </span>
-                  </div>
-                  <div className="flex">
-                    <span className="font-medium text-gray-700 dark:text-gray-300 w-44">Proyecto:</span>
-                    <span className="text-gray-600 dark:text-gray-400">
-                      {String(selectedProject?.name ?? "").trim() || "Sin información proporcionada"}
-                    </span>
-                  </div>
-                  <div className="flex">
-                    <span className="font-medium text-gray-700 dark:text-gray-300 w-44">Categoría (análisis IA):</span>
-                    <span className="text-gray-600 dark:text-gray-400">
-                      {String(formData.analysisCategory ?? "").trim() || "Sin información proporcionada"}
-                    </span>
-                  </div>
-                  <div className="flex">
-                    <span className="font-medium text-gray-700 dark:text-gray-300 w-44">Perfil (análisis IA):</span>
-                    <span className="text-gray-600 dark:text-gray-400">
-                      {String(selectedProfile?.nombre ?? "").trim() || "Sin información proporcionada"}
-                    </span>
-                  </div>
-                  {selectedProfile?.descripcion && (
+                  <div className="flex"><span className="font-medium text-gray-700 dark:text-gray-300 w-44">Empresa:</span><span className="text-gray-600 dark:text-gray-400">{String(selectedClient?.name ?? "").trim() || "Sin información proporcionada"}</span></div>
+                  <div className="flex"><span className="font-medium text-gray-700 dark:text-gray-300 w-44">Proyecto:</span><span className="text-gray-600 dark:text-gray-400">{String(selectedProject?.name ?? "").trim() || "Sin información proporcionada"}</span></div>
+                  <div className="flex"><span className="font-medium text-gray-700 dark:text-gray-300 w-44">Categoría (análisis IA):</span><span className="text-gray-600 dark:text-gray-400">{String(selectedCategory?.name ?? "").trim() || "Sin información proporcionada"}</span></div>
+                  <div className="flex"><span className="font-medium text-gray-700 dark:text-gray-300 w-44">Perfil (análisis IA):</span><span className="text-gray-600 dark:text-gray-400">{String(selectedProfile?.label ?? "").trim() || "Sin información proporcionada"}</span></div>
+                  {selectedProfile?.description && (
                     <div className="mt-2 text-xs text-gray-600 dark:text-gray-400 p-2 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800">
-                      <p><strong>Descripción:</strong> {String(selectedProfile.descripcion).trim()}</p>
+                      <p><strong>Descripción:</strong> {String(selectedProfile.description).trim()}</p>
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* 2) Adjuntos */}
               <div className="border-l-4 border-purple-500 pl-4">
                 <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-3 flex items-center">
                   <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-purple-500 text-white text-xs mr-2">2</span>
                   Adjuntos
                 </h4>
                 <div className="space-y-2 text-sm">
-                  <div className="flex">
-                    <span className="font-medium text-gray-700 dark:text-gray-300 w-44">Transcripción:</span>
-                    <span className="text-gray-600 dark:text-gray-400">
-                      {formData.transcription?.name ?? "No cargada"}
-                    </span>
-                  </div>
-                  <div className="flex">
-                    <span className="font-medium text-gray-700 dark:text-gray-300 w-44">Resumen:</span>
-                    <span className="text-gray-600 dark:text-gray-400">
-                      {formData.summary?.name ?? "No cargado (opcional)"}
-                    </span>
-                  </div>
+                  <div className="flex"><span className="font-medium text-gray-700 dark:text-gray-300 w-44">Transcripción:</span><span className="text-gray-600 dark:text-gray-400">{formData.transcription?.name ?? "No cargada"}</span></div>
+                  <div className="flex"><span className="font-medium text-gray-700 dark:text-gray-300 w-44">Resumen:</span><span className="text-gray-600 dark:text-gray-400">{formData.summary?.name ?? "No cargado (opcional)"}</span></div>
                 </div>
               </div>
 
-              {/* 3) Fechas y Horarios */}
               <div className="border-l-4 border-green-500 pl-4">
                 <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-3 flex items-center">
                   <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-500 text-white text-xs mr-2">3</span>
                   Fechas y Horarios
                 </h4>
                 <div className="space-y-2 text-sm">
-                  <div className="flex">
-                    <span className="font-medium text-gray-700 dark:text-gray-300 w-44">Fecha programada:</span>
-                    <span className="text-gray-600 dark:text-gray-400">{formData.scheduledDate || "Sin información"}</span>
-                  </div>
-                  <div className="flex">
-                    <span className="font-medium text-gray-700 dark:text-gray-300 w-44">Inicio programado:</span>
-                    <span className="text-gray-600 dark:text-gray-400">{formData.scheduledStartTime || "Sin información"}</span>
-                  </div>
-                  <div className="flex">
-                    <span className="font-medium text-gray-700 dark:text-gray-300 w-44">Inicio real:</span>
-                    <span className="text-gray-600 dark:text-gray-400">{formData.actualStartTime || "Sin información"}</span>
-                  </div>
-                  <div className="flex">
-                    <span className="font-medium text-gray-700 dark:text-gray-300 w-44">Término programado:</span>
-                    <span className="text-gray-600 dark:text-gray-400">{formData.scheduledEndTime || "Sin información"}</span>
-                  </div>
+                  <div className="flex"><span className="font-medium text-gray-700 dark:text-gray-300 w-44">Fecha programada:</span><span className="text-gray-600 dark:text-gray-400">{formData.scheduledDate || "Sin información"}</span></div>
+                  <div className="flex"><span className="font-medium text-gray-700 dark:text-gray-300 w-44">Inicio programado:</span><span className="text-gray-600 dark:text-gray-400">{formData.scheduledStartTime || "Sin información"}</span></div>
+                  <div className="flex"><span className="font-medium text-gray-700 dark:text-gray-300 w-44">Inicio real:</span><span className="text-gray-600 dark:text-gray-400">{formData.actualStartTime || "Sin información"}</span></div>
+                  <div className="flex"><span className="font-medium text-gray-700 dark:text-gray-300 w-44">Término programado:</span><span className="text-gray-600 dark:text-gray-400">{formData.scheduledEndTime || "Sin información"}</span></div>
                 </div>
               </div>
 
-              {/* 4) Participantes */}
               <div className="border-l-4 border-amber-500 pl-4">
                 <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-3 flex items-center">
                   <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-500 text-white text-xs mr-2">4</span>
@@ -814,35 +673,20 @@ const NewMinuteForm = ({ onSubmit, onCancel, isSubmitting }) => {
                 </h4>
                 <div className="space-y-3 text-sm">
                   <div>
-                    <div className="flex">
-                      <span className="font-medium text-gray-700 dark:text-gray-300 w-44">Participantes:</span>
-                      <span className="text-gray-600 dark:text-gray-400">
-                        {String(formData.attendees ?? "").trim() ? "Ver listado" : "Sin información proporcionada"}
-                      </span>
-                    </div>
+                    <div className="flex"><span className="font-medium text-gray-700 dark:text-gray-300 w-44">Participantes:</span><span className="text-gray-600 dark:text-gray-400">{String(formData.attendees ?? "").trim() ? "Ver listado" : "Sin información proporcionada"}</span></div>
                     {String(formData.attendees ?? "").trim() && (
-                      <pre className="mt-2 text-xs whitespace-pre-wrap break-words p-3 rounded bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">
-                        {String(formData.attendees).trim()}
-                      </pre>
+                      <pre className="mt-2 text-xs whitespace-pre-wrap break-words p-3 rounded bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">{String(formData.attendees).trim()}</pre>
                     )}
                   </div>
                   <div>
-                    <div className="flex">
-                      <span className="font-medium text-gray-700 dark:text-gray-300 w-44">Copia (CC):</span>
-                      <span className="text-gray-600 dark:text-gray-400">
-                        {String(formData.ccParticipants ?? "").trim() ? "Ver listado" : "Sin información proporcionada"}
-                      </span>
-                    </div>
+                    <div className="flex"><span className="font-medium text-gray-700 dark:text-gray-300 w-44">Copia (CC):</span><span className="text-gray-600 dark:text-gray-400">{String(formData.ccParticipants ?? "").trim() ? "Ver listado" : "Sin información proporcionada"}</span></div>
                     {String(formData.ccParticipants ?? "").trim() && (
-                      <pre className="mt-2 text-xs whitespace-pre-wrap break-words p-3 rounded bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">
-                        {String(formData.ccParticipants).trim()}
-                      </pre>
+                      <pre className="mt-2 text-xs whitespace-pre-wrap break-words p-3 rounded bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">{String(formData.ccParticipants).trim()}</pre>
                     )}
                   </div>
                 </div>
               </div>
 
-              {/* 5) Información Adicional */}
               <div className="border-l-4 border-gray-500 pl-4">
                 <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-3 flex items-center">
                   <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-600 text-white text-xs mr-2">5</span>
@@ -850,9 +694,7 @@ const NewMinuteForm = ({ onSubmit, onCancel, isSubmitting }) => {
                 </h4>
                 <div className="text-sm">
                   {String(formData.additionalInfo ?? "").trim() ? (
-                    <pre className="text-xs whitespace-pre-wrap break-words p-3 rounded bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">
-                      {String(formData.additionalInfo).trim()}
-                    </pre>
+                    <pre className="text-xs whitespace-pre-wrap break-words p-3 rounded bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">{String(formData.additionalInfo).trim()}</pre>
                   ) : (
                     <p className="text-gray-600 dark:text-gray-400">Sin información adicional.</p>
                   )}
@@ -860,7 +702,6 @@ const NewMinuteForm = ({ onSubmit, onCancel, isSubmitting }) => {
               </div>
             </div>
 
-            {/* Aviso de procesamiento asíncrono */}
             <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
               <p className="text-xs text-amber-700 dark:text-amber-300">
                 <strong>ℹ️ Procesamiento asíncrono:</strong> Al confirmar, la minuta será enviada al
@@ -872,41 +713,25 @@ const NewMinuteForm = ({ onSubmit, onCancel, isSubmitting }) => {
         )}
       </div>
 
-      {/* Footer con botones */}
+      {/* Footer */}
       <div className="flex-shrink-0 px-6 py-4 border-t border-gray-200 dark:border-gray-700">
         <div className="flex justify-between">
           <button
             onClick={currentStep === 0 ? onCancel : handlePrevious}
             disabled={isSubmitting}
-            className="
-              px-4 py-2 text-sm font-medium
-              text-gray-700 dark:text-gray-300
-              bg-white dark:bg-gray-800
-              border border-gray-300 dark:border-gray-600
-              rounded-lg
-              hover:bg-gray-50 dark:hover:bg-gray-700
-              focus:outline-none focus:ring-2 focus:ring-blue-500
-              transition-colors
-              disabled:opacity-50 disabled:cursor-not-allowed
-            "
+            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800
+              border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700
+              focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors
+              disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {currentStep === 0 ? "Cancelar" : "Anterior"}
           </button>
-
           <button
             onClick={handleNext}
             disabled={submitDisabled}
-            className="
-              px-4 py-2 text-sm font-medium
-              text-white
-              bg-blue-600
-              rounded-lg
-              hover:bg-blue-700
-              focus:outline-none focus:ring-2 focus:ring-blue-500
-              transition-colors
-              disabled:opacity-50 disabled:cursor-not-allowed
-              flex items-center gap-2
-            "
+            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700
+              focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors
+              disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             {isLastStep && isSubmitting ? (
               <>
@@ -926,91 +751,104 @@ const NewMinuteForm = ({ onSubmit, onCancel, isSubmitting }) => {
   );
 };
 
-// ─── NewMinute ─────────────────────────────────────────────────────────────────
+// ─── Wrapper que expone catálogo al orquestador ───────────────────────────────
+
+const NewMinuteFormWithCatalog = ({ onSubmit, onCancel, isSubmitting }) => {
+  const [catalog, setCatalog] = useState({
+    clients: [], projects: [], profiles: [], categories: [],
+  });
+
+  const handleCatalogLoaded = useCallback((loaded) => {
+    setCatalog((prev) => ({ ...prev, ...loaded }));
+  }, []);
+
+  return (
+    <NewMinuteFormInner
+      onSubmit={(formData) => onSubmit(formData, catalog)}
+      onCancel={onCancel}
+      isSubmitting={isSubmitting}
+      onCatalogLoaded={handleCatalogLoaded}
+    />
+  );
+};
+
+// ─── NewMinute ────────────────────────────────────────────────────────────────
 
 /**
- * NewMinute Component
- *
- * Botón que abre el asistente de preparación de minutas.
- * Al finalizar el formulario construye el payload multipart/form-data
- * y llama a POST /v1/minutes/generate.
- *
  * Props:
- *   onSuccess (Function) — callback opcional invocado tras crear la minuta exitosamente.
- *                          Recibe { transactionId, recordId } para que el padre
- *                          pueda refrescar el listado o iniciar polling.
+ *   onSuccess (Function) — callback opcional invocado tras 202.
+ *                          Recibe { transactionId, recordId }.
+ *                          Desde Minute.jsx → refresca lista.
+ *                          Desde Dashboard → navega a /minutes.
  */
 const NewMinute = ({ onSuccess }) => {
-  // Leer el usuario autenticado desde el authStore para "preparedBy"
-  const user = useAuthStore((s) => s.user);
-
-  // Estado de envío — se pasa al form para deshabilitar botones mientras se procesa
+  const user       = useAuthStore((s) => s.user);
+  const addPending = useMinuteNotificationStore((s) => s.addPending);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleNewMinute = () => {
     ModalManager.show({
-      type: "custom",
-      title: "Asistente de Preparación de Minutas",
-      size: "large",
+      type:       "custom",
+      title:      "Asistente de Preparación de Minutas",
+      size:       "large",
       showFooter: false,
       content: (
-        <NewMinuteForm
+        <NewMinuteFormWithCatalog
           isSubmitting={isSubmitting}
-          onSubmit={async (formData) => {
+          onSubmit={async (formData, catalog) => {
             setIsSubmitting(true);
             try {
-              // 1. Construir el payload JSON con los metadatos
               const payload = buildPayload({
                 formData,
-                clients:  clientsData?.clients  ?? [],
-                projects: projectsData?.projects ?? [],
-                profiles: analysisProfiles       ?? [],
-                preparedBy: user?.full_name ?? "",
+                clients:    catalog.clients,
+                projects:   catalog.projects,
+                profiles:   catalog.profiles,
+                categories: catalog.categories,
+                preparedBy: user?.full_name ?? user?.username ?? "",
               });
 
-              // 2. Recolectar archivos a enviar
               const files = buildFiles(formData);
 
               minLog.log("Enviando minuta al backend", { payload, files: files.map((f) => f.name) });
 
-              // 3. Llamar al servicio → multipart/form-data
               const result = await generateMinute(payload, files);
 
               minLog.log("Minuta creada:", result);
 
-              // 4. Cerrar modal y mostrar confirmación
               ModalManager.closeAll();
               ModalManager.success({
-                title: "Minuta en Procesamiento",
-                message:
-                  "La minuta fue enviada al procesador IA. Recibirás una notificación cuando esté lista para edición.",
+                title:   "Minuta en Procesamiento",
+                message: "La minuta fue enviada al procesador IA. Recibirás una notificación cuando esté lista para edición.",
               });
 
-              // 5. Notificar al padre si tiene callback (para refrescar listado)
+              // ── NUEVO: registrar la tx para que useMinuteSSE abra el SSE ──
+              const clientName = catalog.clients.find(
+                (c) => String(c.id) === String(formData.client)
+              )?.name ?? "Minuta";
+              addPending(result?.transactionId, result?.recordId, clientName);
+
+              // Notificar al padre (refrescar lista o navegar a /minutes)
               onSuccess?.({ transactionId: result?.transactionId, recordId: result?.recordId });
 
             } catch (err) {
               minLog.error("Error al crear minuta:", err);
 
-              // Extraer mensaje del error del backend (formato { success, error: { detail } })
               const detail =
                 err?.response?.data?.error?.detail ??
-                err?.response?.data?.detail ??
-                err?.message ??
+                err?.response?.data?.detail         ??
+                err?.message                        ??
                 "Ocurrió un error inesperado al crear la minuta.";
 
               ModalManager.show({
-                type: "error",
-                title: "Error al crear minuta",
-                message: detail,
+                type:    "error",
+                title:   "Error al crear minuta",
+                message: String(detail),
               });
             } finally {
               setIsSubmitting(false);
             }
           }}
-          onCancel={() => {
-            ModalManager.closeAll();
-          }}
+          onCancel={() => ModalManager.closeAll()}
         />
       ),
     });
@@ -1021,7 +859,7 @@ const NewMinute = ({ onSuccess }) => {
       label="Nueva Minuta"
       onClick={handleNewMinute}
       variant="primary"
-      icon={<FaPlus />}
+      icon={<Icon name="FaPlus" />}
     />
   );
 };

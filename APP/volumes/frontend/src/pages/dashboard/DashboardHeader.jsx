@@ -13,7 +13,7 @@ const DashboardHeader = ({ userName, subtitle, onNewMinute }) => {
                 <p className={`mt-1 text-sm ${TXT_BODY} transition-theme`}>{subtitle}</p>
             </div>
 
-            <NewMinute />
+            <NewMinute onSuccess={onNewMinute} />
             
         </div>
     );

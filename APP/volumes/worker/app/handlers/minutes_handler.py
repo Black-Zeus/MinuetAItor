@@ -160,7 +160,7 @@ def _download_files_from_minio(
     for meta in file_metadata:
         fname   = meta["fileName"]           # <- fileName (camelCase, como envía el backend)
         mime    = meta.get("mimeType", "text/plain")
-        obj_key = f"{rec_id}/{fname}"
+        obj_key = meta.get("objKey") or f"{rec_id}/{fname}"
 
         try:
             resp = minio.get_object(BUCKET_INPUTS, obj_key)

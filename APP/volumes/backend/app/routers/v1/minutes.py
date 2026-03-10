@@ -6,7 +6,7 @@ import json
 import logging
 from typing import AsyncGenerator
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
@@ -39,7 +39,7 @@ from services.minutes_service import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/minutes", tags=["Minutes"])
-bearer = HTTPBearer()
+bearer = HTTPBearer(auto_error=False)   # auto_error=False para no fallar cuando viene por ?token=
 
 SSE_CHANNEL         = "events:minutes"
 SSE_KEEPALIVE_SEC   = 15
@@ -51,6 +51,24 @@ async def current_user_dep(
     credentials: HTTPAuthorizationCredentials = Depends(bearer),
 ) -> UserSession:
     return await get_current_user(credentials.credentials)
+
+
+async def current_user_or_token_dep(
+    credentials: HTTPAuthorizationCredentials = Depends(bearer),
+    token: str | None = Query(None, description="JWT para autenticación via SSE (EventSource no soporta headers)"),
+) -> UserSession:
+    """
+    Dependencia de autenticación flexible para el endpoint SSE.
+
+    EventSource del browser no permite enviar el header Authorization,
+    por lo que acepta el JWT como query param ?token=...
+
+    Prioridad: header Authorization > query param ?token=
+    """
+    jwt = (credentials.credentials if credentials else None) or token
+    if not jwt:
+        raise HTTPException(status_code=401, detail="No se proporcionó token de autenticación.")
+    return await get_current_user(jwt)
 
 
 # ─── POST /generate ───────────────────────────────────────────────────────────
@@ -77,10 +95,11 @@ async def generate_endpoint(
 
     if not files:
         raise HTTPException(status_code=422, detail="Se requiere al menos un archivo adjunto.")
-    if not request.participants.attendees:
-        raise HTTPException(status_code=422, detail="Se requiere al menos un asistente en participants.attendees.")
 
-    logger.info(f"[minutes] Nueva solicitud | user={session.user_id} client={request.project_info.client} files={len(files)}")
+    logger.info(
+        "[minutes] Nueva solicitud | user=%s client=%s files=%d",
+        session.user_id, request.project_info.client, len(files),
+    )
 
     return await generate_minute(db=db, request=request, files=files, requested_by_id=session.user_id)
 
@@ -168,27 +187,32 @@ async def status_endpoint(
 async def events_endpoint(
     transaction_id: str,
     db:             Session     = Depends(get_db),
-    session:        UserSession = Depends(current_user_dep),
+    session:        UserSession = Depends(current_user_or_token_dep),
 ):
     """
     Server-Sent Events — el cliente escucha aquí hasta recibir "completed" o "failed".
+
+    Autenticación:
+        - Header Authorization: Bearer <token>  (clientes que pueden enviar headers)
+        - Query param ?token=<jwt>              (EventSource del browser, que NO soporta headers)
 
     Eventos:
         keepalive  → ping cada 15s (el cliente los ignora)
         completed  → { transaction_id, record_id }
         failed     → { transaction_id, error }
 
-    El worker publica en Redis Pub/Sub (events:minutes) y este endpoint
-    hace forward al cliente. Si la transacción ya terminó al conectarse,
-    responde inmediatamente sin esperar.
+    Si la transacción ya terminó al conectarse, responde inmediatamente sin suscribir a Pub/Sub.
     """
     tx_status = await get_minute_status(db, transaction_id)
 
     # Si ya terminó → responder de inmediato sin suscribir a Pub/Sub
     if tx_status.status in SSE_TERMINAL_EVENTS:
         async def immediate() -> AsyncGenerator[str, None]:
-            data = {"transaction_id": transaction_id, "record_id": tx_status.record_id,
-                    "status": tx_status.status}
+            data = {
+                "transaction_id": transaction_id,
+                "record_id":      tx_status.record_id,
+                "status":         tx_status.status,
+            }
             if tx_status.error_message:
                 data["error"] = tx_status.error_message
             yield _sse_event(tx_status.status, data)
@@ -226,13 +250,13 @@ def versions_endpoint(
     summary        = "Listar minutas",
 )
 def list_endpoint(
-    skip:          int          = 0,
-    limit:         int          = 50,
-    status_filter: str | None   = None,
-    client_id:     str | None   = None,
-    project_id:    str | None   = None,
-    db:            Session      = Depends(get_db),
-    session:       UserSession  = Depends(current_user_dep),
+    skip:          int         = 0,
+    limit:         int         = 50,
+    status_filter: str | None  = None,
+    client_id:     str | None  = None,
+    project_id:    str | None  = None,
+    db:            Session     = Depends(get_db),
+    session:       UserSession = Depends(current_user_dep),
 ):
     return list_minutes(
         db=db, skip=skip, limit=limit,
@@ -247,7 +271,7 @@ def list_endpoint(
 def _sse_headers() -> dict:
     return {
         "Cache-Control":               "no-cache",
-        "X-Accel-Buffering":           "no",    # desactiva buffering en nginx
+        "X-Accel-Buffering":           "no",
         "Access-Control-Allow-Origin": "*",
     }
 
@@ -263,7 +287,7 @@ async def _sse_stream(transaction_id: str) -> AsyncGenerator[str, None]:
     logger.info("[sse] Suscrito | tx=%s", transaction_id)
 
     try:
-        elapsed = 0.0
+        elapsed   = 0.0
         last_ping = 0.0
 
         while elapsed < SSE_MAX_WAIT_SEC:
