@@ -297,6 +297,8 @@ services:
         condition: service_healthy
       gotenberg:
         condition: service_started
+    volumes:
+      - ./APP/volumes/pdf-worker/app:/app   # ← agregar esto
     labels:
       - "stack=${PROJECT_NAME}"
       - "env=${ENV_NAME}"
