@@ -65,6 +65,13 @@ TEMPLATE_DEFINITIONS: dict[str, EmailTemplateDefinition] = {
         description="Confirma que la minuta ya fue aprobada y oficializada.",
         default_subject="Minuta oficializada y aprobada",
     ),
+    "password_changed_confirmation": EmailTemplateDefinition(
+        template_id="password_changed_confirmation",
+        filename="password_changed_confirmation.html",
+        title="Confirmacion de cambio de contrasena",
+        description="Confirma que la contrasena fue cambiada y orienta al usuario ante actividad no reconocida.",
+        default_subject="Tu contrasena fue cambiada correctamente",
+    ),
     "recoverPass": EmailTemplateDefinition(
         template_id="recoverPass",
         filename="recoverPass.html",

@@ -544,6 +544,52 @@ async def enqueue_recover_password_email(
     )
 
 
+async def enqueue_password_changed_email(
+    db: Session,
+    *,
+    user_id: str,
+    actor_label: str | None = None,
+    change_reason: str | None = None,
+    request_origin: str | None = None,
+    request_ip: str | None = None,
+    request_ua: str | None = None,
+) -> bool:
+    user = (
+        db.query(User)
+        .filter(
+            User.deleted_at.is_(None),
+            User.id == user_id,
+        )
+        .first()
+    )
+    if not user or not user.email:
+        return False
+
+    meta = _request_meta(
+        request_origin=request_origin or "auth.password-changed",
+        request_ip=request_ip,
+        request_ua=request_ua,
+    )
+
+    context = {
+        "SUPPORT_NAME": _support_name(),
+        "USER_IDENTIFIER": user.email or user.username,
+        "CHANGED_AT": _format_dt(_utcnow()),
+        "CHANGE_REASON": change_reason or "Actualizacion de credenciales",
+        "ACTOR_LABEL": actor_label or _user_display_name(user),
+        "LOGIN_URL": _login_url(),
+        "REQUEST_ID": meta["request_id"],
+        "REQUEST_ORIGIN": meta["request_origin"],
+        "REQUEST_IP": meta["request_ip"],
+        "REQUEST_UA": meta["request_ua"],
+    }
+    return await _safe_queue_template(
+        to=[user.email],
+        template_id="password_changed_confirmation",
+        context=context,
+    )
+
+
 async def enqueue_ai_processed_ready_email(
     db: Session,
     record_id: str,
