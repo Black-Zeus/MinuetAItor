@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from core.authz import current_user_dep
 from db.session import get_db
 from schemas.auth import UserSession
 from schemas.projects import (
@@ -15,7 +15,6 @@ from schemas.projects import (
     ProjectStatusRequest,
     ProjectUpdateRequest,
 )
-from services.auth_service import get_current_user
 from services.projects_service import (
     change_project_status,
     create_project,
@@ -26,13 +25,6 @@ from services.projects_service import (
 )
 
 router = APIRouter(prefix="/projects", tags=["Projects"])
-bearer = HTTPBearer()
-
-
-async def current_user_dep(
-    credentials: HTTPAuthorizationCredentials = Depends(bearer),
-) -> UserSession:
-    return await get_current_user(credentials.credentials)
 
 
 @router.get("/{id}", response_model=ProjectResponse, status_code=status.HTTP_200_OK)
@@ -41,7 +33,7 @@ def get_endpoint(
     db: Session = Depends(get_db),
     session: UserSession = Depends(current_user_dep),
 ):
-    return get_project(db, id)
+    return get_project(db, id, session)
 
 
 # CRÍTICO: /list antes que POST ""
@@ -51,7 +43,7 @@ def list_endpoint(
     db: Session = Depends(get_db),
     session: UserSession = Depends(current_user_dep),
 ):
-    return list_projects(db, body)
+    return list_projects(db, body, session)
 
 
 @router.post("", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
@@ -60,7 +52,7 @@ def create_endpoint(
     db: Session = Depends(get_db),
     session: UserSession = Depends(current_user_dep),
 ):
-    return create_project(db, body, created_by_id=session.user_id)
+    return create_project(db, body, created_by_id=session.user_id, session=session)
 
 
 @router.put("/{id}", response_model=ProjectResponse, status_code=status.HTTP_200_OK)
@@ -70,7 +62,7 @@ def update_endpoint(
     db: Session = Depends(get_db),
     session: UserSession = Depends(current_user_dep),
 ):
-    return update_project(db, id, body, updated_by_id=session.user_id)
+    return update_project(db, id, body, updated_by_id=session.user_id, session=session)
 
 
 @router.patch("/{id}/status", response_model=ProjectResponse, status_code=status.HTTP_200_OK)
@@ -80,7 +72,13 @@ def status_endpoint(
     db: Session = Depends(get_db),
     session: UserSession = Depends(current_user_dep),
 ):
-    return change_project_status(db, id, is_active=body.is_active, updated_by_id=session.user_id)
+    return change_project_status(
+        db,
+        id,
+        is_active=body.is_active,
+        updated_by_id=session.user_id,
+        session=session,
+    )
 
 
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -89,5 +87,5 @@ def delete_endpoint(
     db: Session = Depends(get_db),
     session: UserSession = Depends(current_user_dep),
 ):
-    delete_project(db, id, deleted_by_id=session.user_id)
+    delete_project(db, id, deleted_by_id=session.user_id, session=session)
     return None

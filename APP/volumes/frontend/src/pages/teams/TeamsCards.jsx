@@ -27,7 +27,7 @@ const INPUT_BASE =
   "w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition-colors placeholder-gray-400 dark:placeholder-gray-500";
 const LABEL_BASE = "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1";
 
-const normalizeRole = (role) => (role ? String(role).toUpperCase() : "read");
+const normalizeRole = (role) => (role ? String(role).toUpperCase() : "VIEWER");
 
 const COLOR_MAP = {
   blue: "from-blue-500 to-blue-700",

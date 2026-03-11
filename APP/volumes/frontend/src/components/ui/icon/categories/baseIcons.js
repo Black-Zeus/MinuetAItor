@@ -1,6 +1,7 @@
 // src/components/ui/icon/categories/baseIcons.js
 import {
   FaBuilding,
+  FaBriefcase,
   FaCalendar,
   FaClock,
   FaEye,
@@ -21,10 +22,13 @@ import {
   FaLocationDot,
   FaNetworkWired,
   FaClockRotateLeft,
+  FaGlobe,
+  FaSquare,
 } from "react-icons/fa6";
 
 export const baseIcons = {
   business: FaBuilding,
+  briefcase: FaBriefcase,
   calendar: FaCalendar,
   clock: FaClock,
   eye: FaEye,
@@ -34,6 +38,7 @@ export const baseIcons = {
   inbox: FaInbox,
   industry: FaIndustry,
   search: FaMagnifyingGlass,
+  FaSearch: FaMagnifyingGlass,
   sliders: FaSliders,
   FaSlidersH: FaSliders,
   tag: FaTag,
@@ -63,6 +68,9 @@ export const baseIcons = {
   FaGear,
   FaSun,
   FaMoon,
+  FaBriefcase,
+  FaGlobe,
+  FaSquare,
   FaCalendarAlt: FaCalendar,
   location: FaLocationDot,
   FaLocationDot,
@@ -71,4 +79,6 @@ export const baseIcons = {
   FaNetworkWired,
   person: FaUser,
   FaPerson: FaUser,
+  globe: FaGlobe,
+  square: FaSquare,
 };

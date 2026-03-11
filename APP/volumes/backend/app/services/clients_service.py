@@ -9,8 +9,15 @@ from fastapi import HTTPException
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
+from core.exceptions import ForbiddenException
 from models.clients import Client
 from schemas.clients import ClientCreateRequest, ClientFilterRequest, ClientUpdateRequest
+from schemas.auth import UserSession
+from services.access_control_service import (
+    apply_client_scope_filter,
+    can_manage_clients,
+    ensure_client_read_access,
+)
 
 from utils.text import title_case_es
 
@@ -98,12 +105,14 @@ def _reload_with_relations(db: Session, client_id: str) -> Client:
     )
 
 
-def get_client(db: Session, client_id: str) -> dict:
+def get_client(db: Session, client_id: str, session: UserSession) -> dict:
+    ensure_client_read_access(db, session, client_id)
     return _build_response_dict(_get_or_404(db, client_id))
 
 
-def list_clients(db: Session, filters: ClientFilterRequest) -> dict:
+def list_clients(db: Session, filters: ClientFilterRequest, session: UserSession) -> dict:
     q = db.query(Client).filter(Client.deleted_at.is_(None))
+    q = apply_client_scope_filter(q, db, session, Client.id)
 
     if filters.is_active is not None:
         q = q.filter(Client.is_active == bool(filters.is_active))
@@ -157,7 +166,15 @@ def list_clients(db: Session, filters: ClientFilterRequest) -> dict:
     }
 
 
-def create_client(db: Session, payload: ClientCreateRequest, created_by_id: str) -> dict:
+def create_client(
+    db: Session,
+    payload: ClientCreateRequest,
+    created_by_id: str,
+    session: UserSession,
+) -> dict:
+    if not can_manage_clients(session):
+        raise ForbiddenException("No tienes permisos para crear clientes")
+
     _check_unique_name(db, payload.name)
 
     obj = Client(
@@ -209,7 +226,16 @@ _UPDATABLE_FIELDS = [
 ]
 
 
-def update_client(db: Session, client_id: str, payload: ClientUpdateRequest, updated_by_id: str) -> dict:
+def update_client(
+    db: Session,
+    client_id: str,
+    payload: ClientUpdateRequest,
+    updated_by_id: str,
+    session: UserSession,
+) -> dict:
+    if not can_manage_clients(session):
+        raise ForbiddenException("No tienes permisos para editar clientes")
+
     obj = _get_or_404(db, client_id)
 
     for field in _UPDATABLE_FIELDS:
@@ -230,7 +256,16 @@ def update_client(db: Session, client_id: str, payload: ClientUpdateRequest, upd
     return _build_response_dict(_reload_with_relations(db, obj.id))
 
 
-def change_client_status(db: Session, client_id: str, is_active: bool, updated_by_id: str) -> dict:
+def change_client_status(
+    db: Session,
+    client_id: str,
+    is_active: bool,
+    updated_by_id: str,
+    session: UserSession,
+) -> dict:
+    if not can_manage_clients(session):
+        raise ForbiddenException("No tienes permisos para cambiar el estado de clientes")
+
     obj = _get_or_404(db, client_id)
     obj.is_active  = bool(is_active)
     obj.updated_by = updated_by_id
@@ -239,7 +274,10 @@ def change_client_status(db: Session, client_id: str, is_active: bool, updated_b
     return _build_response_dict(_reload_with_relations(db, obj.id))
 
 
-def delete_client(db: Session, client_id: str, deleted_by_id: str) -> None:
+def delete_client(db: Session, client_id: str, deleted_by_id: str, session: UserSession) -> None:
+    if not can_manage_clients(session):
+        raise ForbiddenException("No tienes permisos para eliminar clientes")
+
     obj = _get_or_404(db, client_id)
     obj.deleted_at = datetime.utcnow()
     obj.deleted_by = deleted_by_id

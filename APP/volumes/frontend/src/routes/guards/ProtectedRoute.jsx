@@ -10,12 +10,13 @@ import useAuthStore    from "@/store/authStore";
 import useSessionStore from "@/store/sessionStore";
 import ForbiddenPage   from "@/pages/errorPages/ForbiddenPage";
 
-const ProtectedRoute = ({ children, requiredRoles = [] }) => {
+const ProtectedRoute = ({ children, requiredRoles = [], requiredPermissions = [] }) => {
   const location = useLocation();
 
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isLoading       = useAuthStore((s) => s.isLoading);
   const roles           = useSessionStore((s) => s.authz?.roles ?? []);
+  const permissions     = useSessionStore((s) => s.authz?.permissions ?? []);
 
   // ── Loading ───────────────────────────────────────────────────────────────
   if (isLoading) {
@@ -41,6 +42,14 @@ const ProtectedRoute = ({ children, requiredRoles = [] }) => {
     const hasRole       = requiredLower.some((r) => userRoles.includes(r));
 
     if (!hasRole) return <ForbiddenPage />;
+  }
+
+  if (requiredPermissions.length > 0) {
+    const userPermissions     = permissions.map((p) => String(p).trim());
+    const requiredNormalized  = requiredPermissions.map((p) => String(p).trim());
+    const hasPermission       = requiredNormalized.some((p) => userPermissions.includes(p));
+
+    if (!hasPermission) return <ForbiddenPage />;
   }
 
   return children;

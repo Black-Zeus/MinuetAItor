@@ -18,6 +18,7 @@ export const settingsRoutes = [
     title: "Etiquetas",
     requiresAuth: true,
     roles: [],
+    permissions: [],
   },
   {
     path: "/settings/profiles",
@@ -25,6 +26,7 @@ export const settingsRoutes = [
     title: "Catálogo de Perfiles",
     requiresAuth: true,
     roles: [],
+    permissions: [],
   },
   {
     path: "/settings/userProfile",
@@ -32,6 +34,7 @@ export const settingsRoutes = [
     title: "Mi Perfil",
     requiresAuth: true,
     roles: [],
+    permissions: [],
   },
   {
     path: "/settings/system",
@@ -39,6 +42,7 @@ export const settingsRoutes = [
     title: "Configuración del Sistema",
     requiresAuth: true,
     roles: ["admin"],
+    permissions: [],
   },
   {
     path: "/help",
@@ -46,6 +50,7 @@ export const settingsRoutes = [
     title: "Ayuda",
     requiresAuth: true,
     roles: [],
+    permissions: [],
   },
 ];
 

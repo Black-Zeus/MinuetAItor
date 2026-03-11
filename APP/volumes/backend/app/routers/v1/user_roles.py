@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from core.authz import require_roles
 from db.session import get_db
 from schemas.auth import UserSession
 from schemas.user_roles import (
@@ -14,7 +14,6 @@ from schemas.user_roles import (
     UserRoleResponse,
     UserRoleUpdateRequest,
 )
-from services.auth_service import get_current_user
 from services.user_roles_service import (
     create_user_role,
     delete_user_role,
@@ -24,13 +23,6 @@ from services.user_roles_service import (
 )
 
 router = APIRouter(prefix="/user-roles", tags=["User Roles"])
-bearer = HTTPBearer()
-
-
-async def current_user_dep(
-    credentials: HTTPAuthorizationCredentials = Depends(bearer),
-) -> UserSession:
-    return await get_current_user(credentials.credentials)
 
 
 @router.get(
@@ -42,7 +34,7 @@ def get_endpoint(
     user_id: str,
     role_id: int,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     return get_user_role(db, user_id=user_id, role_id=role_id)
 
@@ -55,7 +47,7 @@ def get_endpoint(
 def list_endpoint(
     body: UserRoleFilterRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     return list_user_roles(db, body)
 
@@ -68,7 +60,7 @@ def list_endpoint(
 def create_endpoint(
     body: UserRoleCreateRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     return create_user_role(db, body, created_by_id=session.user_id)
 
@@ -83,7 +75,7 @@ def put_endpoint(
     role_id: int,
     body: UserRoleUpdateRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     return update_user_role(db, user_id=user_id, role_id=role_id, body=body, updated_by_id=session.user_id)
 
@@ -96,7 +88,7 @@ def delete_endpoint(
     user_id: str,
     role_id: int,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     delete_user_role(db, user_id=user_id, role_id=role_id, deleted_by_id=session.user_id)
     return None

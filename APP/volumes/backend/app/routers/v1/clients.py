@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from core.authz import current_user_dep
 from db.session import get_db
 from schemas.auth import UserSession
 from schemas.clients import (
@@ -15,7 +15,6 @@ from schemas.clients import (
     ClientStatusRequest,
     ClientUpdateRequest,
 )
-from services.auth_service import get_current_user
 from services.clients_service import (
     change_client_status,
     create_client,
@@ -26,13 +25,6 @@ from services.clients_service import (
 )
 
 router = APIRouter(prefix="/clients", tags=["Clients"])
-bearer = HTTPBearer()
-
-
-async def current_user_dep(
-    credentials: HTTPAuthorizationCredentials = Depends(bearer),
-) -> UserSession:
-    return await get_current_user(credentials.credentials)
 
 
 @router.get("/industries", response_model=list[str], status_code=status.HTTP_200_OK)
@@ -53,7 +45,7 @@ def get_endpoint(
     db: Session = Depends(get_db),
     session: UserSession = Depends(current_user_dep),
 ):
-    return get_client(db, id)
+    return get_client(db, id, session)
 
 
 @router.post("/list", response_model=ClientListResponse, status_code=status.HTTP_200_OK)
@@ -62,7 +54,7 @@ def list_endpoint(
     db: Session = Depends(get_db),
     session: UserSession = Depends(current_user_dep),
 ):
-    return list_clients(db, body)
+    return list_clients(db, body, session)
 
 
 @router.post("", response_model=ClientResponse, status_code=status.HTTP_201_CREATED)
@@ -71,7 +63,7 @@ def create_endpoint(
     db: Session = Depends(get_db),
     session: UserSession = Depends(current_user_dep),
 ):
-    return create_client(db, body, created_by_id=session.user_id)
+    return create_client(db, body, created_by_id=session.user_id, session=session)
 
 
 @router.put("/{id}", response_model=ClientResponse, status_code=status.HTTP_200_OK)
@@ -81,7 +73,7 @@ def update_endpoint(
     db: Session = Depends(get_db),
     session: UserSession = Depends(current_user_dep),
 ):
-    return update_client(db, id, body, updated_by_id=session.user_id)
+    return update_client(db, id, body, updated_by_id=session.user_id, session=session)
 
 
 @router.patch("/{id}/status", response_model=ClientResponse, status_code=status.HTTP_200_OK)
@@ -91,7 +83,13 @@ def status_endpoint(
     db: Session = Depends(get_db),
     session: UserSession = Depends(current_user_dep),
 ):
-    return change_client_status(db, id, is_active=body.is_active, updated_by_id=session.user_id)
+    return change_client_status(
+        db,
+        id,
+        is_active=body.is_active,
+        updated_by_id=session.user_id,
+        session=session,
+    )
 
 
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -100,5 +98,5 @@ def delete_endpoint(
     db: Session = Depends(get_db),
     session: UserSession = Depends(current_user_dep),
 ):
-    delete_client(db, id, deleted_by_id=session.user_id)
+    delete_client(db, id, deleted_by_id=session.user_id, session=session)
     return None

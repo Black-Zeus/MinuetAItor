@@ -10,9 +10,9 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from core.authz import require_roles
 from db.session import get_db
 from schemas.auth import UserSession
 from schemas.user_client_acl import (
@@ -23,7 +23,6 @@ from schemas.user_client_acl import (
     UserClientAclStatusRequest,
     UserClientAclUpdateRequest,
 )
-from services.auth_service import get_current_user
 from services.user_client_acl_service import (
     change_user_client_acl_status,
     create_user_client_acl,
@@ -34,13 +33,6 @@ from services.user_client_acl_service import (
 )
 
 router = APIRouter(prefix="/user-client-acl", tags=["UserClientAcl"])
-bearer = HTTPBearer()
-
-
-async def current_user_dep(
-    credentials: HTTPAuthorizationCredentials = Depends(bearer),
-) -> UserSession:
-    return await get_current_user(credentials.credentials)
 
 
 # CRÍTICO: /list antes que rutas con path params
@@ -48,7 +40,7 @@ async def current_user_dep(
 def list_endpoint(
     body: UserClientAclFilterRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     return list_user_client_acls(db, body)
 
@@ -58,7 +50,7 @@ def get_endpoint(
     user_id: str,
     client_id: str,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     return get_user_client_acl(db, user_id, client_id)
 
@@ -67,7 +59,7 @@ def get_endpoint(
 def create_endpoint(
     body: UserClientAclCreateRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     return create_user_client_acl(db, body, created_by_id=session.user_id)
 
@@ -78,7 +70,7 @@ def update_endpoint(
     client_id: str,
     body: UserClientAclUpdateRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     # PUT se mantiene aquí porque el campo 'permission' (read/edit/owner) sí es mutable
     # y es el campo central de esta tabla — distinto a user_clients donde no había nada editable.
@@ -95,7 +87,7 @@ def status_endpoint(
     client_id: str,
     body: UserClientAclStatusRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     return change_user_client_acl_status(
         db, user_id, client_id,
@@ -109,7 +101,7 @@ def delete_endpoint(
     user_id: str,
     client_id: str,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     delete_user_client_acl(db, user_id, client_id, deleted_by_id=session.user_id)
     return None

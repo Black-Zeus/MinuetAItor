@@ -10,6 +10,7 @@ import { ModalManager } from '@/components/ui/modal';
 import ProjectModal, { PROJECT_MODAL_MODES } from './ProjectModal';
 import ActionButton from '@/components/ui/button/ActionButton';
 import projectService from '@/services/projectService';
+import useSessionStore from '@/store/sessionStore';
 
 import logger from '@/utils/logger';
 const projectLog = logger.scope("project");
@@ -43,6 +44,11 @@ const getStatusText = (status) => {
 
 const ProjectCard = ({ id, summary = null, clientCatalog = [], onUpdated, onDeleted }) => {
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const authz = useSessionStore((s) => s.authz);
+  const canManageProjects =
+    Array.isArray(authz?.roles) && authz.roles.includes("ADMIN")
+      ? true
+      : Array.isArray(authz?.permissions) && authz.permissions.includes("clients.manage");
 
   // ─── Carga de detalle on-demand ───────────────────────────────────────────
 
@@ -242,7 +248,7 @@ const ProjectCard = ({ id, summary = null, clientCatalog = [], onUpdated, onDele
 
       {/* FOOTER */}
       <div className="p-4 border-t border-secondary-200 dark:border-secondary-700/60 transition-theme">
-        <div className="grid grid-cols-3 gap-2 place-items-center">
+        <div className={`grid gap-2 place-items-center ${canManageProjects ? "grid-cols-3" : "grid-cols-1"}`}>
           <ActionButton
             variant="soft"
             size="xs"
@@ -252,23 +258,27 @@ const ProjectCard = ({ id, summary = null, clientCatalog = [], onUpdated, onDele
             disabled={loadingDetail}
             className="w-full"
           />
-          <ActionButton
-            variant="soft"
-            size="xs"
-            icon={<Icon name="FaEdit" />}
-            tooltip="Editar proyecto"
-            onClick={handleEditProject}
-            disabled={loadingDetail}
-            className="w-full"
-          />
-          <ActionButton
-            variant="soft"
-            size="xs"
-            icon={<Icon name="FaTrash" />}
-            tooltip="Eliminar proyecto"
-            onClick={handleDeleteProject}
-            className="w-full"
-          />
+          {canManageProjects ? (
+            <ActionButton
+              variant="soft"
+              size="xs"
+              icon={<Icon name="FaEdit" />}
+              tooltip="Editar proyecto"
+              onClick={handleEditProject}
+              disabled={loadingDetail}
+              className="w-full"
+            />
+          ) : null}
+          {canManageProjects ? (
+            <ActionButton
+              variant="soft"
+              size="xs"
+              icon={<Icon name="FaTrash" />}
+              tooltip="Eliminar proyecto"
+              onClick={handleDeleteProject}
+              className="w-full"
+            />
+          ) : null}
         </div>
       </div>
     </div>

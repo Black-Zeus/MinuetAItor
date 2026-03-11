@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from core.authz import require_roles
 from db.session import get_db
 from schemas.auth import UserSession
 from schemas.user_project_acl import (
@@ -16,7 +16,6 @@ from schemas.user_project_acl import (
     UserProjectACLStatusRequest,
     UserProjectACLUpdateRequest,
 )
-from services.auth_service import get_current_user
 from services.user_project_acl_service import (
     change_user_project_acl_status,
     create_user_project_acl,
@@ -27,13 +26,6 @@ from services.user_project_acl_service import (
 )
 
 router = APIRouter(prefix="/user-project-acl", tags=["UserProjectACL"])
-bearer = HTTPBearer()
-
-
-async def current_user_dep(
-    credentials: HTTPAuthorizationCredentials = Depends(bearer),
-) -> UserSession:
-    return await get_current_user(credentials.credentials)
 
 
 @router.post(
@@ -44,7 +36,7 @@ async def current_user_dep(
 def list_endpoint(
     body: UserProjectACLFilterRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     return list_user_project_acls(db, body)
 
@@ -58,7 +50,7 @@ def get_endpoint(
     user_id: str,
     project_id: str,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     return get_user_project_acl(db, user_id, project_id)
 
@@ -71,7 +63,7 @@ def get_endpoint(
 def create_endpoint(
     body: UserProjectACLCreateRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     return create_user_project_acl(db, body, created_by_id=session.user_id)
 
@@ -86,7 +78,7 @@ def update_endpoint(
     project_id: str,
     body: UserProjectACLUpdateRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     return update_user_project_acl(db, user_id, project_id, body, updated_by_id=session.user_id)
 
@@ -101,7 +93,7 @@ def status_endpoint(
     project_id: str,
     body: UserProjectACLStatusRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     return change_user_project_acl_status(
         db,
@@ -120,7 +112,7 @@ def delete_endpoint(
     user_id: str,
     project_id: str,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     delete_user_project_acl(db, user_id, project_id, deleted_by_id=session.user_id)
     return None

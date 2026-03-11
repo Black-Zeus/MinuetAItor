@@ -24,7 +24,7 @@ import {
   FaRotateLeft,
   FaComment,
   FaArrowsRotate,
-  FaXmark,  
+  FaXmark,
 } from "react-icons/fa6";
 
 export const actionIcons = {
@@ -76,9 +76,12 @@ export const actionIcons = {
   rotate: FaRotate,
   rotateLeft: FaRotateLeft,
   comment: FaComment,
+  FaCommentAlt: FaComment,
   arrowsRotate: FaArrowsRotate,
   penToSquare: FaPenToSquare,
   xmark: FaXmark,
+  FaPen: FaPenToSquare,
+  FaTimes: FaXmark,
   FaXmark,
   FaPaperclip,
 
