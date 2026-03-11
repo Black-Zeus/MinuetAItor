@@ -28,6 +28,8 @@ from schemas.minutes import (
 from services.auth_service import get_current_user
 from services.minutes_service import (
     generate_minute,
+    get_minute_attachment_blob,
+    generate_minute_pdf_preview,
     get_minute_detail,
     get_minute_status,
     get_minute_versions,
@@ -135,6 +137,52 @@ async def save_endpoint(
 ):
     await save_minute_draft(db=db, record_id=record_id, content=body.content)
     return {"ok": True}
+
+
+@router.post(
+    "/{record_id}/pdf-preview",
+    status_code = status.HTTP_200_OK,
+    summary     = "Generar PDF temporal de vista previa con el payload actual del editor",
+)
+async def pdf_preview_endpoint(
+    record_id: str,
+    body:      MinuteSaveRequest,
+    db:        Session     = Depends(get_db),
+    session:   UserSession = Depends(current_user_dep),
+):
+    pdf_bytes = await generate_minute_pdf_preview(
+        db=db,
+        record_id=record_id,
+        content=body.content,
+    )
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": 'inline; filename="minute-preview.pdf"'},
+    )
+
+
+@router.get(
+    "/{record_id}/attachments/{sha256}",
+    status_code = status.HTTP_200_OK,
+    summary     = "Sirve un adjunto de entrada real asociado a la minuta",
+)
+def attachment_endpoint(
+    record_id: str,
+    sha256:    str,
+    db:        Session = Depends(get_db),
+    session:   UserSession = Depends(current_user_dep),
+):
+    file_bytes, mime_type, filename = get_minute_attachment_blob(
+        db=db,
+        record_id=record_id,
+        sha256=sha256,
+    )
+    return Response(
+        content=file_bytes,
+        media_type=mime_type,
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
 
 
 # ─── POST /{record_id}/transition ─────────────────────────────────────────────

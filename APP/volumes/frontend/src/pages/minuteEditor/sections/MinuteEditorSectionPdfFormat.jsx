@@ -10,6 +10,8 @@ import React from 'react';
 import Icon from '@components/ui/icon/iconManager';
 import ModalManager from '@components/ui/modal';
 import useMinuteEditorStore from '@/store/minuteEditorStore';
+import { previewMinutePdfBlob } from '@/services/minutesService';
+import { openPdfViewer } from '@/components/ui/pdf/PdfViewerModal';
 
 // ─────────────────────────────────────────────────────────────
 // Templates reales del pdf-worker
@@ -37,159 +39,51 @@ const PDF_TEMPLATES = [
   },
 ];
 
-// ─────────────────────────────────────────────────────────────
-// Modal de vista previa de template (mockup PDF)
-// ─────────────────────────────────────────────────────────────
+const buildPreviewFilename = (meetingInfo = {}) => {
+  const rawTitle = String(meetingInfo.subject ?? 'minuta').trim() || 'minuta';
+  const safeTitle = rawTitle
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9_-]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 60) || 'minuta';
 
-const TemplatePreviewContent = ({ template, meetingInfo }) => (
-  <div className="flex flex-col gap-4 h-full">
+  const rawDate = String(meetingInfo.meetingDate ?? '').trim();
+  const match = rawDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const now = new Date();
 
-    {/* Banner mockup */}
-    <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-50 dark:bg-amber-900/15 border border-amber-200/60 dark:border-amber-700/40 transition-theme">
-      <Icon name="triangleExclamation" className="text-amber-500 shrink-0 text-xs" />
-      <p className="text-xs text-amber-800 dark:text-amber-300 transition-theme">
-        Vista previa aproximada del template <strong>{template.name}</strong>. El PDF real puede diferir en tipografía y espaciado.
-      </p>
-    </div>
-
-    {/* Simulación de página PDF */}
-    <div className="flex-1 overflow-auto bg-gray-100 dark:bg-gray-900 rounded-xl p-4 transition-theme">
-      <div
-        className="mx-auto bg-white shadow-xl rounded"
-        style={{ width: '100%', maxWidth: '600px', minHeight: '800px', fontFamily: 'sans-serif' }}
-      >
-        {/* Encabezado del template */}
-        {template.id === 'standard' && (
-          <div style={{ background: '#1d4ed8', color: 'white', padding: '24px 32px' }}>
-            <p style={{ fontSize: '10px', opacity: 0.7, textTransform: 'uppercase', letterSpacing: '2px' }}>Minuta de Reunión</p>
-            <h1 style={{ fontSize: '18px', fontWeight: 'bold', margin: '4px 0 0' }}>{meetingInfo?.subject || 'Asunto de la reunión'}</h1>
-            <p style={{ fontSize: '12px', opacity: 0.8, marginTop: '4px' }}>{meetingInfo?.client || 'Cliente'}</p>
-          </div>
-        )}
-        {template.id === 'executive' && (
-          <div style={{ borderBottom: '4px solid #1d4ed8', padding: '24px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <p style={{ fontSize: '10px', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '1px' }}>Resumen Ejecutivo</p>
-              <h1 style={{ fontSize: '16px', fontWeight: 'bold', color: '#111827', marginTop: '4px' }}>{meetingInfo?.subject || 'Reunión'}</h1>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <p style={{ fontSize: '10px', color: '#6b7280' }}>Cliente</p>
-              <p style={{ fontSize: '12px', fontWeight: '600', color: '#374151' }}>{meetingInfo?.client || '—'}</p>
-            </div>
-          </div>
-        )}
-        {template.id === 'detailed' && (
-          <div style={{ background: '#f9fafb', borderBottom: '2px solid #e5e7eb', padding: '24px 32px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ width: '40px', height: '40px', background: '#1d4ed8', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <span style={{ color: 'white', fontSize: '18px', fontWeight: 'bold' }}>M</span>
-              </div>
-              <div>
-                <h1 style={{ fontSize: '16px', fontWeight: 'bold', color: '#111827' }}>{meetingInfo?.subject || 'Reunión'}</h1>
-                <p style={{ fontSize: '11px', color: '#6b7280' }}>Minuta Oficial · {meetingInfo?.client || 'Cliente'}</p>
-              </div>
-            </div>
-          </div>
-        )}
-        {template.id === 'minimalist' && (
-          <div style={{ padding: '32px 40px', borderBottom: '1px solid #e5e7eb' }}>
-            <p style={{ fontSize: '10px', color: '#9ca3af', letterSpacing: '2px', textTransform: 'uppercase' }}>Minuta de Reunión</p>
-            <h1 style={{ fontSize: '20px', fontWeight: '600', color: '#111827', marginTop: '8px', lineHeight: '1.3' }}>{meetingInfo?.subject || 'Asunto'}</h1>
-          </div>
-        )}
-        {template.id === 'branded' && (
-          <div style={{ background: 'linear-gradient(135deg, #1e40af 0%, #7c3aed 100%)', color: 'white', padding: '32px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <div style={{ width: '80px', height: '24px', background: 'rgba(255,255,255,0.3)', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <span style={{ fontSize: '8px', opacity: 0.8 }}>LOGO</span>
-              </div>
-              <div style={{ width: '60px', height: '20px', background: 'rgba(255,255,255,0.2)', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <span style={{ fontSize: '7px', opacity: 0.7 }}>CLIENTE</span>
-              </div>
-            </div>
-            <h1 style={{ fontSize: '20px', fontWeight: 'bold' }}>{meetingInfo?.subject || 'Reunión'}</h1>
-            <p style={{ fontSize: '12px', opacity: 0.8, marginTop: '4px' }}>{meetingInfo?.client}</p>
-          </div>
-        )}
-
-        {/* Cuerpo genérico simulado */}
-        <div style={{ padding: '24px 32px', fontSize: '11px', color: '#374151', lineHeight: '1.6' }}>
-          <div style={{ marginBottom: '20px' }}>
-            <p style={{ fontSize: '9px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', color: '#6b7280', borderBottom: '1px solid #e5e7eb', paddingBottom: '4px', marginBottom: '8px' }}>
-              INFORMACIÓN GENERAL
-            </p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 24px' }}>
-              <div><span style={{ color: '#9ca3af' }}>Fecha:</span> {meetingInfo?.meetingDate || '—'}</div>
-              <div><span style={{ color: '#9ca3af' }}>Lugar:</span> {meetingInfo?.location || '—'}</div>
-              <div><span style={{ color: '#9ca3af' }}>Elaborado por:</span> {meetingInfo?.preparedBy || '—'}</div>
-            </div>
-          </div>
-
-          <div style={{ marginBottom: '20px' }}>
-            <p style={{ fontSize: '9px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', color: '#6b7280', borderBottom: '1px solid #e5e7eb', paddingBottom: '4px', marginBottom: '8px' }}>
-              ALCANCE Y CONTENIDO
-            </p>
-            {[1, 2, 3].map(n => (
-              <div key={n} style={{ marginBottom: '8px' }}>
-                <p style={{ fontWeight: '600', color: '#111827' }}>Sección de ejemplo {n}</p>
-                <p style={{ color: '#6b7280', fontSize: '10px' }}>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean euismod bibendum laoreet.</p>
-              </div>
-            ))}
-          </div>
-
-          <div style={{ marginBottom: '20px' }}>
-            <p style={{ fontSize: '9px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', color: '#6b7280', borderBottom: '1px solid #e5e7eb', paddingBottom: '4px', marginBottom: '8px' }}>
-              ACUERDOS
-            </p>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
-              <thead>
-                <tr style={{ background: '#f9fafb' }}>
-                  <th style={{ textAlign: 'left', padding: '4px 8px', color: '#6b7280', fontWeight: '600' }}>ID</th>
-                  <th style={{ textAlign: 'left', padding: '4px 8px', color: '#6b7280', fontWeight: '600' }}>Asunto</th>
-                  <th style={{ textAlign: 'left', padding: '4px 8px', color: '#6b7280', fontWeight: '600' }}>Responsable</th>
-                  <th style={{ textAlign: 'left', padding: '4px 8px', color: '#6b7280', fontWeight: '600' }}>Vence</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[['AGR-001','Ejemplo de acuerdo','Juan Pérez','15/03/2026'],['AGR-002','Otro acuerdo','María López','30/03/2026']].map(([id,subject,resp,due]) => (
-                  <tr key={id} style={{ borderTop: '1px solid #e5e7eb' }}>
-                    <td style={{ padding: '4px 8px', color: '#2563eb', fontFamily: 'monospace' }}>{id}</td>
-                    <td style={{ padding: '4px 8px' }}>{subject}</td>
-                    <td style={{ padding: '4px 8px', color: '#6b7280' }}>{resp}</td>
-                    <td style={{ padding: '4px 8px', color: '#6b7280' }}>{due}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Pie de página */}
-        <div style={{ borderTop: '1px solid #e5e7eb', padding: '12px 32px', display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: '#9ca3af' }}>
-          <span>MinuetAItor — {template.name}</span>
-          <span>Página 1 de N</span>
-        </div>
-      </div>
-    </div>
-
-  </div>
-);
+  return `${match?.[1] ?? String(now.getFullYear())}${match?.[2] ?? String(now.getMonth() + 1).padStart(2, '0')}${match?.[3] ?? String(now.getDate()).padStart(2, '0')}_${safeTitle}_preview.pdf`;
+};
 
 // ─────────────────────────────────────────────────────────────
 // Selector de template
 // ─────────────────────────────────────────────────────────────
 
-const TemplateSelector = ({ selectedId, onChange, isReadOnly }) => {
-  const { meetingInfo } = useMinuteEditorStore();
+const TemplateSelector = ({ recordId, selectedId, onChange, isReadOnly }) => {
+  const { meetingInfo, getExportPayload } = useMinuteEditorStore();
   const selected = PDF_TEMPLATES.find(t => t.id === selectedId) ?? PDF_TEMPLATES[0];
+  const [isGeneratingPreview, setIsGeneratingPreview] = React.useState(false);
 
-  const openPreview = () => {
-    ModalManager.custom({
-      title:      `Vista Previa — ${selected.name}`,
-      size:       'large',
-      showFooter: false,
-      content:    <TemplatePreviewContent template={selected} meetingInfo={meetingInfo} />,
-    });
+  const openPreview = async () => {
+    if (!recordId || isGeneratingPreview) return;
+
+    setIsGeneratingPreview(true);
+    try {
+      const blob = await previewMinutePdfBlob(recordId, getExportPayload());
+      openPdfViewer({
+        title: `Vista Previa — ${selected.name}`,
+        filename: buildPreviewFilename(meetingInfo),
+        blob,
+      });
+    } catch {
+      ModalManager.error?.({
+        title: 'Error',
+        message: 'No fue posible generar la vista previa del PDF.',
+      });
+    } finally {
+      setIsGeneratingPreview(false);
+    }
   };
 
   return (
@@ -225,10 +119,11 @@ const TemplateSelector = ({ selectedId, onChange, isReadOnly }) => {
         <button
           type="button"
           onClick={openPreview}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-xs font-semibold transition-all shadow-sm shrink-0"
+          disabled={!recordId || isGeneratingPreview}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-xs font-semibold transition-all shadow-sm shrink-0 disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          <Icon name="eye" className="text-xs" />
-          Vista Previa
+          <Icon name={isGeneratingPreview ? 'spinner' : 'eye'} className={`text-xs ${isGeneratingPreview ? 'animate-spin' : ''}`} />
+          {isGeneratingPreview ? 'Generando…' : 'Vista Previa'}
         </button>
       </div>
 
@@ -403,7 +298,7 @@ const VersionControlConfig = () => {
   );
 };
 
-const SignaturePageConfig = () => {
+const SignaturePageConfig = ({ isReadOnly = false }) => {
   const { pdfFormat, addSignatory, updateSignatory, deleteSignatory } = useMinuteEditorStore();
   const signatories = pdfFormat.signaturePage.signatories;
 
@@ -473,8 +368,8 @@ const SignaturePageConfig = () => {
                 <p className="text-xs text-gray-500 dark:text-gray-400 transition-theme">{sig.role}{sig.area ? ` · ${sig.area}` : ''}</p>
               </div>
               <div className="flex gap-1">
-                <button type="button" onClick={() => openForm(sig)} className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition-theme"><Icon name="pen" className="text-xs" /></button>
-                <button type="button" onClick={() => deleteSignatory(sig.id)} className="p-1.5 rounded hover:bg-red-100 dark:hover:bg-red-900/20 text-gray-500 dark:text-gray-400 hover:text-red-600 transition-theme"><Icon name="trash" className="text-xs" /></button>
+                <button type="button" disabled={isReadOnly} onClick={() => openForm(sig)} className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition-theme disabled:opacity-50 disabled:cursor-not-allowed"><Icon name="pen" className="text-xs" /></button>
+                <button type="button" disabled={isReadOnly} onClick={() => deleteSignatory(sig.id)} className="p-1.5 rounded hover:bg-red-100 dark:hover:bg-red-900/20 text-gray-500 dark:text-gray-400 hover:text-red-600 transition-theme disabled:opacity-50 disabled:cursor-not-allowed"><Icon name="trash" className="text-xs" /></button>
               </div>
             </div>
           ))}
@@ -499,7 +394,7 @@ const PDF_SHEETS = [
 // Componente principal
 // ─────────────────────────────────────────────────────────────
 
-const MinuteEditorSectionPdfFormat = ({ isReadOnly = false }) => {
+const MinuteEditorSectionPdfFormat = ({ recordId, isReadOnly = false }) => {
   const { pdfFormat, togglePdfSheet, setPdfTemplate } = useMinuteEditorStore();
   const selectedTemplate = pdfFormat.template ?? 'opc_01';
   const enabledCount = PDF_SHEETS.filter(s => pdfFormat[s.key]?.enabled).length;
@@ -529,7 +424,7 @@ const MinuteEditorSectionPdfFormat = ({ isReadOnly = false }) => {
 
         {/* Selector de template */}
         <div className="mt-5 border-t border-gray-100 dark:border-gray-700/50 pt-5 transition-theme">
-          <TemplateSelector selectedId={selectedTemplate} onChange={setPdfTemplate} isReadOnly={isReadOnly} />
+          <TemplateSelector recordId={recordId} selectedId={selectedTemplate} onChange={setPdfTemplate} isReadOnly={isReadOnly} />
         </div>
       </div>
 
@@ -545,7 +440,7 @@ const MinuteEditorSectionPdfFormat = ({ isReadOnly = false }) => {
             onToggle={() => togglePdfSheet(key)}
             isReadOnly={isReadOnly}
           >
-            <ConfigComponent />
+            <ConfigComponent isReadOnly={isReadOnly} />
           </SheetToggleCard>
         ))}
       </div>

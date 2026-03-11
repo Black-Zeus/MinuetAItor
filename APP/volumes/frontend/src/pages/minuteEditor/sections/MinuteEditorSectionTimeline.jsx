@@ -81,16 +81,7 @@ const TimelineEntry = ({ version, isLatest, isLast, recordId }) => {
   const pdfType  = version.statusCode === "final" ? "published" : "draft";
   const filename = `minuta_${version.versionLabel}.pdf`;
 
-  const handleVisualize = () => {
-    openPdfViewer({
-      recordId,
-      pdfType,
-      filename,
-      title: `PDF ${version.versionLabel}`,
-    });
-  };
-
-  const handleDownload = () => {
+  const handleViewPdf = () => {
     openPdfViewer({
       recordId,
       pdfType,
@@ -204,23 +195,13 @@ const TimelineEntry = ({ version, isLatest, isLast, recordId }) => {
                 </span>
                 <button
                   type="button"
-                  onClick={handleVisualize}
+                  onClick={handleViewPdf}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-50 dark:bg-primary-900/20
                     hover:bg-primary-100 dark:hover:bg-primary-900/30 text-primary-700 dark:text-primary-300
                     border border-primary-200/50 dark:border-primary-700/50 text-xs font-semibold transition-theme"
                 >
-                  <Icon name="eye" className="text-xs" />
-                  Visualizar
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDownload}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700
-                    hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300
-                    border border-gray-200/50 dark:border-gray-600/50 text-xs font-semibold transition-theme"
-                >
-                  <Icon name="download" className="text-xs" />
-                  Descargar
+                  <Icon name="fileLines" className="text-xs" />
+                  Ver PDF
                 </button>
               </div>
             </div>
