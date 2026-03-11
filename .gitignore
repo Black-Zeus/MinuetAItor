@@ -34,7 +34,7 @@ APP/data/*_data/
 APP/data/mariadb_data/
 APP/data/minio_data/
 APP/data/redis_data/
-
+APP/volumes/backend/app/assets/test/*.pdf
 # Certs local
 APP/data/settings/nginx/certs/
 
