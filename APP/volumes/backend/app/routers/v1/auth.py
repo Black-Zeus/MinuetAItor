@@ -100,5 +100,5 @@ async def forgot_password_endpoint(payload: ForgotPasswordRequest, request: Requ
 
 @router.post("/reset-password", status_code=status.HTTP_200_OK)
 async def reset_password_endpoint(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
-    await reset_password(db, payload.token, payload.new_password)
+    await reset_password(db, payload.token, payload.otp_code, payload.new_password)
     return {"message": "Contraseña restablecida correctamente"}

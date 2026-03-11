@@ -212,7 +212,9 @@ class AuthService {
    */
   async resetPassword(resetData) {
     try {
-      if (!resetData?.token) throw new Error("Token de reset requerido");
+      if (!resetData?.token && !resetData?.otp_code) {
+        throw new Error("Debes ingresar un token o un codigo OTP");
+      }
       if (!resetData?.new_password) throw new Error("Nueva contraseña requerida");
 
       if (
@@ -223,7 +225,8 @@ class AuthService {
       }
 
       await api.post(API_ENDPOINTS.AUTH.RESET_PASSWORD, {
-        token: resetData.token,
+        ...(resetData.token ? { token: resetData.token } : {}),
+        ...(resetData.otp_code ? { otp_code: resetData.otp_code } : {}),
         new_password: resetData.new_password,
         ...(resetData.confirm_password !== undefined
           ? { confirm_password: resetData.confirm_password }

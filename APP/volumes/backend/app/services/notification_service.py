@@ -153,6 +153,10 @@ def _password_reset_key(token: str) -> str:
     return f"{PASSWORD_TOKEN_PREFIX}:{token}"
 
 
+def _password_reset_otp_key(otp_code: str) -> str:
+    return f"{PASSWORD_TOKEN_PREFIX}:otp:{otp_code}"
+
+
 def _minute_url(record_id: str) -> str:
     return f"{_frontend_base_url()}/minutes/process/{record_id}"
 
@@ -398,7 +402,8 @@ async def create_password_reset_token(
         raise ValueError("El usuario no tiene email para enviar reset/password setup")
 
     token = secrets.token_urlsafe(32)
-    otp_code = f"{secrets.randbelow(1_000_000):06d}"
+    redis = get_redis()
+    otp_code = await _generate_unique_password_reset_otp(redis)
     ttl_minutes = _password_ttl_minutes()
     expires_at = _utcnow() + timedelta(minutes=ttl_minutes)
     meta = _request_meta(
@@ -415,8 +420,8 @@ async def create_password_reset_token(
         "expires_at": expires_at.isoformat(),
         **meta,
     }
-    redis = get_redis()
     await redis.setex(_password_reset_key(token), ttl_minutes * 60, json.dumps(payload))
+    await redis.setex(_password_reset_otp_key(otp_code), ttl_minutes * 60, token)
 
     return PasswordResetTokenData(
         token=token,
@@ -446,13 +451,41 @@ async def get_password_reset_token(token: str) -> dict[str, Any] | None:
     return payload
 
 
+async def get_password_reset_by_otp(otp_code: str) -> dict[str, Any] | None:
+    redis = get_redis()
+    token = await redis.get(_password_reset_otp_key(otp_code))
+    if not token:
+        return None
+    return await get_password_reset_token(str(token))
+
+
 async def consume_password_reset_token(token: str) -> dict[str, Any] | None:
     payload = await get_password_reset_token(token)
     if payload is None:
         return None
     redis = get_redis()
-    await redis.delete(_password_reset_key(token))
+    delete_keys = [_password_reset_key(token)]
+    otp_code = str(payload.get("otp_code") or "").strip()
+    if otp_code:
+        delete_keys.append(_password_reset_otp_key(otp_code))
+    await redis.delete(*delete_keys)
     return payload
+
+
+async def consume_password_reset_otp(otp_code: str) -> dict[str, Any] | None:
+    payload = await get_password_reset_by_otp(otp_code)
+    if payload is None:
+        return None
+    return await consume_password_reset_token(str(payload.get("token") or ""))
+
+
+async def _generate_unique_password_reset_otp(redis) -> str:
+    for _ in range(10):
+        candidate = f"{secrets.randbelow(1_000_000):06d}"
+        exists = await redis.exists(_password_reset_otp_key(candidate))
+        if not exists:
+            return candidate
+    raise RuntimeError("No fue posible generar un OTP unico para reset de contraseña")
 
 
 async def enqueue_account_created_email(

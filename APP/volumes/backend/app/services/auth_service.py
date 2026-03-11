@@ -14,6 +14,7 @@ from repositories.auth_repository import get_user_by_credential, get_user_with_r
 from repositories.session_repository import create_session, mark_logout, get_user_sessions, get_session_by_jti, get_active_sessions, revoke_all_sessions
 from schemas.auth import TokenResponse, UserSession, MeResponse, UserProfileData, ConnectionInfo, ValidateTokenResponse, ChangePasswordRequest,    ChangePasswordByAdminRequest, TokenResponse
 from services.notification_service import (
+    consume_password_reset_otp,
     consume_password_reset_token,
     enqueue_password_changed_email,
     enqueue_recover_password_email,
@@ -385,16 +386,22 @@ async def forgot_password(
 
 async def reset_password(
     db: Session,
-    token: str,
+    token: str | None,
+    otp_code: str | None,
     new_password: str,
 ) -> None:
-    token_payload = await consume_password_reset_token(token.strip())
+    token_payload = None
+    if token and token.strip():
+        token_payload = await consume_password_reset_token(token.strip())
+    elif otp_code and otp_code.strip():
+        token_payload = await consume_password_reset_otp(otp_code.strip())
+
     if not token_payload:
-        raise BadRequestException("El token de recuperación es inválido o expiró")
+        raise BadRequestException("La credencial de recuperación es inválida o expiró")
 
     user_id = str(token_payload.get("user_id") or "").strip()
     if not user_id:
-        raise BadRequestException("Token de recuperación inválido")
+        raise BadRequestException("Credencial de recuperación inválida")
 
     user = get_user_by_id(db, user_id)
     if not user or user.deleted_at is not None:
@@ -407,7 +414,7 @@ async def reset_password(
         db,
         user_id=user.id,
         actor_label="el flujo de recuperacion de cuenta",
-        change_reason="Restablecimiento mediante token de recuperacion",
+        change_reason="Restablecimiento mediante credencial de recuperacion",
         request_origin="auth.reset-password",
     )
 

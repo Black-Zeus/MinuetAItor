@@ -1,5 +1,5 @@
 # schemas/auth.py
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 
 
 class LoginRequest(BaseModel):
@@ -113,15 +113,28 @@ class ForgotPasswordRequest(BaseModel):
         return value
 
 class ResetPasswordRequest(BaseModel):
-    token:        str
+    token: str | None = None
+    otp_code: str | None = None
     new_password: str
 
     @field_validator("token")
     @classmethod
-    def token_not_empty(cls, v: str) -> str:
+    def token_not_empty(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        value = v.strip()
+        return value or None
+
+    @field_validator("otp_code")
+    @classmethod
+    def otp_code_normalize(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
         value = v.strip()
         if not value:
-            raise ValueError("El token es requerido")
+            return None
+        if not value.isdigit() or len(value) != 6:
+            raise ValueError("El codigo OTP debe tener 6 digitos numericos")
         return value
 
     @field_validator("new_password")
@@ -130,3 +143,9 @@ class ResetPasswordRequest(BaseModel):
         if len(v) < 8:
             raise ValueError("La contraseña debe tener al menos 8 caracteres")
         return v
+
+    @model_validator(mode="after")
+    def ensure_reset_credential(self):
+        if not self.token and not self.otp_code:
+            raise ValueError("Debes enviar un token o un codigo OTP")
+        return self
