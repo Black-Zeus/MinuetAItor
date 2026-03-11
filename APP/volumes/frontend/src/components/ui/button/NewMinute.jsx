@@ -9,6 +9,7 @@
  */
 
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import ActionButton from "./ActionButton";
 import Icon from "@/components/ui/icon/iconManager";
 import ModalManager from "@/components/ui/modal";
@@ -29,6 +30,59 @@ const toStringArray = (str) =>
     .split("\n")
     .map((s) => s.trim())
     .filter(Boolean);
+
+const MEETING_LOCATION_SUGGESTIONS = [
+  "Microsoft Teams",
+  "Zoom",
+  "Google Meet",
+  "Cisco Webex",
+  "Slack Huddles",
+  "Skype",
+  "Discord",
+  "Jitsi Meet",
+  "GoTo Meeting",
+  "Whereby",
+  "BlueJeans",
+  "Adobe Connect",
+  "Amazon Chime",
+  "Zoho Meeting",
+  "BigBlueButton",
+  "Livestorm",
+  "RingCentral Video",
+  "Google Chat",
+  "Signal",
+  "Telegram",
+  "WhatsApp",
+  "FaceTime",
+  "Viber",
+  "Line",
+  "Talky",
+  "Airmeet",
+  "Demio",
+  "Hopin",
+  "On24",
+  "Miro Talk",
+  "Jami",
+  "Wire",
+  "Pexip",
+  "TrueConf",
+  "StarLeaf",
+  "Avaya Spaces",
+  "TeamViewer Meeting",
+  "Zoho Cliq",
+  "Mattermost Calls",
+  "Rocket.Chat Meet",
+  "Nextcloud Talk",
+  "Dialpad Meetings",
+  "8x8 Meet",
+  "Fuze",
+  "AnyMeeting",
+  "ClickMeeting",
+  "FreeConference",
+  "UberConference",
+  "Lark Meetings",
+  "Sala de reuniones",
+];
 
 const buildPayload = ({ formData, clients, projects, profiles, categories, preparedBy }) => {
   const client   = clients.find((c)   => String(c.id)  === String(formData.client));
@@ -119,8 +173,12 @@ const NewMinuteFormInner = ({ onSubmit, onCancel, isSubmitting, onCatalogLoaded 
   const [loadingCatalog,  setLoadingCatalog]  = useState(true);
   const [loadingProjects, setLoadingProjects] = useState(false);
   const [catalogError,    setCatalogError]    = useState(null);
+  const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
+  const [locationDropdownStyle, setLocationDropdownStyle] = useState(null);
+  const [activeLocationSuggestionIndex, setActiveLocationSuggestionIndex] = useState(-1);
 
   const catalogLoaded = useRef(false);
+  const locationInputRef = useRef(null);
 
   useEffect(() => {
     if (catalogLoaded.current) return;
@@ -228,6 +286,47 @@ const NewMinuteFormInner = ({ onSubmit, onCancel, isSubmitting, onCatalogLoaded 
     categories.find((c) => String(c.id) === String(formData.analysisCategory)) ?? null,
   [categories, formData.analysisCategory]);
 
+  const filteredLocationSuggestions = useMemo(() => {
+    const query = String(formData.location ?? "").trim().toLowerCase();
+    const normalized = MEETING_LOCATION_SUGGESTIONS.filter((option, index, arr) =>
+      arr.indexOf(option) === index
+    );
+
+    if (!query) return normalized.slice(0, 10);
+
+    return normalized
+      .filter((option) => option.toLowerCase().includes(query))
+      .slice(0, 10);
+  }, [formData.location]);
+
+  useEffect(() => {
+    if (!showLocationSuggestions || currentStep !== 2 || !locationInputRef.current) return;
+
+    const updateDropdownPosition = () => {
+      const rect = locationInputRef.current?.getBoundingClientRect();
+      if (!rect) return;
+
+      setLocationDropdownStyle({
+        top: rect.bottom + 8,
+        left: rect.left,
+        width: rect.width,
+      });
+    };
+
+    updateDropdownPosition();
+    window.addEventListener("resize", updateDropdownPosition);
+    window.addEventListener("scroll", updateDropdownPosition, true);
+
+    return () => {
+      window.removeEventListener("resize", updateDropdownPosition);
+      window.removeEventListener("scroll", updateDropdownPosition, true);
+    };
+  }, [showLocationSuggestions, currentStep]);
+
+  useEffect(() => {
+    setActiveLocationSuggestionIndex(filteredLocationSuggestions.length > 0 ? 0 : -1);
+  }, [filteredLocationSuggestions]);
+
   const handleChange = (name, value) => {
     setFormData((prev) => {
       const newData = { ...prev, [name]: value };
@@ -245,6 +344,12 @@ const NewMinuteFormInner = ({ onSubmit, onCancel, isSubmitting, onCatalogLoaded 
     if (name === "analysisCategory" && errors.analysisProfile) {
       setErrors((prev) => ({ ...prev, analysisProfile: null }));
     }
+  };
+
+  const selectLocationSuggestion = (option) => {
+    handleChange("location", option);
+    setShowLocationSuggestions(false);
+    setActiveLocationSuggestionIndex(-1);
   };
 
   const validateStep = (step) => {
@@ -300,10 +405,12 @@ const NewMinuteFormInner = ({ onSubmit, onCancel, isSubmitting, onCatalogLoaded 
   const submitDisabled = (isLastStep && isSubmitting) || loadingCatalog || !!catalogError;
 
   return (
-    <div className="flex flex-col w-full h-[700px]">
+    <>
+    <div className="w-full rounded-[26px] bg-white/8 p-[2px] shadow-[0_0_24px_rgba(255,255,255,0.08),0_24px_70px_rgba(15,23,42,0.24)] backdrop-blur-[3px] dark:bg-white/[0.06] dark:shadow-[0_0_28px_rgba(255,255,255,0.06),0_24px_70px_rgba(2,6,23,0.52)]">
+    <div className="flex h-[78vh] min-h-[620px] w-full flex-col rounded-[24px] border border-white/45 bg-slate-100 dark:border-white/10 dark:bg-slate-950">
 
       {/* Stepper */}
-      <div className="flex-shrink-0 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+      <div className="flex-shrink-0 px-8 py-6 border-b border-slate-200/80 dark:border-slate-700/80">
         <div className="flex items-center justify-between mb-4">
           {steps.map((step, idx) => (
             <div key={idx} className="flex items-center">
@@ -330,7 +437,7 @@ const NewMinuteFormInner = ({ onSubmit, onCancel, isSubmitting, onCatalogLoaded 
       </div>
 
       {/* Contenido con scroll */}
-      <div className="flex-1 overflow-y-auto px-6 py-4 min-h-0">
+      <div className="flex-1 overflow-y-auto px-8 py-6 min-h-0">
 
         {loadingCatalog && <InlineSpinner text="Cargando catálogos..." />}
         {!loadingCatalog && catalogError && (
@@ -561,14 +668,60 @@ const NewMinuteFormInner = ({ onSubmit, onCancel, isSubmitting, onCatalogLoaded 
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Ubicación / Medio
               </label>
-              <input
-                type="text"
-                value={formData.location}
-                onChange={(e) => handleChange("location", e.target.value)}
-                placeholder="Ej: Zoom, Google Meet, Microsoft Teams, Sala 2"
-                className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
-                  border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              <div className="relative">
+                <input
+                  ref={locationInputRef}
+                  type="text"
+                  value={formData.location}
+                  onKeyDown={(e) => {
+                    if (!showLocationSuggestions || filteredLocationSuggestions.length === 0) {
+                      return;
+                    }
+
+                    if (e.key === "ArrowDown") {
+                      e.preventDefault();
+                      setActiveLocationSuggestionIndex((prev) =>
+                        prev < filteredLocationSuggestions.length - 1 ? prev + 1 : 0
+                      );
+                      return;
+                    }
+
+                    if (e.key === "ArrowUp") {
+                      e.preventDefault();
+                      setActiveLocationSuggestionIndex((prev) =>
+                        prev > 0 ? prev - 1 : filteredLocationSuggestions.length - 1
+                      );
+                      return;
+                    }
+
+                    if (e.key === "Enter" && activeLocationSuggestionIndex >= 0) {
+                      e.preventDefault();
+                      selectLocationSuggestion(filteredLocationSuggestions[activeLocationSuggestionIndex]);
+                      return;
+                    }
+
+                    if (e.key === "Escape") {
+                      e.preventDefault();
+                      setShowLocationSuggestions(false);
+                      setActiveLocationSuggestionIndex(-1);
+                    }
+                  }}
+                  onBlur={() => {
+                    window.setTimeout(() => setShowLocationSuggestions(false), 120);
+                  }}
+                  onChange={(e) => {
+                    const nextValue = e.target.value;
+                    handleChange("location", nextValue);
+                    setShowLocationSuggestions(Boolean(String(nextValue).trim()));
+                  }}
+                  placeholder="Ej: Zoom, Google Meet, Microsoft Teams, Sala 2"
+                  className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
+                    border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Puede seleccionar una plataforma sugerida o escribir una ubicación personalizada.
+              </p>
             </div>
           </div>
         )}
@@ -729,7 +882,7 @@ const NewMinuteFormInner = ({ onSubmit, onCancel, isSubmitting, onCatalogLoaded 
       </div>
 
       {/* Footer */}
-      <div className="flex-shrink-0 px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+      <div className="flex-shrink-0 px-8 py-5 border-t border-slate-200/80 dark:border-slate-700/80">
         <div className="flex justify-between">
           <button
             onClick={currentStep === 0 ? onCancel : handlePrevious}
@@ -763,6 +916,39 @@ const NewMinuteFormInner = ({ onSubmit, onCancel, isSubmitting, onCatalogLoaded 
         </div>
       </div>
     </div>
+    </div>
+    {showLocationSuggestions && filteredLocationSuggestions.length > 0 && locationDropdownStyle
+      ? createPortal(
+          <div
+            className="fixed z-[1105] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-900"
+            style={locationDropdownStyle}
+          >
+            <div className="max-h-60 overflow-y-auto py-1">
+              {filteredLocationSuggestions.map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    selectLocationSuggestion(option);
+                  }}
+                  className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm transition-colors ${
+                    activeLocationSuggestionIndex >= 0 &&
+                    filteredLocationSuggestions[activeLocationSuggestionIndex] === option
+                      ? "bg-blue-50 text-gray-900 dark:bg-blue-900/20 dark:text-white"
+                      : "text-gray-700 hover:bg-blue-50 dark:text-gray-200 dark:hover:bg-blue-900/20"
+                  }`}
+                >
+                  <span>{option}</span>
+                  <span className="text-xs text-gray-400 dark:text-gray-500">Sugerencia</span>
+                </button>
+              ))}
+            </div>
+          </div>,
+          document.body
+        )
+      : null}
+    </>
   );
 };
 
@@ -805,7 +991,8 @@ const NewMinute = ({ onSuccess }) => {
     ModalManager.show({
       type:       "custom",
       title:      "Asistente de Preparación de Minutas",
-      size:       "large",
+      size:       "clientWide",
+      showHeader: false,
       showFooter: false,
       content: (
         <NewMinuteFormWithCatalog
