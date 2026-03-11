@@ -24,6 +24,7 @@ export const navigationIcons = {
   home: FaHouse,
   doorOpen: FaDoorOpen,
   rightToBracket: FaRightToBracket,
+  signInAlt: FaRightToBracket,
   
   // Compatibilidad
   FaChevronLeft,
