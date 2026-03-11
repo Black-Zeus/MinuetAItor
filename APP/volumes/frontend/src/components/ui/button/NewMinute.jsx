@@ -43,7 +43,7 @@ const buildPayload = ({ formData, clients, projects, profiles, categories, prepa
       scheduledEndTime:   formData.scheduledEndTime   ?? "",
       actualStartTime:    formData.actualStartTime    ?? "",
       actualEndTime:      "",
-      location:           "",
+      location:           formData.location           ?? "",
     },
     projectInfo: {
       client:    String(client?.name    ?? "").trim(),
@@ -102,6 +102,7 @@ const NewMinuteFormInner = ({ onSubmit, onCancel, isSubmitting, onCatalogLoaded 
     scheduledStartTime: "",
     actualStartTime:    "",
     scheduledEndTime:   "",
+    location:           "",
     attendees:          "",
     ccParticipants:     "",
     additionalInfo:     "",
@@ -556,6 +557,19 @@ const NewMinuteFormInner = ({ onSubmit, onCancel, isSubmitting, onCatalogLoaded 
               />
               {errors.scheduledEndTime && <p className="mt-1 text-sm text-red-500">{errors.scheduledEndTime}</p>}
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Ubicación / Medio
+              </label>
+              <input
+                type="text"
+                value={formData.location}
+                onChange={(e) => handleChange("location", e.target.value)}
+                placeholder="Ej: Zoom, Google Meet, Microsoft Teams, Sala 2"
+                className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
+                  border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
           </div>
         )}
 
@@ -663,6 +677,7 @@ const NewMinuteFormInner = ({ onSubmit, onCancel, isSubmitting, onCatalogLoaded 
                   <div className="flex"><span className="font-medium text-gray-700 dark:text-gray-300 w-44">Inicio programado:</span><span className="text-gray-600 dark:text-gray-400">{formData.scheduledStartTime || "Sin información"}</span></div>
                   <div className="flex"><span className="font-medium text-gray-700 dark:text-gray-300 w-44">Inicio real:</span><span className="text-gray-600 dark:text-gray-400">{formData.actualStartTime || "Sin información"}</span></div>
                   <div className="flex"><span className="font-medium text-gray-700 dark:text-gray-300 w-44">Término programado:</span><span className="text-gray-600 dark:text-gray-400">{formData.scheduledEndTime || "Sin información"}</span></div>
+                  <div className="flex"><span className="font-medium text-gray-700 dark:text-gray-300 w-44">Ubicación:</span><span className="text-gray-600 dark:text-gray-400">{formData.location || "Sin información"}</span></div>
                 </div>
               </div>
 
