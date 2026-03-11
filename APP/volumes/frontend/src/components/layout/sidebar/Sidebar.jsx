@@ -19,11 +19,9 @@ const Sidebar = ({
   const navigate = useNavigate();
   const { pathname } = useLocation();
 
-  const {
-    isSidebarCollapsed,
-    toggleSidebar,
-    addToNavigationHistory
-  } = useBaseSiteStore();
+  const isSidebarCollapsed   = useBaseSiteStore((s) => s.sidebar?.collapsed ?? false);
+  const toggleSidebar        = useBaseSiteStore((s) => s.toggleSidebar);
+  const addToNavigationHistory = useBaseSiteStore((s) => s.addToNavigationHistory);
 
   const activePath = pathname || '/';
 

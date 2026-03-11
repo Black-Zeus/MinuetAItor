@@ -157,10 +157,10 @@ const TagsCard = ({ id, summary, categories = [], onUpdated, onDeleted }) => {
   // ─── Render ──────────────────────────────────────────────────────────────
 
   return (
-    <div className="bg-white dark:bg-gray-900 border border-secondary-200 dark:border-secondary-700/60 rounded-xl shadow-sm hover:shadow-md transition-shadow h-full flex flex-col">
+    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm hover:shadow-md transition-shadow h-full flex flex-col">
 
       {/* HEADER */}
-      <div className="p-6 pb-4 border-b border-secondary-100 dark:border-secondary-700/40 min-h-[88px]">
+      <div className="p-6 pb-4 border-b border-gray-100 dark:border-gray-700 min-h-[88px]">
         <div className="flex items-start justify-between gap-3">
           <h3
             className={`text-base font-semibold ${TXT_TITLE} transition-theme leading-snug`}
@@ -197,7 +197,7 @@ const TagsCard = ({ id, summary, categories = [], onUpdated, onDeleted }) => {
       </div>
 
       {/* FOOTER */}
-      <div className="p-4 border-t border-secondary-200 dark:border-secondary-700/60 transition-theme min-h-[70px] flex flex-col">
+      <div className="p-4 border-t border-gray-100 dark:border-gray-700 transition-theme min-h-[70px] flex flex-col">
         <div className="grid grid-cols-3 gap-2 mt-auto w-full place-items-center">
           <ActionButton
             variant="soft"
