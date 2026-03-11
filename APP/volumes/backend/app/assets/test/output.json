@@ -1,0 +1,157 @@
+{
+  "metadata": {
+    "transactionId": "",
+    "generatedAt": "2023-11-29T11:19:20Z",
+    "generatedBy": "",
+    "version": "1.0"
+  },
+  "inputInfo": {
+    "attachments": [],
+    "meetingSchedule": {
+      "scheduledDate": "2026-03-09",
+      "scheduledStartTime": "13:00",
+      "actualStartTime": "13:01",
+      "scheduledEndTime": "14:00"
+    },
+    "participants": {
+      "attendees": [],
+      "copyRecipients": []
+    },
+    "projectInfo": {
+      "client": "Clínica Santa Aurora",
+      "project": "Ciberseguridad y Cumplimiento",
+      "minuteTitle": "",
+      "titleGeneratedByAI": false
+    },
+    "profileInfo": {
+      "profileId": "70aa9c64-1593-11f1-8403-da1169052fe5",
+      "profileName": "Reunión de Seguimiento Semanal (Weekly Status)"
+    },
+    "additionalNotes": "",
+    "userProvidedTags": []
+  },
+  "aiSuggestedTags": [
+    {
+      "name": "Autenticación",
+      "description": "Revisión del progreso del módulo de autenticación con SSO."
+    },
+    {
+      "name": "Infraestructura",
+      "description": "Confirmación de configuración de servidor y certificados SSL."
+    },
+    {
+      "name": "Implementación",
+      "description": "Planificación del despliegue en el entorno de staging."
+    }
+  ],
+  "generalInfo": {
+    "client": "Clínica Santa Aurora",
+    "subject": "Desarrollo Web Corporativo - Seguimiento Semana",
+    "meetingDate": "2026-03-09",
+    "scheduledStartTime": "13:00",
+    "actualStartTime": "13:01",
+    "scheduledEndTime": "14:00",
+    "actualEndTime": "",
+    "location": "",
+    "preparedBy": ""
+  },
+  "participants": {
+    "invited": [],
+    "attendees": [
+      {
+        "fullName": "Juan Pérez",
+        "initials": "JP"
+      },
+      {
+        "fullName": "María González",
+        "initials": "MG"
+      },
+      {
+        "fullName": "Carlos Rodríguez",
+        "initials": "CR"
+      }
+    ],
+    "copyRecipients": []
+  },
+  "scope": {
+    "sections": [
+      {
+        "sectionId": "SCOPE-001",
+        "sectionTitle": "Introducción",
+        "sectionType": "introduction",
+        "content": {
+          "summary": "Reunión enfocada en el seguimiento semanal del proyecto de desarrollo web corporativo, revisando el estado del módulo de autenticación y planificaciones de despliegue.",
+          "topicsList": [
+            "Estado del módulo de autenticación SSO",
+            "Configuración del servidor de staging"
+          ]
+        }
+      },
+      {
+        "sectionId": "SCOPE-002",
+        "sectionTitle": "Estado del módulo de autenticación SSO",
+        "sectionType": "topic",
+        "content": {
+          "summary": "Discusión sobre la integración del módulo de autenticación SSO con el directorio activo del cliente.",
+          "details": [
+            {
+              "label": "Hecho",
+              "description": "El módulo de login con SSO ya está integrado con el directorio activo del cliente."
+            },
+            {
+              "label": "Pendiente",
+              "description": "Ajuste del timeout de sesión y pantalla de error personalizada queda pendiente."
+            }
+          ]
+        }
+      },
+      {
+        "sectionId": "SCOPE-003",
+        "sectionTitle": "Configuración del servidor de staging",
+        "sectionType": "topic",
+        "content": {
+          "summary": "Revisión de la configuración del servidor de staging en preparación para el despliegue.",
+          "details": [
+            {
+              "label": "Hecho",
+              "description": "Confirmado que el servidor de staging tiene los certificados SSL instalados y está listo para el deploy."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "agreements": {
+    "items": [
+      {
+        "agreementId": "AGR-001",
+        "subject": "Cerrar issues de autenticación",
+        "body": "María González se compromete a cerrar los issues del módulo de autenticación (timeout de sesión y pantalla de error personalizada) para el viernes 07/03/2026.",
+        "responsible": "María González",
+        "dueDate": "2026-03-07",
+        "status": "pending"
+      },
+      {
+        "agreementId": "AGR-002",
+        "subject": "Coordinar deploy a staging",
+        "body": "Carlos Rodríguez coordinará el deploy del módulo de autenticación al entorno de staging el viernes en la tarde.",
+        "responsible": "Carlos Rodríguez",
+        "dueDate": "2026-03-07",
+        "status": "pending"
+      }
+    ]
+  },
+  "requirements": {
+    "items": []
+  },
+  "upcomingMeetings": {
+    "items": [
+      {
+        "meetingId": "MEET-001",
+        "scheduledDate": "2026-03-12",
+        "agenda": "Revisión de resultados del deploy y avance en el módulo de agenda médica.",
+        "attendees": []
+      }
+    ]
+  }
+}

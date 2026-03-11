@@ -14,6 +14,8 @@ from db.redis import close_redis
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    from events.pdf_dispatch import register_listeners
+    register_listeners()
     yield
     await close_redis()
 
