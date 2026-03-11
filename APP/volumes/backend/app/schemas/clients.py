@@ -94,6 +94,7 @@ class ClientFilterRequest(BaseModel):
     skip:  int = Field(0, ge=0)
     limit: int = Field(50, ge=1, le=200)
 
+    search:           Optional[str]  = None
     name:             Optional[str]  = None
     industry:         Optional[str]  = None
     status:           Optional[str]  = None

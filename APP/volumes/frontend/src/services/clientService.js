@@ -42,8 +42,9 @@ const buildListPayload = ({ skip = 0, limit = 50, isActive = null, filters = {} 
   // Filtro de activos — null = sin filtro (trae todos)
   if (isActive !== null) payload.is_active = isActive;
 
-  // Filtros opcionales (cuando tu backend los soporte)
+  // Búsqueda global del módulo clientes.
   if (filters?.search) payload.search = String(filters.search);
+  if (filters?.name) payload.name = String(filters.name);
   if (filters?.industry) payload.industry = String(filters.industry);
 
   return payload;

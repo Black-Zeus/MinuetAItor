@@ -1153,8 +1153,11 @@ const useMinuteEditorStore = create((set, get) => ({
       type: participant.type,
       role: participant.role ?? "",
       email: participant.email ?? "",
+      participantId: participant.participantId ?? null,
+      participantEmailId: participant.participantEmailId ?? null,
       participantEmails: Array.isArray(participant.participantEmails)
         ? participant.participantEmails.map((item) => ({
+            id: item.id ?? null,
             email: item.email,
             isPrimary: Boolean(item.isPrimary ?? item.is_primary),
             isActive: item.isActive ?? item.is_active ?? true,

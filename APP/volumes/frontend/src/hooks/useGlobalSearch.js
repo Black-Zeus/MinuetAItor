@@ -1,231 +1,224 @@
 /**
  * useGlobalSearch.js
  * Hook centralizado de búsqueda global
- * Fuentes: localStorage (fallback a JSON) para cada módulo
+ * Fuente: backend por módulo, normalizado a un shape común para la UI.
  */
 
-import { useState, useCallback } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
-// Data JSONs (fallback)
-import dataClientes from '@/data/dataClientes.json';
-import dataProjectos from '@/data/dataProjectos.json';
-import dataTags from '@/data/dataTags.json';
-import dataTeams from '@/data/dataTeams.json';
-import dataMinutes from '@/data/minutes.json';
-import analysisProfiles from '@/data/analysisProfilesCatalog.json';
+import { clientService } from '@/services/clientService';
+import { projectService } from '@/services/projectService';
+import { profileService } from '@/services/profileService';
+import { listMinutes } from '@/services/minutesService';
+import { tagCategoryService, tagService } from '@/services/tagService';
+import { teamsService } from '@/services/teamsService';
 
-// ====================================
-// STORAGE KEYS (deben coincidir con cada módulo)
-// ====================================
-const STORAGE_KEYS = {
-  clientes:  'minuteAItor-clientes',
-  proyectos: 'minuteAItor-proyectos',
-  tags:      'minuteAItor-tags',
-  teams:     'minuteAItor-teams',
-  minutes:   'minuteAItor-minutes',
-  profiles:  'minuteAItor-profiles',
-};
-
-// ====================================
-// HELPERS
-// ====================================
-const normalize = (v) => String(v ?? '').toLowerCase().trim();
-
-const loadFromStorage = (key, fallback) => {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return fallback;
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : fallback;
-  } catch {
-    return fallback;
-  }
-};
-
-const matchesQuery = (item, query) => {
-  const q = normalize(query);
-  return Object.values(item).some((val) =>
-    normalize(val).includes(q)
-  );
-};
-
-// ====================================
-// BUSCADORES POR MÓDULO
-// ====================================
-
-const searchClientes = (query) => {
-  const data = loadFromStorage(STORAGE_KEYS.clientes, dataClientes?.clients ?? []);
-  return data
-    .filter((c) => matchesQuery(c, query))
-    .map((c) => ({
-      id:          c.id,
-      label:       c.name ?? c.nombre ?? '',
-      sublabel:    c.industry ?? c.sector ?? '',
-      meta:        c.status ?? '',
-      company:     c.company ?? '',
-      phone:       c.phone ?? '',
-      email:       c.email ?? '',
-      position:    c.position ?? '',
-      status:      c.status ?? '',
-      isConfidential: c.isconfidential ?? false,
-      navigateTo:  '/clients',
-      rawData:     c,
-    }));
-};
-
-const searchProyectos = (query) => {
-  const data = loadFromStorage(STORAGE_KEYS.proyectos, dataProjectos?.projects ?? []);
-  return data
-    .filter((p) => matchesQuery(p, query))
-    .map((p) => ({
-      id:          p.id,
-      label:       p.name ?? p.nombre ?? '',
-      sublabel:    p.client ?? '',
-      meta:        p.status ?? '',
-      client:      p.client ?? '',
-      description: p.description ?? p.descripcion ?? '',
-      status:      p.status ?? '',
-      isConfidential: p.isconfidential ?? false,
-      navigateTo:  '/projects',
-      rawData:     p,
-    }));
-};
-
-const searchMinutes = (query) => {
-  const data = loadFromStorage(STORAGE_KEYS.minutes, dataMinutes?.minutes ?? []);
-  return data
-    .filter((m) => matchesQuery(m, query))
-    .map((m) => ({
-      id:       m.id,
-      label:    m.title ?? m.titulo ?? '',
-      sublabel: m.summary ?? m.descripcion ?? '',
-      meta:     m.date ?? m.fecha ?? '',
-      status:   m.status ?? '',          // primer nivel — para badge y lógica
-      date:     m.date ?? m.fecha ?? '', // primer nivel — para columna fecha
-      isConfidential: m.isconfidential ?? false,
-      navigateTo: `/minutes/process/${m.id}`,
-      rawData:  m,
-    }));
-};
-
-const searchTeams = (query) => {
-  const data = loadFromStorage(STORAGE_KEYS.teams, dataTeams?.teams ?? []);  // FIX: .teams no .members
-  return data
-    .filter((t) => matchesQuery(t, query))
-    .map((t) => ({
-      id:         t.id,
-      label:      t.name ?? '',
-      sublabel:   t.position ?? '',
-      meta:       t.email ?? '',
-      position:   t.position ?? '',
-      email:      t.email ?? '',
-      department: t.department ?? '',
-      systemRole: t.systemRole ?? '',
-      status:     t.status ?? '',
-      isConfidential: false,
-      navigateTo: '/teams',
-      rawData:    t,
-    }));
-};
-
-const searchTags = (query) => {
-  const data = loadFromStorage(STORAGE_KEYS.tags, dataTags?.tags ?? dataTags ?? []);
-  return data
-    .filter((t) => matchesQuery(t, query))
-    .map((t) => ({
-      id:          t.id,
-      label:       t.name ?? t.nombre ?? '',
-      sublabel:    t.description ?? t.descripcion ?? '',
-      meta:        t.status ?? '',
-      category:    t.category ?? t.categoria ?? '',
-      status:      t.status ?? '',
-      description: t.description ?? t.descripcion ?? '',
-      isConfidential: false,
-      navigateTo:  '/settings/tags',
-      rawData:     t,
-    }));
-};
-
-const searchProfiles = (query) => {
-  const data = loadFromStorage(STORAGE_KEYS.profiles, analysisProfiles ?? []);
-  return data
-    .filter((p) => matchesQuery(p, query))
-    .map((p) => {
-      const isActive = p.status === true || p.status === 'activo' || p.status === 'active';
-      return {
-        id:          p.id,
-        label:       p.nombre ?? p.name ?? '',
-        sublabel:    p.categoria ?? p.category ?? '',
-        meta:        isActive ? 'Activo' : 'Inactivo',
-        categoria:   p.categoria ?? p.category ?? '',
-        status:      isActive ? 'active' : 'inactive',
-        description: p.descripcion ?? p.description ?? '',
-        isConfidential: false,
-        navigateTo:  '/settings/profiles',
-        rawData:     p,
-      };
-    });
-};
-
-// ====================================
-// MÓDULOS DISPONIBLES
-// ====================================
-export const SEARCH_MODULES = [
-  { id: 'clientes',  label: 'Clientes',    icon: 'FaBuilding',      fn: searchClientes  },
-  { id: 'proyectos', label: 'Proyectos',   icon: 'FaFolderOpen',    fn: searchProyectos },
-  { id: 'minutes',   label: 'Minutas',     icon: 'FaFileAlt',       fn: searchMinutes   },
-  { id: 'teams',     label: 'Equipos',     icon: 'FaUsers',         fn: searchTeams     },
-  { id: 'tags',      label: 'Etiquetas',   icon: 'FaTag',           fn: searchTags      },
-  { id: 'profiles',  label: 'Perfiles IA', icon: 'FaBrain',         fn: searchProfiles  },
-];
-
-// ====================================
-// HOOK
-// ====================================
 const DEFAULT_LIMIT = 5;
 
+const normalizeStatus = (status, isActive) => {
+  if (status) return String(status);
+  return isActive ? 'active' : 'inactive';
+};
+
+const mapClient = (client) => ({
+  id: client.id,
+  label: client.name ?? '',
+  sublabel: client.industry ?? '',
+  meta: client.status ?? '',
+  company: client.legalName ?? client.name ?? '',
+  phone: client.contactPhone ?? client.phone ?? '',
+  email: client.contactEmail ?? client.email ?? '',
+  position: client.contactPosition ?? '',
+  status: client.status ?? (client.isActive ? 'activo' : 'inactivo'),
+  isConfidential: Boolean(client.isConfidential),
+  navigateTo: '/clients',
+  rawData: client,
+});
+
+const mapProject = (project) => ({
+  id: project.id,
+  label: project.name ?? '',
+  sublabel: project.clientName ?? '',
+  meta: project.isActive ? 'Activo' : 'Inactivo',
+  client: project.clientName ?? '',
+  description: project.description ?? '',
+  status: normalizeStatus(null, project.isActive),
+  isConfidential: Boolean(project.isConfidential),
+  navigateTo: '/projects',
+  rawData: project,
+});
+
+const mapMinute = (minute) => ({
+  id: minute.id,
+  label: minute.title ?? '',
+  sublabel: minute.summary ?? '',
+  meta: minute.date ?? '',
+  status: minute.status ?? '',
+  date: minute.date ?? '',
+  isConfidential: false,
+  navigateTo: `/minutes/process/${minute.id}`,
+  rawData: minute,
+});
+
+const mapTeam = (team) => ({
+  id: team.id,
+  label: team.name ?? '',
+  sublabel: team.position ?? '',
+  meta: team.email ?? '',
+  position: team.position ?? '',
+  email: team.email ?? '',
+  department: team.department ?? '',
+  systemRole: String(team.systemRole ?? '').toLowerCase(),
+  status: team.status ?? '',
+  isConfidential: false,
+  navigateTo: '/teams',
+  rawData: team,
+});
+
+const mapTag = (tag, categoriesById) => ({
+  id: tag.id,
+  label: tag.name ?? '',
+  sublabel: tag.description ?? '',
+  meta: tag.status ?? '',
+  category: categoriesById.get(tag.categoryId) ?? `Categoria ${tag.categoryId ?? ''}`.trim(),
+  status: tag.status ?? (tag.isActive ? 'activo' : 'inactivo'),
+  description: tag.description ?? '',
+  isConfidential: false,
+  navigateTo: '/settings/tags',
+  rawData: tag,
+});
+
+const mapProfile = (profile) => ({
+  id: profile.id,
+  label: profile.name ?? '',
+  sublabel: profile.category?.name ?? '',
+  meta: profile.isActive ? 'Activo' : 'Inactivo',
+  categoria: profile.category?.name ?? '',
+  status: normalizeStatus(null, profile.isActive),
+  description: profile.description ?? '',
+  isConfidential: false,
+  navigateTo: '/settings/profiles',
+  rawData: profile,
+});
+
+const searchClientes = async (query, limit) => {
+  const { items, total } = await clientService.list({
+    limit,
+    isActive: null,
+    filters: { search: query },
+  });
+  return { items: items.map(mapClient), total };
+};
+
+const searchProyectos = async (query, limit) => {
+  const { items, total } = await projectService.list({
+    limit,
+    isActive: null,
+    filters: { search: query },
+  });
+  return { items: items.map(mapProject), total };
+};
+
+const searchMinutes = async (query, limit) => {
+  const { minutes = [], total = 0 } = await listMinutes({ limit, q: query });
+  return { items: minutes.map(mapMinute), total };
+};
+
+const searchTeams = async (query, limit) => {
+  const { teams = [], total = 0 } = await teamsService.list({
+    limit,
+    filters: { search: query },
+  });
+  return { items: teams.map(mapTeam), total };
+};
+
+const searchTags = async (query, limit) => {
+  const [{ items: tags, total }, { items: categories }] = await Promise.all([
+    tagService.list({ limit, isActive: null, filters: { search: query } }),
+    tagCategoryService.list({ limit: 200, isActive: null }),
+  ]);
+  const categoriesById = new Map(categories.map((category) => [category.id, category.name]));
+  return { items: tags.map((tag) => mapTag(tag, categoriesById)), total };
+};
+
+const searchProfiles = async (query, limit) => {
+  const { items, total } = await profileService.list({
+    limit,
+    isActive: null,
+    filters: { search: query },
+  });
+  return { items: items.map(mapProfile), total };
+};
+
+export const SEARCH_MODULES = [
+  { id: 'clientes', label: 'Clientes', icon: 'FaBuilding', fn: searchClientes },
+  { id: 'proyectos', label: 'Proyectos', icon: 'FaFolderOpen', fn: searchProyectos },
+  { id: 'minutes', label: 'Minutas', icon: 'FaFileAlt', fn: searchMinutes },
+  { id: 'teams', label: 'Equipos', icon: 'FaUsers', fn: searchTeams },
+  { id: 'tags', label: 'Etiquetas', icon: 'FaTag', fn: searchTags },
+  { id: 'profiles', label: 'Perfiles IA', icon: 'FaBrain', fn: searchProfiles },
+];
+
 const useGlobalSearch = () => {
-  const [results,    setResults]    = useState({});   // { moduleId: [...items] }
-  const [isLoading,  setIsLoading]  = useState(false);
-  const [lastQuery,  setLastQuery]  = useState('');
+  const [results, setResults] = useState({});
+  const [isLoading, setIsLoading] = useState(false);
+  const [lastQuery, setLastQuery] = useState('');
   const [totalCount, setTotalCount] = useState(0);
-
-  const search = useCallback(({ query, modules = null, limit = DEFAULT_LIMIT }) => {
-    const q = query.trim();
-    if (!q) {
-      setResults({});
-      setLastQuery('');
-      setTotalCount(0);
-      return;
-    }
-
-    setIsLoading(true);
-    setLastQuery(q);
-
-    // Módulos activos según filtro (o todos si null)
-    const activeModules = modules
-      ? SEARCH_MODULES.filter((m) => modules.includes(m.id))
-      : SEARCH_MODULES;
-
-    const newResults = {};
-    let total = 0;
-
-    activeModules.forEach((mod) => {
-      const found = mod.fn(q);
-      newResults[mod.id] = found.slice(0, limit);
-      total += found.length;
-    });
-
-    setResults(newResults);
-    setTotalCount(total);
-    setIsLoading(false);
-  }, []);
+  const requestSeqRef = useRef(0);
 
   const clearResults = useCallback(() => {
+    requestSeqRef.current += 1;
     setResults({});
     setLastQuery('');
     setTotalCount(0);
+    setIsLoading(false);
   }, []);
+
+  const search = useCallback(async ({ query, modules = null, limit = DEFAULT_LIMIT }) => {
+    const q = query.trim();
+    if (!q) {
+      clearResults();
+      return;
+    }
+
+    const requestId = requestSeqRef.current + 1;
+    requestSeqRef.current = requestId;
+    setIsLoading(true);
+    setLastQuery(q);
+
+    const activeModules = modules
+      ? SEARCH_MODULES.filter((module) => modules.includes(module.id))
+      : SEARCH_MODULES;
+
+    const settled = await Promise.allSettled(
+      activeModules.map(async (module) => {
+        const result = await module.fn(q, limit);
+        return [module.id, result];
+      }),
+    );
+
+    if (requestSeqRef.current !== requestId) return;
+
+    const nextResults = {};
+    let total = 0;
+
+    settled.forEach((entry, index) => {
+      const moduleId = activeModules[index].id;
+      if (entry.status === 'fulfilled') {
+        const [id, result] = entry.value;
+        nextResults[id] = result.items;
+        total += Number(result.total ?? result.items.length);
+        return;
+      }
+
+      nextResults[moduleId] = [];
+      console.error(`[global-search] Error en módulo ${moduleId}:`, entry.reason);
+    });
+
+    setResults(nextResults);
+    setTotalCount(total);
+    setIsLoading(false);
+  }, [clearResults]);
 
   return {
     results,

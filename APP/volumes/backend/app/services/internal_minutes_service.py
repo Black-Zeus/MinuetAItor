@@ -41,6 +41,10 @@ from models.record_versions import RecordVersion
 from models.records import Record
 from models.version_statuses import VersionStatus
 from schemas.internal_minutes import MinuteCommitRequest, MinuteCommitResponse
+from services.minute_participants_service import (
+    build_version_participants_from_generate_request,
+    persist_record_version_participants,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -221,6 +225,12 @@ def _execute_tx2(db: Session, body: MinuteCommitRequest) -> str:
 
     # ── flush para obtener ver_id antes de FKs ───────────────────────────────
     db.flush()
+
+    persist_record_version_participants(
+        db=db,
+        record_version_id=ver_id,
+        participants=build_version_participants_from_generate_request(req),
+    )
 
     # ── Asociar versión a la transacción ─────────────────────────────────────
     tx.record_version_id = ver_id
