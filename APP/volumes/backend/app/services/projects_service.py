@@ -8,8 +8,16 @@ from fastapi import HTTPException
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
+from core.exceptions import ForbiddenException
 from models.projects import Project
+from schemas.auth import UserSession
 from schemas.projects import ProjectCreateRequest, ProjectFilterRequest, ProjectUpdateRequest
+from services.access_control_service import (
+    apply_project_scope_filter,
+    can_manage_projects,
+    ensure_client_read_access,
+    ensure_project_read_access,
+)
 
 
 def _user_ref(u) -> dict | None:
@@ -86,13 +94,15 @@ def _check_unique_code(db: Session, code: str | None, exclude_id: str | None = N
         raise HTTPException(status_code=409, detail="CODE_ALREADY_EXISTS")
 
 
-def get_project(db: Session, project_id: str) -> dict:
+def get_project(db: Session, project_id: str, session: UserSession) -> dict:
+    ensure_project_read_access(db, session, project_id)
     obj = _get_or_404(db, project_id)
     return _build_response_dict(obj)
 
 
-def list_projects(db: Session, filters: ProjectFilterRequest) -> dict:
+def list_projects(db: Session, filters: ProjectFilterRequest, session: UserSession) -> dict:
     q = db.query(Project).filter(Project.deleted_at.is_(None))
+    q = apply_project_scope_filter(q, db, session, Project)
 
     if filters.client_id:
         q = q.filter(Project.client_id == filters.client_id)
@@ -133,7 +143,16 @@ def list_projects(db: Session, filters: ProjectFilterRequest) -> dict:
     }
 
 
-def create_project(db: Session, body: ProjectCreateRequest, created_by_id: str) -> dict:
+def create_project(
+    db: Session,
+    body: ProjectCreateRequest,
+    created_by_id: str,
+    session: UserSession,
+) -> dict:
+    if not can_manage_projects(session):
+        raise ForbiddenException("No tienes permisos para crear proyectos")
+
+    ensure_client_read_access(db, session, body.client_id)
     # Verificar unicidad nombre+cliente antes de crear
     _check_unique_client_name(db, body.client_id, body.name, exclude_id=None)
 
@@ -163,7 +182,17 @@ def create_project(db: Session, body: ProjectCreateRequest, created_by_id: str) 
     return _build_response_dict(obj)
 
 
-def update_project(db: Session, project_id: str, body: ProjectUpdateRequest, updated_by_id: str) -> dict:
+def update_project(
+    db: Session,
+    project_id: str,
+    body: ProjectUpdateRequest,
+    updated_by_id: str,
+    session: UserSession,
+) -> dict:
+    if not can_manage_projects(session):
+        raise ForbiddenException("No tienes permisos para editar proyectos")
+
+    ensure_project_read_access(db, session, project_id)
     obj = _get_or_404(db, project_id)
 
     next_client_id = body.client_id if body.client_id is not None else obj.client_id
@@ -198,7 +227,17 @@ def update_project(db: Session, project_id: str, body: ProjectUpdateRequest, upd
     return _build_response_dict(obj)
 
 
-def change_project_status(db: Session, project_id: str, is_active: bool, updated_by_id: str) -> dict:
+def change_project_status(
+    db: Session,
+    project_id: str,
+    is_active: bool,
+    updated_by_id: str,
+    session: UserSession,
+) -> dict:
+    if not can_manage_projects(session):
+        raise ForbiddenException("No tienes permisos para cambiar el estado de proyectos")
+
+    ensure_project_read_access(db, session, project_id)
     obj = _get_or_404(db, project_id)
 
     obj.is_active = bool(is_active)
@@ -211,7 +250,11 @@ def change_project_status(db: Session, project_id: str, is_active: bool, updated
     return _build_response_dict(obj)
 
 
-def delete_project(db: Session, project_id: str, deleted_by_id: str) -> None:
+def delete_project(db: Session, project_id: str, deleted_by_id: str, session: UserSession) -> None:
+    if not can_manage_projects(session):
+        raise ForbiddenException("No tienes permisos para eliminar proyectos")
+
+    ensure_project_read_access(db, session, project_id)
     obj = _get_or_404(db, project_id)
 
     obj.deleted_at = datetime.utcnow()

@@ -10,6 +10,7 @@ import { ModalManager } from '@/components/ui/modal';
 import ClientModal, { CLIENT_MODAL_MODES } from './ClientModal';
 import ActionButton from '@/components/ui/button/ActionButton';
 import clientService from '@/services/clientService';
+import useSessionStore from '@/store/sessionStore';
 
 import logger from '@/utils/logger';
 const clientLog = logger.scope("client");
@@ -20,6 +21,11 @@ const TXT_META = "text-gray-500 dark:text-gray-400";
 
 const ClientCard = ({ id, summary = null, onUpdated, onDeleted }) => {
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const authz = useSessionStore((s) => s.authz);
+  const canManageClients =
+    Array.isArray(authz?.roles) && authz.roles.includes("ADMIN")
+      ? true
+      : Array.isArray(authz?.permissions) && authz.permissions.includes("clients.manage");
 
   // ─── Helpers de status ────────────────────────────────────────────────────
 
@@ -215,7 +221,7 @@ const ClientCard = ({ id, summary = null, onUpdated, onDeleted }) => {
 
         {/* Actions */}
         <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-          <div className="grid grid-cols-3 gap-2 place-items-center">
+          <div className={`grid gap-2 place-items-center ${canManageClients ? "grid-cols-3" : "grid-cols-1"}`}>
             <ActionButton
               variant="soft"
               size="xs"
@@ -225,24 +231,28 @@ const ClientCard = ({ id, summary = null, onUpdated, onDeleted }) => {
               className="w-full"
               disabled={loadingDetail}
             />
-            <ActionButton
-              variant="soft"
-              size="xs"
-              icon={<Icon name="edit" />}
-              tooltip="Editar cliente"
-              onClick={handleEditClient}
-              className="w-full"
-              disabled={loadingDetail}
-            />
-            <ActionButton
-              variant="soft"
-              size="xs"
-              icon={<Icon name="delete" />}
-              tooltip="Eliminar cliente"
-              onClick={handleDeleteClient}
-              className="w-full"
-              disabled={loadingDetail}
-            />
+            {canManageClients ? (
+              <ActionButton
+                variant="soft"
+                size="xs"
+                icon={<Icon name="edit" />}
+                tooltip="Editar cliente"
+                onClick={handleEditClient}
+                className="w-full"
+                disabled={loadingDetail}
+              />
+            ) : null}
+            {canManageClients ? (
+              <ActionButton
+                variant="soft"
+                size="xs"
+                icon={<Icon name="delete" />}
+                tooltip="Eliminar cliente"
+                onClick={handleDeleteClient}
+                className="w-full"
+                disabled={loadingDetail}
+              />
+            ) : null}
           </div>
         </div>
 

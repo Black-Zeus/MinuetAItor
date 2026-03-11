@@ -19,7 +19,7 @@ class TeamSystemRole(str, Enum):
     """Mapea a códigos en la tabla roles."""
     admin = "ADMIN"
     write = "EDITOR"
-    read  = "READ"
+    read  = "VIEWER"
 
 
 class TeamAssignmentMode(str, Enum):

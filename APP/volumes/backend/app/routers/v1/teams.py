@@ -1,8 +1,8 @@
 # routers/v1/teams.py
 from fastapi import APIRouter, Depends, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from core.authz import require_roles
 from db.session import get_db
 from schemas.auth import UserSession
 from schemas.teams import (
@@ -13,7 +13,6 @@ from schemas.teams import (
     TeamStatusRequest,
     TeamUpdateRequest,
 )
-from services.auth_service import get_current_user
 from services.teams_service import (
     change_team_status,
     create_team_member,
@@ -24,13 +23,6 @@ from services.teams_service import (
 )
 
 router = APIRouter(prefix="/teams", tags=["Teams"])
-bearer = HTTPBearer()
-
-
-async def current_user_dep(
-    credentials: HTTPAuthorizationCredentials = Depends(bearer),
-) -> UserSession:
-    return await get_current_user(credentials.credentials)
 
 
 # ── GET /teams/{id} ───────────────────────────────────
@@ -43,7 +35,7 @@ async def current_user_dep(
 )
 async def get_team_endpoint(
     team_id: str,
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
     db: Session = Depends(get_db),
 ):
     return get_team_member(db, team_id)
@@ -61,7 +53,7 @@ async def get_team_endpoint(
 )
 async def list_teams_endpoint(
     filters: TeamFilterRequest = TeamFilterRequest(),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
     db: Session = Depends(get_db),
 ):
     return list_team_members(db, filters)
@@ -77,7 +69,7 @@ async def list_teams_endpoint(
 )
 async def create_team_endpoint(
     payload: TeamCreateRequest,
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
     db: Session = Depends(get_db),
 ):
     return create_team_member(db, payload, created_by_id=session.user_id)
@@ -94,7 +86,7 @@ async def create_team_endpoint(
 async def update_team_endpoint(
     team_id: str,
     payload: TeamUpdateRequest,
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
     db: Session = Depends(get_db),
 ):
     return update_team_member(db, team_id, payload, updated_by_id=session.user_id)
@@ -111,7 +103,7 @@ async def update_team_endpoint(
 async def change_status_endpoint(
     team_id: str,
     payload: TeamStatusRequest,
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
     db: Session = Depends(get_db),
 ):
     return change_team_status(db, team_id, payload.status, updated_by_id=session.user_id)
@@ -126,7 +118,7 @@ async def change_status_endpoint(
 )
 async def delete_team_endpoint(
     team_id: str,
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
     db: Session = Depends(get_db),
 ):
     delete_team_member(db, team_id, deleted_by_id=session.user_id)

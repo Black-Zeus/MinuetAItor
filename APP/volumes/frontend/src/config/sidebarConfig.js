@@ -49,7 +49,8 @@ export const SIDEBAR_MODULES = [
     icon: 'FaUsers',
     path: '/teams',
     section: 'management',
-    order: 5
+    order: 5,
+    requiresAdmin: true
   },
   {
     id: 'participants',

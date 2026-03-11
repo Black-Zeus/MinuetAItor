@@ -104,8 +104,8 @@ const computeInitials = (name) => {
 const normalizeUser = (data = {}) => {
   const name           = data.name ?? data.full_name ?? "";
   const status         = (data.status ?? "active") === "inactive" ? "inactive" : "active";
-  const rawRole        = data.systemRole ?? data.system_role ?? "READ";
-  const systemRole     = ["ADMIN","EDITOR","READ"].includes(rawRole) ? rawRole : "READ";
+  const rawRole        = String(data.systemRole ?? data.system_role ?? "VIEWER").toUpperCase();
+  const systemRole     = ["ADMIN","EDITOR","VIEWER"].includes(rawRole) ? rawRole : "VIEWER";
   const assignmentMode = ((data.assignmentMode ?? data.assignment_mode ?? "specific") === "all") ? "all" : "specific";
 
   const clientIds  = Array.isArray(data.clients)  ? data.clients  : [];
@@ -130,7 +130,7 @@ const normalizeUser = (data = {}) => {
     phone:          normalizeText(data.phone),
     department:     normalizeText(data.department),
     status,
-    systemRole:     normalizeText(data.systemRole).toLocaleUpperCase("es-CL"),
+    systemRole,
     assignmentMode,
     notes:          normalizeText(data.notes),
     initials:       normalizeText(data.initials) || computeInitials(name),
@@ -894,7 +894,7 @@ const TeamsModal = ({ mode, data, onSubmit }) => {
             {[
               { value: "ADMIN", label: "Administrador", desc: "Acceso completo: gestión de usuarios, clientes, proyectos y configuración del sistema.", icon: "FaUserShield", ring: "ring-red-500 border-red-400 bg-red-50 dark:bg-red-900/10" },
               { value: "EDITOR", label: "Escritura",     desc: "Puede crear y editar contenido asignado, sin acceso a configuración del sistema.",    icon: "FaEdit",       ring: "ring-blue-500 border-blue-400 bg-blue-50 dark:bg-blue-900/10" },
-              { value: "READ",  label: "Solo lectura",  desc: "Visualización de contenido asignado sin posibilidad de realizar cambios.",              icon: "eye",          ring: "ring-gray-400 border-gray-400" },
+              { value: "VIEWER", label: "Solo lectura", desc: "Visualización de contenido asignado sin posibilidad de realizar cambios.",              icon: "eye",          ring: "ring-gray-400 border-gray-400" },
             ].map((opt) => (
               <button key={opt.value} type="button"
                 onClick={() => !isView && setField("systemRole", opt.value)} disabled={isView}

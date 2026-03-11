@@ -7,11 +7,18 @@
 import React from 'react';
 import Icon from '@/components/ui/icon/iconManager';
 import NewProject from '@/components/ui/button/NewProject';
+import useSessionStore from '@/store/sessionStore';
 
 const TXT_TITLE = "text-gray-900 dark:text-white";
 const TXT_META  = "text-gray-600 dark:text-gray-300";
 
 const ProjectHeader = ({ onCreated, clientCatalog = [] }) => {
+  const authz = useSessionStore((s) => s.authz);
+  const canManageProjects =
+    Array.isArray(authz?.roles) && authz.roles.includes("ADMIN")
+      ? true
+      : Array.isArray(authz?.permissions) && authz.permissions.includes("clients.manage");
+
   return (
     <div className="flex items-center justify-between">
       <div>
@@ -24,10 +31,12 @@ const ProjectHeader = ({ onCreated, clientCatalog = [] }) => {
         </p>
       </div>
 
-      <NewProject
-        onCreated={onCreated}
-        clientCatalog={clientCatalog}
-      />
+      {canManageProjects ? (
+        <NewProject
+          onCreated={onCreated}
+          clientCatalog={clientCatalog}
+        />
+      ) : null}
     </div>
   );
 };

@@ -16,6 +16,7 @@ export const managementRoutes = [
     title: "Clientes",
     requiresAuth: true,
     roles: [],
+    permissions: [],
   },
   {
     path: "/projects",
@@ -23,13 +24,15 @@ export const managementRoutes = [
     title: "Proyectos",
     requiresAuth: true,
     roles: [],
+    permissions: [],
   },
   {
     path: "/teams",
     component: TeamsPage,
     title: "Equipos",
     requiresAuth: true,
-    roles: [],
+    roles: ["admin"],
+    permissions: [],
   },
   {
     path: "/participants",
@@ -37,6 +40,7 @@ export const managementRoutes = [
     title: "Participantes",
     requiresAuth: true,
     roles: [],
+    permissions: [],
   },
 ];
 

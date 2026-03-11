@@ -58,7 +58,7 @@ const toApiPayload = (formData) => {
     initials:       formData.initials       || null,
     color:          formData.color          || null,   // string: "blue", "green", etc.
     notes:          formData.notes          || null,
-    systemRole:     formData.systemRole     ?? "read",
+    systemRole:     formData.systemRole     ?? "VIEWER",
     assignmentMode: formData.assignmentMode ?? "specific",
     status:         formData.status         ?? "active",
     clients,
