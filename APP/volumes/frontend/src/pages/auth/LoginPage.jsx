@@ -310,7 +310,7 @@ const LoginPage = () => {
                             <footer className="mt-auto pt-2">
                                 <div className="flex items-center justify-center gap-2 text-sm text-slate-400 flex-wrap">
                                     <span className="text-slate-600 select-none">·</span>
-                                    <a href="/auth/forgot-password" className="font-medium text-blue-400 hover:text-blue-300 transition-colors">
+                                    <a href="/forgot-password" className="font-medium text-blue-400 hover:text-blue-300 transition-colors">
                                         ¿Olvidaste tu contraseña?
                                     </a>
                                     <span className="text-slate-600 select-none">·</span>

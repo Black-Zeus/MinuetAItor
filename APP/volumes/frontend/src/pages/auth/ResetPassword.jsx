@@ -32,7 +32,7 @@ const ResetPasswordPage = () => {
 
   const tokenFromQuery = searchParams.get('token') || '';
 
-  const [form, setForm] = useState({ token: tokenFromQuery, password: '', confirm: '' });
+  const [form, setForm] = useState({ token: tokenFromQuery, otpCode: '', password: '', confirm: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [errors, setErrors] = useState({});
@@ -59,7 +59,7 @@ const ResetPasswordPage = () => {
   useEffect(() => {
     if (!success) return;
     if (countdown <= 0) {
-      navigate('/auth/login');
+      navigate('/login');
       return;
     }
     const timeout = setTimeout(() => setCountdown((current) => current - 1), 1000);
@@ -70,13 +70,18 @@ const ResetPasswordPage = () => {
     setForm((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: '' }));
     if (globalError) setGlobalError('');
-    if (field === 'token' && tokenInvalid) setTokenInvalid(false);
+    if ((field === 'token' || field === 'otpCode') && tokenInvalid) setTokenInvalid(false);
   };
 
   const validate = () => {
     const nextErrors = {};
-    if (!form.token.trim()) {
-      nextErrors.token = 'Debes ingresar el token de recuperación.';
+    const tokenValue = form.token.trim();
+    const otpValue = form.otpCode.trim();
+    if (!tokenValue && !otpValue) {
+      nextErrors.otpCode = 'Debes ingresar el código OTP o el token de recuperación.';
+    }
+    if (otpValue && (!/^\d{6}$/.test(otpValue))) {
+      nextErrors.otpCode = 'El código OTP debe tener 6 dígitos numéricos.';
     }
     if (!form.password) {
       nextErrors.password = 'La contraseña es requerida.';
@@ -104,7 +109,8 @@ const ResetPasswordPage = () => {
     setIsLoading(true);
     try {
       await submitPasswordReset({
-        token: form.token.trim(),
+        ...(form.token.trim() ? { token: form.token.trim() } : {}),
+        ...(form.otpCode.trim() ? { otp_code: form.otpCode.trim() } : {}),
         new_password: form.password,
         confirm_password: form.confirm,
       });
@@ -113,7 +119,7 @@ const ResetPasswordPage = () => {
     } catch (err) {
       const message = err?.response?.status === 400
         || err?.status === 400
-        ? 'El token ingresado es inválido, expiró o ya fue utilizado. Solicita uno nuevo.'
+        ? 'La credencial ingresada es inválida, expiró o ya fue utilizada. Solicita una nueva.'
         : err?.message || 'No pudimos restablecer tu contraseña. Intenta nuevamente.';
       if (err?.response?.status === 400 || err?.status === 400) {
         setTokenInvalid(true);
@@ -127,6 +133,7 @@ const ResetPasswordPage = () => {
   const strength = form.password ? getStrength(form.password) : null;
   const passwordsMatch = form.password && form.confirm && form.password === form.confirm;
   const isDark = theme === 'dark';
+  const hasTokenFromQuery = Boolean(tokenFromQuery.trim());
 
   return (
     <div className="min-h-screen grid place-items-center bg-gradient-to-b from-slate-800 to-slate-900 px-4 py-10 transition-colors duration-300 dark:from-slate-900 dark:to-black sm:px-6 lg:px-12">
@@ -215,7 +222,7 @@ const ResetPasswordPage = () => {
             <div className="flex h-full flex-col gap-4">
               <header>
                 <Link
-                  to="/auth/login"
+                  to="/login"
                   className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-blue-400 transition-colors hover:text-blue-300"
                 >
                   <Icon name="arrowLeft" className="text-xs" />
@@ -223,14 +230,16 @@ const ResetPasswordPage = () => {
                 </Link>
 
                 <h2 className="m-0 text-[1.4rem] font-semibold text-white">
-                  {tokenInvalid ? 'Token inválido' : success ? 'Contraseña restablecida' : 'Crear nueva contraseña'}
+                  {tokenInvalid ? 'Credencial inválida' : success ? 'Contraseña restablecida' : 'Crear nueva contraseña'}
                 </h2>
                 <p className="mt-1.5 text-slate-400">
                   {tokenInvalid
-                    ? 'El token no es válido o ya expiró.'
+                    ? 'El código OTP o token no es válido o ya expiró.'
                     : success
                       ? 'La cuenta ya quedó actualizada y puedes volver a ingresar.'
-                      : 'Pega el token de recuperación y completa ambos campos para actualizar tu contraseña.'}
+                      : hasTokenFromQuery
+                        ? 'El token del enlace ya fue cargado. Completa los campos restantes para actualizar tu contraseña.'
+                        : 'Ingresa el código OTP de 6 dígitos o pega el token completo y completa ambos campos para actualizar tu contraseña.'}
                 </p>
               </header>
 
@@ -240,7 +249,7 @@ const ResetPasswordPage = () => {
                     <Icon name="exclamationTriangle" className="text-2xl text-red-300" />
                   </div>
                   <p className="text-sm leading-relaxed text-slate-300">
-                    El token de recuperación no es válido o ha expirado. Puedes pegar otro token o solicitar uno nuevo desde la pantalla de recuperación.
+                    El código OTP o token de recuperación no es válido o ha expirado. Puedes ingresar otra credencial o solicitar una nueva desde la pantalla de recuperación.
                   </p>
                   <div className="mx-auto mt-6 flex flex-wrap items-center justify-center gap-3">
                     <button
@@ -252,7 +261,7 @@ const ResetPasswordPage = () => {
                       className="inline-flex items-center gap-2 rounded-xl border border-slate-600/60 bg-slate-700/60 px-5 py-3 font-semibold text-white transition-colors hover:bg-slate-600/70"
                     >
                       <Icon name="penToSquare" className="text-xs" />
-                      Ingresar otro token
+                      Ingresar otra credencial
                     </button>
                     <Link
                       to="/auth/forgot-password"
@@ -274,7 +283,7 @@ const ResetPasswordPage = () => {
                     <span className="font-semibold text-white">{countdown}s</span>.
                   </p>
                   <Link
-                    to="/auth/login"
+                    to="/login"
                     className="mx-auto mt-6 inline-flex items-center gap-2 text-sm font-medium text-blue-400 transition-colors hover:text-blue-300"
                   >
                     <Icon name="signInAlt" className="text-xs" />
@@ -295,33 +304,64 @@ const ResetPasswordPage = () => {
 
                   <form onSubmit={handleSubmit} noValidate className="grid gap-3.5">
                     <div className="grid gap-2">
-                      <label htmlFor="token" className="text-sm font-medium text-slate-300">
-                        Token de recuperación
+                      <label htmlFor={hasTokenFromQuery ? 'token' : 'otpCode'} className="text-sm font-medium text-slate-300">
+                        {hasTokenFromQuery ? 'Token de recuperación' : 'Código OTP'}
                       </label>
                       <input
-                        id="token"
+                        id={hasTokenFromQuery ? 'token' : 'otpCode'}
                         type="text"
-                        autoComplete="one-time-code"
-                        placeholder="Pega aquí el token recibido por correo"
-                        value={form.token}
-                        onChange={(e) => handleChange('token', e.target.value)}
+                        autoComplete={hasTokenFromQuery ? 'off' : 'one-time-code'}
+                        inputMode={hasTokenFromQuery ? 'text' : 'numeric'}
+                        maxLength={hasTokenFromQuery ? undefined : 6}
+                        placeholder={hasTokenFromQuery ? 'Token de recuperación' : '123456'}
+                        value={hasTokenFromQuery ? form.token : form.otpCode}
+                        readOnly={hasTokenFromQuery}
+                        onChange={(e) => {
+                          if (hasTokenFromQuery) {
+                            handleChange('token', e.target.value);
+                          } else {
+                            handleChange('otpCode', e.target.value.replace(/\D/g, '').slice(0, 6));
+                          }
+                        }}
                         disabled={isLoading}
                         className={`w-full rounded-[14px] border px-3 py-3 text-white placeholder-slate-500 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/40 ${
-                          errors.token
+                          hasTokenFromQuery ? errors.token : errors.otpCode
                             ? 'border-red-500/60 bg-red-950/20'
-                            : 'border-slate-600/50 bg-slate-700/60 dark:bg-slate-800/70'
+                            : hasTokenFromQuery
+                              ? 'border-slate-600/50 bg-slate-900/60 text-slate-300 dark:bg-slate-950/70'
+                              : 'border-slate-600/50 bg-slate-700/60 dark:bg-slate-800/70'
                         }`}
                       />
                       <p className="text-xs text-slate-400">
-                        Este campo acepta el token largo incluido en el enlace del correo. El OTP de 6 dígitos mostrado en el email hoy es solo informativo.
+                        {hasTokenFromQuery
+                          ? 'El token del enlace fue cargado automáticamente. Puedes editarlo si necesitas reemplazarlo.'
+                          : 'Ingresa el código de 6 dígitos recibido por correo. Si abriste el enlace completo del email, el token largo se carga automáticamente.'}
                       </p>
-                      {errors.token && (
+                      {(hasTokenFromQuery ? errors.token : errors.otpCode) && (
                         <p className="flex items-center gap-1 text-xs text-red-400">
                           <Icon name="exclamationCircle" className="text-xs" />
-                          {errors.token}
+                          {hasTokenFromQuery ? errors.token : errors.otpCode}
                         </p>
                       )}
                     </div>
+
+                    {!hasTokenFromQuery && (
+                      <div className="grid gap-2">
+                        <label htmlFor="token" className="text-sm font-medium text-slate-300">
+                          Token completo
+                        </label>
+                        <input
+                          id="token"
+                          type="text"
+                          autoComplete="off"
+                          placeholder="Opcional: pega aquí el token completo"
+                          value={form.token}
+                          onChange={(e) => handleChange('token', e.target.value)}
+                          disabled={isLoading}
+                          className="w-full rounded-[14px] border border-slate-600/50 bg-slate-700/60 px-3 py-3 text-white placeholder-slate-500 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:bg-slate-800/70"
+                        />
+                      </div>
+                    )}
 
                     <div className="grid gap-2">
                       <label htmlFor="password" className="text-sm font-medium text-slate-300">
