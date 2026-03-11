@@ -7,7 +7,6 @@ import { useNavigate } from 'react-router-dom';
 import HeaderContainer    from './HeaderContainer';
 import HeaderBreadcrumb   from './HeaderBreadcrumb';
 import HeaderSearch       from './HeaderSearch';
-import HeaderActionButton from './HeaderActionButton';
 import HeaderThemeToggle  from './HeaderThemeToggle';
 import HeaderDivider      from './HeaderDivider';
 import HeaderUserMenu     from './HeaderUserMenu';
@@ -53,8 +52,6 @@ const Header = () => {
           placeholder="Buscar Minutas..."
         />
         <div className="flex items-center space-x-2">
-          <HeaderActionButton iconName="FaBell"     onClick={() => {}} ariaLabel="Notificaciones" />
-          <HeaderActionButton iconName="FaEnvelope" onClick={() => {}} ariaLabel="Mensajes" />
           <HeaderThemeToggle onClick={toggleTheme} currentTheme={theme} />
         </div>
         <HeaderDivider />
