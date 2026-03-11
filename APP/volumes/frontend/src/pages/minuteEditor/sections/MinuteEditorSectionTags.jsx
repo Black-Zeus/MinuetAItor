@@ -10,9 +10,9 @@
  *    - Convertir: crea un tag de usuario (addUserTag espera STRING) con nombre definido por usuario,
  *      y lo asocia visualmente al tag IA (se muestra debajo en otro color como "categoría / nombre").
  * - Tags usuario:
- *    - No texto libre directo: se agregan desde catálogo (DDL por categoría).
+ *    - No texto libre directo: se agregan desde catálogo con búsqueda/autocomplete.
  *    - Orden: categoría ASC, luego nombre ASC.
- *    - Tabla estilo similar a IA (categoría, tag, descripción completa, acción).
+ *    - Vista tipo cards con detalle enriquecido.
  *
  * Nota técnica:
  * - Tu store addUserTag(name) trabaja con string (name.trim()).
@@ -30,8 +30,9 @@ import tagsCatalog from '@/data/dataTags.json';
 const MinuteEditorSectionTags = ({ isReadOnly = false }) => {
     const { aiTags, userTags, deleteAiTag, addUserTag, deleteUserTag } = useMinuteEditorStore();
 
-    // DDL usuario (catálogo)
-    const [selectedCatalogId, setSelectedCatalogId] = useState('');
+    // Picker usuario (catálogo)
+    const [catalogQuery, setCatalogQuery] = useState('');
+    const [isCatalogFocused, setIsCatalogFocused] = useState(false);
 
     // Para "compilar" IA -> Usuario (enriquecimiento local)
     // - aiToUserAlias: por aiTagId guardo { category, name }
@@ -48,12 +49,6 @@ const MinuteEditorSectionTags = ({ isReadOnly = false }) => {
     // ---------------------------
     // Catálogo indexado
     // ---------------------------
-    const catalogById = useMemo(() => {
-        const map = new Map();
-        (tagsCatalog ?? []).forEach((t) => map.set(String(t.id), t));
-        return map;
-    }, []);
-
     const catalogByName = useMemo(() => {
         const map = new Map();
         (tagsCatalog ?? []).forEach((t) => map.set(normalizeName(t.name), t));
@@ -76,7 +71,7 @@ const MinuteEditorSectionTags = ({ isReadOnly = false }) => {
     }, [userTags]);
 
     // ---------------------------
-    // Catálogo "activo" disponible (para DDL usuario)
+    // Catálogo "activo" disponible para búsqueda/autocomplete
     // ---------------------------
     const activeCatalog = useMemo(() => {
         const list = (tagsCatalog ?? []).filter(
@@ -85,23 +80,34 @@ const MinuteEditorSectionTags = ({ isReadOnly = false }) => {
         return list.filter((t) => !userTagNamesSet.has(normalizeName(t.name)));
     }, [userTagNamesSet]);
 
-    const catalogGrouped = useMemo(() => {
-        const groups = new Map();
-        activeCatalog.forEach((t) => {
-            const key = normalizeText(t.category) || 'Sin categoría';
-            if (!groups.has(key)) groups.set(key, []);
-            groups.get(key).push(t);
-        });
+    const filteredCatalog = useMemo(() => {
+        const query = normalizeName(catalogQuery);
+        const list = !query
+            ? activeCatalog
+            : activeCatalog.filter((t) => {
+                const haystack = [
+                    t.name,
+                    t.category,
+                    t.description,
+                ]
+                    .map((v) => normalizeText(v).toLowerCase())
+                    .join(' ');
+                return haystack.includes(query);
+            });
 
-        return Array.from(groups.entries())
-            .sort(([a], [b]) => a.localeCompare(b, 'es', { sensitivity: 'base' }))
-            .map(([cat, items]) => [
-                cat,
-                items.sort((x, y) =>
-                    String(x.name).localeCompare(String(y.name), 'es', { sensitivity: 'base' })
-                ),
-            ]);
-    }, [activeCatalog]);
+        return [...list]
+            .sort((a, b) => {
+                const byName = String(a.name).localeCompare(String(b.name), 'es', { sensitivity: 'base' });
+                if (byName !== 0) return byName;
+                return String(a.category ?? '').localeCompare(String(b.category ?? ''), 'es', { sensitivity: 'base' });
+            })
+            .slice(0, 8);
+    }, [activeCatalog, catalogQuery]);
+
+    const showCatalogSuggestions = useMemo(
+        () => isCatalogFocused && normalizeText(catalogQuery).length > 0 && filteredCatalog.length > 0,
+        [catalogQuery, filteredCatalog.length, isCatalogFocused]
+    );
 
     // ---------------------------
     // Tags usuario enriquecidos + ORDEN (categoría, luego nombre)
@@ -176,33 +182,25 @@ const MinuteEditorSectionTags = ({ isReadOnly = false }) => {
         });
     };
 
-    // ---------------------------
-    // Acción: agregar usuario desde catálogo (DDL)
-    // ---------------------------
-    const handleAddUserTagFromCatalog = () => {
-        const idStr = String(selectedCatalogId ?? '').trim();
-        if (!idStr) return;
+    const handleCatalogQueryChange = (value) => {
+        setCatalogQuery(value);
 
-        const picked = catalogById.get(idStr);
-        if (!picked) {
-            ModalManager.warning({
-                title: 'Selección inválida',
-                message: 'El tag seleccionado no existe en el catálogo.',
-            });
+        const matchedTag = activeCatalog.find(
+            (t) => normalizeName(t.name) === normalizeName(value)
+        );
+
+        if (!matchedTag) {
             return;
         }
 
-        if (userTagNamesSet.has(normalizeName(picked.name))) {
-            ModalManager.warning({
-                title: 'Tag duplicado',
-                message: 'Este tag ya fue agregado.',
-            });
-            return;
-        }
+        addUserTag(matchedTag.name);
+        setCatalogQuery('');
+    };
 
-        // store espera STRING
-        addUserTag(picked.name);
-        setSelectedCatalogId('');
+    const handleSelectCatalogTag = (tag) => {
+        addUserTag(tag.name);
+        setCatalogQuery('');
+        setIsCatalogFocused(false);
     };
 
     // ---------------------------
@@ -472,99 +470,119 @@ const MinuteEditorSectionTags = ({ isReadOnly = false }) => {
                         </p>
                     </div>
 
-                    {/* Selector desde catálogo */}
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                        <select
-                            value={selectedCatalogId}
-                            onChange={(e) => setSelectedCatalogId(e.target.value)}
-                            className="w-full sm:w-auto min-w-[260px] px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm text-gray-900 dark:text-gray-100 transition-theme focus:outline-none focus:ring-2 focus:ring-primary-500/40"
-                        >
-                            <option value="">
-                                {activeCatalog.length === 0 ? 'No hay tags disponibles' : 'Selecciona un tag…'}
-                            </option>
+                    <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-gray-50/70 dark:bg-gray-900/40 p-4 transition-theme">
+                        <div className="flex items-center gap-2 mb-3">
+                            <div className="w-9 h-9 rounded-xl bg-primary-50 dark:bg-primary-900/20 flex items-center justify-center">
+                                <Icon name="search" className="text-primary-600 dark:text-primary-400 text-sm" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-semibold text-gray-900 dark:text-white transition-theme">
+                                    Buscar tag del catálogo
+                                </p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 transition-theme">
+                                    Empieza a escribir y selecciona una sugerencia para agregarla.
+                                </p>
+                            </div>
+                        </div>
 
-                            {catalogGrouped.map(([cat, items]) => (
-                                <optgroup key={cat} label={cat}>
-                                    {items.map((t) => (
-                                        <option key={t.id} value={String(t.id)}>
-                                            {t.name}
-                                        </option>
+                        <div className="relative">
+                            <input
+                                type="text"
+                                value={catalogQuery}
+                                onChange={(e) => handleCatalogQueryChange(e.target.value)}
+                                onFocus={() => setIsCatalogFocused(true)}
+                                onBlur={() => {
+                                    window.setTimeout(() => setIsCatalogFocused(false), 120);
+                                }}
+                                placeholder={activeCatalog.length === 0 ? 'No hay tags disponibles' : 'Ej: red, seguridad, respaldo...'}
+                                disabled={isReadOnly || activeCatalog.length === 0}
+                                className="w-full px-4 py-3 pr-10 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm text-gray-900 dark:text-gray-100 transition-theme focus:outline-none focus:ring-2 focus:ring-primary-500/40 disabled:opacity-60 disabled:cursor-not-allowed"
+                            />
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500">
+                                <Icon name="search" className="text-sm" />
+                            </div>
+                            {showCatalogSuggestions && (
+                                <div className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-xl transition-theme">
+                                    {filteredCatalog.map((t) => (
+                                        <button
+                                            key={t.id}
+                                            type="button"
+                                            onMouseDown={(e) => {
+                                                e.preventDefault();
+                                                handleSelectCatalogTag(t);
+                                            }}
+                                            className="flex w-full items-start justify-between gap-3 border-b border-gray-100 px-4 py-3 text-left transition-theme last:border-b-0 hover:bg-gray-50 dark:border-gray-700/60 dark:hover:bg-gray-700/40"
+                                        >
+                                            <div className="min-w-0">
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 transition-theme">
+                                                        {t.name}
+                                                    </span>
+                                                    <span className="rounded-md border border-gray-200/60 bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-600 transition-theme dark:border-gray-600/60 dark:bg-gray-700 dark:text-gray-300">
+                                                        {t.category || 'Sin categoría'}
+                                                    </span>
+                                                </div>
+                                                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 transition-theme line-clamp-1">
+                                                    {t.description || 'Sin descripción.'}
+                                                </p>
+                                            </div>
+                                            <Icon name="plus" className="mt-0.5 shrink-0 text-primary-600 dark:text-primary-400" />
+                                        </button>
                                     ))}
-                                </optgroup>
-                            ))}
-                        </select>
-
-                        {!isReadOnly && (
-                          <button
-                            type="button"
-                            onClick={handleAddUserTagFromCatalog}
-                            disabled={!selectedCatalogId}
-                            className="px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 disabled:bg-gray-300 disabled:hover:bg-gray-300 dark:disabled:bg-gray-700 text-white transition-theme shadow-sm text-sm font-medium whitespace-nowrap"
-                          >
-                            <Icon name="plus" className="mr-1" />
-                            Agregar
-                          </button>
-                        )}
+                                </div>
+                            )}
+                        </div>
+                        <p className="mt-3 text-xs text-gray-500 dark:text-gray-400 transition-theme">
+                            Los tags seleccionados aparecerán directamente en la lista inferior.
+                        </p>
                     </div>
                 </div>
 
-                {/* Tabla usuario enriquecida + ordenada */}
-                <div className="mt-6 overflow-x-auto">
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700 transition-theme">
-                                <th className="pb-3 pr-4">Categoría</th>
-                                <th className="pb-3 pr-4">Tag</th>
-                                <th className="pb-3 pr-4">Descripción</th>
-                                <th className="pb-3">Acción</th>
-                            </tr>
-                        </thead>
-                        <tbody className="text-gray-900 dark:text-gray-100 transition-theme">
-                            {userTagsEnrichedSorted.length === 0 ? (
-                                <tr>
-                                    <td colSpan={4} className="py-6 text-center text-gray-400 dark:text-gray-600 text-sm italic">
-                                        Sin tags de usuario.
-                                    </td>
-                                </tr>
-                            ) : (
-                                userTagsEnrichedSorted.map((t) => (
-                                    <tr
-                                        key={t.id}
-                                        className="border-b border-gray-100 dark:border-gray-700/50 last:border-0 align-top transition-theme"
-                                    >
-                                        <td className="py-3 pr-4 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                                            {t.category || 'Sin categoría'}
-                                        </td>
-
-                                        <td className="py-3 pr-4">
-                                            <span className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200/50 dark:border-gray-700/50 transition-theme font-mono">
+                <div className="mt-6 space-y-3">
+                    {userTagsEnrichedSorted.length === 0 ? (
+                        <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-600 px-4 py-8 text-center text-sm text-gray-400 dark:text-gray-600 italic transition-theme">
+                            Sin tags de usuario.
+                        </div>
+                    ) : (
+                        userTagsEnrichedSorted.map((t) => (
+                            <div
+                                key={t.id}
+                                className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-gray-50/60 dark:bg-gray-900/30 px-4 py-4 transition-theme"
+                            >
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <span className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 border border-primary-200/50 dark:border-primary-700/50 transition-theme">
+                                                {t.category || 'Sin categoría'}
+                                            </span>
+                                            <span className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200/60 dark:border-gray-700/60 transition-theme font-mono">
                                                 {t.name}
                                             </span>
-                                        </td>
+                                            {t.source === 'ai-derived' && (
+                                                <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200/50 dark:border-indigo-700/50 transition-theme">
+                                                    Derivado IA
+                                                </span>
+                                            )}
+                                        </div>
+                                        <p className="mt-2 text-xs text-gray-600 dark:text-gray-400 transition-theme whitespace-pre-wrap break-words">
+                                            {t.description || '—'}
+                                        </p>
+                                    </div>
 
-                                        <td className="py-3 pr-4 text-xs text-gray-500 dark:text-gray-400">
-                                            <div className="whitespace-pre-wrap break-words">
-                                                {t.description || '—'}
-                                            </div>
-                                        </td>
-
-                                        {!isReadOnly && (
-                                          <td className="py-3">
-                                            <button
-                                                type="button"
-                                                onClick={() => handleDeleteUserTag(t.id, t.name)}
-                                                className="px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-theme text-xs flex items-center gap-1.5"
-                                            >
-                                                <Icon name="delete" />
-                                                Eliminar
-                                            </button>
-                                          </td>
-                                        )}
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
+                                    {!isReadOnly && (
+                                        <button
+                                            type="button"
+                                            onClick={() => handleDeleteUserTag(t.id, t.name)}
+                                            className="shrink-0 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-theme text-xs flex items-center gap-1.5"
+                                        >
+                                            <Icon name="delete" />
+                                            Eliminar
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        ))
+                    )}
                 </div>
             </article>
         </div>
