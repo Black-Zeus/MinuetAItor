@@ -4,3 +4,4 @@ redis[hiredis]==5.0.6
 minio==7.2.7
 python-dotenv==1.0.1
 pydantic-settings==2.3.4
+watchdog[watchmedo]==4.0.2

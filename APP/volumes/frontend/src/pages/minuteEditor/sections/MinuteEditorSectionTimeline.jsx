@@ -16,8 +16,8 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import Icon from "@components/ui/icon/iconManager";
-import ModalManager from "@components/ui/modal";
 import { getMinuteVersions } from "@/services/minutesService";
+import { openPdfViewer } from "@/components/ui/pdf/PdfViewerModal";
 
 import logger from "@/utils/logger";
 const log = logger.scope("minute-editor-timeline");
@@ -70,67 +70,32 @@ const StatusVersionBadge = ({ statusCode, statusLabel }) => {
   );
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MODAL: VISTA PREVIA PDF (pendiente de worker PDF)
-// ─────────────────────────────────────────────────────────────────────────────
-
-const PdfVersionModalContent = ({ version }) => (
-  <div className="flex flex-col gap-3 h-full">
-    <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-50 dark:bg-amber-900/15 border border-amber-200/60 dark:border-amber-700/40 transition-theme">
-      <Icon name="triangleExclamation" className="text-amber-500 shrink-0 text-xs" />
-      <p className="text-xs text-amber-800 dark:text-amber-300 transition-theme">
-        El PDF de <strong>{version.versionLabel}</strong> se servirá desde MinIO cuando el worker PDF esté activo.
-      </p>
-    </div>
-    <div className="flex-1 overflow-auto bg-gray-100 dark:bg-gray-900 rounded-xl p-4 transition-theme flex items-center justify-center">
-      <div
-        className="bg-white shadow-xl rounded flex flex-col items-center justify-center gap-4"
-        style={{ width: "420px", minHeight: "560px", fontFamily: "sans-serif", padding: "48px 40px" }}
-      >
-        <div style={{ width: "72px", height: "72px", background: "#eff6ff", borderRadius: "16px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <span style={{ fontSize: "32px" }}>📄</span>
-        </div>
-        <div style={{ textAlign: "center" }}>
-          <p style={{ fontSize: "22px", fontWeight: "bold", color: "#1d4ed8", margin: 0 }}>{version.versionLabel}</p>
-          <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "4px" }}>{version.statusLabel}</p>
-        </div>
-        <div style={{ width: "100%", background: "#f9fafb", borderRadius: "12px", padding: "16px 20px", display: "flex", flexDirection: "column", gap: "8px", fontSize: "12px", color: "#374151" }}>
-          <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <span style={{ color: "#9ca3af" }}>Publicado por</span>
-            <span style={{ fontWeight: "600" }}>{version.publishedBy || "—"}</span>
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <span style={{ color: "#9ca3af" }}>Fecha</span>
-            <span style={{ fontWeight: "600" }}>{fmtDate(version.publishedAt)}</span>
-          </div>
-          {version.commitMessage && (
-            <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: "8px", marginTop: "4px" }}>
-              <p style={{ color: "#9ca3af", marginBottom: "4px" }}>Observación</p>
-              <p style={{ color: "#374151", lineHeight: 1.5 }}>{version.commitMessage}</p>
-            </div>
-          )}
-        </div>
-        <p style={{ fontSize: "10px", color: "#d1d5db", textAlign: "center", marginTop: "8px" }}>
-          PDF pendiente de generación por worker PDF
-        </p>
-      </div>
-    </div>
-  </div>
-);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TARJETA DE VERSIÓN
 // ─────────────────────────────────────────────────────────────────────────────
 
-const TimelineEntry = ({ version, isLatest, isLast }) => {
+const TimelineEntry = ({ version, isLatest, isLast, recordId }) => {
   const [expanded, setExpanded] = useState(isLatest);
 
+  const pdfType  = version.statusCode === "final" ? "published" : "draft";
+  const filename = `minuta_${version.versionLabel}.pdf`;
+
   const handleVisualize = () => {
-    ModalManager.custom({
-      title:      `Vista previa PDF — ${version.versionLabel}`,
-      size:       "large",
-      showFooter: false,
-      content:    <PdfVersionModalContent version={version} />,
+    openPdfViewer({
+      recordId,
+      pdfType,
+      filename,
+      title: `PDF ${version.versionLabel}`,
+    });
+  };
+
+  const handleDownload = () => {
+    openPdfViewer({
+      recordId,
+      pdfType,
+      filename,
+      title: `PDF ${version.versionLabel}`,
     });
   };
 
@@ -247,18 +212,15 @@ const TimelineEntry = ({ version, isLatest, isLast }) => {
                   <Icon name="eye" className="text-xs" />
                   Visualizar
                 </button>
-                {/* Descargar: disponible cuando el worker PDF esté activo */}
                 <button
                   type="button"
-                  disabled
-                  title="Disponible cuando el worker PDF genere el archivo"
+                  onClick={handleDownload}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700
-                    text-gray-400 dark:text-gray-500 border border-gray-200/50 dark:border-gray-600/50
-                    text-xs font-semibold cursor-not-allowed opacity-50 transition-theme"
+                    hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300
+                    border border-gray-200/50 dark:border-gray-600/50 text-xs font-semibold transition-theme"
                 >
                   <Icon name="download" className="text-xs" />
                   Descargar
-                  <Icon name="lock" className="text-[9px] opacity-60" />
                 </button>
               </div>
             </div>
@@ -411,6 +373,7 @@ const MinuteEditorSectionTimeline = ({ recordId, recordStatus }) => {
                 version={v}
                 isLatest={idx === 0}
                 isLast={idx === versions.length - 1}
+                recordId={recordId}
               />
             ))}
           </div>

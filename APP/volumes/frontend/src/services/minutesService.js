@@ -176,3 +176,24 @@ export const getMinuteVersions = async (recordId) => {
   const res = await api.get(`${BASE}/${recordId}/versions`);
   return unwrap(res);
 };
+
+// ─── PDF (viewer / download) ───────────────────────────────────────────────
+/**
+ * GET /v1/minutes/{record_id}/pdf?type=draft|published
+ *
+ * Descarga el PDF desde el backend (proxy MinIO) como Blob.
+ * El JWT viaja en el header Authorization (gestionado por axiosInterceptor).
+ *
+ * @param {string}              recordId
+ * @param {'draft'|'published'} type     - 'draft' para borrador con marca de agua,
+ *                                         'published' para versión final
+ * @returns {Promise<Blob>}              - Blob PDF para crear objectURL
+ * @throws {AxiosError}                  - 404 si el PDF aún no fue generado
+ */
+export const getMinutePdfBlob = async (recordId, type = "draft") => {
+  const res = await api.get(`${BASE}/${recordId}/pdf`, {
+    params:       { type },
+    responseType: "blob",
+  });
+  return res.data;
+};
