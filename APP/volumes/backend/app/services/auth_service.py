@@ -13,7 +13,11 @@ from models.user import User
 from repositories.auth_repository import get_user_by_credential, get_user_with_roles_permissions, get_user_full, get_user_by_id
 from repositories.session_repository import create_session, mark_logout, get_user_sessions, get_session_by_jti, get_active_sessions, revoke_all_sessions
 from schemas.auth import TokenResponse, UserSession, MeResponse, UserProfileData, ConnectionInfo, ValidateTokenResponse, ChangePasswordRequest,    ChangePasswordByAdminRequest, TokenResponse
-from services.notification_service import consume_password_reset_token, enqueue_recover_password_email
+from services.notification_service import (
+    consume_password_reset_token,
+    enqueue_password_changed_email,
+    enqueue_recover_password_email,
+)
 from utils.device import get_device_string
 from utils.geo import get_geo
 from utils.network import get_client_ip
@@ -298,6 +302,14 @@ async def change_password(
     user.password_hash = hash_password(payload.new_password)
     db.commit()
 
+    await enqueue_password_changed_email(
+        db,
+        user_id=user.id,
+        actor_label="el titular de la cuenta",
+        change_reason="Cambio realizado desde sesion autenticada",
+        request_origin="auth.change-password",
+    )
+
     if payload.revoke_sessions:
         # Revoca todas excepto la sesión actual
         jtis = [s.jti for s in get_active_sessions(db, session.user_id)
@@ -325,6 +337,14 @@ async def change_password_by_admin(
 
     target.password_hash = hash_password(payload.new_password)
     db.commit()
+
+    await enqueue_password_changed_email(
+        db,
+        user_id=target.id,
+        actor_label="un administrador",
+        change_reason="Cambio forzado por administrador",
+        request_origin="auth.change-password-by-admin",
+    )
 
     # Revocar TODAS las sesiones del usuario afectado
     jtis = [s.jti for s in get_active_sessions(db, payload.user_id)]
@@ -382,6 +402,14 @@ async def reset_password(
 
     user.password_hash = hash_password(new_password)
     db.commit()
+
+    await enqueue_password_changed_email(
+        db,
+        user_id=user.id,
+        actor_label="el flujo de recuperacion de cuenta",
+        change_reason="Restablecimiento mediante token de recuperacion",
+        request_origin="auth.reset-password",
+    )
 
     jtis = [s.jti for s in get_active_sessions(db, user_id)]
     redis = get_redis()
