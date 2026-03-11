@@ -51,9 +51,9 @@ const WIDGET_META = {
     description: "Proyectos confidenciales donde tienes permisos.",
   },
   tags_populares: {
-    label:       "Etiquetas populares",
-    icon:        "FaTag",
-    description: "Tags más usados en las minutas del sistema.",
+    label:       "Minutas completadas",
+    icon:        "FaCheckCircle",
+    description: "Minutas recientes completadas donde eres el elaborador.",
   },
 };
 
@@ -63,7 +63,7 @@ const CATEGORY_CONFIG = {
     label:       "Resumen general",
     icon:        "FaChartLine",
     iconBg:      "bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400",
-    description: "KPIs, última conexión y etiquetas del sistema.",
+    description: "KPIs, última conexión y actividad reciente.",
   },
   minutas: {
     label:       "Minutas",

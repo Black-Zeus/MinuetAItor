@@ -16,6 +16,9 @@ const unwrap = (res) => res?.data?.result ?? res?.data;
  * @param {string|null} params.status_filter
  * @param {string|null} params.client_id
  * @param {string|null} params.project_id
+ * @param {boolean}     params.mine_as_preparer
+ * @param {boolean}     params.mine_as_participant
+ * @param {boolean}     params.exclude_mine_as_preparer
  * @returns {Promise<{ minutes: MinuteItem[], total: number, skip: number, limit: number }>}
  */
 export const listMinutes = async ({
@@ -25,12 +28,18 @@ export const listMinutes = async ({
   status_filter = null,
   client_id = null,
   project_id = null,
+  mine_as_preparer = false,
+  mine_as_participant = false,
+  exclude_mine_as_preparer = false,
 } = {}) => {
   const params = { skip, limit };
   if (q)             params.q             = q;
   if (status_filter) params.status_filter = status_filter;
   if (client_id)     params.client_id     = client_id;
   if (project_id)    params.project_id    = project_id;
+  if (mine_as_preparer)         params.mine_as_preparer = true;
+  if (mine_as_participant)      params.mine_as_participant = true;
+  if (exclude_mine_as_preparer) params.exclude_mine_as_preparer = true;
 
   const res = await api.get(BASE, { params });
   return unwrap(res);

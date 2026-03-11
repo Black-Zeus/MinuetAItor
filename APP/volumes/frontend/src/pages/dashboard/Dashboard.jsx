@@ -3,24 +3,21 @@
  * Renderiza condicionalmente cada sección según baseSiteStore → dashboard.widgets.enabled
  */
 
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState } from "react";
 import { FaCalendarAlt, FaFileAlt, FaUsers } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 
 import dashboardData from "@/data/dataDashBoard.json";
-import minutesData from "@/data/minutes.json";
-import clientsData from "@/data/dataClientes.json";
-import projectsData from "@/data/dataProjectos.json";
 
 import DashboardHeader from "./DashboardHeader";
 import MetricCard from "./MetricCard";
-import PopularTags from "./PopularTags";
 import LastConectionInfo from "./LastConectionInfo";
 import MinutesSection from "./MinutesSection";
-import ConfidentialSection from "./ConfidentialSection";
 import PageLoadingSpinner from "@/components/ui/modal/types/system/PageLoadingSpinner";
 
 import useBaseSiteStore from "@store/baseSiteStore"; // ← FIX: era dashboardStore
+import useSessionStore, { sessionSelectors } from "@store/sessionStore";
+import { listMinutes } from "@/services/minutesService";
 
 import logger from '@/utils/logger';
 const dashboardLog = logger.scope("dashboard");
@@ -30,48 +27,52 @@ export const TXT_SUBTITLE = "text-gray-700 dark:text-gray-200";
 export const TXT_BODY = "text-gray-600 dark:text-gray-300";
 export const TXT_META = "text-gray-500 dark:text-gray-400";
 
-const randomN = (arr, n) => {
-  if (!Array.isArray(arr) || arr.length === 0) return [];
-  return [...arr].sort(() => Math.random() - 0.5).slice(0, n);
-};
-
 const Dashboard = () => {
   const navigate = useNavigate();
 
   // FIX: widgets viven en baseSiteStore.dashboard.widgets (no en dashboardStore)
   const widgets = useBaseSiteStore((s) => s.dashboard?.widgets ?? {});
   const w = (key) => widgets[key]?.enabled ?? true;
+  const sessionUser = useSessionStore(sessionSelectors.user);
 
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
-  const [tagsData, setTagsData] = useState([]);
-
+  const [readyMinutes, setReadyMinutes] = useState([]);
   const [pendingMinutes, setPendingMinutes] = useState([]);
   const [participatedMinutes, setParticipatedMinutes] = useState([]);
-  const [confidentialClients, setConfidentialClients] = useState([]);
-  const [confidentialProjects, setConfidentialProjects] = useState([]);
-
-  const allClients = useMemo(() => clientsData?.clients || [], []);
-
-  const [userName] = useState("John Doe");
+  const [completedMinutes, setCompletedMinutes] = useState([]);
+  const userName = sessionUser?.full_name || sessionUser?.username || "Usuario";
 
   useEffect(() => {
     const load = async () => {
       try {
-        await new Promise((r) => setTimeout(r, 450));
+        const [readyResult, pendingResult, participantResult, completedResult] = await Promise.all([
+          listMinutes({
+            limit: 6,
+            status_filter: "ready-for-edit",
+            mine_as_preparer: true,
+          }),
+          listMinutes({
+            limit: 6,
+            status_filter: "pending",
+            mine_as_preparer: true,
+          }),
+          listMinutes({
+            limit: 6,
+            mine_as_participant: true,
+            exclude_mine_as_preparer: true,
+          }),
+          listMinutes({
+            limit: 6,
+            status_filter: "completed",
+            mine_as_preparer: true,
+          }),
+        ]);
 
-        setTagsData(dashboardData?.tagsPopular ?? []);
-
-        const allMinutes = Array.isArray(minutesData?.minutes) ? minutesData.minutes : [];
-        setPendingMinutes(allMinutes.filter((m) => m.status === "pending"));
-        setParticipatedMinutes(randomN(allMinutes, 5));
-
-        setConfidentialClients(
-          randomN((clientsData?.clients || []).filter((c) => c.isconfidential === true), 5)
-        );
-        setConfidentialProjects(
-          randomN((projectsData?.projects || []).filter((p) => p.isconfidential === true), 5)
-        );
+        setReadyMinutes(Array.isArray(readyResult?.minutes) ? readyResult.minutes : []);
+        setPendingMinutes(Array.isArray(pendingResult?.minutes) ? pendingResult.minutes : []);
+        setParticipatedMinutes(Array.isArray(participantResult?.minutes) ? participantResult.minutes : []);
+        setCompletedMinutes(Array.isArray(completedResult?.minutes) ? completedResult.minutes : []);
       } catch (err) {
         dashboardLog.error("[Dashboard] Error loading data:", err);
         setHasError(true);
@@ -81,11 +82,6 @@ const Dashboard = () => {
     };
     load();
   }, []);
-
-  const handleUpdateClient = (u) => setConfidentialClients((p) => p.map((c) => c.id === u.id ? u : c));
-  const handleDeleteClient = (id) => setConfidentialClients((p) => p.filter((c) => c.id !== id));
-  const handleEditProject = (u) => setConfidentialProjects((p) => p.map((c) => c.id === u.id ? u : c));
-  const handleDeleteProject = (id) => setConfidentialProjects((p) => p.filter((c) => c.id !== id));
 
   if (isLoading) return <PageLoadingSpinner message="Cargando dashboard..." />;
   if (hasError) return <div>Error al cargar los datos del dashboard.</div>;
@@ -132,64 +128,55 @@ const Dashboard = () => {
 
       {w("minutas_pendientes") && (
         <MinutesSection
-          title="Minutas pendientes de aprobación"
-          description="Minutas en estado pendiente que requieren revisión o aprobación."
+          title="Minutas listas para editar"
+          description="Minutas donde eres elaborador y están en estado ready-for-edit."
           titleIcon="FaClipboardCheck"
           actionLabel="Ver todas"
           actionIcon="FaList"
-          onAction={() => dashboardLog.log("[Dashboard] Ver minutas pendientes")}
+          onAction={() => navigate("/minutes")}
+          minutes={readyMinutes}
+          emptyMessage="No tienes minutas listas para editar."
+        />
+      )}
+
+      {w("minutas_pendientes") && (
+        <MinutesSection
+          title="Minutas en edición"
+          description="Minutas donde eres elaborador y están en estado pending."
+          titleIcon="FaPenToSquare"
+          actionLabel="Ver todas"
+          actionIcon="FaList"
+          onAction={() => navigate("/minutes")}
           minutes={pendingMinutes}
-          emptyMessage="No hay minutas pendientes de aprobación."
+          emptyMessage="No tienes minutas en edición."
         />
       )}
 
       {w("minutas_participadas") && (
         <MinutesSection
           title="Minutas donde participé"
-          description="Últimas minutas registradas con tu participación."
+          description="Minutas donde apareces como participante y no como elaborador."
           titleIcon="FaUserCheck"
           actionLabel="Historial"
           actionIcon="history"
-          onAction={() => dashboardLog.log("[Dashboard] Ver historial de participación")}
+          onAction={() => navigate("/minutes")}
           minutes={participatedMinutes}
           emptyMessage="No hay minutas registradas con tu participación."
         />
       )}
 
-      {w("clientes_confidenciales") && (
-        <ConfidentialSection
-          type="clients"
-          title="Clientes confidenciales con acceso"
-          description="Clientes marcados como confidenciales a los cuales tu usuario tiene visibilidad."
-          titleIcon="FaUserShield"
-          actionLabel="Administrar accesos"
-          actionIcon="FaKey"
-          onAction={() => dashboardLog.log("[Dashboard] Administrar accesos")}
-          items={confidentialClients}
-          emptyMessage="No tienes acceso a clientes confidenciales."
-          onUpdate={handleUpdateClient}
-          onDelete={handleDeleteClient}
+      {w("tags_populares") && (
+        <MinutesSection
+          title="Minutas completadas recientes"
+          description="Últimas minutas completadas donde eres el elaborador."
+          titleIcon="FaCheckCircle"
+          actionLabel="Ver todas"
+          actionIcon="FaList"
+          onAction={() => navigate("/minutes")}
+          minutes={completedMinutes}
+          emptyMessage="No tienes minutas completadas recientes."
         />
       )}
-
-      {w("proyectos_confidenciales") && (
-        <ConfidentialSection
-          type="projects"
-          title="Proyectos confidenciales con acceso"
-          description="Proyectos confidenciales donde tu usuario tiene permisos."
-          titleIcon="FaFolderClosed"
-          actionLabel="Ver proyectos"
-          actionIcon="folder"
-          onAction={() => dashboardLog.log("[Dashboard] Ver proyectos confidenciales")}
-          items={confidentialProjects}
-          emptyMessage="No tienes acceso a proyectos confidenciales."
-          clients={allClients}
-          onEdit={handleEditProject}
-          onDelete={handleDeleteProject}
-        />
-      )}
-
-      {w("tags_populares") && <PopularTags tags={tagsData} />}
 
     </div>
   );

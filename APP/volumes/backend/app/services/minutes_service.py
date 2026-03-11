@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from fastapi import HTTPException, UploadFile, status
-from sqlalchemy import or_
+from sqlalchemy import false, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -908,6 +908,9 @@ def list_minutes(
     status_filter: Optional[str] = None,
     client_id:     Optional[str] = None,
     project_id:    Optional[str] = None,
+    prepared_by_user_id: Optional[str] = None,
+    participant_user_id: Optional[str] = None,
+    exclude_prepared_by_user_id: Optional[str] = None,
 ):
     from schemas.minutes         import MinuteListResponse, MinuteListItem, MinuteTagItem
     from models.clients          import Client
@@ -949,6 +952,31 @@ def list_minutes(
         query = query.filter(Record.client_id == client_id)
     if project_id:
         query = query.filter(Record.project_id == project_id)
+    if prepared_by_user_id:
+        query = query.filter(Record.prepared_by_user_id == prepared_by_user_id)
+    if exclude_prepared_by_user_id:
+        query = query.filter(Record.prepared_by_user_id != exclude_prepared_by_user_id)
+
+    if participant_user_id:
+        user = (
+            db.query(User)
+            .filter(User.id == participant_user_id, User.deleted_at.is_(None))
+            .first()
+        )
+        participant_email = (user.email or "").strip() if user else ""
+
+        if not participant_email:
+            query = query.filter(false())
+        else:
+            participant_exists = (
+                db.query(RecordVersionParticipant.id)
+                .filter(
+                    RecordVersionParticipant.record_version_id == Record.active_version_id,
+                    RecordVersionParticipant.email.ilike(participant_email),
+                )
+                .exists()
+            )
+            query = query.filter(participant_exists)
 
     total   = query.count()
     records = query.order_by(Record.created_at.desc()).offset(skip).limit(limit).all()
