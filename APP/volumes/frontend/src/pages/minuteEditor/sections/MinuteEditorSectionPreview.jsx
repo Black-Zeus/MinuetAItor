@@ -234,6 +234,29 @@ const EmailForm = () => {
   const [toast,     setToast]     = useState(false);
   const [selected,  setSelected]  = useState(() => new Set(participants.map(p => p.id)));
 
+  useEffect(() => {
+    const participantIds = new Set(participants.map((participant) => participant.id));
+
+    setSelected((prev) => {
+      const next = new Set();
+
+      participants.forEach((participant) => {
+        if (prev.has(participant.id) || !participantIds.has(participant.id)) return;
+        next.add(participant.id);
+      });
+
+      prev.forEach((id) => {
+        if (participantIds.has(id)) next.add(id);
+      });
+
+      const unchanged =
+        next.size === prev.size &&
+        [...next].every((id) => prev.has(id));
+
+      return unchanged ? prev : next;
+    });
+  }, [participants]);
+
   const toggleParticipant = (id) => setSelected(prev => {
     const next = new Set(prev);
     next.has(id) ? next.delete(id) : next.add(id);
