@@ -28,7 +28,7 @@ import useMinuteEditorStore from '@/store/minuteEditorStore';
 import tagsCatalog from '@/data/dataTags.json';
 
 const MinuteEditorSectionTags = ({ isReadOnly = false }) => {
-    const { aiTags, userTags, deleteAiTag, addUserTag, deleteUserTag } = useMinuteEditorStore();
+    const { aiTags, userTags, deleteAiTag, addUserTag, deleteUserTag, activeSearchTargetId } = useMinuteEditorStore();
 
     // Picker usuario (catálogo)
     const [catalogQuery, setCatalogQuery] = useState('');
@@ -547,7 +547,12 @@ const MinuteEditorSectionTags = ({ isReadOnly = false }) => {
                         userTagsEnrichedSorted.map((t) => (
                             <div
                                 key={t.id}
-                                className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-gray-50/60 dark:bg-gray-900/30 px-4 py-4 transition-theme"
+                                data-search-target={`user-tag-${t.id}`}
+                                className={`rounded-xl border px-4 py-4 transition-theme ${
+                                    activeSearchTargetId === `user-tag-${t.id}`
+                                        ? 'border-primary-400 bg-primary-50/50 ring-2 ring-primary-500/20 dark:border-primary-500 dark:bg-primary-900/10'
+                                        : 'border-gray-200/70 dark:border-gray-700/60 bg-gray-50/60 dark:bg-gray-900/30'
+                                }`}
                             >
                                 <div className="flex items-start justify-between gap-3">
                                     <div className="min-w-0 flex-1">

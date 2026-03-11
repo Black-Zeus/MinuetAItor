@@ -54,7 +54,7 @@ const SectionTitle = ({ children }) => (
 );
 
 export const MinuteEditorCardTimes = ({ isReadOnly = false }) => {
-  const { meetingTimes, updateMeetingTimes } = useMinuteEditorStore();
+  const { meetingTimes, updateMeetingTimes, activeSearchTargetId } = useMinuteEditorStore();
   const [editing, setEditing] = useState(false);
 
   // Duración: SOLO real - real
@@ -83,7 +83,14 @@ export const MinuteEditorCardTimes = ({ isReadOnly = false }) => {
   }, [meetingTimes.actualStart, meetingTimes.actualEnd]);
 
   return (
-    <article className="bg-white dark:bg-gray-800 rounded-xl p-6 transition-theme shadow-md border border-gray-200/50 dark:border-gray-700/50 h-full flex flex-col">
+    <article
+      data-search-target="times-card"
+      className={`bg-white dark:bg-gray-800 rounded-xl p-6 transition-theme shadow-md border h-full flex flex-col ${
+        activeSearchTargetId === "times-card"
+          ? "border-primary-400 ring-2 ring-primary-500/30 dark:border-primary-500"
+          : "border-gray-200/50 dark:border-gray-700/50"
+      }`}
+    >
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className={`text-xs font-bold tracking-wider uppercase ${TXT_TITLE} transition-theme`}>

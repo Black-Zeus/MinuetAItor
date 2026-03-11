@@ -68,6 +68,8 @@ const MinuteEditor = () => {
 
   const { loadFromIAResponse, loadFromDraft, reset, isLoaded, activeTab } =
     useMinuteEditorStore();
+  const pendingSearchResult = useMinuteEditorStore((s) => s.pendingSearchResult);
+  const clearPendingSearchResult = useMinuteEditorStore((s) => s.clearPendingSearchResult);
 
   const [loadError,  setLoadError]  = useState(null);
   const [recordMeta, setRecordMeta] = useState(null);
@@ -137,6 +139,49 @@ const MinuteEditor = () => {
       reset();
     };
   }, [recordId]);
+
+  useEffect(() => {
+    if (!pendingSearchResult) return;
+
+    const run = () => {
+      const target = document.querySelector(`[data-search-target="${pendingSearchResult.targetId}"]`);
+      if (!target) {
+        clearPendingSearchResult();
+        return;
+      }
+
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+
+      const focusable = target.querySelector("input, textarea, [tabindex]");
+      if (focusable instanceof HTMLElement) {
+        focusable.focus({ preventScroll: true });
+
+        if (
+          pendingSearchResult.text &&
+          typeof focusable.value === "string" &&
+          typeof focusable.setSelectionRange === "function"
+        ) {
+          const value = String(focusable.value ?? "");
+          const query = String(pendingSearchResult.text.slice(
+            pendingSearchResult.start,
+            pendingSearchResult.start + pendingSearchResult.length
+          ));
+          const startIndex = value.toLowerCase().indexOf(query.toLowerCase());
+          if (startIndex >= 0) {
+            focusable.setSelectionRange(startIndex, startIndex + query.length);
+          }
+        }
+      }
+
+      clearPendingSearchResult();
+    };
+
+    const rafId = window.requestAnimationFrame(() => {
+      window.setTimeout(run, 80);
+    });
+
+    return () => window.cancelAnimationFrame(rafId);
+  }, [activeTab, clearPendingSearchResult, pendingSearchResult]);
 
   // ── Error state ─────────────────────────────────────────────
   if (loadError) {

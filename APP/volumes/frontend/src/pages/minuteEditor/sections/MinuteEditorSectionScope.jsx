@@ -175,6 +175,7 @@ const MinuteEditorSectionScope = ({ isReadOnly = false }) => {
     addSectionDetail,
     updateSectionDetail,
     deleteSectionDetail,
+    activeSearchTargetId,
   } = useMinuteEditorStore();
 
   // ============================
@@ -209,6 +210,15 @@ const MinuteEditorSectionScope = ({ isReadOnly = false }) => {
     });
   }, [scopeSections]);
 
+  useEffect(() => {
+    if (!activeSearchTargetId?.startsWith("scope-")) return;
+    const sectionId = activeSearchTargetId.replace("scope-", "");
+    setExpandedMap((prev) => ({
+      ...prev,
+      [sectionId]: true,
+    }));
+  }, [activeSearchTargetId]);
+
   const isExpanded = useCallback(
     (sectionId) => {
       const v = expandedMap[sectionId];
@@ -235,7 +245,12 @@ const MinuteEditorSectionScope = ({ isReadOnly = false }) => {
         return (
           <article
             key={section.id}
-            className="bg-white dark:bg-gray-800 rounded-xl p-6 transition-theme shadow-md border border-gray-200/50 dark:border-gray-700/50"
+            data-search-target={`scope-${section.id}`}
+            className={`bg-white dark:bg-gray-800 rounded-xl p-6 transition-theme shadow-md border ${
+              activeSearchTargetId === `scope-${section.id}`
+                ? "border-primary-400 ring-2 ring-primary-500/30 dark:border-primary-500"
+                : "border-gray-200/50 dark:border-gray-700/50"
+            }`}
           >
             {/* Header de sección (clickeable) */}
             <div

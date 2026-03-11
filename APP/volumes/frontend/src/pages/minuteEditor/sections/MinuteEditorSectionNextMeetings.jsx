@@ -17,6 +17,7 @@ const MinuteEditorSectionNextMeetings = ({ isReadOnly = false }) => {
         addUpcomingMeeting,
         updateUpcomingMeeting,
         deleteUpcomingMeeting,
+        activeSearchTargetId,
     } = useMinuteEditorStore();
 
     // ---------------------------
@@ -187,7 +188,10 @@ const MinuteEditorSectionNextMeetings = ({ isReadOnly = false }) => {
                             upcomingMeetings.map((m) => (
                                 <tr
                                     key={m.id}
-                                    className="border-b border-gray-100 dark:border-gray-700/50 last:border-0 align-top transition-theme"
+                                    data-search-target={`next-meeting-${m.id}`}
+                                    className={`border-b border-gray-100 dark:border-gray-700/50 last:border-0 align-top transition-theme ${
+                                      activeSearchTargetId === `next-meeting-${m.id}` ? "bg-primary-50/70 dark:bg-primary-900/15" : ""
+                                    }`}
                                 >
                                     <td className="py-3 pr-4 font-mono text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
                                         {m.meetingId}

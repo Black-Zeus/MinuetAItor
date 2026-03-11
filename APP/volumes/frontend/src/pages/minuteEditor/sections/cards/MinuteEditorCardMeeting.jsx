@@ -70,7 +70,7 @@ const formatDateForView = (raw) => {
 };
 
 export const MinuteEditorCardMeeting = ({ isReadOnly = false }) => {
-  const { meetingInfo, updateMeetingInfo, pdfFormat } = useMinuteEditorStore();
+  const { meetingInfo, updateMeetingInfo, pdfFormat, activeSearchTargetId } = useMinuteEditorStore();
   const [editing, setEditing] = useState(false);
 
   // Proyecto derivado (tu store no tiene meetingInfo.project; está en pdfFormat.coverPage.projectName)
@@ -87,7 +87,14 @@ export const MinuteEditorCardMeeting = ({ isReadOnly = false }) => {
   );
 
   return (
-    <article className="bg-white dark:bg-gray-800 rounded-xl p-6 transition-theme shadow-md border border-gray-200/50 dark:border-gray-700/50 h-full flex flex-col">
+    <article
+      data-search-target="meeting-card"
+      className={`bg-white dark:bg-gray-800 rounded-xl p-6 transition-theme shadow-md border h-full flex flex-col ${
+        activeSearchTargetId === "meeting-card"
+          ? "border-primary-400 ring-2 ring-primary-500/30 dark:border-primary-500"
+          : "border-gray-200/50 dark:border-gray-700/50"
+      }`}
+    >
       <div className="flex items-center justify-between">
         <h2 className="text-xs font-bold tracking-wider text-gray-800 dark:text-gray-200 uppercase transition-theme">
           Información de la reunión
