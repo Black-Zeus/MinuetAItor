@@ -3,11 +3,11 @@
  * Tab "Participantes": tabla editable con modal para crear/editar.
  *
  * Cambios:
- * - Formulario incluye campo "Email" (mockup — campo almacenado en store, sin lógica de BD aún).
- * - Tabla muestra columna Email.
+ * - La tabla resuelve correos desde el catálogo maestro al cargar.
+ * - Si hay más de un correo registrado, permite seleccionar cuál usar.
  */
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Icon from '@components/ui/icon/iconManager';
 import ModalManager from '@components/ui/modal';
 import useMinuteEditorStore from '@/store/minuteEditorStore';
@@ -21,30 +21,45 @@ const TYPE_LABELS = {
   copy:     { label: 'CC',         color: 'bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border-purple-200/50 dark:border-purple-700/50' },
 };
 
-const normalizeInitialData = (data = {}) => ({
-  fullName: data.fullName ?? data.name ?? '',
-  email: data.email ?? '',
-  type: data.type ?? 'invited',
-  participantId: data.participantId ?? null,
-  participantEmailId: data.participantEmailId ?? null,
-  participantEmails: Array.isArray(data.participantEmails) ? data.participantEmails : [],
-  organization: data.organization ?? '',
-  title: data.title ?? '',
-});
+const normalizeInitialData = (data = {}) => {
+  const source = data ?? {};
+  return {
+    fullName: source.fullName ?? source.name ?? '',
+    email: source.email ?? '',
+    type: source.type ?? 'invited',
+    participantId: source.participantId ?? null,
+    participantEmailId: source.participantEmailId ?? null,
+    participantEmails: Array.isArray(source.participantEmails) ? source.participantEmails : [],
+    organization: source.organization ?? '',
+    title: source.title ?? '',
+  };
+};
 
 const emailsEqual = (left, right) =>
   String(left ?? '').trim().toLowerCase() === String(right ?? '').trim().toLowerCase();
 
+const normalizeLookupName = (value) =>
+  String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+
 const pickPrimaryEmail = (emails = []) =>
   emails.find((item) => item.isPrimary || item.is_primary) ?? emails[0] ?? null;
 
-const getParticipantEmailOptions = (participant) => {
+const getRegisteredParticipantEmailOptions = (participant) => {
   const base = Array.isArray(participant?.participantEmails) ? participant.participantEmails : [];
-  const normalized = base.map((item, index) => ({
+  return base.map((item, index) => ({
     id: item.id ?? `email-${index}-${item.email ?? ''}`,
     email: item.email ?? '',
     isPrimary: Boolean(item.isPrimary ?? item.is_primary),
   })).filter((item) => item.email);
+};
+
+const getParticipantEmailOptions = (participant) => {
+  const normalized = getRegisteredParticipantEmailOptions(participant);
 
   if (participant?.email && !normalized.some((item) => emailsEqual(item.email, participant.email))) {
     normalized.unshift({
@@ -334,6 +349,141 @@ const ParticipantFormModal = ({ initialData, onSubmit, registerSubmit }) => {
 
 // ── Componente principal ──────────────────────────────────────────────────────
 
+export const useParticipantEmailHydration = () => {
+  const participants = useMinuteEditorStore((state) => state.participants);
+  const updateParticipant = useMinuteEditorStore((state) => state.updateParticipant);
+  const resolvedByNameRef = useRef(new Set());
+  const pendingByNameRef = useRef(new Set());
+  const resolvedByParticipantIdRef = useRef(new Set());
+  const pendingByParticipantIdRef = useRef(new Set());
+
+  useEffect(() => {
+    const targets = participants.filter((participant) => {
+      const participantId = String(participant?.participantId ?? '').trim();
+      const hasRegisteredEmails = Array.isArray(participant?.participantEmails) && participant.participantEmails.length > 0;
+      return participantId && !hasRegisteredEmails;
+    });
+
+    const pendingTargets = targets.filter((participant) => {
+      const key = `${participant.id}:${participant.participantId}`;
+      return !resolvedByParticipantIdRef.current.has(key) && !pendingByParticipantIdRef.current.has(key);
+    });
+
+    if (pendingTargets.length === 0) return undefined;
+
+    let cancelled = false;
+
+    pendingTargets.forEach((participant) => {
+      const key = `${participant.id}:${participant.participantId}`;
+      pendingByParticipantIdRef.current.add(key);
+
+      participantsService.getById(participant.participantId)
+        .then((resolved) => {
+          if (cancelled || !resolved) return;
+
+          const resolvedEmails = Array.isArray(resolved.emails) ? resolved.emails : [];
+          const currentEmail = String(participant.email ?? '').trim();
+          const matchingCurrentEmail = resolvedEmails.find((item) => emailsEqual(item.email, participant.email));
+          const defaultEmail = matchingCurrentEmail ?? (!currentEmail ? pickPrimaryEmail(resolvedEmails) : null);
+
+          updateParticipant(participant.id, {
+            participantId: resolved.id ?? participant.participantId,
+            participantEmails: resolvedEmails,
+            participantEmailId: matchingCurrentEmail?.id ?? defaultEmail?.id ?? null,
+            email: matchingCurrentEmail?.email ?? (currentEmail || defaultEmail?.email || ''),
+            organization: resolved.organization ?? participant.organization ?? '',
+            title: resolved.title ?? participant.title ?? '',
+          });
+        })
+        .catch(() => {})
+        .finally(() => {
+          pendingByParticipantIdRef.current.delete(key);
+          resolvedByParticipantIdRef.current.add(key);
+        });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [participants, updateParticipant]);
+
+  useEffect(() => {
+    const candidates = participants
+      .map((participant) => {
+        const fullName = String(participant?.fullName ?? participant?.name ?? '').trim();
+        const normalizedName = normalizeLookupName(fullName);
+        const hasRegisteredEmails = Array.isArray(participant?.participantEmails) && participant.participantEmails.length > 0;
+        return {
+          id: participant.id,
+          fullName,
+          normalizedName,
+          participant,
+          needsLookup: Boolean(fullName) && !participant?.participantId && !hasRegisteredEmails,
+        };
+      })
+      .filter((item) => item.needsLookup);
+
+    const pendingCandidates = candidates.filter((item) => {
+      const key = `${item.id}:${item.normalizedName}`;
+      return !resolvedByNameRef.current.has(key) && !pendingByNameRef.current.has(key);
+    });
+
+    if (pendingCandidates.length === 0) return undefined;
+
+    const uniqueNames = [];
+    const seenNames = new Set();
+    pendingCandidates.forEach((item) => {
+      if (seenNames.has(item.normalizedName)) return;
+      seenNames.add(item.normalizedName);
+      uniqueNames.push(item.fullName);
+    });
+
+    pendingCandidates.forEach((item) => pendingByNameRef.current.add(`${item.id}:${item.normalizedName}`));
+
+    let cancelled = false;
+
+    participantsService.lookupEmails(uniqueNames)
+      .then((result) => {
+        if (cancelled) return;
+
+        const lookupByNormalizedName = new Map(
+          (result.items ?? []).map((item) => [normalizeLookupName(item.normalizedName ?? item.displayName ?? ''), item]),
+        );
+
+        pendingCandidates.forEach(({ id, participant, normalizedName }) => {
+          const lookup = lookupByNormalizedName.get(normalizedName);
+          if (!lookup) return;
+
+          const resolvedEmails = Array.isArray(lookup.emails) ? lookup.emails : [];
+          const currentEmail = String(participant.email ?? '').trim();
+          const matchingCurrentEmail = resolvedEmails.find((item) => emailsEqual(item.email, participant.email));
+          const defaultEmail = matchingCurrentEmail ?? (!currentEmail ? pickPrimaryEmail(resolvedEmails) : null);
+
+          updateParticipant(id, {
+            participantId: lookup.matchedParticipants === 1 ? (lookup.participantId ?? null) : null,
+            participantEmails: resolvedEmails,
+            participantEmailId: matchingCurrentEmail?.id ?? defaultEmail?.id ?? null,
+            email: matchingCurrentEmail?.email ?? (currentEmail || defaultEmail?.email || ''),
+            organization: lookup.matchedParticipants === 1 ? (lookup.organization ?? participant.organization ?? '') : participant.organization ?? '',
+            title: lookup.matchedParticipants === 1 ? (lookup.title ?? participant.title ?? '') : participant.title ?? '',
+          });
+        });
+      })
+      .catch(() => {})
+      .finally(() => {
+        pendingCandidates.forEach((item) => {
+          const key = `${item.id}:${item.normalizedName}`;
+          pendingByNameRef.current.delete(key);
+          resolvedByNameRef.current.add(key);
+        });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [participants, updateParticipant]);
+};
+
 const MinuteEditorSectionParticipants = ({ isReadOnly = false }) => {
   const { participants, addParticipant, updateParticipant, deleteParticipant } = useMinuteEditorStore();
   const [openEmailSelectorId, setOpenEmailSelectorId] = useState(null);
@@ -378,7 +528,7 @@ const MinuteEditorSectionParticipants = ({ isReadOnly = false }) => {
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl p-6 transition-theme shadow-md border border-gray-200/50 dark:border-gray-700/50">
+    <div className="flex min-h-[420px] max-h-[calc(100vh-220px)] flex-col rounded-xl border border-gray-200/50 bg-white p-6 shadow-md transition-theme dark:border-gray-700/50 dark:bg-gray-800">
 
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
@@ -404,7 +554,7 @@ const MinuteEditorSectionParticipants = ({ isReadOnly = false }) => {
       </div>
 
       {/* Tabla */}
-      <div className="mt-6 overflow-x-auto">
+      <div className="mt-6 min-h-0 flex-1 overflow-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700 transition-theme">
@@ -425,8 +575,9 @@ const MinuteEditorSectionParticipants = ({ isReadOnly = false }) => {
             ) : (
               participants.map(p => {
                 const typeInfo = TYPE_LABELS[p.type] ?? TYPE_LABELS.invited;
+                const registeredEmailOptions = getRegisteredParticipantEmailOptions(p);
                 const emailOptions = getParticipantEmailOptions(p);
-                const hasMultipleEmails = emailOptions.length > 1;
+                const hasMultipleEmails = registeredEmailOptions.length > 1;
                 return (
                   <tr
                     key={p.id}
@@ -438,11 +589,10 @@ const MinuteEditorSectionParticipants = ({ isReadOnly = false }) => {
                         <p className="font-semibold">{p.fullName || p.name || '—'}</p>
                         {hasMultipleEmails && (
                           <span
-                            className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:border-amber-700/60 dark:bg-amber-900/20 dark:text-amber-300 transition-theme"
-                            title="Este participante tiene más de un correo registrado. Revisa el correo seleccionado."
+                            className="inline-flex items-center text-amber-600 dark:text-amber-300 transition-theme"
+                            title="Más de un mail registrado para este usuario"
                           >
-                            <Icon name="warning" className="text-[10px]" />
-                            Varios mails
+                            <Icon name="triangleExclamation" className="text-sm" />
                           </span>
                         )}
                       </div>
@@ -497,7 +647,7 @@ const MinuteEditorSectionParticipants = ({ isReadOnly = false }) => {
                       ) : p.email ? (
                         <span className="text-xs font-mono text-gray-600 dark:text-gray-400 transition-theme">{p.email}</span>
                       ) : (
-                        <span className="text-xs italic text-gray-400 dark:text-gray-600 transition-theme">Sin correo</span>
+                        <span className="text-xs text-gray-400 dark:text-gray-600 transition-theme">&nbsp;</span>
                       )}
                     </td>
 

@@ -31,6 +31,20 @@ export const participantsService = {
     return unwrap(res);
   },
 
+  async lookupEmails(names = []) {
+    const cleanedNames = Array.isArray(names)
+      ? names.map((name) => String(name ?? "").trim()).filter(Boolean)
+      : [];
+
+    if (cleanedNames.length === 0) return { items: [] };
+
+    const res = await axiosInstance.post(`${BASE}/emails/lookup`, { names: cleanedNames });
+    const payload = unwrap(res);
+    return {
+      items: Array.isArray(payload?.items) ? payload.items : [],
+    };
+  },
+
   async resolve(payload) {
     if (!payload?.displayName) {
       throw new Error("participantsService.resolve: displayName es requerido");

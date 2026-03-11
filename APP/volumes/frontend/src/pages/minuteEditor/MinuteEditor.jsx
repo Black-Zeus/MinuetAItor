@@ -16,7 +16,7 @@ import MinuteEditorFindReplace from "./MinuteEditorFindReplace";
 import MinuteEditorTabs        from "./MinuteEditorTabs";
 
 import MinuteEditorSectionInfo          from "./sections/MinuteEditorSectionInfo";
-import MinuteEditorSectionParticipants  from "./sections/MinuteEditorSectionParticipants";
+import MinuteEditorSectionParticipants, { useParticipantEmailHydration } from "./sections/MinuteEditorSectionParticipants";
 import MinuteEditorSectionScope         from "./sections/MinuteEditorSectionScope";
 import MinuteEditorSectionAgreements    from "./sections/MinuteEditorSectionAgreements";
 import MinuteEditorSectionRequirements  from "./sections/MinuteEditorSectionRequirements";
@@ -74,6 +74,8 @@ const MinuteEditor = () => {
   const [loadError,  setLoadError]  = useState(null);
   const [recordMeta, setRecordMeta] = useState(null);
   const [isReadOnly, setIsReadOnly] = useState(false);
+
+  useParticipantEmailHydration();
 
   /**
    * Callback que el Header invoca tras cada transición exitosa.
@@ -186,7 +188,7 @@ const MinuteEditor = () => {
   // ── Error state ─────────────────────────────────────────────
   if (loadError) {
     return (
-      <div className="min-h-screen flex items-center justify-center transition-theme">
+      <div className="flex min-h-full items-center justify-center transition-theme">
         <div className="max-w-md text-center space-y-4 px-6">
           <i className="fas fa-circle-exclamation text-4xl text-red-400 dark:text-red-500" />
           <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 transition-theme">
@@ -215,7 +217,7 @@ const MinuteEditor = () => {
   // ── Loading state ────────────────────────────────────────────
   if (!isLoaded) {
     return (
-      <div className="min-h-screen flex items-center justify-center transition-theme">
+      <div className="flex min-h-full items-center justify-center transition-theme">
         <div className="flex items-center gap-3 text-gray-500 dark:text-gray-400">
           <i className="fas fa-spinner fa-spin text-primary-500" />
           <span className="text-sm font-medium">Cargando editor…</span>
@@ -226,7 +228,7 @@ const MinuteEditor = () => {
 
   // ── Editor ───────────────────────────────────────────────────
   return (
-    <div className="min-h-screen transition-theme">
+    <div className="transition-theme">
       {/*
         onTransitionSuccess conectado: el Header llama este callback tras
         transitionMinute() exitoso, actualizando recordMeta.status en este
