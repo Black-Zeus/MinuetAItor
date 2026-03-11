@@ -173,9 +173,9 @@ const MinuteEditor = () => {
         {activeTab === "tags"         && <MinuteEditorSectionTags         isReadOnly={isReadOnly} />}
         {activeTab === "next"         && <MinuteEditorSectionNextMeetings isReadOnly={isReadOnly} />}
         {activeTab === "timeline"     && <MinuteEditorSectionTimeline     recordId={recordId} recordStatus={recordMeta?.status} />}
-        {activeTab === "pdfformat"    && <MinuteEditorSectionPdfFormat    isReadOnly={isReadOnly} />}
+        {activeTab === "pdfformat"    && <MinuteEditorSectionPdfFormat    recordId={recordId} isReadOnly={isReadOnly} />}
         {activeTab === "preview"      && <MinuteEditorSectionPreview      isReadOnly={isReadOnly} />}
-        {activeTab === "metadata"     && <MinuteEditorSectionMetadata     isReadOnly={isReadOnly} />}
+        {activeTab === "metadata"     && <MinuteEditorSectionMetadata     recordId={recordId} isReadOnly={isReadOnly} />}
       </main>
     </div>
   );

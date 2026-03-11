@@ -1,18 +1,13 @@
 // src/pages/minutes/components/MinuteCard.jsx
 import React from "react";
 import Icon from "@/components/ui/icon/iconManager";
-import ActionButton from "@/components/ui/button/ActionButton";
 import ModalManager from "@/components/ui/modal";
 import { useNavigate } from "react-router-dom";
-
-import logger from "@/utils/logger";
-const minuteLog = logger.scope("minute");
+import { openPdfViewer } from "@/components/ui/pdf/PdfViewerModal";
 
 const TXT_TITLE = "text-gray-900 dark:text-gray-50";
 const TXT_BODY  = "text-gray-700 dark:text-gray-300";
 const TXT_META  = "text-gray-500 dark:text-gray-400";
-
-const DEMO_PDF_URL = "/pdf/demo.pdf";
 
 // ============================================================
 // STATUS CONFIG — 9 estados según record_statuses en BD
@@ -71,7 +66,7 @@ const safeArray    = (v)      => (Array.isArray(v) ? v : []);
 const getStatusCfg = (status) => STATUS_CONFIG?.[status] ?? STATUS_CONFIG["processing-error"];
 
 // ============================================================
-// HELPERS — filename + download
+// HELPERS — filename
 // ============================================================
 const buildMinuteFilename = (subject, dateMeeting) => {
   const rawTitle = String(subject ?? "minuta").trim() || "minuta";
@@ -101,56 +96,6 @@ const buildMinuteFilename = (subject, dateMeeting) => {
 
   const d = parseDate(dateMeeting);
   return `${d.yyyy}${d.mm}${d.dd}_${safeTitle}.pdf`;
-};
-
-const triggerBrowserDownload = async (url, filename) => {
-  const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) throw new Error(`No se pudo descargar PDF (${res.status})`);
-  const blob      = await res.blob();
-  const objectUrl = URL.createObjectURL(blob);
-  const a         = document.createElement("a");
-  a.href     = objectUrl;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(objectUrl);
-};
-
-// ============================================================
-// MODAL: Descarga PDF
-// ============================================================
-const showDownloadModal = ({ filename }) => {
-  const handleDownload = async () => {
-    try {
-      await triggerBrowserDownload(DEMO_PDF_URL, filename);
-    } catch {
-      ModalManager.error?.({ title: "Error", message: "No fue posible descargar el PDF." });
-    }
-  };
-
-  ModalManager.custom({
-    title:      "Descargar Minuta (PDF)",
-    size:       "xlarge",
-    showFooter: false,
-    content: (
-      <div className="p-6 space-y-4">
-        <ActionButton
-          label={filename} variant="soft" size="sm"
-          icon={<Icon name="download" />} onClick={handleDownload}
-          tooltip="Descargar PDF" className="mt-2 w-full text-center !px-4"
-        />
-        <div className="border border-secondary-200 dark:border-secondary-700/60 rounded-2xl overflow-hidden bg-white dark:bg-gray-900">
-          <div className="px-4 py-2 border-b border-secondary-200 dark:border-secondary-700/60 text-xs font-semibold text-gray-600 dark:text-gray-300 flex items-center gap-2">
-            <Icon name="eye" /> Vista previa
-          </div>
-          <div className="w-full h-[60vh]">
-            <iframe src={DEMO_PDF_URL} title="Vista previa PDF" className="w-full h-full" />
-          </div>
-        </div>
-      </div>
-    ),
-  });
 };
 
 // ============================================================
@@ -341,10 +286,10 @@ const CardBody = ({ minute }) => {
 // Acciones por estado (simplificadas — transiciones solo en editor):
 //
 //   in-progress      → [Anular]                          (1 botón)
-//   ready-for-edit   → [Editar]  [Anular]                (2 botones)
-//   pending          → [Editar]  [Anular]                (2 botones)
-//   preview          → [Ver]     [Anular]                (2 botones)
-//   completed        → [Ver]     [Descargar PDF]         (2 botones)
+//   ready-for-edit   → [Editar]  [Ver PDF] [Anular]      (3 botones)
+//   pending          → [Editar]  [Ver PDF] [Anular]      (3 botones)
+//   preview          → [Ver]     [Ver PDF] [Anular]      (3 botones)
+//   completed        → [Ver]     [Ver PDF]               (2 botones)
 //   cancelled        → sin acciones
 //   llm-failed       → mensaje de error, sin acciones
 //   processing-error → mensaje de error, sin acciones
@@ -422,7 +367,17 @@ const CardFooter = ({ minute, onStatusChange }) => {
 
   const goToEditor  = () => { if (minuteId) navigate(`/minutes/process/${minuteId}`); };
   const handleCancel = () => showConfirmCancelModal({ minuteId, onConfirm: onStatusChange });
-  const handleDownload = () => showDownloadModal({ filename });
+  const handleViewPdf = () => {
+    if (!minuteId) return;
+
+    const pdfType = isCompleted ? "published" : "draft";
+    openPdfViewer({
+      recordId: minuteId,
+      pdfType,
+      filename,
+      title: `PDF — ${minute?.title || "Minuta"}`,
+    });
+  };
 
   // ── Sin acciones ─────────────────────────────────────────────────────────
   if (isCancelled) {
@@ -445,7 +400,7 @@ const CardFooter = ({ minute, onStatusChange }) => {
     );
   }
 
-  // ── Completed: Ver + Descargar ────────────────────────────────────────────
+  // ── Completed: Ver + Ver PDF ──────────────────────────────────────────────
   if (isCompleted) {
     return (
       <div className="p-4 border-t border-secondary-200 dark:border-secondary-700/60 transition-theme">
@@ -457,10 +412,10 @@ const CardFooter = ({ minute, onStatusChange }) => {
             onClick={goToEditor}
           />
           <FooterBtn
-            icon={<Icon name="download" />}
-            label="Descargar"
-            tooltip="Descargar PDF"
-            onClick={handleDownload}
+            icon={<Icon name="fileLines" />}
+            label="Ver PDF"
+            tooltip="Ver PDF publicado"
+            onClick={handleViewPdf}
             variant="success"
           />
         </div>
@@ -483,16 +438,35 @@ const CardFooter = ({ minute, onStatusChange }) => {
     );
   }
 
-  // ── Preview: Ver + Anular ─────────────────────────────────────────────────
-  if (isPreview) {
+  // ── Ready-for-edit / Pending / Preview: acción principal + PDF + anular ───
+  if (isReadyForEdit || isPending || isPreview) {
     return (
       <div className="p-4 border-t border-secondary-200 dark:border-secondary-700/60 transition-theme">
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           <FooterBtn
-            icon={<Icon name="eye" />}
-            label="Ver"
-            tooltip="Ver minuta en revisión (solo lectura)"
+            icon={<Icon name={isPreview ? "eye" : "edit"} />}
+            label={isPreview ? "Ver" : "Editar"}
+            tooltip={
+              isReadyForEdit
+                ? "Abrir editor — primera edición"
+                : isPending
+                  ? "Continuar edición"
+                  : "Ver minuta en revisión (solo lectura)"
+            }
             onClick={goToEditor}
+          />
+          <FooterBtn
+            icon={<Icon name="fileLines" />}
+            label="Ver PDF"
+            tooltip={
+              isReadyForEdit
+                ? "Ver PDF borrador inicial"
+                : isPending
+                  ? "Ver PDF borrador actual"
+                  : "Ver PDF borrador"
+            }
+            onClick={handleViewPdf}
+            variant="success"
           />
           <FooterBtn
             icon={<Icon name="ban" />}
@@ -506,7 +480,7 @@ const CardFooter = ({ minute, onStatusChange }) => {
     );
   }
 
-  // ── Ready-for-edit / Pending: Editar + Anular ─────────────────────────────
+  // ── Fallback restante: Editar + Anular ────────────────────────────────────
   return (
     <div className="p-4 border-t border-secondary-200 dark:border-secondary-700/60 transition-theme">
       <div className="grid grid-cols-2 gap-2">

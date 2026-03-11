@@ -24,7 +24,7 @@ import { getMinutePdfBlob } from '@/services/minutesService';
 // Contenido interno del modal
 // ─────────────────────────────────────────────────────────────
 
-const PdfViewerContent = ({ recordId, pdfType, filename }) => {
+const PdfViewerContent = ({ recordId, pdfType, filename, blob }) => {
   const [objectUrl, setObjectUrl] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError]         = useState(null);
@@ -35,9 +35,9 @@ const PdfViewerContent = ({ recordId, pdfType, filename }) => {
 
     const fetchPdf = async () => {
       try {
-        const blob = await getMinutePdfBlob(recordId, pdfType);
+        const pdfBlob = blob ?? await getMinutePdfBlob(recordId, pdfType);
         if (!isMounted) return;
-        const url   = URL.createObjectURL(blob);
+        const url   = URL.createObjectURL(pdfBlob);
         urlRef.current = url;
         setObjectUrl(url);
       } catch (err) {
@@ -62,7 +62,7 @@ const PdfViewerContent = ({ recordId, pdfType, filename }) => {
         urlRef.current = null;
       }
     };
-  }, [recordId, pdfType]);
+  }, [blob, recordId, pdfType]);
 
   const handleDownload = () => {
     if (!objectUrl) return;
@@ -152,8 +152,9 @@ const PdfViewerContent = ({ recordId, pdfType, filename }) => {
  * @param {'draft'|'published'} options.pdfType   - Tipo de PDF
  * @param {string}              options.filename  - Nombre sugerido para descarga
  * @param {string}              [options.title]   - Título del modal (opcional)
+ * @param {Blob}                [options.blob]    - Blob opcional ya generado
  */
-export const openPdfViewer = ({ recordId, pdfType = 'draft', filename, title }) => {
+export const openPdfViewer = ({ recordId, pdfType = 'draft', filename, title, blob }) => {
   ModalManager.custom({
     title:      title ?? `PDF — ${filename}`,
     size:       'pdfViewer',
@@ -163,6 +164,7 @@ export const openPdfViewer = ({ recordId, pdfType = 'draft', filename, title }) 
         recordId={recordId}
         pdfType={pdfType}
         filename={filename}
+        blob={blob}
       />
     ),
   });

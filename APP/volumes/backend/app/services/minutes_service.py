@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import asyncio
 import io
 import json
 import logging
@@ -20,6 +21,7 @@ from db.minio_client import get_minio_client
 from models.minute_transaction import MinuteTransaction
 from models.objects import Object
 from models.record_artifacts import RecordArtifact
+from models.projects import Project
 from models.record_versions import RecordVersion
 from models.records import Record
 from schemas.minutes import (
@@ -142,6 +144,66 @@ def _write_json_to_minio(minio, bucket: str, object_key: str, data: dict) -> int
         data=io.BytesIO(raw), length=len(raw), content_type="application/json",
     )
     return len(raw)
+
+
+def get_minute_attachment_blob(
+    db: Session,
+    record_id: str,
+    sha256: str,
+) -> tuple[bytes, str, str]:
+    """
+    Retorna el binario real de un adjunto de entrada asociado a una minuta.
+
+    La resolución se hace por record_id + sha256 del objeto persistido en MinIO.
+    Solo permite archivos de input ubicados bajo {record_id}/inputs/.
+    """
+    obj = (
+        db.query(Object)
+        .join(RecordArtifact, RecordArtifact.object_id == Object.id)
+        .filter(
+            RecordArtifact.record_id == record_id,
+            RecordArtifact.deleted_at.is_(None),
+            Object.deleted_at.is_(None),
+            Object.sha256 == sha256,
+            Object.object_key.like(f"{record_id}/inputs/%"),
+        )
+        .order_by(RecordArtifact.created_at.desc())
+        .first()
+    )
+
+    if not obj:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "attachment_not_found",
+                "message": "No se encontró el adjunto solicitado para esta minuta.",
+            },
+        )
+
+    minio = get_minio_client()
+    try:
+        response = minio.get_object(BUCKET_INPUTS, obj.object_key)
+        file_bytes = response.read()
+        response.close()
+        response.release_conn()
+    except Exception as exc:
+        logger.error(
+            "[minutes] No se pudo leer adjunto desde MinIO | record=%s sha=%s err=%s",
+            record_id,
+            sha256,
+            exc,
+        )
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "attachment_unavailable",
+                "message": "El archivo adjunto no está disponible en almacenamiento.",
+            },
+        )
+
+    filename = Path(obj.object_key).name or f"{sha256}.bin"
+    mime_type = obj.content_type or "application/octet-stream"
+    return file_bytes, mime_type, filename
 
 
 # ─── Helper Redis: encolar jobs ───────────────────────────────────────────────
@@ -469,7 +531,7 @@ async def save_minute_draft(db: Session, record_id: str, content: dict) -> None:
     record = (
         db.query(Record)
         .options(
-            joinedload(Record.project).joinedload("client"),
+            joinedload(Record.project).joinedload(Project.client),
             joinedload(Record.created_by_user),
         )
         .filter(Record.id == record_id, Record.deleted_at.is_(None))
@@ -508,6 +570,81 @@ async def save_minute_draft(db: Session, record_id: str, content: dict) -> None:
         logger.debug(f"[minutes] PDF borrador encolado tras save | record={record_id}")
     except Exception as e:
         logger.warning(f"[minutes] No se pudo encolar PDF en save | record={record_id}: {e}")
+
+
+async def generate_minute_pdf_preview(db: Session, record_id: str, content: dict[str, Any]) -> bytes:
+    """
+    Genera un PDF temporal a partir del payload actual del editor sin persistirlo
+    como draft oficial. Reutiliza el mismo pdf-worker y los mismos templates
+    reales para la vista previa del tab "Formato PDF".
+    """
+    from sqlalchemy.orm import joinedload
+
+    record = (
+        db.query(Record)
+        .options(
+            joinedload(Record.project).joinedload(Project.client),
+            joinedload(Record.created_by_user),
+        )
+        .filter(Record.id == record_id, Record.deleted_at.is_(None))
+        .first()
+    )
+    if record is None:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "record_not_found", "message": f"Minuta '{record_id}' no encontrada."},
+        )
+
+    try:
+        from services.pdf_job_builder import build_pdf_job_on_save
+
+        envelope = build_pdf_job_on_save(record=record, draft_content=content)
+        preview_key = f"previews/{record_id}/{uuid.uuid4().hex}.pdf"
+        envelope["payload"]["minio_bucket"] = BUCKET_DRAFT
+        envelope["payload"]["minio_output_key"] = preview_key
+
+        if isinstance(envelope["payload"].get("callback"), dict):
+            envelope["payload"]["callback"]["notify_redis_channel"] = None
+            envelope["payload"]["callback"]["pdf_url_field"] = None
+
+        await _enqueue_job(QUEUE_PDF, envelope)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[minutes] Error preparando preview PDF | record={record_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail={"error": "pdf_preview_enqueue_error", "message": "No se pudo generar la vista previa del PDF."},
+        )
+
+    minio = get_minio_client()
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + 20
+    last_error: Exception | None = None
+
+    while loop.time() < deadline:
+        try:
+            obj = minio.get_object(BUCKET_DRAFT, preview_key)
+            pdf_bytes = obj.read()
+            obj.close()
+            obj.release_conn()
+            try:
+                minio.remove_object(BUCKET_DRAFT, preview_key)
+            except Exception as cleanup_err:
+                logger.warning(f"[minutes] No se pudo borrar preview temporal {preview_key}: {cleanup_err}")
+            return pdf_bytes
+        except Exception as e:
+            last_error = e
+            await asyncio.sleep(0.5)
+
+    logger.error(f"[minutes] Timeout preview PDF | record={record_id} key={preview_key} last_error={last_error}")
+    raise HTTPException(
+        status_code=504,
+        detail={
+            "error": "pdf_preview_timeout",
+            "message": "La vista previa del PDF tardó demasiado en generarse. Intenta nuevamente.",
+        },
+    )
 
 
 # ─── transition_minute ────────────────────────────────────────────────────────

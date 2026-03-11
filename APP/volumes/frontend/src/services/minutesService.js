@@ -117,6 +117,39 @@ export const saveMinuteDraft = async (recordId, content) => {
   return unwrap(res);
 };
 
+/**
+ * POST /v1/minutes/{record_id}/pdf-preview
+ *
+ * Genera un PDF temporal usando el payload actual del editor y lo retorna
+ * directamente como Blob sin persistirlo como draft oficial.
+ *
+ * @param {string} recordId
+ * @param {Object} content
+ * @returns {Promise<Blob>}
+ */
+export const previewMinutePdfBlob = async (recordId, content) => {
+  const res = await api.post(`${BASE}/${recordId}/pdf-preview`, { content }, {
+    responseType: "blob",
+  });
+  return res.data;
+};
+
+/**
+ * GET /v1/minutes/{record_id}/attachments/{sha256}
+ *
+ * Retorna el adjunto de entrada real asociado a la minuta como Blob.
+ *
+ * @param {string} recordId
+ * @param {string} sha256
+ * @returns {Promise<Blob>}
+ */
+export const getMinuteAttachmentBlob = async (recordId, sha256) => {
+  const res = await api.get(`${BASE}/${recordId}/attachments/${sha256}`, {
+    responseType: "blob",
+  });
+  return res.data;
+};
+
 // ─── TRANSITION ───────────────────────────────────────────────────────────────
 /**
  * POST /v1/minutes/{record_id}/transition

@@ -6,6 +6,7 @@ Endpoints:
   POST /v1/minutes/generate               → MinuteGenerateRequest / MinuteGenerateResponse
   GET  /v1/minutes/{record_id}            → MinuteDetailResponse
   PUT  /v1/minutes/{record_id}/save       → MinuteSaveRequest (body), 200 OK
+  POST /v1/minutes/{record_id}/pdf-preview → MinuteSaveRequest (body), PDF temporal
   POST /v1/minutes/{record_id}/transition → MinuteTransitionRequest / MinuteTransitionResponse
 
 Valores de content_type en MinuteDetailResponse:
