@@ -41,6 +41,10 @@ class WorkerConfig:
     SMTP_USE_TLS:    bool = os.environ.get("SMTP_USE_TLS",    "false").lower() == "true"
     SMTP_USE_SSL:    bool = os.environ.get("SMTP_USE_SSL",    "false").lower() == "true"
     SMTP_TIMEOUT:    int  = int(os.environ.get("SMTP_TIMEOUT", "10"))
+    EMAIL_INLINE_LOGO_PATH: str = os.environ.get(
+        "EMAIL_INLINE_LOGO_PATH",
+        "/app/email_assets/minuetaitor-logo.jpg",
+    )
 
     # ── MariaDB ───────────────────────────────────────────────────────────────
     MARIADB_HOST:     str = os.environ.get("MARIADB_HOST",     "mariadb")

@@ -7,15 +7,25 @@ from __future__ import annotations
 
 import json
 import logging
+import uuid
 
 from redis.asyncio import Redis
 
+from core.exceptions import BadRequestException
 from schemas.sendmail import (
+    MailTemplateListResponse,
+    MailTemplatePreviewRequest,
+    MailTemplatePreviewResponse,
     QueueClearResponse,
     QueueJobItem,
     QueueStatusResponse,
     SendMailRequest,
     SendMailResponse,
+)
+from services.email_template_service import (
+    get_inline_assets_for_html,
+    list_email_templates,
+    render_email_template,
 )
 
 logger = logging.getLogger(__name__)
@@ -27,21 +37,53 @@ MAX_INSPECT = 50
 
 async def enqueue_email(payload: SendMailRequest, redis: Redis) -> SendMailResponse:
     """Encola un email y retorna confirmación con largo de cola actual."""
+    subject = payload.subject
+    body = payload.body
+    inline_assets = [asset.model_dump(by_alias=False) for asset in (payload.inline_assets or [])]
+
+    if payload.template_id:
+        try:
+            rendered = render_email_template(
+                payload.template_id,
+                payload.template_context or {},
+                subject_override=payload.subject,
+            )
+        except ValueError as exc:
+            raise BadRequestException(str(exc)) from exc
+        subject = rendered.subject
+        body = rendered.html
+        inline_assets = _merge_inline_assets(
+            inline_assets,
+            [asset.model_dump(by_alias=False) for asset in get_inline_assets_for_html(body)],
+        )
+
     job = {
-        "type":       "email",
-        "to":         payload.to,
-        "cc":         payload.cc,
-        "bcc":        payload.bcc,
-        "subject":    payload.subject,
-        "body":       payload.body,
-        "email_type": payload.email_type,
-        "reply_to":   payload.reply_to,
+        "job_id": str(uuid.uuid4()),
+        "type": "email",
+        "queue": QUEUE_EMAIL,
+        "attempt": 1,
+        "payload": {
+            "to": payload.to,
+            "cc": payload.cc,
+            "bcc": payload.bcc,
+            "subject": subject,
+            "body": body,
+            "email_type": payload.email_type,
+            "reply_to": payload.reply_to,
+            "template_id": payload.template_id,
+            "inline_assets": inline_assets,
+        },
     }
 
     await redis.rpush(QUEUE_EMAIL, json.dumps(job))
     queue_length = await redis.llen(QUEUE_EMAIL)
 
-    logger.info("Email encolado vía /sendmail | subject=%s | to=%s", payload.subject, payload.to)
+    logger.info(
+        "Email encolado via /sendmail | subject=%s | to=%s | template_id=%s",
+        subject,
+        payload.to,
+        payload.template_id,
+    )
 
     return SendMailResponse(
         queued=True,
@@ -62,12 +104,15 @@ async def get_queue_status(redis: Redis) -> QueueStatusResponse:
     for i, raw in enumerate(raw_jobs):
         try:
             job = json.loads(raw)
+            payload = job.get("payload", job)
             jobs.append(QueueJobItem(
                 position   = i + 1,
                 type       = job.get("type", "unknown"),
-                to         = job.get("to", []),
-                subject    = job.get("subject", "(sin asunto)"),
-                email_type = job.get("email_type", "html"),
+                to         = payload.get("to", []),
+                subject    = payload.get("subject", "(sin asunto)"),
+                email_type = payload.get("email_type", "html"),
+                template_id= payload.get("template_id"),
+                inline_assets=len(payload.get("inline_assets") or []),
             ))
         except json.JSONDecodeError:
             jobs.append(QueueJobItem(
@@ -76,6 +121,8 @@ async def get_queue_status(redis: Redis) -> QueueStatusResponse:
                 to         = [],
                 subject    = "(job corrupto)",
                 email_type = "unknown",
+                template_id= None,
+                inline_assets=0,
             ))
 
     return QueueStatusResponse(
@@ -97,3 +144,34 @@ async def clear_queue(redis: Redis) -> QueueClearResponse:
         cleared = length_before,
         message = f"{length_before} job(s) eliminados de '{QUEUE_EMAIL}'",
     )
+
+
+def get_available_templates() -> MailTemplateListResponse:
+    return MailTemplateListResponse(templates=list_email_templates())
+
+
+def preview_template(payload: MailTemplatePreviewRequest) -> MailTemplatePreviewResponse:
+    try:
+        rendered = render_email_template(
+            payload.template_id,
+            payload.template_context,
+            subject_override=payload.subject,
+        )
+    except ValueError as exc:
+        raise BadRequestException(str(exc)) from exc
+    return MailTemplatePreviewResponse(
+        template_id=rendered.template_id,
+        subject=rendered.subject,
+        html=rendered.html,
+        placeholders=rendered.placeholders,
+    )
+
+
+def _merge_inline_assets(*asset_groups: list[dict]) -> list[dict]:
+    merged: dict[str, dict] = {}
+    for group in asset_groups:
+        for asset in group:
+            cid = str(asset.get("cid") or "").strip()
+            if cid:
+                merged[cid] = asset
+    return list(merged.values())
