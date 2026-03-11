@@ -25,6 +25,7 @@ from models.record_artifacts import RecordArtifact
 from models.projects import Project
 from models.record_versions import RecordVersion
 from models.records import Record
+from models.user import User
 from schemas.minutes import (
     MinuteDetailResponse,
     MinuteGenerateRequest,
@@ -38,6 +39,7 @@ from services.minute_participants_service import (
     build_version_participants_from_content,
     persist_record_version_participants,
 )
+from services.notification_service import enqueue_minute_officialized_email, enqueue_minute_review_email
 
 logger = logging.getLogger(__name__)
 
@@ -382,6 +384,7 @@ async def generate_minute(
         id=record_id,
         record_type_id=record_type_id,
         status_id=status_in_prog_id,
+        ai_profile_id=request.profile_info.profile_id,
         title=mi.title or f"{pi.client} — {mi.scheduled_date}",
         client_id=pi.client_id,
         project_id=pi.project_id,
@@ -868,6 +871,12 @@ async def transition_minute(
     db.commit()
 
     logger.info(f"[minutes] Transición | record={record_id} {current_status_code} → {target_status}")
+
+    actor_user = db.query(User).filter(User.id == actor_user_id, User.deleted_at.is_(None)).first()
+    if current_status_code == RECORD_STATUS_PENDING and target_status == RECORD_STATUS_PREVIEW:
+        await enqueue_minute_review_email(db, record_id)
+    elif current_status_code == RECORD_STATUS_PREVIEW and target_status == RECORD_STATUS_COMPLETED:
+        await enqueue_minute_officialized_email(db, record_id, actor_user=actor_user)
 
     return MinuteTransitionResponse(
         record_id   = record_id,

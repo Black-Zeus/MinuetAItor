@@ -292,6 +292,8 @@ app.include_router(minutes_router, prefix="/v1")
 # [ACTIVO] Solo accesible dentro de la red Docker interna — nunca expuesto por nginx
 from routers.internal.minutes import router as internal_minutes_router
 app.include_router(internal_minutes_router)
+from routers.internal.notifications import router as internal_notifications_router
+app.include_router(internal_notifications_router)
 
 
 # ── System endpoints ──────────────────────────────────────────────────────────

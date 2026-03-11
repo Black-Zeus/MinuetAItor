@@ -6,13 +6,14 @@ from sqlalchemy.orm import Session
 from starlette.requests import Request
 
 from core.config import settings
-from core.exceptions import UnauthorizedException, ForbiddenException
+from core.exceptions import BadRequestException, ForbiddenException, UnauthorizedException
 from core.security import verify_password, create_access_token, decode_access_token, hash_password
 from db.redis import get_redis
 from models.user import User
 from repositories.auth_repository import get_user_by_credential, get_user_with_roles_permissions, get_user_full, get_user_by_id
 from repositories.session_repository import create_session, mark_logout, get_user_sessions, get_session_by_jti, get_active_sessions, revoke_all_sessions
 from schemas.auth import TokenResponse, UserSession, MeResponse, UserProfileData, ConnectionInfo, ValidateTokenResponse, ChangePasswordRequest,    ChangePasswordByAdminRequest, TokenResponse
+from services.notification_service import consume_password_reset_token, enqueue_recover_password_email
 from utils.device import get_device_string
 from utils.geo import get_geo
 from utils.network import get_client_ip
@@ -292,7 +293,6 @@ async def change_password(
         raise UnauthorizedException()
 
     if not verify_password(payload.current_password, user.password_hash):
-        from core.exceptions import BadRequestException
         raise BadRequestException("La contraseña actual es incorrecta")
 
     user.password_hash = hash_password(payload.new_password)
@@ -346,3 +346,45 @@ async def change_password_by_admin(
             "target_username": target.username,
         },
     )
+
+
+async def forgot_password(
+    db: Session,
+    email: str,
+    request: Request | None = None,
+) -> None:
+    ip_v4, ip_v6 = get_client_ip(request) if request else (None, None)
+    await enqueue_recover_password_email(
+        db,
+        email=email.strip().lower(),
+        request_origin="auth.forgot-password",
+        request_ip=ip_v4 or ip_v6,
+        request_ua=request.headers.get("User-Agent") if request else None,
+    )
+
+
+async def reset_password(
+    db: Session,
+    token: str,
+    new_password: str,
+) -> None:
+    token_payload = await consume_password_reset_token(token.strip())
+    if not token_payload:
+        raise BadRequestException("El token de recuperación es inválido o expiró")
+
+    user_id = str(token_payload.get("user_id") or "").strip()
+    if not user_id:
+        raise BadRequestException("Token de recuperación inválido")
+
+    user = get_user_by_id(db, user_id)
+    if not user or user.deleted_at is not None:
+        raise BadRequestException("Usuario no encontrado para el token entregado")
+
+    user.password_hash = hash_password(new_password)
+    db.commit()
+
+    jtis = [s.jti for s in get_active_sessions(db, user_id)]
+    redis = get_redis()
+    for jti in jtis:
+        await redis.delete(_session_key(user_id, jti))
+    revoke_all_sessions(db, user_id)

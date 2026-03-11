@@ -347,6 +347,8 @@ services:
       ENV_NAME:    ${ENV_NAME:-dev}
       REDIS_HOST:  ${REDIS_HOST:-redis}
       REDIS_PORT:  ${REDIS_PORT:-6379}
+      BACKEND_INTERNAL_URL: ${BACKEND_INTERNAL_URL:-http://backend:8000}
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET}
       TZ:          America/Santiago        # ← crítico para que los crons corran a la hora correcta
     volumes:
       - ./APP/volumes/scheduler/app:/app

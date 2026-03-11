@@ -13,6 +13,7 @@ from services.auth_service import (
     login, logout, get_current_user, get_me,
     refresh_token, validate_token,
     change_password, change_password_by_admin,
+    forgot_password, reset_password,
 )
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -92,12 +93,12 @@ async def change_password_by_admin_endpoint(
 # ── Recuperación (dummy por ahora) ────────────────────
 
 @router.post("/forgot-password", status_code=status.HTTP_200_OK)
-async def forgot_password_endpoint(payload: ForgotPasswordRequest):
-    # TODO: implementar flujo de recuperación (SMTP nativo o n8n)
+async def forgot_password_endpoint(payload: ForgotPasswordRequest, request: Request, db: Session = Depends(get_db)):
+    await forgot_password(db, payload.email, request)
     return {"message": "Si el email existe, recibirás instrucciones en breve"}
 
 
 @router.post("/reset-password", status_code=status.HTTP_200_OK)
-async def reset_password_endpoint(payload: ResetPasswordRequest):
-    # TODO: implementar validación de token y reset
+async def reset_password_endpoint(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
+    await reset_password(db, payload.token, payload.new_password)
     return {"message": "Contraseña restablecida correctamente"}

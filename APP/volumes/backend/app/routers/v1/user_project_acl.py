@@ -24,6 +24,7 @@ from services.user_project_acl_service import (
     list_user_project_acls,
     update_user_project_acl,
 )
+from services.notification_service import enqueue_confidential_project_acl_notifications
 
 router = APIRouter(prefix="/user-project-acl", tags=["UserProjectACL"])
 
@@ -60,12 +61,21 @@ def get_endpoint(
     response_model=UserProjectACLResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def create_endpoint(
+async def create_endpoint(
     body: UserProjectACLCreateRequest,
     db: Session = Depends(get_db),
     session: UserSession = Depends(require_roles("ADMIN")),
 ):
-    return create_user_project_acl(db, body, created_by_id=session.user_id)
+    result = create_user_project_acl(db, body, created_by_id=session.user_id)
+    await enqueue_confidential_project_acl_notifications(
+        db,
+        user_id=body.user_id,
+        project_id=body.project_id,
+        action="granted",
+        actor_user_id=session.user_id,
+        reason="Asignacion o actualizacion de acceso confidencial.",
+    )
+    return result
 
 
 @router.put(
@@ -73,14 +83,23 @@ def create_endpoint(
     response_model=UserProjectACLResponse,
     status_code=status.HTTP_200_OK,
 )
-def update_endpoint(
+async def update_endpoint(
     user_id: str,
     project_id: str,
     body: UserProjectACLUpdateRequest,
     db: Session = Depends(get_db),
     session: UserSession = Depends(require_roles("ADMIN")),
 ):
-    return update_user_project_acl(db, user_id, project_id, body, updated_by_id=session.user_id)
+    result = update_user_project_acl(db, user_id, project_id, body, updated_by_id=session.user_id)
+    await enqueue_confidential_project_acl_notifications(
+        db,
+        user_id=user_id,
+        project_id=project_id,
+        action="granted" if result.get("isActive", True) else "revoked",
+        actor_user_id=session.user_id,
+        reason="Actualizacion de acceso confidencial.",
+    )
+    return result
 
 
 @router.patch(
@@ -88,31 +107,48 @@ def update_endpoint(
     response_model=UserProjectACLResponse,
     status_code=status.HTTP_200_OK,
 )
-def status_endpoint(
+async def status_endpoint(
     user_id: str,
     project_id: str,
     body: UserProjectACLStatusRequest,
     db: Session = Depends(get_db),
     session: UserSession = Depends(require_roles("ADMIN")),
 ):
-    return change_user_project_acl_status(
+    result = change_user_project_acl_status(
         db,
         user_id,
         project_id,
         is_active=body.is_active,
         updated_by_id=session.user_id,
     )
+    await enqueue_confidential_project_acl_notifications(
+        db,
+        user_id=user_id,
+        project_id=project_id,
+        action="granted" if body.is_active else "revoked",
+        actor_user_id=session.user_id,
+        reason="Cambio de estado de acceso confidencial.",
+    )
+    return result
 
 
 @router.delete(
     "/{user_id}/{project_id}",
     status_code=status.HTTP_204_NO_CONTENT,
 )
-def delete_endpoint(
+async def delete_endpoint(
     user_id: str,
     project_id: str,
     db: Session = Depends(get_db),
     session: UserSession = Depends(require_roles("ADMIN")),
 ):
     delete_user_project_acl(db, user_id, project_id, deleted_by_id=session.user_id)
+    await enqueue_confidential_project_acl_notifications(
+        db,
+        user_id=user_id,
+        project_id=project_id,
+        action="revoked",
+        actor_user_id=session.user_id,
+        reason="Acceso confidencial eliminado.",
+    )
     return None

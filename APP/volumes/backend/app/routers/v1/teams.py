@@ -21,6 +21,7 @@ from services.teams_service import (
     list_team_members,
     update_team_member,
 )
+from services.notification_service import enqueue_account_created_email
 
 router = APIRouter(prefix="/teams", tags=["Teams"])
 
@@ -72,7 +73,13 @@ async def create_team_endpoint(
     session: UserSession = Depends(require_roles("ADMIN")),
     db: Session = Depends(get_db),
 ):
-    return create_team_member(db, payload, created_by_id=session.user_id)
+    result = create_team_member(db, payload, created_by_id=session.user_id)
+    await enqueue_account_created_email(
+        db,
+        result["id"],
+        request_origin="teams.create",
+    )
+    return result
 
 
 # ── PUT /teams/{id} ───────────────────────────────────

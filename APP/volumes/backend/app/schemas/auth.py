@@ -104,6 +104,29 @@ class ChangePasswordByAdminRequest(BaseModel):
 class ForgotPasswordRequest(BaseModel):
     email: str
 
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, v: str) -> str:
+        value = v.strip().lower()
+        if not value:
+            raise ValueError("El email es requerido")
+        return value
+
 class ResetPasswordRequest(BaseModel):
     token:        str
     new_password: str
+
+    @field_validator("token")
+    @classmethod
+    def token_not_empty(cls, v: str) -> str:
+        value = v.strip()
+        if not value:
+            raise ValueError("El token es requerido")
+        return value
+
+    @field_validator("new_password")
+    @classmethod
+    def reset_password_strength(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("La contraseña debe tener al menos 8 caracteres")
+        return v
