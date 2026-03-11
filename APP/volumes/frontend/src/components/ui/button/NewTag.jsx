@@ -44,7 +44,8 @@ const NewTag = ({ onCreated, categories = [] }) => {
     ModalManager.show({
       type:        "custom",
       title:       "Nuevo Tag",
-      size:        "large",
+      size:        "clientWide",
+      showHeader:  false,
       showFooter:  false,
       content: (
         <TagsModal

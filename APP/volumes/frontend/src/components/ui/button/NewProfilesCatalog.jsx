@@ -55,7 +55,8 @@ const NewProfilesCatalog = ({ categories = [], onCreated }) => {
     ModalManager.show({
       type:       "custom",
       title:      "Nuevo Perfil de Análisis",
-      size:       "large",
+      size:       "clientWide",
+      showHeader: false,
       showFooter: false,
       content: (
         <ProfilesCatalogModal

@@ -30,7 +30,8 @@ const NewProject = ({ onCreated, clientCatalog = [] }) => {
     ModalManager.show({
       type: 'custom',
       title: 'Crear Nuevo Proyecto',
-      size: 'large',
+      size: 'clientWide',
+      showHeader: false,
       showFooter: false,
       content: (
         <ProjectModal

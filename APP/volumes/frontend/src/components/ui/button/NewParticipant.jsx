@@ -27,7 +27,8 @@ const NewParticipant = ({ onCreated }) => {
     ModalManager.show({
       type: "custom",
       title: "Nuevo Participante",
-      size: "large",
+      size: "clientWide",
+      showHeader: false,
       showFooter: false,
       content: (
         <ParticipantsModal

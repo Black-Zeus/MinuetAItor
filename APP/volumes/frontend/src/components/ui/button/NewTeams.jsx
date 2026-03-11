@@ -73,7 +73,8 @@ const NewTeams = ({ onCreated }) => {
     ModalManager.show({
       type:        "custom",
       title:       "Crear Nuevo Usuario",
-      size:        "large",
+      size:        "clientWide",
+      showHeader:  false,
       showFooter:  false,
       content: (
         <TeamsModal

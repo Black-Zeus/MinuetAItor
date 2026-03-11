@@ -67,9 +67,9 @@ const validate = (formData, isCreate) => {
 // ESTILOS
 // ============================================================
 const INPUT_BASE =
-  "w-full px-3 py-2 rounded-lg border text-sm " +
-  "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 " +
-  "focus:outline-none focus:ring-2 focus:ring-primary-500/40 ";
+  "w-full px-3.5 py-2.5 rounded-xl border text-sm " +
+  "bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100 " +
+  "focus:outline-none focus:ring-2 focus:ring-sky-200 dark:focus:ring-sky-800 ";
 
 const INPUT_OK    = "border-gray-300 dark:border-gray-600 ";
 const INPUT_ERROR = "border-red-500 dark:border-red-400 ";
@@ -94,7 +94,7 @@ const Field = ({ label, required, error, children }) => (
 );
 
 const ReadonlyValue = ({ value }) => (
-  <div className="text-sm text-gray-700 dark:text-gray-300 py-1">
+  <div className="rounded-xl border border-slate-200/80 bg-white px-3.5 py-2.5 text-sm text-gray-700 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-300">
     {value || <span className="italic text-gray-400">Sin información</span>}
   </div>
 );
@@ -157,10 +157,23 @@ const ProfilesCatalogModal = ({
   const statusLabel = formData.status ? "Activo" : "Inactivo";
 
   return (
-    <div className="flex flex-col gap-0 min-w-0">
+    <div className="w-full rounded-[26px] bg-white/8 p-[2px] shadow-[0_0_24px_rgba(255,255,255,0.08),0_24px_70px_rgba(15,23,42,0.24)] backdrop-blur-[3px] dark:bg-white/[0.06] dark:shadow-[0_0_28px_rgba(255,255,255,0.06),0_24px_70px_rgba(2,6,23,0.52)]">
+    <div className="flex h-[78vh] min-h-[620px] w-full flex-col rounded-[24px] border border-white/45 bg-slate-100 dark:border-white/10 dark:bg-slate-950 min-w-0">
+
+      <div className="border-b border-slate-200/80 px-8 py-6 dark:border-slate-700/80">
+        <div className="flex items-center justify-between gap-4">
+          <h3 className="text-2xl font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+            <Icon name="FaCode" className="w-5 h-5" />
+            {isCreate ? "Crear perfil" : isEdit ? "Editar perfil" : "Detalle de perfil"}
+          </h3>
+          <span className="rounded-full border border-sky-200 bg-sky-50/80 px-3 py-1 text-xs font-medium text-sky-700 dark:border-sky-800/80 dark:bg-sky-900/20 dark:text-sky-300">
+            {statusLabel}
+          </span>
+        </div>
+      </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-gray-200 dark:border-gray-700 mb-5">
+      <div className="flex border-b border-slate-200/80 dark:border-slate-700/80 mb-5 px-8 pt-4">
         {[
           { key: "info",   label: "Información",   icon: "FaInfoCircle" },
           { key: "prompt", label: "Prompt AI",      icon: "FaCode"       },
@@ -182,7 +195,7 @@ const ProfilesCatalogModal = ({
 
       {/* ── TAB: Información ── */}
       {activeTab === "info" && (
-        <div className="space-y-4 px-1">
+        <div className="space-y-4 px-8 pb-6 overflow-y-auto flex-1">
           <p className={SECTION_HEADER}>Datos generales</p>
 
           {/* Nombre */}
@@ -255,7 +268,7 @@ const ProfilesCatalogModal = ({
 
       {/* ── TAB: Prompt ── */}
       {activeTab === "prompt" && (
-        <div className="space-y-4 px-1">
+        <div className="space-y-4 px-8 pb-6 overflow-y-auto flex-1">
           <p className={SECTION_HEADER}>Prompt para análisis AI</p>
 
           <Field label="Prompt" required error={errors.prompt}>
@@ -284,12 +297,12 @@ const ProfilesCatalogModal = ({
 
       {/* Footer */}
       {canEdit && (
-        <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+        <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-200/80 dark:border-slate-700/80">
           <button
             type="button"
             onClick={onClose}
             disabled={isSubmitting}
-            className="px-4 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+            className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-300 dark:hover:bg-slate-700 disabled:opacity-50"
           >
             Cancelar
           </button>
@@ -297,7 +310,7 @@ const ProfilesCatalogModal = ({
             type="button"
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="px-4 py-2 text-sm rounded-lg bg-primary-600 hover:bg-primary-700 text-white font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
+            className="rounded-xl bg-sky-700 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-sky-800 dark:bg-sky-300 dark:text-slate-900 dark:hover:bg-sky-200 disabled:opacity-50 flex items-center gap-2"
           >
             {isSubmitting && <Icon name="FaSpinner" className="w-3.5 h-3.5 animate-spin" />}
             {isCreate ? "Crear Perfil" : "Guardar Cambios"}
@@ -306,16 +319,17 @@ const ProfilesCatalogModal = ({
       )}
 
       {isView && (
-        <div className="flex justify-end mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+        <div className="flex justify-end mt-6 pt-4 border-t border-slate-200/80 dark:border-slate-700/80">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            className="rounded-xl bg-sky-700 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-sky-800 dark:bg-sky-300 dark:text-slate-900 dark:hover:bg-sky-200"
           >
             Cerrar
           </button>
         </div>
       )}
+    </div>
     </div>
   );
 };

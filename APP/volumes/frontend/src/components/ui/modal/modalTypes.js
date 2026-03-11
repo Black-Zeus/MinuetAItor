@@ -112,6 +112,10 @@ export const MODAL_SIZES = {
   padding: 'p-8',
   maxHeight: 'max-h-[90vh]'
 },
+  clientWide: {
+    width: '!w-[80vw] !max-w-[80vw]',
+    padding: 'p-6'
+  },
   pdfViewer: {
     width: '!w-[80vw] !max-w-[80vw]',
     padding: 'p-6'

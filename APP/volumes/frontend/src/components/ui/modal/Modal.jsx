@@ -355,7 +355,7 @@ const Modal = ({
   const cssClasses = useMemo(() => ({
     overlay: `${MODAL_CLASSES.overlay.base} ${getModalPositionClasses(position)}`,
     backdrop: `${MODAL_CLASSES.overlay.backdrop} ${isAnimating ? 'opacity-100' : 'opacity-0'}`,
-    modal: `${MODAL_CLASSES.modal.base} ${getModalSizeClasses(modalSize)} ${isAnimating
+    modal: `${MODAL_CLASSES.modal.base} ${getModalSizeClasses(modalSize)} ${modalSize === 'clientWide' ? 'bg-transparent dark:bg-transparent shadow-none border-0 overflow-visible rounded-[26px]' : ''} ${isAnimating
         ? MODAL_CLASSES.modal.enterActive
         : MODAL_CLASSES.modal.enter
       }`,
@@ -392,7 +392,7 @@ const Modal = ({
       />
 
       {/* FLEX CONTAINER: Añadido para centrar el modal */}
-      <div className={MODAL_CLASSES.overlay.container}>
+      <div className={modalSize === 'clientWide' ? 'flex min-h-full items-center justify-center px-0' : MODAL_CLASSES.overlay.container}>
         <div
           ref={modalRef}
           className={cssClasses.modal}
@@ -488,7 +488,7 @@ const validateModalProps = (props) => {
       modalLog.warn(`Modal: Tipo "${type}" no implementado. Usando fallback.`);
     }
 
-    if (size && !['small', 'medium', 'large', 'xlarge', 'fullscreen', 'fullscreenWide', 'pdfViewer'].includes(size)) {
+    if (size && !['small', 'medium', 'large', 'xlarge', 'fullscreen', 'fullscreenWide', 'pdfViewer', 'modalLarge', 'clientWide'].includes(size)) {
       modalLog.warn(`Modal: Tamaño "${size}" no válido. Usando "medium".`);
     }
 

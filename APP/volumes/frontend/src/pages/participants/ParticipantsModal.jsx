@@ -33,8 +33,8 @@ const normalizeParticipant = (data = {}) => ({
 });
 
 const inputCls = (hasError = false) =>
-  `w-full rounded-lg border px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500 ${
-    hasError ? "border-red-500" : "border-gray-200 dark:border-gray-700"
+  `w-full rounded-xl border px-3.5 py-2.5 text-sm bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-sky-200 dark:focus:ring-sky-800 ${
+    hasError ? "border-red-500" : "border-gray-300 dark:border-slate-700"
   }`;
 
 const ParticipantsModal = ({ mode, data, onSubmit, onClose }) => {
@@ -158,9 +158,10 @@ const ParticipantsModal = ({ mode, data, onSubmit, onClose }) => {
   };
 
   return (
-    <div className="flex flex-col w-full max-h-[80vh]">
-      <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+    <div className="w-full rounded-[26px] bg-white/8 p-[2px] shadow-[0_0_24px_rgba(255,255,255,0.08),0_24px_70px_rgba(15,23,42,0.24)] backdrop-blur-[3px] dark:bg-white/[0.06] dark:shadow-[0_0_28px_rgba(255,255,255,0.06),0_24px_70px_rgba(2,6,23,0.52)]">
+    <div className="flex h-[78vh] min-h-[620px] w-full flex-col rounded-[24px] border border-white/45 bg-slate-100 dark:border-white/10 dark:bg-slate-950">
+      <div className="border-b border-slate-200/80 px-8 py-6 dark:border-slate-700/80">
+        <h3 className="text-2xl font-semibold text-gray-900 dark:text-white flex items-center gap-2">
           <Icon name="FaUsers" className="w-5 h-5" />
           {isCreate && "Crear participante"}
           {isEdit && "Editar participante"}
@@ -168,7 +169,7 @@ const ParticipantsModal = ({ mode, data, onSubmit, onClose }) => {
         </h3>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+      <div className="flex-1 overflow-y-auto px-8 py-6 space-y-5">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -250,7 +251,7 @@ const ParticipantsModal = ({ mode, data, onSubmit, onClose }) => {
 
           <div className="space-y-3">
             {(formData.emails ?? []).map((email, index) => (
-              <div key={`${email.id ?? "new"}-${index}`} className="rounded-lg border border-gray-200 dark:border-gray-700 p-3">
+              <div key={`${email.id ?? "new"}-${index}`} className="rounded-xl border border-gray-200 dark:border-slate-700 p-3 bg-white dark:bg-slate-800">
                 {isView ? (
                   <div className="flex items-center justify-between gap-3">
                     <div>
@@ -315,7 +316,7 @@ const ParticipantsModal = ({ mode, data, onSubmit, onClose }) => {
         </div>
       </div>
 
-      <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
+      <div className="border-t border-slate-200/80 px-8 py-5 dark:border-slate-700/80 flex justify-end gap-3">
         <ActionButton label={isView ? "Cerrar" : "Cancelar"} variant="neutral" onClick={closeModal} />
         {!isView && (
           <ActionButton
@@ -325,6 +326,7 @@ const ParticipantsModal = ({ mode, data, onSubmit, onClose }) => {
           />
         )}
       </div>
+    </div>
     </div>
   );
 };

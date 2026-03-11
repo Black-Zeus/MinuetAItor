@@ -263,7 +263,8 @@ const TeamsCard = ({ id, summary = null, onUpdated, onDeleted }) => {
     ModalManager.show({
       type: "custom",
       title: "Detalle de Usuario",
-      size: "large",
+      size: "clientWide",
+      showHeader: false,
       showFooter: false,
       content: (
         <TeamsModal
@@ -290,7 +291,8 @@ const TeamsCard = ({ id, summary = null, onUpdated, onDeleted }) => {
     ModalManager.show({
       type: "custom",
       title: "Editar Usuario",
-      size: "large",
+      size: "clientWide",
+      showHeader: false,
       showFooter: false,
       content: (
         <TeamsModal
