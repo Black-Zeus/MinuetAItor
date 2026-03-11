@@ -7,7 +7,7 @@ import logging
 from typing import AsyncGenerator
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
@@ -127,13 +127,13 @@ def get_detail_endpoint(
     status_code = status.HTTP_200_OK,
     summary     = "Autosave del editor (solo estado pending)",
 )
-def save_endpoint(
+async def save_endpoint(
     record_id: str,
     body:      MinuteSaveRequest,
     db:        Session     = Depends(get_db),
     session:   UserSession = Depends(current_user_dep),
 ):
-    save_minute_draft(db=db, record_id=record_id, content=body.content)
+    await save_minute_draft(db=db, record_id=record_id, content=body.content)
     return {"ok": True}
 
 
@@ -222,6 +222,58 @@ async def events_endpoint(
         _sse_stream(transaction_id),
         media_type = "text/event-stream",
         headers    = _sse_headers(),
+    )
+
+
+# ─── GET /{record_id}/pdf ────────────────────────────────────────────────────
+
+@router.get(
+    "/{record_id}/pdf",
+    status_code = status.HTTP_200_OK,
+    summary     = "Sirve el PDF generado directamente desde MinIO (draft o publicado)",
+)
+def pdf_endpoint(
+    record_id: str,
+    type:      str     = Query("draft", description="'draft' para borrador, 'published' para versión final"),
+    db:        Session = Depends(get_db),
+    session:   UserSession = Depends(current_user_dep),
+):
+    """
+    Actúa como proxy entre el frontend y MinIO para servir el PDF generado.
+    El JWT viaja en el header Authorization normal; MinIO permanece interno.
+
+    Paths en MinIO:
+      draft     → minuetaitor-draft/drafts/{record_id}/draft_current.pdf
+      published → minuetaitor-published/published/{record_id}/final.pdf
+    """
+    from db.minio_client import get_minio_client
+
+    if type == "published":
+        bucket = "minuetaitor-published"
+        key    = f"published/{record_id}/final.pdf"
+    else:
+        bucket = "minuetaitor-draft"
+        key    = f"drafts/{record_id}/draft_current.pdf"
+
+    minio = get_minio_client()
+    try:
+        obj       = minio.get_object(bucket, key)
+        pdf_bytes = obj.read()
+        obj.close()
+        obj.release_conn()
+    except Exception:
+        raise HTTPException(
+            status_code = 404,
+            detail = {
+                "error":   "pdf_not_found",
+                "message": "El PDF aún no ha sido generado. Guarda la minuta para generarlo.",
+            },
+        )
+
+    return Response(
+        content    = pdf_bytes,
+        media_type = "application/pdf",
+        headers    = {"Content-Disposition": "inline"},
     )
 
 

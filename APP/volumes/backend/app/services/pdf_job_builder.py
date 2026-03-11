@@ -10,6 +10,8 @@ Mapeo completo basado en el JSON real de OpenAI (schema_output_v1.json):
 
 Triggers soportados:
   "ready-for-edit" → post TX2, watermark=True,  destino minuetaitor-draft
+  "pending"        → autosave del editor, watermark=True, destino minuetaitor-draft
+                     usa build_pdf_job_from_draft() con datos en formato editor
   "completed"      → publicación manual, watermark=False, destino minuetaitor-published
 """
 
@@ -30,6 +32,18 @@ PDF_TRIGGER_CONFIG: Dict[str, Dict[str, Any]] = {
     "ready-for-edit": {
         "trigger":           "post_ai_processing",
         "template":          "opc_01",
+        "watermark":         True,
+        "paper":             "A4",
+        "minio_bucket":      "minuetaitor-draft",
+        "output_key_tpl":    "drafts/{record_id}/draft_current.pdf",
+        "pdf_url_field":     "draft_pdf_url",
+        "status_on_success": None,
+    },
+    # Usado por build_pdf_job_on_save() al guardar el editor (estado pending).
+    # El template se sobreescribe con el valor de draft_content.pdfFormat.template.
+    "pending": {
+        "trigger":           "autosave",
+        "template":          "opc_01",   # fallback; se sobreescribe desde el draft
         "watermark":         True,
         "paper":             "A4",
         "minio_bucket":      "minuetaitor-draft",
@@ -331,7 +345,12 @@ def _get_version_number(record: Any) -> int:
 
 
 def _build_version_label(version_number: int, trigger: str) -> str:
-    suffix = "Borrador IA" if trigger == "post_ai_processing" else "Publicado"
+    suffix_map = {
+        "post_ai_processing": "Borrador IA",
+        "autosave":           "Borrador",
+        "manual_publish":     "Publicado",
+    }
+    suffix = suffix_map.get(trigger, "Borrador")
     return f"v{version_number} - {suffix}"
 
 
@@ -341,3 +360,191 @@ def _format_date(value: Any) -> str:
     if isinstance(value, str):
         return value
     return value.isoformat()[:10]
+
+
+# ---------------------------------------------------------------------------
+# Builder desde draft (formato editor)
+# Usado cuando el contenido ya está en formato del store (draft_current.json).
+# ---------------------------------------------------------------------------
+
+def build_pdf_job_on_save(record: Any, draft_content: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Construye un job PDF a partir del draft guardado por el editor.
+    Conveniencia para llamar desde save_minute_draft().
+    El template se lee de draft_content.pdfFormat.template (fallback: opc_01).
+    """
+    config = PDF_TRIGGER_CONFIG["pending"]
+    return build_pdf_job_from_draft(record=record, draft_content=draft_content, trigger_config=config)
+
+
+def build_pdf_job_from_draft(
+    record:         Any,
+    draft_content:  Dict[str, Any],
+    trigger_config: Dict[str, Any],
+) -> Dict[str, Any]:
+    """
+    Construye el envelope PDF usando draft_current.json (formato editor).
+
+    Diferencia con build_pdf_job():
+      - Los datos vienen de draft_content (formato editor, snake/camel mixto),
+        no de schema_output_v1.json (formato IA, camelCase puro).
+      - El template se lee de draft_content.pdfFormat.template si está definido.
+    """
+    _assert_relations(record)
+
+    record_id  = str(record.id)
+    version_id = str(record.active_version_id)
+
+    # Template: preferir la selección del usuario en el editor
+    pdf_format = draft_content.get("pdfFormat", {})
+    template   = pdf_format.get("template") or trigger_config["template"]
+
+    pdf_metadata = _build_pdf_metadata(record, trigger_config)
+    output_key   = trigger_config["output_key_tpl"].format(record_id=record_id)
+
+    payload = {
+        "record_id":        record_id,
+        "version_id":       version_id,
+        "template":         template,
+        "minio_output_key": output_key,
+        "minio_bucket":     trigger_config["minio_bucket"],
+        "version_label":    pdf_metadata["version_label"],
+        "options": {
+            "watermark": trigger_config["watermark"],
+            "paper":     trigger_config["paper"],
+        },
+        "data": {
+            "pdf_metadata":      pdf_metadata,
+            "general_info":      _map_general_info_from_draft(draft_content),
+            "participants":      _map_participants_from_draft(draft_content),
+            "scope":             _map_scope_from_draft(draft_content),
+            "agreements":        _map_agreements_from_draft(draft_content),
+            "requirements":      _map_requirements_from_draft(draft_content),
+            "upcoming_meetings": _map_upcoming_meetings_from_draft(draft_content),
+            "ai_tags":           [
+                {"name": t.get("name", ""), "description": t.get("description", "")}
+                for t in draft_content.get("aiTags", [])
+            ],
+            "input_info": {},
+            "metadata":   {},
+        },
+        "callback": {
+            "notify_redis_channel": f"channel:record:{record_id}:pdf_ready",
+            "pdf_url_field":        trigger_config["pdf_url_field"],
+            "status_on_success":    trigger_config.get("status_on_success"),
+            "status_on_fail":       "pdf_error",
+        },
+    }
+
+    return {
+        "job_id":  f"pdf-{uuid.uuid4()}",
+        "type":    "minute_pdf",
+        "queue":   "queue:pdf",
+        "attempt": 1,
+        "payload": payload,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Mapeos desde formato editor (draft_current.json)
+# Claves en formato del store Zustand (camelCase frontend → snake_case Jinja2)
+# ---------------------------------------------------------------------------
+
+def _map_general_info_from_draft(draft: Dict[str, Any]) -> Dict[str, Any]:
+    mi = draft.get("meetingInfo", {})
+    mt = draft.get("meetingTimes", {})
+    return {
+        "client":               mi.get("client", ""),
+        "project":              mi.get("project", ""),
+        "subject":              mi.get("subject", ""),
+        "meeting_date":         mi.get("meetingDate", ""),
+        "prepared_by":          mi.get("preparedBy", ""),
+        "location":             mi.get("location", ""),
+        "scheduled_start_time": mt.get("scheduledStart", ""),
+        "scheduled_end_time":   mt.get("scheduledEnd", ""),
+        "actual_start_time":    mt.get("actualStart", ""),
+        "actual_end_time":      mt.get("actualEnd", ""),
+    }
+
+
+def _map_participants_from_draft(draft: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Draft format: participants[].type = "invited" | "attendee" | "copy"
+    Template expects: invited[], attendees[], copy_recipients[]
+    """
+    all_p = draft.get("participants", [])
+
+    def norm(p: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "full_name": p.get("fullName", ""),
+            "initials":  p.get("initials", ""),
+            "role":      p.get("role", ""),
+        }
+
+    return {
+        "invited":         [norm(p) for p in all_p if p.get("type") == "invited"],
+        "attendees":       [norm(p) for p in all_p if p.get("type") == "attendee"],
+        "copy_recipients": [norm(p) for p in all_p if p.get("type") == "copy"],
+    }
+
+
+def _map_scope_from_draft(draft: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Draft format: scopeSections[].topicsList = [{ id, text }]
+    Template expects: sections[].content.topics_list = [str]
+    """
+    sections = []
+    for sec in draft.get("scopeSections", []):
+        topics_raw  = sec.get("topicsList", [])
+        topics_list = [
+            t.get("text", "") if isinstance(t, dict) else str(t)
+            for t in topics_raw
+        ]
+        sections.append({
+            "section_id":    sec.get("id", ""),
+            "section_title": sec.get("title", ""),
+            "section_type":  sec.get("type", ""),
+            "content": {
+                "summary":     sec.get("summary", ""),
+                "topics_list": topics_list,
+                "details":     sec.get("details", []),   # [{id, label, description}]
+            },
+        })
+    return {"sections": sections}
+
+
+def _map_agreements_from_draft(draft: Dict[str, Any]) -> Dict[str, Any]:
+    items = []
+    for item in draft.get("agreements", []):
+        items.append({
+            "subject":     item.get("subject", ""),
+            "body":        item.get("body", ""),
+            "responsible": item.get("responsible", ""),
+            "due_date":    item.get("dueDate", item.get("due_date", "")),
+            "status":      item.get("status", "pending"),
+        })
+    return {"items": items}
+
+
+def _map_requirements_from_draft(draft: Dict[str, Any]) -> Dict[str, Any]:
+    items = []
+    for item in draft.get("requirements", []):
+        items.append({
+            "entity":      item.get("entity", ""),
+            "body":        item.get("body", ""),
+            "responsible": item.get("responsible", ""),
+            "priority":    item.get("priority", "medium"),
+            "status":      item.get("status", "open"),
+        })
+    return {"items": items}
+
+
+def _map_upcoming_meetings_from_draft(draft: Dict[str, Any]) -> Dict[str, Any]:
+    items = []
+    for item in draft.get("upcomingMeetings", []):
+        items.append({
+            "scheduled_date": item.get("scheduledDate", ""),
+            "agenda":         item.get("agenda", ""),
+            "attendees":      item.get("attendees", []),
+        })
+    return {"items": items}

@@ -456,15 +456,25 @@ def get_minute_detail(db: Session, record_id: str) -> MinuteDetailResponse:
 
 # ─── save_minute_draft ────────────────────────────────────────────────────────
 
-def save_minute_draft(db: Session, record_id: str, content: dict) -> None:
+async def save_minute_draft(db: Session, record_id: str, content: dict) -> None:
     """
     Autosave del editor. Solo disponible en estado 'pending'.
     El content recibido es el payload en formato editor (getExportPayload del store).
     Se persiste en minuetaitor-draft/{record_id}/draft_current.json.
+    Tras el guardado, encola un job PDF (best-effort) para mantener el PDF actualizado.
     """
     from models.record_statuses import RecordStatus
+    from sqlalchemy.orm import joinedload
 
-    record = db.query(Record).filter(Record.id == record_id, Record.deleted_at.is_(None)).first()
+    record = (
+        db.query(Record)
+        .options(
+            joinedload(Record.project).joinedload("client"),
+            joinedload(Record.created_by_user),
+        )
+        .filter(Record.id == record_id, Record.deleted_at.is_(None))
+        .first()
+    )
     if record is None:
         raise HTTPException(status_code=404,
             detail={"error": "record_not_found", "message": f"Minuta '{record_id}' no encontrada."})
@@ -489,6 +499,15 @@ def save_minute_draft(db: Session, record_id: str, content: dict) -> None:
         logger.error(f"[minutes] Autosave MinIO error | record={record_id}: {e}")
         raise HTTPException(status_code=500,
             detail={"error": "minio_write_error", "message": "Error al guardar el borrador."})
+
+    # Encolar PDF de borrador — best-effort, no bloquea el autosave si falla
+    try:
+        from services.pdf_job_builder import build_pdf_job_on_save
+        envelope = build_pdf_job_on_save(record=record, draft_content=content)
+        await _enqueue_job(QUEUE_PDF, envelope)
+        logger.debug(f"[minutes] PDF borrador encolado tras save | record={record_id}")
+    except Exception as e:
+        logger.warning(f"[minutes] No se pudo encolar PDF en save | record={record_id}: {e}")
 
 
 # ─── transition_minute ────────────────────────────────────────────────────────
@@ -610,16 +629,8 @@ async def transition_minute(
         record.active_version_id  = new_version_id
         record.latest_version_num = new_version_num
 
-        # Encolar PDF borrador con watermark
-        try:
-            await _enqueue_job(QUEUE_PDF, {
-                "type":        "generate_draft_pdf",
-                "record_id":   record_id,
-                "version_num": new_version_num,
-                "watermark":   "BORRADOR",
-            })
-        except Exception as e:
-            logger.warning(f"[minutes] No se pudo encolar PDF borrador | record={record_id}: {e}")
+        # PDF borrador ya generado en el último save (draft_current.pdf en MinIO).
+        # No se encola job adicional aquí para evitar duplicados.
 
     # ── preview → completed ───────────────────────────────────────────────────
     elif current_status_code == RECORD_STATUS_PREVIEW and target_status == RECORD_STATUS_COMPLETED:
@@ -627,16 +638,8 @@ async def transition_minute(
         if active_version:
             active_version.status_id = final_status_id
 
-        # Encolar PDF final sin watermark
-        try:
-            await _enqueue_job(QUEUE_PDF, {
-                "type":        "generate_final_pdf",
-                "record_id":   record_id,
-                "version_num": int(record.latest_version_num),
-                "watermark":   None,
-            })
-        except Exception as e:
-            logger.warning(f"[minutes] No se pudo encolar PDF final | record={record_id}: {e}")
+        # El listener SQLAlchemy en pdf_dispatch.py detecta el cambio a "completed"
+        # y encola el PDF final (sin watermark) con el payload completo correcto.
 
     # ── preview → pending (devolver a edición) ────────────────────────────────
     # Solo cambia el estado. El draft_current.json sigue intacto para continuar editando.

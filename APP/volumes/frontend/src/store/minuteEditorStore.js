@@ -360,6 +360,7 @@ export const mapIAResponseToEditorState = (iaResponse) => {
 
   // --- Defaults PDF format ---
   const pdfFormat = {
+    template: "opc_01",
     coverPage: {
       enabled:     false,
       projectName: inputInfo?.projectInfo?.project ?? "",
@@ -451,6 +452,7 @@ export const mapDraftToEditorState = (draft) => {
   }));
 
   const pdfFormat = {
+    template: draft.pdfFormat?.template ?? "opc_01",
     coverPage: {
       enabled:     draft.pdfFormat?.coverPage?.enabled     ?? false,
       projectName: draft.pdfFormat?.coverPage?.projectName ?? "",
@@ -527,6 +529,7 @@ const EMPTY_STATE = {
   timeline: [],
 
   pdfFormat: {
+    template:       "opc_01",
     coverPage:      { enabled: false, projectName: "", minuteTitle: "", preparedBy: "", footerNote: "" },
     summarySheet:   { enabled: false },
     versionControl: { enabled: false },
@@ -1005,6 +1008,12 @@ const useMinuteEditorStore = create((set, get) => ({
   // ----------------------------------------------------------
   // FORMATO PDF
   // ----------------------------------------------------------
+
+  setPdfTemplate: (template) =>
+    set((s) => ({
+      pdfFormat: { ...s.pdfFormat, template },
+      isDirty: true,
+    })),
 
   togglePdfSheet: (sheet) =>
     set((s) => ({

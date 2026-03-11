@@ -39,6 +39,7 @@ import ModalManager from "@components/ui/modal";
 import ActionButton from "@/components/ui/button/ActionButton";
 import { saveMinuteDraft, transitionMinute } from "@/services/minutesService";
 import { toastSuccess, toastError } from "@/components/common/toast/toastHelpers";
+import { openPdfViewer } from "@/components/ui/pdf/PdfViewerModal";
 
 import logger from "@/utils/logger";
 const log = logger.scope("minute-editor-header");
@@ -483,7 +484,6 @@ const MinuteEditorHeader = ({ recordMeta, isReadOnly, onTransitionSuccess }) => 
 
   const recordId = recordMeta?.id;
   const status   = recordMeta?.status;
-  const pdfUrl   = recordMeta?.pdfUrl ?? null;
   const filename = buildFilename(meetingInfo.subject, meetingInfo?.meetingDate);
 
   const clientName = (meetingInfo.client  ?? "").trim() || "Cliente no definido";
@@ -618,28 +618,15 @@ const MinuteEditorHeader = ({ recordMeta, isReadOnly, onTransitionSuccess }) => 
     });
   };
 
-  // ── Descargar PDF ───────────────────────────────────────────────────────────
+  // ── Ver PDF ─────────────────────────────────────────────────────────────────
   const handleDownloadPDF = () => {
-    if (!pdfUrl) {
-      ModalManager.custom({
-        title: "PDF no disponible",
-        size: "small",
-        showFooter: true,
-        content: (
-          <div className="p-1">
-            <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-gray-50 dark:bg-gray-900/50 border border-gray-200/50 dark:border-gray-700/50 transition-theme">
-              <Icon name="fileLines" className="text-gray-400 shrink-0 mt-0.5" />
-              <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed transition-theme">
-                El PDF aún no ha sido generado. Estará disponible una vez que el worker PDF complete el proceso.
-              </p>
-            </div>
-          </div>
-        ),
-        buttons: [{ text: "Entendido", variant: "primary", onClick: () => ModalManager.hide?.() }],
-      });
-      return;
-    }
-    showDownloadModal(pdfUrl, filename);
+    const pdfType = status === "completed" ? "published" : "draft";
+    openPdfViewer({
+      recordId,
+      pdfType,
+      filename,
+      title: `PDF — ${meetingInfo.subject || "Minuta"}`,
+    });
   };
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -733,20 +720,17 @@ const MinuteEditorHeader = ({ recordMeta, isReadOnly, onTransitionSuccess }) => 
             />
           )}
 
-          {/* Descargar PDF */}
+          {/* Ver / Descargar PDF */}
           <button
             type="button"
             onClick={handleDownloadPDF}
-            title={!pdfUrl ? "PDF pendiente de generación" : "Descargar PDF"}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg border text-sm font-semibold transition-theme
-              ${!pdfUrl
-                ? "bg-gray-100 dark:bg-gray-700/60 border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
-                : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 shadow-sm"
-              }`}
+            title="Ver PDF de la minuta"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border text-sm font-semibold transition-theme
+              bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200
+              hover:bg-gray-50 dark:hover:bg-gray-700 shadow-sm"
           >
-            <Icon name="download" className="text-xs" />
+            <Icon name="fileLines" className="text-xs" />
             PDF
-            {!pdfUrl && <Icon name="lock" className="text-[9px] opacity-40" />}
           </button>
 
           {/* Menú "..." — acciones críticas (Cancelar minuta) */}

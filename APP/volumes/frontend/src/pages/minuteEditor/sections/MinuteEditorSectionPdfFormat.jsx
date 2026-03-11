@@ -1,51 +1,39 @@
 /**
  * pages/minuteEditor/sections/MinuteEditorSectionPdfFormat.jsx
- * Tab "Formato PDF": configura las hojas adicionales que se incluirán en el PDF.
+ * Tab "Formato PDF": selección de template real y configuración de hojas adicionales.
  *
- * Cambios:
- * - DDL con 5 templates de minuta, descripción dinámica y botón "Vista Previa"
- *   que abre un modal con un PDF simulado (mockup).
+ * Los IDs de template deben coincidir con TEMPLATE_MAP en pdf-worker/handlers/minute_pdf.py.
+ * La selección se persiste en pdfFormat.template del store y viaja con el autosave.
  */
 
-import React, { useState } from 'react';
+import React from 'react';
 import Icon from '@components/ui/icon/iconManager';
 import ModalManager from '@components/ui/modal';
 import useMinuteEditorStore from '@/store/minuteEditorStore';
 
 // ─────────────────────────────────────────────────────────────
-// Templates de minuta (mockup)
+// Templates reales del pdf-worker
+// IDs = claves en TEMPLATE_MAP de handlers/minute_pdf.py
 // ─────────────────────────────────────────────────────────────
 
 const PDF_TEMPLATES = [
   {
-    id:          'standard',
-    name:        'Estándar Corporativo',
-    description: 'Diseño limpio con encabezado de empresa, secciones bien definidas y paleta de colores neutros. Ideal para reuniones internas de seguimiento.',
+    id:          'opc_01',
+    name:        'Corporativa Completa',
+    description: 'Documento formal multipágina con portada, carátula de ficha técnica, secciones de contenido y página de firmas opcionales. Ideal para reuniones de proyecto con alta formalidad.',
     thumb:       'layout',
   },
   {
-    id:          'executive',
-    name:        'Resumen Ejecutivo',
-    description: 'Formato condensado de 1–2 páginas. Resalta acuerdos y próximos pasos. Pensado para distribución a gerencia o dirección.',
+    id:          'opc_02',
+    name:        'Ejecutiva Moderna',
+    description: 'Diseño moderno y compacto con encabezado degradado azul. Grid de participantes en 3 columnas y tarjetas de sección con badges de tipo. Sin portada — directo al contenido.',
     thumb:       'briefcase',
   },
   {
-    id:          'detailed',
-    name:        'Detallado con Actas',
-    description: 'Incluye transcripción resumida por sección, tabla de acuerdos extendida y control de firmas. Para proyectos con requerimientos formales de documentación.',
-    thumb:       'fileLines',
-  },
-  {
-    id:          'minimalist',
-    name:        'Minimalista',
-    description: 'Sin colores de relleno, tipografía sobria. Solo texto y estructura. Compatible con impresión en blanco y negro.',
-    thumb:       'minus',
-  },
-  {
-    id:          'branded',
-    name:        'Con Marca / Branding',
-    description: 'Espacios reservados para logotipo del cliente y de la empresa. Colores primarios configurables. Para entrega formal a clientes.',
-    thumb:       'star',
+    id:          'opc_04',
+    name:        'Gobernanza / Comité',
+    description: 'Acta de comité con estructura formal: portada con código COM-YYYYMMDD, resumen de resoluciones numeradas y grilla de firmas para aprobación institucional.',
+    thumb:       'building',
   },
 ];
 
@@ -191,7 +179,7 @@ const TemplatePreviewContent = ({ template, meetingInfo }) => (
 // Selector de template
 // ─────────────────────────────────────────────────────────────
 
-const TemplateSelector = ({ selectedId, onChange }) => {
+const TemplateSelector = ({ selectedId, onChange, isReadOnly }) => {
   const { meetingInfo } = useMinuteEditorStore();
   const selected = PDF_TEMPLATES.find(t => t.id === selectedId) ?? PDF_TEMPLATES[0];
 
@@ -214,8 +202,9 @@ const TemplateSelector = ({ selectedId, onChange }) => {
         </label>
         <select
           value={selectedId}
-          onChange={e => onChange(e.target.value)}
-          className="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm text-gray-900 dark:text-gray-100 transition-theme focus:outline-none focus:ring-2 focus:ring-primary-500/40"
+          onChange={e => !isReadOnly && onChange(e.target.value)}
+          disabled={isReadOnly}
+          className="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm text-gray-900 dark:text-gray-100 transition-theme focus:outline-none focus:ring-2 focus:ring-primary-500/40 disabled:opacity-60 disabled:cursor-not-allowed"
         >
           {PDF_TEMPLATES.map(t => (
             <option key={t.id} value={t.id}>{t.name}</option>
@@ -511,8 +500,8 @@ const PDF_SHEETS = [
 // ─────────────────────────────────────────────────────────────
 
 const MinuteEditorSectionPdfFormat = ({ isReadOnly = false }) => {
-  const { pdfFormat, togglePdfSheet } = useMinuteEditorStore();
-  const [selectedTemplate, setSelectedTemplate] = useState('standard');
+  const { pdfFormat, togglePdfSheet, setPdfTemplate } = useMinuteEditorStore();
+  const selectedTemplate = pdfFormat.template ?? 'opc_01';
   const enabledCount = PDF_SHEETS.filter(s => pdfFormat[s.key]?.enabled).length;
 
   return (
@@ -540,7 +529,7 @@ const MinuteEditorSectionPdfFormat = ({ isReadOnly = false }) => {
 
         {/* Selector de template */}
         <div className="mt-5 border-t border-gray-100 dark:border-gray-700/50 pt-5 transition-theme">
-          <TemplateSelector selectedId={selectedTemplate} onChange={isReadOnly ? undefined : setSelectedTemplate} />
+          <TemplateSelector selectedId={selectedTemplate} onChange={setPdfTemplate} isReadOnly={isReadOnly} />
         </div>
       </div>
 
