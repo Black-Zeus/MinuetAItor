@@ -72,7 +72,7 @@ const buildComparableState = (s) => ({
   actualEnd:      s.meetingTimes?.actualEnd      ?? "",
 
   // Participantes
-  participants:    (s.participants ?? []).map((p) => `${p.fullName}|${p.type}`),
+  participants:    (s.participants ?? []).map((p) => `${p.fullName}|${p.type}|${p.email ?? ""}|${p.participantId ?? ""}`),
   agreements:      s.agreements ?? [],
   requirements:    s.requirements ?? [],
   userTags:        (s.userTags ?? []).map((t) => t.name),
@@ -369,6 +369,9 @@ export const mapIAResponseToEditorState = (iaResponse) => {
       type,
       role:     "",
       email:    "",
+      participantId: null,
+      participantEmailId: null,
+      participantEmails: [],
     }));
 
   const invitedNames = new Set((participants?.invited ?? []).map((p) => p.fullName));
@@ -383,6 +386,9 @@ export const mapIAResponseToEditorState = (iaResponse) => {
         type:     "attendee",
         role:     "",
         email:    "",
+        participantId: null,
+        participantEmailId: null,
+        participantEmails: [],
       })),
     ...mapParticipantList(participants?.copyRecipients ?? [], "copy"),
   ];
@@ -543,7 +549,14 @@ export const mapDraftToEditorState = (draft) => {
     actualEnd:      draft.meetingTimes?.actualEnd      ?? "",
   };
 
-  const participants = reId(draft.participants);
+  const participants = reId(draft.participants).map((item) => ({
+    ...item,
+    participantId: item.participantId ?? null,
+    participantEmailId: item.participantEmailId ?? null,
+    participantEmails: Array.isArray(item.participantEmails) ? item.participantEmails : [],
+    organization: item.organization ?? "",
+    title: item.title ?? "",
+  }));
 
   const scopeSections = (draft.scopeSections ?? []).map((sec) => ({
     ...sec,
@@ -1133,10 +1146,28 @@ const useMinuteEditorStore = create((set, get) => ({
 
   getExportPayload: () => {
     const s = get();
+    const exportParticipants = (s.participants ?? []).map((participant) => ({
+      id: participant.id,
+      fullName: participant.fullName,
+      initials: participant.initials ?? "",
+      type: participant.type,
+      role: participant.role ?? "",
+      email: participant.email ?? "",
+      participantEmails: Array.isArray(participant.participantEmails)
+        ? participant.participantEmails.map((item) => ({
+            email: item.email,
+            isPrimary: Boolean(item.isPrimary ?? item.is_primary),
+            isActive: item.isActive ?? item.is_active ?? true,
+          }))
+        : [],
+      organization: participant.organization ?? "",
+      title: participant.title ?? "",
+    }));
+
     return {
       meetingInfo:      s.meetingInfo,
       meetingTimes:     s.meetingTimes,
-      participants:     s.participants,
+      participants:     exportParticipants,
       scopeSections:    s.scopeSections,
       agreements:       s.agreements,
       requirements:     s.requirements,
