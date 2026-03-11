@@ -1,12 +1,13 @@
 /**
  * management.routes.jsx
- * Rutas del módulo de gestión: clientes, proyectos, equipos
+ * Rutas del módulo de gestión: clientes, proyectos, equipos, participantes
  */
 import { lazy } from "react";
 
 const ClientPage  = lazy(() => import("@/pages/clientes/Client"));
 const ProjectPage = lazy(() => import("@/pages/project/Project"));
 const TeamsPage   = lazy(() => import("@/pages/teams/Teams"));
+const ParticipantsPage = lazy(() => import("@/pages/participants/Participants"));
 
 export const managementRoutes = [
   {
@@ -27,6 +28,13 @@ export const managementRoutes = [
     path: "/teams",
     component: TeamsPage,
     title: "Equipos",
+    requiresAuth: true,
+    roles: [],
+  },
+  {
+    path: "/participants",
+    component: ParticipantsPage,
+    title: "Participantes",
     requiresAuth: true,
     roles: [],
   },

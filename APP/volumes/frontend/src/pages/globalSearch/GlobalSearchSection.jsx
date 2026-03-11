@@ -20,6 +20,7 @@ const SEARCH_FIELDS_NOTE = {
   minutes:   'Busca en: título, resumen, cliente, proyecto, participantes y estado.',
   tags:      'Busca en: nombre de etiqueta, categoría y descripción.',
   teams:     'Busca en: nombre, cargo, email, departamento, rol de sistema y estado.',
+  participants: 'Busca en: nombre, organización, cargo, correos y estado.',
   profiles:  'Busca en: nombre del perfil, categoría y descripción.',
 };
 
@@ -215,6 +216,14 @@ const COLUMNS = {
     { key: 'estado',      label: 'Estado',      align: 'center', width: '12%' },
     { key: 'accion',      label: 'Acción',      align: 'right',  width: '14%' },
   ],
+  participants: [
+    { key: 'nombre',  label: 'Nombre',       align: 'left',   width: '24%' },
+    { key: 'email',   label: 'Email',        align: 'left',   width: '28%' },
+    { key: 'cargo',   label: 'Cargo',        align: 'left',   width: '18%' },
+    { key: 'empresa', label: 'Organización', align: 'left',   width: '18%' },
+    { key: 'estado',  label: 'Estado',       align: 'center', width: '8%'  },
+    { key: 'accion',  label: 'Acción',       align: 'right',  width: '14%' },
+  ],
   default: [
     { key: 'nombre',  label: 'Nombre',  align: 'left',   width: '35%' },
     { key: 'detalle', label: 'Detalle', align: 'left',   width: '35%' },
@@ -237,7 +246,8 @@ const ResultRow = ({ item, moduleId, onNavigate }) => {
   const isClientes  = moduleId === 'clientes';
   const isProfiles  = moduleId === 'profiles';
   const isTeams     = moduleId === 'teams';
-  const isDefault   = !isMinutes && !isTags && !isProyectos && !isClientes && !isProfiles && !isTeams;
+  const isParticipants = moduleId === 'participants';
+  const isDefault   = !isMinutes && !isTags && !isProyectos && !isClientes && !isProfiles && !isTeams && !isParticipants;
 
   const handleAction = (e) => {
     e.stopPropagation();
@@ -290,6 +300,12 @@ const ResultRow = ({ item, moduleId, onNavigate }) => {
       {isProfiles && <td className="px-4 py-3"><span className="text-sm text-gray-500 dark:text-gray-400">{item.categoria || '-'}</span></td>}
       {isProfiles && <td className="px-4 py-3"><span className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">{item.description || '-'}</span></td>}
       {isProfiles && <td className="px-4 py-3 text-center"><GenericStatusBadge status={item.status} /></td>}
+
+      {/* PARTICIPANTES: email · cargo · organización · estado */}
+      {isParticipants && <td className="px-4 py-3"><span className="text-sm text-gray-500 dark:text-gray-400 truncate block">{item.email || '-'}</span></td>}
+      {isParticipants && <td className="px-4 py-3"><span className="text-sm text-gray-500 dark:text-gray-400 truncate block">{item.title || '-'}</span></td>}
+      {isParticipants && <td className="px-4 py-3"><span className="text-sm text-gray-500 dark:text-gray-400 truncate block">{item.organization || '-'}</span></td>}
+      {isParticipants && <td className="px-4 py-3 text-center"><GenericStatusBadge status={item.status} /></td>}
 
       {/* DEFAULT */}
       {isDefault && <td className="px-4 py-3"><span className="text-sm text-gray-500 dark:text-gray-400">{item.sublabel}</span></td>}

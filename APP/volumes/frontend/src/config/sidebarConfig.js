@@ -51,6 +51,14 @@ export const SIDEBAR_MODULES = [
     section: 'management',
     order: 5
   },
+  {
+    id: 'participants',
+    name: 'Participantes',
+    icon: 'FaUsers',
+    path: '/participants',
+    section: 'management',
+    order: 6
+  },
 
   // ====================================
   // INTELIGENCIA - Análisis y Datos
@@ -61,7 +69,7 @@ export const SIDEBAR_MODULES = [
     icon: 'FaChartLine',
     path: '/analytics/metrics',
     section: 'intelligence',
-    order: 6
+    order: 7
   },
 
   /**
@@ -73,7 +81,7 @@ export const SIDEBAR_MODULES = [
     name: 'Auditoría',
     icon: 'FaClipboardCheck',
     section: 'intelligence',
-    order: 7,
+    order: 8,
     children: [
       {
         id: 'audit-overview',
@@ -121,7 +129,7 @@ export const SIDEBAR_MODULES = [
     name: 'Reportes',
     icon: 'FaRegFile',
     section: 'intelligence',
-    order: 8,
+    order: 9,
     children: [
       // Reportes típicos (operacionales / gestión)
       {
@@ -171,7 +179,7 @@ export const SIDEBAR_MODULES = [
     icon: 'FaTags',
     path: '/settings/tags',
     section: 'config',
-    order: 9
+    order: 10
   },
   {
     id: 'profiles',
@@ -179,7 +187,7 @@ export const SIDEBAR_MODULES = [
     icon: 'FaTags',
     path: '/settings/profiles',
     section: 'config',
-    order: 10
+    order: 11
   },
   {
     id: 'system',
@@ -187,7 +195,7 @@ export const SIDEBAR_MODULES = [
     icon: 'FaGears',
     path: '/settings/system',
     section: 'config',
-    order: 11,
+    order: 12,
     requiresAdmin: true
   },
 
