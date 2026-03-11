@@ -357,6 +357,9 @@ def list_endpoint(
     status_filter: str | None  = None,
     client_id:     str | None  = None,
     project_id:    str | None  = None,
+    mine_as_preparer: bool     = False,
+    mine_as_participant: bool  = False,
+    exclude_mine_as_preparer: bool = False,
     db:            Session     = Depends(get_db),
     session:       UserSession = Depends(current_user_dep),
 ):
@@ -366,6 +369,9 @@ def list_endpoint(
         status_filter=status_filter,
         client_id=client_id,
         project_id=project_id,
+        prepared_by_user_id=session.user_id if mine_as_preparer else None,
+        participant_user_id=session.user_id if mine_as_participant else None,
+        exclude_prepared_by_user_id=session.user_id if exclude_mine_as_preparer else None,
     )
 
 
