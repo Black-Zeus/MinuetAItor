@@ -20,13 +20,22 @@ from core.exceptions import ForbiddenException
 from db.redis import get_redis
 from schemas.auth import UserSession
 from schemas.sendmail import (
+    MailTemplateListResponse,
+    MailTemplatePreviewRequest,
+    MailTemplatePreviewResponse,
     QueueClearResponse,
     QueueStatusResponse,
     SendMailRequest,
     SendMailResponse,
 )
 from services.auth_service import get_current_user
-from services.sendmail_service import clear_queue, enqueue_email, get_queue_status
+from services.sendmail_service import (
+    clear_queue,
+    enqueue_email,
+    get_available_templates,
+    get_queue_status,
+    preview_template,
+)
 
 router = APIRouter(prefix="/sendmail", tags=["Sendmail (Dev)"])
 bearer = HTTPBearer()
@@ -66,6 +75,35 @@ async def send_email_endpoint(
     _guard_dev_only()
     redis = get_redis()
     return await enqueue_email(body, redis)
+
+
+@router.get(
+    "/templates",
+    response_model=MailTemplateListResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Listar templates disponibles",
+    description="Lista los templates de correo registrados para preview o envio.",
+)
+async def list_templates_endpoint(
+    session: UserSession = Depends(current_user_dep),
+):
+    _guard_dev_only()
+    return get_available_templates()
+
+
+@router.post(
+    "/preview",
+    response_model=MailTemplatePreviewResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Previsualizar template",
+    description="Renderiza un template de correo sin encolarlo.",
+)
+async def preview_template_endpoint(
+    body: MailTemplatePreviewRequest,
+    session: UserSession = Depends(current_user_dep),
+):
+    _guard_dev_only()
+    return preview_template(body)
 
 
 @router.get(
