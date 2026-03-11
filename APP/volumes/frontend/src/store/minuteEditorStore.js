@@ -805,6 +805,9 @@ const useMinuteEditorStore = create((set, get) => ({
   updateMeetingInfo: (field, value) =>
     set((s) => ({ meetingInfo: { ...s.meetingInfo, [field]: value }, isDirty: true })),
 
+  setAdditionalNote: (value) =>
+    set({ additionalNote: value, isDirty: true }),
+
   // ----------------------------------------------------------
   // HORARIOS
   // ----------------------------------------------------------

@@ -72,6 +72,7 @@ async def enqueue_email(payload: SendMailRequest, redis: Redis) -> SendMailRespo
             "reply_to": payload.reply_to,
             "template_id": payload.template_id,
             "inline_assets": inline_assets,
+            "attachments": [attachment.model_dump(by_alias=False) for attachment in (payload.attachments or [])],
         },
     }
 
@@ -113,6 +114,7 @@ async def get_queue_status(redis: Redis) -> QueueStatusResponse:
                 email_type = payload.get("email_type", "html"),
                 template_id= payload.get("template_id"),
                 inline_assets=len(payload.get("inline_assets") or []),
+                attachments=len(payload.get("attachments") or []),
             ))
         except json.JSONDecodeError:
             jobs.append(QueueJobItem(
@@ -123,6 +125,7 @@ async def get_queue_status(redis: Redis) -> QueueStatusResponse:
                 email_type = "unknown",
                 template_id= None,
                 inline_assets=0,
+                attachments=0,
             ))
 
     return QueueStatusResponse(

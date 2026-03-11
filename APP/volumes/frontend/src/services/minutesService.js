@@ -170,11 +170,13 @@ export const getMinuteAttachmentBlob = async (recordId, sha256) => {
  * @param {string}      recordId
  * @param {string}      targetStatus
  * @param {string|null} commitMessage  - Obligatorio en algunas transiciones (ej. reprocesar)
+ * @param {Object|null} reviewEmail    - Opciones de envío para pending → preview
  * @returns {Promise<{ recordId, status, versionNum, versionId, message }>}
  */
-export const transitionMinute = async (recordId, targetStatus, commitMessage = null) => {
+export const transitionMinute = async (recordId, targetStatus, commitMessage = null, reviewEmail = null) => {
   const body = { targetStatus };
   if (commitMessage) body.commitMessage = commitMessage;
+  if (reviewEmail) body.reviewEmail = reviewEmail;
 
   const res = await api.post(`${BASE}/${recordId}/transition`, body);
   return unwrap(res);

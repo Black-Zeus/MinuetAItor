@@ -91,8 +91,28 @@
                 <div style="font-size:13px;line-height:20px;color:#c9d7f2;margin-top:10px;">
                   Se ha procesado y generado la minuta correspondiente a la reunión
                   <span style="color:#f1f6ff;font-weight:700;">{{MEETING_TITLE}}</span>.
-                  Se adjunta el documento para revisión.
+                  El documento queda disponible para su revisión.
                 </div>
+
+                {% if HAS_CUSTOM_MESSAGE %}
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:14px;">
+                  <tr>
+                    <td style="
+                      border:1px solid rgba(63,127,255,0.28);
+                      background:rgba(31,91,255,0.10);
+                      border-radius:14px;
+                      padding:14px 14px;
+                    ">
+                      <div style="font-size:12px;line-height:16px;color:#9fb2d6;margin-bottom:8px;">
+                        MENSAJE ADICIONAL
+                      </div>
+                      <div style="font-size:13px;line-height:20px;color:#e7eefc;white-space:pre-line;">
+                        {{CUSTOM_MESSAGE}}
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+                {% endif %}
 
                 <!-- Resumen de reunión -->
                 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:14px;">

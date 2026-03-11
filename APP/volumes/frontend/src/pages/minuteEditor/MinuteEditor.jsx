@@ -256,7 +256,14 @@ const MinuteEditor = () => {
         {activeTab === "next"         && <MinuteEditorSectionNextMeetings isReadOnly={isReadOnly} />}
         {activeTab === "timeline"     && <MinuteEditorSectionTimeline     recordId={recordId} recordStatus={recordMeta?.status} />}
         {activeTab === "pdfformat"    && <MinuteEditorSectionPdfFormat    recordId={recordId} isReadOnly={isReadOnly} />}
-        {activeTab === "preview"      && <MinuteEditorSectionPreview      isReadOnly={isReadOnly} />}
+        {activeTab === "preview"      && (
+          <MinuteEditorSectionPreview
+            recordId={recordId}
+            recordStatus={recordMeta?.status}
+            isReadOnly={isReadOnly}
+            onTransitionSuccess={handleTransitionSuccess}
+          />
+        )}
         {activeTab === "metadata"     && <MinuteEditorSectionMetadata     recordId={recordId} isReadOnly={isReadOnly} />}
       </main>
     </div>

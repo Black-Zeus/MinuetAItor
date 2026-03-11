@@ -26,6 +26,20 @@ class InlineAsset(BaseModel):
         return value
 
 
+class EmailAttachment(BaseModel):
+    filename: str
+    content_base64: str = Field(serialization_alias="contentBase64")
+    mime_type: str | None = Field(default=None, serialization_alias="mimeType")
+
+    @field_validator("filename", "content_base64")
+    @classmethod
+    def validate_required(cls, v: str) -> str:
+        value = v.strip()
+        if not value:
+            raise ValueError("El valor no puede estar vacío")
+        return value
+
+
 class SendMailRequest(BaseModel):
     to:         list[EmailStr]
     cc:         Optional[list[EmailStr]] = None
@@ -37,6 +51,7 @@ class SendMailRequest(BaseModel):
     template_id: str | None = None
     template_context: dict[str, Any] | None = None
     inline_assets: list[InlineAsset] | None = None
+    attachments: list[EmailAttachment] | None = None
 
     @field_validator("email_type")
     @classmethod
@@ -114,6 +129,7 @@ class QueueJobItem(BaseModel):
     email_type: str
     template_id: str | None = None
     inline_assets: int = Field(default=0, serialization_alias="inlineAssets")
+    attachments: int = 0
 
 
 class QueueStatusResponse(BaseModel):
