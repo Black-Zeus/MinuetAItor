@@ -12,6 +12,7 @@ const unwrap = (res) => res?.data?.result ?? res?.data;
  * @param {Object} params
  * @param {number}      params.skip
  * @param {number}      params.limit
+ * @param {string|null} params.q
  * @param {string|null} params.status_filter
  * @param {string|null} params.client_id
  * @param {string|null} params.project_id
@@ -20,11 +21,13 @@ const unwrap = (res) => res?.data?.result ?? res?.data;
 export const listMinutes = async ({
   skip = 0,
   limit = 12,
+  q = null,
   status_filter = null,
   client_id = null,
   project_id = null,
 } = {}) => {
   const params = { skip, limit };
+  if (q)             params.q             = q;
   if (status_filter) params.status_filter = status_filter;
   if (client_id)     params.client_id     = client_id;
   if (project_id)    params.project_id    = project_id;

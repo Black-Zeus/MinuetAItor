@@ -33,6 +33,10 @@ from schemas.minutes import (
     MinuteTransitionResponse,
 )
 from models.ai_profiles import AiProfile
+from services.minute_participants_service import (
+    build_version_participants_from_content,
+    persist_record_version_participants,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -789,6 +793,11 @@ async def transition_minute(
         )
         db.add(new_version)
         db.flush()
+        persist_record_version_participants(
+            db=db,
+            record_version_id=new_version_id,
+            participants=build_version_participants_from_content(content),
+        )
         record.active_version_id  = new_version_id
         record.latest_version_num = new_version_num
 
@@ -823,6 +832,11 @@ async def transition_minute(
         )
         db.add(new_version)
         db.flush()
+        persist_record_version_participants(
+            db=db,
+            record_version_id=new_version_id,
+            participants=build_version_participants_from_content(draft_content),
+        )
         record.active_version_id  = new_version_id
         record.latest_version_num = new_version_num
 
@@ -869,15 +883,41 @@ def list_minutes(
     db:            Session,
     skip:          int = 0,
     limit:         int = 12,
+    q:             Optional[str] = None,
     status_filter: Optional[str] = None,
     client_id:     Optional[str] = None,
     project_id:    Optional[str] = None,
 ):
     from schemas.minutes         import MinuteListResponse, MinuteListItem, MinuteTagItem
+    from models.clients          import Client
+    from models.projects         import Project
     from models.record_statuses  import RecordStatus
-    from models.tags             import Tag
+    from models.record_version_participant import RecordVersionParticipant
 
     query = db.query(Record).filter(Record.deleted_at.is_(None))
+
+    if q:
+        term = f"%{q.strip()}%"
+        query = (
+            query
+            .outerjoin(Client, Client.id == Record.client_id)
+            .outerjoin(Project, Project.id == Record.project_id)
+            .outerjoin(
+                RecordVersionParticipant,
+                RecordVersionParticipant.record_version_id == Record.active_version_id,
+            )
+            .filter(or_(
+                Record.title.ilike(term),
+                Record.intro_snippet.ilike(term),
+                Client.name.ilike(term),
+                Project.name.ilike(term),
+                RecordVersionParticipant.display_name.ilike(term),
+                RecordVersionParticipant.organization.ilike(term),
+                RecordVersionParticipant.title.ilike(term),
+                RecordVersionParticipant.email.ilike(term),
+            ))
+            .distinct()
+        )
 
     if status_filter:
         status_obj = db.query(RecordStatus).filter_by(code=status_filter).first()
@@ -900,9 +940,14 @@ def list_minutes(
         client_name  = getattr(getattr(rec, "client",  None), "name", None)
         project_name = getattr(getattr(rec, "project", None), "name", None)
 
-        participant_names = []
-        if hasattr(rec, "participants"):
-            participant_names = [p.full_name for p in rec.participants if p.full_name]
+        participant_rows = (
+            db.query(RecordVersionParticipant)
+            .filter(RecordVersionParticipant.record_version_id == rec.active_version_id)
+            .order_by(RecordVersionParticipant.display_name.asc())
+            .all()
+            if rec.active_version_id else []
+        )
+        participant_names = [p.display_name for p in participant_rows if p.display_name]
 
         tag_items = []
         if hasattr(rec, "tags"):

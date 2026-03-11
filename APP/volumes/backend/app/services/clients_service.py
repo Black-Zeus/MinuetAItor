@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Optional
 
 from fastapi import HTTPException
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from models.clients import Client
@@ -109,6 +109,23 @@ def list_clients(db: Session, filters: ClientFilterRequest) -> dict:
         q = q.filter(Client.is_active == bool(filters.is_active))
     if filters.is_confidential is not None:
         q = q.filter(Client.is_confidential == bool(filters.is_confidential))
+    if filters.search:
+        like = f"%{filters.search.strip()}%"
+        q = q.filter(or_(
+            Client.name.ilike(like),
+            Client.legal_name.ilike(like),
+            Client.description.ilike(like),
+            Client.industry.ilike(like),
+            Client.email.ilike(like),
+            Client.phone.ilike(like),
+            Client.contact_name.ilike(like),
+            Client.contact_email.ilike(like),
+            Client.contact_phone.ilike(like),
+            Client.contact_position.ilike(like),
+            Client.contact_department.ilike(like),
+            Client.notes.ilike(like),
+            Client.tags.ilike(like),
+        ))
     if filters.name:
         q = q.filter(Client.name.ilike(f"%{filters.name}%"))
     if filters.industry:

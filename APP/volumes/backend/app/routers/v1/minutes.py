@@ -352,6 +352,7 @@ def versions_endpoint(
 def list_endpoint(
     skip:          int         = 0,
     limit:         int         = 50,
+    q:             str | None  = None,
     status_filter: str | None  = None,
     client_id:     str | None  = None,
     project_id:    str | None  = None,
@@ -360,6 +361,7 @@ def list_endpoint(
 ):
     return list_minutes(
         db=db, skip=skip, limit=limit,
+        q=q,
         status_filter=status_filter,
         client_id=client_id,
         project_id=project_id,
