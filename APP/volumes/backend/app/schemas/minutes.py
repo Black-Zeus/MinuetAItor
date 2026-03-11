@@ -177,8 +177,17 @@ class MinuteSaveRequest(BaseModel):
 # ── PASO 5: POST /minutes/{record_id}/transition ─────────────────────────────
 
 class MinuteTransitionRequest(BaseModel):
+    class ReviewEmailOptions(BaseModel):
+        subject: str | None = None
+        body_note: str | None = Field(None, alias="bodyNote")
+        attach_pdf: bool = Field(True, alias="attachPdf")
+        selected_participant_ids: list[str] = Field(default_factory=list, alias="selectedParticipantIds")
+
+        model_config = {"populate_by_name": True}
+
     target_status:  str           = Field(..., alias="targetStatus")
     commit_message: Optional[str] = Field(None, alias="commitMessage")
+    review_email: Optional[ReviewEmailOptions] = Field(None, alias="reviewEmail")
 
     model_config = {"populate_by_name": True}
 

@@ -10,7 +10,7 @@ import uuid
 from typing import Any, Optional
 
 from db.redis import get_redis
-from schemas.sendmail import InlineAsset
+from schemas.sendmail import EmailAttachment, InlineAsset
 from services.email_template_service import get_inline_assets_for_html, render_email_template
 
 logger = logging.getLogger(__name__)
@@ -28,6 +28,7 @@ async def queue_email(
     email_type: str = "html",
     reply_to: Optional[str] = None,
     inline_assets: Optional[list[InlineAsset | dict[str, Any]]] = None,
+    attachments: Optional[list[EmailAttachment | dict[str, Any]]] = None,
 ) -> None:
     """
     Encola un email para ser procesado por el worker.
@@ -54,6 +55,7 @@ async def queue_email(
             "reply_to": reply_to,
             "template_id": None,
             "inline_assets": _serialize_inline_assets(inline_assets),
+            "attachments": _serialize_attachments(attachments),
         },
     }
 
@@ -72,6 +74,7 @@ async def queue_templated_email(
     bcc: Optional[list[str]] = None,
     reply_to: Optional[str] = None,
     inline_assets: Optional[list[InlineAsset | dict[str, Any]]] = None,
+    attachments: Optional[list[EmailAttachment | dict[str, Any]]] = None,
 ) -> None:
     rendered = render_email_template(
         template_id,
@@ -96,6 +99,7 @@ async def queue_templated_email(
                 _serialize_inline_assets(inline_assets),
                 [asset.model_dump(by_alias=False) for asset in get_inline_assets_for_html(rendered.html)],
             ),
+            "attachments": _serialize_attachments(attachments),
         },
     }
 
@@ -126,3 +130,17 @@ def _merge_inline_assets(*asset_groups: list[dict[str, Any]]) -> list[dict[str, 
             if cid:
                 merged[cid] = asset
     return list(merged.values())
+
+
+def _serialize_attachments(
+    attachments: Optional[list[EmailAttachment | dict[str, Any]]],
+) -> list[dict[str, Any]]:
+    if not attachments:
+        return []
+    serialized: list[dict[str, Any]] = []
+    for attachment in attachments:
+        if isinstance(attachment, EmailAttachment):
+            serialized.append(attachment.model_dump(by_alias=False))
+        else:
+            serialized.append(EmailAttachment.model_validate(attachment).model_dump(by_alias=False))
+    return serialized

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import json
 import logging
 import os
@@ -11,6 +12,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session, joinedload
 
+from db.minio_client import get_minio_client
 from db.redis import get_redis
 from models.ai_profiles import AiProfile
 from models.clients import Client
@@ -294,12 +296,69 @@ def _recipient_emails_for_version(record: Record, version: RecordVersion | None)
     return _clean_list(emails)
 
 
+def _recipient_emails_from_content(
+    content: dict[str, Any] | None,
+    *,
+    selected_ids: list[str] | None = None,
+) -> tuple[list[str], list[str]]:
+    payload = content if isinstance(content, dict) else {}
+    raw_participants = payload.get("participants") if isinstance(payload.get("participants"), list) else []
+    selected_lookup = {str(item).strip() for item in (selected_ids or []) if str(item).strip()}
+
+    to: list[str] = []
+    cc: list[str] = []
+
+    for raw in raw_participants:
+        if not isinstance(raw, dict):
+            continue
+        editor_id = str(raw.get("id") or "").strip()
+        if selected_lookup and editor_id not in selected_lookup:
+            continue
+
+        email = _safe_email(raw.get("email"))
+        if not email:
+            continue
+
+        participant_type = str(raw.get("type") or "").strip().lower()
+        if participant_type == "copy":
+            cc.append(email)
+        else:
+            to.append(email)
+
+    return _clean_list(to), _clean_list(cc)
+
+
+def _minute_pdf_attachment(record_id: str, *, published: bool = False) -> dict[str, str] | None:
+    bucket = "minuetaitor-published" if published else "minuetaitor-draft"
+    key = f"published/{record_id}/final.pdf" if published else f"drafts/{record_id}/draft_current.pdf"
+
+    minio = get_minio_client()
+    try:
+        obj = minio.get_object(bucket, key)
+        pdf_bytes = obj.read()
+        obj.close()
+        obj.release_conn()
+    except Exception:
+        return None
+
+    if not pdf_bytes:
+        return None
+
+    return {
+        "filename": f"minute-{record_id}.pdf",
+        "mime_type": "application/pdf",
+        "content_base64": base64.b64encode(pdf_bytes).decode("ascii"),
+    }
+
+
 async def _safe_queue_template(
     *,
     to: list[str],
+    cc: list[str] | None = None,
     template_id: str,
     context: dict[str, Any],
     subject: str | None = None,
+    attachments: list[dict[str, Any]] | None = None,
 ) -> bool:
     recipients = _clean_list(to)
     if not recipients:
@@ -309,9 +368,11 @@ async def _safe_queue_template(
     try:
         await queue_templated_email(
             to=recipients,
+            cc=_clean_list(cc or []) or None,
             template_id=template_id,
             template_context=context,
             subject=subject,
+            attachments=attachments,
         )
         return True
     except Exception as exc:
@@ -531,15 +592,34 @@ async def enqueue_ai_processed_ready_email(
     )
 
 
-async def enqueue_minute_review_email(db: Session, record_id: str) -> bool:
+async def enqueue_minute_review_email(
+    db: Session,
+    record_id: str,
+    *,
+    content: dict[str, Any] | None = None,
+    subject: str | None = None,
+    body_note: str | None = None,
+    selected_participant_ids: list[str] | None = None,
+    attach_pdf: bool = True,
+) -> bool:
     record = _record_with_relations(db, record_id)
     if not record:
         return False
     version = _record_version_with_participants(db, record.active_version_id)
-    recipients = _recipient_emails_for_version(record, version)
+    to_recipients, cc_recipients = _recipient_emails_from_content(
+        content,
+        selected_ids=selected_participant_ids,
+    )
+    recipients = (
+        to_recipients
+        if selected_participant_ids
+        else (to_recipients or _recipient_emails_for_version(record, version))
+    )
 
-    summary, points = _extract_summary_from_content({})
+    summary, points = _extract_summary_from_content(content)
     attendee_names = [p.display_name for p in (version.participants or [])] if version else []
+    normalized_note = str(body_note or "").strip()
+    attachment = _minute_pdf_attachment(record_id) if attach_pdf else None
     context = {
         "MEETING_TITLE": record.title,
         "MEETING_DATETIME": _format_record_datetime(record),
@@ -550,9 +630,9 @@ async def enqueue_minute_review_email(db: Session, record_id: str) -> bool:
         "KEY_POINT_1": points[0] if len(points) > 0 else "Validar acuerdos y responsables.",
         "KEY_POINT_2": points[1] if len(points) > 1 else "Confirmar participantes y observaciones.",
         "KEY_POINT_3": points[2] if len(points) > 2 else "Responder dentro del plazo definido.",
-        "ATTACHMENT_NAME": f"minute-{record.id}.pdf",
-        "ATTACHMENT_TYPE": "PDF",
-        "ATTACHMENT_SIZE": "-",
+        "ATTACHMENT_NAME": attachment["filename"] if attachment else "Documento disponible en plataforma",
+        "ATTACHMENT_TYPE": "PDF" if attachment else "Enlace",
+        "ATTACHMENT_SIZE": _human_size(len(base64.b64decode(attachment["content_base64"]))) if attachment else "-",
         "MINUTE_ID": record.id,
         "MINUTE_VERSION": getattr(version, "version_num", record.latest_version_num or 1),
         "APPROVAL_DAYS": _approval_days(),
@@ -560,11 +640,16 @@ async def enqueue_minute_review_email(db: Session, record_id: str) -> bool:
         "ISSUED_AT": _format_dt(_utcnow()),
         "REQUEST_ID": str(uuid.uuid4()),
         "REQUEST_ORIGIN": "minutes.transition.pending-preview",
+        "HAS_CUSTOM_MESSAGE": "true" if normalized_note else "",
+        "CUSTOM_MESSAGE": normalized_note or "",
     }
     return await _safe_queue_template(
         to=recipients,
+        cc=cc_recipients,
         template_id="sendMinute",
         context=context,
+        subject=subject,
+        attachments=[attachment] if attachment else None,
     )
 
 

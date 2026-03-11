@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import html
 import mimetypes
 import re
@@ -32,6 +33,7 @@ async def handle_email_job(job: JobEnvelope) -> None:
     reply_to = payload.get("reply_to")
     body = str(payload.get("body") or "")
     inline_assets = payload.get("inline_assets") or []
+    attachments = payload.get("attachments") or []
 
     logger.info(
         "Enviando email | to=%s cc=%s bcc=%s subject=%s job_id=%s attempt=%d template_id=%s",
@@ -56,6 +58,7 @@ async def handle_email_job(job: JobEnvelope) -> None:
         email_type,
         reply_to,
         inline_assets,
+        attachments,
     )
 
     logger.info("Email enviado | to=%s subject=%s", to, subject)
@@ -70,6 +73,7 @@ def _send_email_sync(
     email_type: str,
     reply_to: str | None,
     inline_assets: list[dict[str, Any]],
+    attachments: list[dict[str, Any]],
 ) -> None:
     msg = EmailMessage()
     msg["Subject"] = subject
@@ -90,6 +94,9 @@ def _send_email_sync(
             _attach_inline_logo_if_needed(msg, body)
     else:
         msg.set_content(body)
+
+    if attachments:
+        _attach_attachments(msg, attachments)
 
     recipients = to + cc + bcc
     with _open_smtp_client() as server:
@@ -181,3 +188,28 @@ def _attach_inline_assets(msg: EmailMessage, inline_assets: list[dict[str, Any]]
                 cid=f"<{cid}>",
                 filename=asset_path.name,
             )
+
+
+def _attach_attachments(msg: EmailMessage, attachments: list[dict[str, Any]]) -> None:
+    for attachment in attachments:
+        filename = str(attachment.get("filename") or "").strip()
+        content_base64 = str(attachment.get("content_base64") or "").strip()
+        mime_type = str(attachment.get("mime_type") or "").strip() or "application/octet-stream"
+
+        if not filename or not content_base64:
+            logger.warning("Adjunto ignorado por datos incompletos | attachment=%s", attachment)
+            continue
+
+        try:
+            content = base64.b64decode(content_base64)
+        except Exception:
+            logger.warning("Adjunto ignorado por base64 inválido | filename=%s", filename)
+            continue
+
+        maintype, subtype = mime_type.split("/", 1) if "/" in mime_type else ("application", "octet-stream")
+        msg.add_attachment(
+            content,
+            maintype=maintype,
+            subtype=subtype,
+            filename=filename,
+        )

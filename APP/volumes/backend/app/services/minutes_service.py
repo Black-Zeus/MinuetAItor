@@ -32,6 +32,7 @@ from schemas.minutes import (
     MinuteGenerateResponse,
     MinuteRecordInfo,
     MinuteStatusResponse,
+    MinuteTransitionRequest,
     MinuteTransitionResponse,
 )
 from models.ai_profiles import AiProfile
@@ -723,6 +724,7 @@ async def transition_minute(
     target_status:  str,
     commit_message: Optional[str],
     actor_user_id:  str,
+    review_email:   MinuteTransitionRequest.ReviewEmailOptions | None = None,
 ) -> MinuteTransitionResponse:
     """
     Gestiona todas las transiciones de estado del ciclo de vida de una minuta.
@@ -772,8 +774,9 @@ async def transition_minute(
     final_status_id    = _get_catalog_id(db, VersionStatus, VERSION_STATUS_FINAL)
     bucket_json_id     = _get_catalog_id(db, Bucket,        BUCKET_CODE_JSON)
 
-    minio       = get_minio_client()
+    minio         = get_minio_client()
     new_version: Optional[RecordVersion] = None
+    draft_content: dict[str, Any] | None = None
 
     # ── ready-for-edit → pending ──────────────────────────────────────────────
     if current_status_code == RECORD_STATUS_READY and target_status == RECORD_STATUS_PENDING:
@@ -874,7 +877,15 @@ async def transition_minute(
 
     actor_user = db.query(User).filter(User.id == actor_user_id, User.deleted_at.is_(None)).first()
     if current_status_code == RECORD_STATUS_PENDING and target_status == RECORD_STATUS_PREVIEW:
-        await enqueue_minute_review_email(db, record_id)
+        await enqueue_minute_review_email(
+            db,
+            record_id,
+            content=draft_content,
+            subject=review_email.subject if review_email else None,
+            body_note=review_email.body_note if review_email else None,
+            selected_participant_ids=review_email.selected_participant_ids if review_email else None,
+            attach_pdf=review_email.attach_pdf if review_email else True,
+        )
     elif current_status_code == RECORD_STATUS_PREVIEW and target_status == RECORD_STATUS_COMPLETED:
         await enqueue_minute_officialized_email(db, record_id, actor_user=actor_user)
 

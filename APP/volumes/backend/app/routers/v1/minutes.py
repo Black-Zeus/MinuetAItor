@@ -205,6 +205,7 @@ async def transition_endpoint(
         target_status  = body.target_status,
         commit_message = body.commit_message,
         actor_user_id  = session.user_id,
+        review_email   = body.review_email,
     )
 
 
