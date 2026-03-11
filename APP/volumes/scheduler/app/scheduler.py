@@ -3,6 +3,8 @@ import json
 import logging
 import os
 import time
+import urllib.error
+import urllib.request
 
 import redis
 from apscheduler.schedulers.blocking import BlockingScheduler
@@ -16,6 +18,8 @@ logger = logging.getLogger("scheduler")
 
 REDIS_HOST = os.environ.get("REDIS_HOST", "redis")
 REDIS_PORT = int(os.environ.get("REDIS_PORT", "6379"))
+BACKEND_INTERNAL_URL = os.environ.get("BACKEND_INTERNAL_URL", "http://backend:8000")
+INTERNAL_API_SECRET = os.environ.get("INTERNAL_API_SECRET", "-")
 
 r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
 
@@ -27,15 +31,31 @@ def enqueue(queue: str, job: dict) -> None:
 
 # ── Definición de jobs ────────────────────────────────────────────────────────
 
-def job_daily_summary():
-    """Encola email de resumen diario."""
-    enqueue("queue:email", {
-        "type":       "email",
-        "to":         ["admin@minuetaitor.cl"],
-        "subject":    "Resumen diario MinuetAItor",
-        "body":       "<h1>Resumen del día</h1>",  # en el futuro el worker construye esto
-        "email_type": "html",
-    })
+def _post_internal(path: str, body: dict | None = None) -> dict:
+    payload = json.dumps(body or {}, ensure_ascii=False).encode("utf-8")
+    req = urllib.request.Request(
+        f"{BACKEND_INTERNAL_URL.rstrip('/')}{path}",
+        data=payload,
+        headers={
+            "Content-Type": "application/json",
+            "x-internal-secret": INTERNAL_API_SECRET,
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+
+def job_pending_publication_reminders():
+    """Dispara recordatorios de minutas pendientes desde el backend."""
+    try:
+        result = _post_internal("/internal/v1/notifications/reminders/pending-publication")
+        logger.info("Reminder batch OK | sent=%s", result.get("sent", 0))
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        logger.error("Reminder batch HTTP error | status=%s body=%s", exc.code, body[:300])
+    except Exception as exc:
+        logger.error("Reminder batch failed | err=%s", exc)
 
 
 def job_db_backup():
@@ -60,10 +80,10 @@ def main():
 
     # Resumen diario — lunes a viernes a las 8:00am
     scheduler.add_job(
-        job_daily_summary,
+        job_pending_publication_reminders,
         CronTrigger(day_of_week="mon-fri", hour=8, minute=0),
-        id="daily_summary",
-        name="Resumen diario email",
+        id="pending_publication_reminders",
+        name="Reminder minutas pendientes",
     )
 
     # Respaldo BD — todos los días a las 2:00am

@@ -31,6 +31,7 @@ from services.user_client_acl_service import (
     list_user_client_acls,
     update_user_client_acl,
 )
+from services.notification_service import enqueue_confidential_client_acl_notifications
 
 router = APIRouter(prefix="/user-client-acl", tags=["UserClientAcl"])
 
@@ -56,16 +57,25 @@ def get_endpoint(
 
 
 @router.post("", response_model=UserClientAclResponse, status_code=status.HTTP_201_CREATED)
-def create_endpoint(
+async def create_endpoint(
     body: UserClientAclCreateRequest,
     db: Session = Depends(get_db),
     session: UserSession = Depends(require_roles("ADMIN")),
 ):
-    return create_user_client_acl(db, body, created_by_id=session.user_id)
+    result = create_user_client_acl(db, body, created_by_id=session.user_id)
+    await enqueue_confidential_client_acl_notifications(
+        db,
+        user_id=body.user_id,
+        client_id=body.client_id,
+        action="granted",
+        actor_user_id=session.user_id,
+        reason="Asignacion o actualizacion de acceso confidencial.",
+    )
+    return result
 
 
 @router.put("/{user_id}/{client_id}", response_model=UserClientAclResponse, status_code=status.HTTP_200_OK)
-def update_endpoint(
+async def update_endpoint(
     user_id: str,
     client_id: str,
     body: UserClientAclUpdateRequest,
@@ -74,7 +84,16 @@ def update_endpoint(
 ):
     # PUT se mantiene aquí porque el campo 'permission' (read/edit/owner) sí es mutable
     # y es el campo central de esta tabla — distinto a user_clients donde no había nada editable.
-    return update_user_client_acl(db, user_id, client_id, body, updated_by_id=session.user_id)
+    result = update_user_client_acl(db, user_id, client_id, body, updated_by_id=session.user_id)
+    await enqueue_confidential_client_acl_notifications(
+        db,
+        user_id=user_id,
+        client_id=client_id,
+        action="granted" if result.get("isActive", True) else "revoked",
+        actor_user_id=session.user_id,
+        reason="Actualizacion de acceso confidencial.",
+    )
+    return result
 
 
 @router.patch(
@@ -82,26 +101,43 @@ def update_endpoint(
     response_model=UserClientAclResponse,
     status_code=status.HTTP_200_OK,
 )
-def status_endpoint(
+async def status_endpoint(
     user_id: str,
     client_id: str,
     body: UserClientAclStatusRequest,
     db: Session = Depends(get_db),
     session: UserSession = Depends(require_roles("ADMIN")),
 ):
-    return change_user_client_acl_status(
+    result = change_user_client_acl_status(
         db, user_id, client_id,
         is_active=body.is_active,
         updated_by_id=session.user_id,
     )
+    await enqueue_confidential_client_acl_notifications(
+        db,
+        user_id=user_id,
+        client_id=client_id,
+        action="granted" if body.is_active else "revoked",
+        actor_user_id=session.user_id,
+        reason="Cambio de estado de acceso confidencial.",
+    )
+    return result
 
 
 @router.delete("/{user_id}/{client_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_endpoint(
+async def delete_endpoint(
     user_id: str,
     client_id: str,
     db: Session = Depends(get_db),
     session: UserSession = Depends(require_roles("ADMIN")),
 ):
     delete_user_client_acl(db, user_id, client_id, deleted_by_id=session.user_id)
+    await enqueue_confidential_client_acl_notifications(
+        db,
+        user_id=user_id,
+        client_id=client_id,
+        action="revoked",
+        actor_user_id=session.user_id,
+        reason="Acceso confidencial eliminado.",
+    )
     return None

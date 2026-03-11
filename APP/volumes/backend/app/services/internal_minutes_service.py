@@ -39,12 +39,14 @@ from models.record_drafts import RecordDraft
 from models.record_statuses import RecordStatus
 from models.record_versions import RecordVersion
 from models.records import Record
+from models.user import User
 from models.version_statuses import VersionStatus
 from schemas.internal_minutes import MinuteCommitRequest, MinuteCommitResponse
 from services.minute_participants_service import (
-    build_version_participants_from_generate_request,
+    build_version_participants_from_content,
     persist_record_version_participants,
 )
+from services.notification_service import enqueue_ai_processed_ready_email
 
 logger = logging.getLogger(__name__)
 
@@ -117,6 +119,13 @@ async def commit_minute_tx2(
 
     try:
         version_id = _execute_tx2(db, body)
+        actor_user = db.query(User).filter(User.id == body.requested_by_id, User.deleted_at.is_(None)).first()
+        await enqueue_ai_processed_ready_email(
+            db,
+            body.record_id,
+            ai_output=body.ai_output,
+            actor_user=actor_user,
+        )
         await _publish_event(tx_id, rec_id, "completed")
         logger.info("TX2 completada | tx=%s version=%s", tx_id, version_id)
         return MinuteCommitResponse(
@@ -229,7 +238,7 @@ def _execute_tx2(db: Session, body: MinuteCommitRequest) -> str:
     persist_record_version_participants(
         db=db,
         record_version_id=ver_id,
-        participants=build_version_participants_from_generate_request(req),
+        participants=build_version_participants_from_content(body.ai_input_schema),
     )
 
     # ── Asociar versión a la transacción ─────────────────────────────────────

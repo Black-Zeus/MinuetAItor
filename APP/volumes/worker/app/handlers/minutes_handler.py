@@ -361,6 +361,7 @@ def _execute_tx2_sync(payload: dict) -> tuple[str, str, int, int]:
         record_id=rec_id,
         requested_by_id=by_id,
         ai_output=ai_output,
+        ai_input_schema=ai_input,
         openai_run_id=run_id,
         tokens_input=tokens_in,
         tokens_output=tokens_out,

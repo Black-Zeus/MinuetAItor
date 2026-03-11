@@ -33,6 +33,10 @@ class MinuteCommitRequest(BaseModel):
 
     # Output de OpenAI
     ai_output: dict[str, Any] = Field(..., description="JSON estructurado retornado por OpenAI")
+    ai_input_schema: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Schema de entrada usado para generar la minuta",
+    )
     openai_run_id: str = Field(..., description="ID del run de OpenAI (chatcmpl-xxx)")
     tokens_input: int = Field(..., ge=0, description="Tokens consumidos en el prompt")
     tokens_output: int = Field(..., ge=0, description="Tokens generados en la respuesta")
