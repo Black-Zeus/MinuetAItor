@@ -7,6 +7,7 @@
 import { useCallback, useRef, useState } from 'react';
 
 import { clientService } from '@/services/clientService';
+import participantsService from '@/services/participantsService';
 import { projectService } from '@/services/projectService';
 import { profileService } from '@/services/profileService';
 import { listMinutes } from '@/services/minutesService';
@@ -75,6 +76,23 @@ const mapTeam = (team) => ({
   rawData: team,
 });
 
+const mapParticipant = (participant) => ({
+  id: participant.id,
+  label: participant.displayName ?? '',
+  sublabel: participant.organization ?? '',
+  meta: participant.title ?? '',
+  organization: participant.organization ?? '',
+  title: participant.title ?? '',
+  email:
+    (Array.isArray(participant.emails)
+      ? participant.emails.find((item) => item.isPrimary || item.is_primary)?.email ?? participant.emails[0]?.email
+      : '') ?? '',
+  status: normalizeStatus(null, participant.isActive),
+  isConfidential: false,
+  navigateTo: '/participants',
+  rawData: participant,
+});
+
 const mapTag = (tag, categoriesById) => ({
   id: tag.id,
   label: tag.name ?? '',
@@ -132,6 +150,14 @@ const searchTeams = async (query, limit) => {
   return { items: teams.map(mapTeam), total };
 };
 
+const searchParticipants = async (query, limit) => {
+  const { items = [], total = 0 } = await participantsService.list({
+    limit,
+    filters: { search: query, isActive: null },
+  });
+  return { items: items.map(mapParticipant), total };
+};
+
 const searchTags = async (query, limit) => {
   const [{ items: tags, total }, { items: categories }] = await Promise.all([
     tagService.list({ limit, isActive: null, filters: { search: query } }),
@@ -155,6 +181,7 @@ export const SEARCH_MODULES = [
   { id: 'proyectos', label: 'Proyectos', icon: 'FaFolderOpen', fn: searchProyectos },
   { id: 'minutes', label: 'Minutas', icon: 'FaFileAlt', fn: searchMinutes },
   { id: 'teams', label: 'Equipos', icon: 'FaUsers', fn: searchTeams },
+  { id: 'participants', label: 'Participantes', icon: 'FaUsers', fn: searchParticipants },
   { id: 'tags', label: 'Etiquetas', icon: 'FaTag', fn: searchTags },
   { id: 'profiles', label: 'Perfiles IA', icon: 'FaBrain', fn: searchProfiles },
 ];

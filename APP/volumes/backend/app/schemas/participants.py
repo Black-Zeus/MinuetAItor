@@ -27,6 +27,15 @@ class ParticipantFilterRequest(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class ParticipantEmailUpsertRequest(BaseModel):
+    id: int | None = None
+    email: str = Field(..., min_length=3, max_length=254)
+    is_primary: bool = Field(False, alias="isPrimary")
+    is_active: bool = Field(True, alias="isActive")
+
+    model_config = {"populate_by_name": True}
+
+
 class ParticipantEmailLookupRequest(BaseModel):
     names: list[str] = Field(default_factory=list, min_length=1, max_length=100)
 
@@ -39,6 +48,34 @@ class ParticipantResolveRequest(BaseModel):
     organization: str | None = Field(None, max_length=220)
     title: str | None = Field(None, max_length=160)
     email: str | None = Field(None, max_length=254)
+
+    model_config = {"populate_by_name": True}
+
+
+class ParticipantCreateRequest(BaseModel):
+    display_name: str = Field(..., min_length=1, max_length=220, alias="displayName")
+    organization: str | None = Field(None, max_length=220)
+    title: str | None = Field(None, max_length=160)
+    notes: str | None = None
+    is_active: bool = Field(True, alias="isActive")
+    emails: list[ParticipantEmailUpsertRequest] = Field(default_factory=list)
+
+    model_config = {"populate_by_name": True}
+
+
+class ParticipantUpdateRequest(BaseModel):
+    display_name: str | None = Field(None, min_length=1, max_length=220, alias="displayName")
+    organization: str | None = Field(None, max_length=220)
+    title: str | None = Field(None, max_length=160)
+    notes: str | None = None
+    is_active: bool | None = Field(None, alias="isActive")
+    emails: list[ParticipantEmailUpsertRequest] | None = None
+
+    model_config = {"populate_by_name": True}
+
+
+class ParticipantStatusRequest(BaseModel):
+    is_active: bool = Field(..., alias="isActive")
 
     model_config = {"populate_by_name": True}
 

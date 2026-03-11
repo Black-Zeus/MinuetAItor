@@ -45,6 +45,38 @@ export const participantsService = {
     };
   },
 
+  async create(payload) {
+    if (!payload || typeof payload !== "object") {
+      throw new Error("participantsService.create: payload inválido");
+    }
+    const res = await axiosInstance.post(`${BASE}`, payload);
+    return unwrap(res);
+  },
+
+  async update(id, payload) {
+    if (!id) throw new Error("participantsService.update: id es requerido");
+    if (!payload || typeof payload !== "object") {
+      throw new Error("participantsService.update: payload inválido");
+    }
+    const res = await axiosInstance.put(`${BASE}/${encodeURIComponent(id)}`, payload);
+    return unwrap(res);
+  },
+
+  async updateStatus(id, isActive) {
+    if (!id) throw new Error("participantsService.updateStatus: id es requerido");
+    const res = await axiosInstance.patch(
+      `${BASE}/${encodeURIComponent(id)}/status`,
+      { isActive: Boolean(isActive) }
+    );
+    return unwrap(res);
+  },
+
+  async softDelete(id) {
+    if (!id) throw new Error("participantsService.softDelete: id es requerido");
+    const res = await axiosInstance.delete(`${BASE}/${encodeURIComponent(id)}`);
+    return unwrap(res);
+  },
+
   async resolve(payload) {
     if (!payload?.displayName) {
       throw new Error("participantsService.resolve: displayName es requerido");

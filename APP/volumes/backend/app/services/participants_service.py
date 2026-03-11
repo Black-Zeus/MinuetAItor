@@ -14,9 +14,12 @@ from models.participant import Participant
 from models.participant_email import ParticipantEmail
 from models.user import User
 from schemas.participants import (
+    ParticipantCreateRequest,
     ParticipantEmailLookupRequest,
     ParticipantFilterRequest,
     ParticipantResolveRequest,
+    ParticipantStatusRequest,
+    ParticipantUpdateRequest,
 )
 
 
@@ -31,6 +34,11 @@ def _normalize_name(value: str) -> str:
 def _clean_email(value: str | None) -> str | None:
     email = (value or "").strip().lower()
     return email or None
+
+
+def _clean_text(value: str | None) -> str | None:
+    text = " ".join((value or "").strip().split())
+    return text or None
 
 
 def _user_ref(u: User | None) -> dict | None:
@@ -167,6 +175,111 @@ def _ensure_email_assignment(
                 updated_by=actor_id,
             )
         )
+
+
+def _sync_participant_emails(
+    db: Session,
+    participant: Participant,
+    emails: list,
+    actor_id: str,
+) -> None:
+    requested = []
+    seen_emails = set()
+    primary_requested = 0
+
+    for item in emails or []:
+        clean_email = _clean_email(getattr(item, "email", None))
+        if not clean_email:
+            continue
+        if clean_email in seen_emails:
+            raise HTTPException(status_code=422, detail="DUPLICATE_PARTICIPANT_EMAIL")
+        seen_emails.add(clean_email)
+        is_primary = bool(getattr(item, "is_primary", False))
+        is_active = bool(getattr(item, "is_active", True))
+        if is_primary and is_active:
+            primary_requested += 1
+        requested.append({
+            "id": getattr(item, "id", None),
+            "email": clean_email,
+            "is_primary": is_primary,
+            "is_active": is_active,
+        })
+
+    if primary_requested > 1:
+        raise HTTPException(status_code=422, detail="MULTIPLE_PRIMARY_EMAILS")
+
+    existing_by_id = {int(email.id): email for email in (participant.emails or [])}
+    keep_ids = set()
+
+    for item in requested:
+        existing = existing_by_id.get(int(item["id"])) if item["id"] else None
+        if item["id"] and existing is None:
+            raise HTTPException(status_code=404, detail="PARTICIPANT_EMAIL_NOT_FOUND")
+
+        global_email = (
+            db.query(ParticipantEmail)
+            .filter(
+                ParticipantEmail.email == item["email"],
+            )
+            .first()
+        )
+        if global_email and global_email.participant_id != participant.id:
+            raise HTTPException(status_code=409, detail="EMAIL_ALREADY_ASSIGNED")
+
+        if existing is None:
+            existing = next(
+                (
+                    email for email in (participant.emails or [])
+                    if email.email == item["email"]
+                ),
+                None,
+            )
+
+        if existing:
+            existing.email = item["email"]
+            existing.is_primary = item["is_primary"] and item["is_active"]
+            existing.is_active = item["is_active"]
+            existing.updated_by = actor_id
+            existing.deleted_at = None if item["is_active"] else datetime.utcnow()
+            existing.deleted_by = None if item["is_active"] else actor_id
+            keep_ids.add(int(existing.id))
+            continue
+
+        created = ParticipantEmail(
+            email=item["email"],
+            is_primary=item["is_primary"] and item["is_active"],
+            is_active=item["is_active"],
+            created_by=actor_id,
+            updated_by=actor_id,
+            deleted_at=None if item["is_active"] else datetime.utcnow(),
+            deleted_by=None if item["is_active"] else actor_id,
+        )
+        participant.emails.append(created)
+
+    for existing in (participant.emails or []):
+        if existing.id is None:
+            continue
+        if int(existing.id) in keep_ids:
+            continue
+        if existing.deleted_at is None:
+            existing.is_active = False
+            existing.is_primary = False
+            existing.deleted_at = datetime.utcnow()
+            existing.deleted_by = actor_id
+            existing.updated_by = actor_id
+
+    active_emails = [email for email in (participant.emails or []) if email.deleted_at is None and email.is_active]
+    if active_emails:
+        primary_active = [email for email in active_emails if email.is_primary]
+        if len(primary_active) > 1:
+            raise HTTPException(status_code=422, detail="MULTIPLE_PRIMARY_EMAILS")
+        if len(primary_active) == 0:
+            active_emails.sort(key=lambda email: (email.created_at or datetime.min, email.email))
+            active_emails[0].is_primary = True
+
+    for existing in (participant.emails or []):
+        if existing.deleted_at is not None:
+            existing.is_primary = False
 
 
 def get_participant(db: Session, participant_id: str) -> dict:
@@ -322,10 +435,88 @@ def resolve_participant(db: Session, payload: ParticipantResolveRequest, actor_i
     return get_participant(db, participant.id)
 
 
+def create_participant(db: Session, payload: ParticipantCreateRequest, actor_id: str) -> dict:
+    clean_name = " ".join(payload.display_name.strip().split())
+    normalized_name = _normalize_name(clean_name)
+    if not normalized_name:
+        raise HTTPException(status_code=422, detail="INVALID_DISPLAY_NAME")
+
+    participant = Participant(
+        id=str(uuid.uuid4()),
+        display_name=clean_name,
+        normalized_name=normalized_name,
+        organization=_clean_text(payload.organization),
+        title=_clean_text(payload.title),
+        notes=(payload.notes or "").strip() or None,
+        is_active=bool(payload.is_active),
+        created_by=actor_id,
+        updated_by=actor_id,
+    )
+    db.add(participant)
+    db.flush()
+
+    _sync_participant_emails(db, participant, payload.emails, actor_id)
+
+    db.commit()
+    db.refresh(participant)
+    return get_participant(db, participant.id)
+
+
+def update_participant(db: Session, participant_id: str, payload: ParticipantUpdateRequest, actor_id: str) -> dict:
+    participant = _get_or_404(db, participant_id)
+
+    if payload.display_name is not None:
+        clean_name = " ".join(payload.display_name.strip().split())
+        normalized_name = _normalize_name(clean_name)
+        if not normalized_name:
+            raise HTTPException(status_code=422, detail="INVALID_DISPLAY_NAME")
+        participant.display_name = clean_name
+        participant.normalized_name = normalized_name
+
+    if payload.organization is not None:
+        participant.organization = _clean_text(payload.organization)
+    if payload.title is not None:
+        participant.title = _clean_text(payload.title)
+    if payload.notes is not None:
+        participant.notes = (payload.notes or "").strip() or None
+    if payload.is_active is not None:
+        participant.is_active = bool(payload.is_active)
+
+    participant.updated_by = actor_id
+
+    if payload.emails is not None:
+        _sync_participant_emails(db, participant, payload.emails, actor_id)
+
+    db.commit()
+    db.refresh(participant)
+    return get_participant(db, participant.id)
+
+
+def change_participant_status(
+    db: Session,
+    participant_id: str,
+    payload: ParticipantStatusRequest,
+    actor_id: str,
+) -> dict:
+    participant = _get_or_404(db, participant_id)
+    participant.is_active = bool(payload.is_active)
+    participant.updated_by = actor_id
+    db.commit()
+    db.refresh(participant)
+    return get_participant(db, participant.id)
+
+
 def soft_delete_participant(db: Session, participant_id: str, actor_id: str) -> None:
     participant = _get_or_404(db, participant_id)
     participant.deleted_at = datetime.utcnow()
     participant.deleted_by = actor_id
     participant.is_active = False
     participant.updated_by = actor_id
+    for email in (participant.emails or []):
+        if email.deleted_at is None:
+            email.is_active = False
+            email.is_primary = False
+            email.deleted_at = datetime.utcnow()
+            email.deleted_by = actor_id
+            email.updated_by = actor_id
     db.commit()
