@@ -34,19 +34,15 @@ const STATUS_OPTIONS = [
 ];
 
 const FILTER_LABELS = {
-  client:   "Cliente",
-  project:  "Proyecto",
-  dateFrom: "Fecha Desde",
-  dateTo:   "Fecha Hasta",
-  status:   "Estado",
+  client_id:  "Cliente",
+  project_id: "Proyecto",
+  status:     "Estado",
 };
 
 const FILTER_ICONS = {
-  client:   "business",
-  project:  "folder",
-  dateFrom: "calendar",
-  dateTo:   "calendar",
-  status:   "filter",
+  client_id:  "business",
+  project_id: "folder",
+  status:     "filter",
 };
 
 // ====================================
@@ -204,13 +200,11 @@ const FilterField = ({
 // ====================================
 // COMPONENTE PRINCIPAL
 // ====================================
-const MinutesFilters = ({ filters, onFilterChange, onClearFilters, onApplyFilters, data }) => {
+const MinutesFilters = ({ filters, onFilterChange, onClearFilters, data }) => {
   const [visibleFilters, setVisibleFilters] = useState({
-    client:   true,
-    project:  true,
-    status:   true,
-    dateFrom: false,
-    dateTo:   false,
+    client_id:  true,
+    project_id: true,
+    status:     true,
   });
 
   const [showFiltersDropdown, setShowFiltersDropdown] = useState(false);
@@ -262,28 +256,28 @@ const MinutesFilters = ({ filters, onFilterChange, onClearFilters, onApplyFilter
 
       {/* ── FILTROS — entre las líneas divisoras, visibles solo al expandir ── */}
       {filtersExpanded && (
-        <div className="border-b border-secondary-200 dark:border-secondary-700/60 transition-theme pb-6">
+        <div className="transition-theme pb-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 items-end mt-6">
 
-            {visibleFilters.client && (
+            {visibleFilters.client_id && (
               <FilterField
                 type="select"
                 label="Cliente"
-                icon={FILTER_ICONS.client}
-                value={currentFilters.client}
-                onChange={(value) => onFilterChange("client", value)}
+                icon={FILTER_ICONS.client_id}
+                value={currentFilters.client_id}
+                onChange={(value) => onFilterChange("client_id", value)}
                 options={clients}
                 placeholder="Todos los clientes"
               />
             )}
 
-            {visibleFilters.project && (
+            {visibleFilters.project_id && (
               <FilterField
                 type="select"
                 label="Proyecto"
-                icon={FILTER_ICONS.project}
-                value={currentFilters.project}
-                onChange={(value) => onFilterChange("project", value)}
+                icon={FILTER_ICONS.project_id}
+                value={currentFilters.project_id}
+                onChange={(value) => onFilterChange("project_id", value)}
                 options={projects}
                 placeholder="Todos los proyectos"
               />
@@ -303,26 +297,6 @@ const MinutesFilters = ({ filters, onFilterChange, onClearFilters, onApplyFilter
               />
             )}
 
-            {visibleFilters.dateFrom && (
-              <FilterField
-                type="date"
-                label="Desde"
-                icon={FILTER_ICONS.dateFrom}
-                value={currentFilters.dateFrom}
-                onChange={(value) => onFilterChange("dateFrom", value)}
-              />
-            )}
-
-            {visibleFilters.dateTo && (
-              <FilterField
-                type="date"
-                label="Hasta"
-                icon={FILTER_ICONS.dateTo}
-                value={currentFilters.dateTo}
-                onChange={(value) => onFilterChange("dateTo", value)}
-              />
-            )}
-
             {/* Acciones — siempre en la última columna */}
             <div className="flex flex-col gap-2 lg:col-start-6">
               <ActionButton
@@ -331,14 +305,6 @@ const MinutesFilters = ({ filters, onFilterChange, onClearFilters, onApplyFilter
                 size="sm"
                 icon={<Icon name="filterClear" />}
                 onClick={onClearFilters}
-                className="w-full"
-              />
-              <ActionButton
-                label="Filtrar"
-                variant="primary"
-                size="sm"
-                icon={<Icon name="search" />}
-                onClick={onApplyFilters}
                 className="w-full"
               />
             </div>

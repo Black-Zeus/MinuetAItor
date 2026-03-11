@@ -19,8 +19,8 @@ const projectLog = logger.scope("project");
 
 const calcStats = (list) => ({
   total:       list.length,
-  activos:     list.filter((p) => p.status === 'activo').length,
-  inactivos:   list.filter((p) => p.status === 'inactivo').length,
+  activos:     list.filter((p) => Boolean(p.isActive)).length,
+  inactivos:   list.filter((p) => !Boolean(p.isActive)).length,
   totalMinutas: list.reduce((sum, p) => sum + (Number(p.minutas) || 0), 0),
 });
 
@@ -41,7 +41,8 @@ const applyLocalFilters = (list, filters) => {
   }
 
   if (filters.status) {
-    result = result.filter((p) => p.status === filters.status);
+    const wantActive = filters.status === "activo";
+    result = result.filter((p) => Boolean(p.isActive) === wantActive);
   }
 
   if (filters.clientId) {
@@ -140,10 +141,6 @@ const Project = () => {
     setFilters({ search: '', status: '', clientId: '' });
   };
 
-  const handleApplyFilters = () => {
-    projectLog.log('[Project] Filtros aplicados:', filters);
-  };
-
   // ─── Render ────────────────────────────────────────────────────────────────
 
   if (isLoading) {
@@ -163,7 +160,6 @@ const Project = () => {
         filters={filters}
         onFilterChange={handleFilterChange}
         onClearFilters={handleClearFilters}
-        onApplyFilters={handleApplyFilters}
         clientCatalog={clientCatalog}
       />
 

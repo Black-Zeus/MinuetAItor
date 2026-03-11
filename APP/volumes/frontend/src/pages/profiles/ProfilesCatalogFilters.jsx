@@ -10,7 +10,6 @@
 
 import React, { useMemo, useState } from "react";
 import Icon from "@/components/ui/icon/iconManager";
-import ActionButton from "@/components/ui/button/ActionButton";
 
 const TXT_TITLE = "text-gray-900 dark:text-gray-50";
 const TXT_META  = "text-gray-500 dark:text-gray-400";
@@ -99,7 +98,6 @@ const ProfilesCatalogFilters = ({
   filters,
   onFilterChange,
   onClearFilters,
-  onApplyFilters,
   categories = [],   // Array<{ id: number, name: string }> del backend
   profiles   = [],   // fallback (no usado si hay categories)
 }) => {
@@ -164,13 +162,14 @@ const ProfilesCatalogFilters = ({
         </button>
 
         <div className="relative">
-          <ActionButton
-            variant="soft"
-            size="sm"
-            icon={<Icon name="FaSlidersH" />}
-            tooltip="Mostrar/ocultar filtros"
+          <button
+            type="button"
             onClick={() => setShowFiltersDropdown((p) => !p)}
-          />
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium ${TXT_META} bg-transparent border border-secondary-200 dark:border-secondary-700 rounded-xl hover:bg-secondary-50 dark:hover:bg-secondary-800/50 hover:border-secondary-300 dark:hover:border-secondary-600 hover:text-gray-900 dark:hover:text-gray-50 transition-theme`}
+          >
+            <Icon name="FaSliders" className="text-sm" />
+            Gestionar Filtros
+          </button>
           {showFiltersDropdown && (
             <FilterDropdown
               visibleFilters={visibleFilters}
@@ -227,14 +226,6 @@ const ProfilesCatalogFilters = ({
               size="sm"
               icon={<Icon name="FaEraser" />}
               onClick={onClearFilters}
-              className="w-full"
-            />
-            <ActionButton
-              label="Filtrar"
-              variant="primary"
-              size="sm"
-              icon={<Icon name="FaSearch" />}
-              onClick={onApplyFilters}
               className="w-full"
             />
           </div>

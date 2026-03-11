@@ -87,7 +87,7 @@ const FilterField = ({ type, label, icon, value, onChange, options = [], placeho
 
 // ─── ClientFilters ────────────────────────────────────────────────────────────
 
-const ClientFilters = ({ filters, onFilterChange, onClearFilters, onApplyFilters }) => {
+const ClientFilters = ({ filters, onFilterChange, onClearFilters }) => {
   const [visibleFilters, setVisibleFilters] = useState({
     search:   true,
     status:   true,
@@ -239,14 +239,6 @@ const ClientFilters = ({ filters, onFilterChange, onClearFilters, onApplyFilters
               size="sm"
               icon={<Icon name="FaEraser" />}
               onClick={onClearFilters}
-              className="w-full"
-            />
-            <ActionButton
-              label="Filtrar"
-              variant="primary"
-              size="sm"
-              icon={<Icon name="FaSearch" />}
-              onClick={onApplyFilters}
               className="w-full"
             />
           </div>

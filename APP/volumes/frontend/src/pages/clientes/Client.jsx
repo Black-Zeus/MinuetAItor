@@ -181,7 +181,6 @@ const Client = () => {
         filters={filters}
         onFilterChange={handleFilterChange}
         onClearFilters={handleClearFilters}
-        onApplyFilters={() => clientLog.log('[Client] Filtros:', filters)}
       />
 
       <ClientStats stats={stats} />
