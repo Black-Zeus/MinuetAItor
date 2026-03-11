@@ -8,6 +8,8 @@ from sqlalchemy.orm import Session
 from db.session import get_db
 from schemas.auth import UserSession
 from schemas.participants import (
+    ParticipantEmailLookupRequest,
+    ParticipantEmailLookupResponse,
     ParticipantFilterRequest,
     ParticipantListResponse,
     ParticipantResolveRequest,
@@ -16,6 +18,7 @@ from schemas.participants import (
 from services.auth_service import get_current_user
 from services.participants_service import (
     get_participant,
+    lookup_participant_emails,
     list_participants,
     resolve_participant,
     soft_delete_participant,
@@ -47,6 +50,15 @@ def list_endpoint(
     session: UserSession = Depends(current_user_dep),
 ):
     return list_participants(db, body)
+
+
+@router.post("/emails/lookup", response_model=ParticipantEmailLookupResponse, status_code=status.HTTP_200_OK)
+def lookup_emails_endpoint(
+    body: ParticipantEmailLookupRequest,
+    db: Session = Depends(get_db),
+    session: UserSession = Depends(current_user_dep),
+):
+    return lookup_participant_emails(db, body)
 
 
 @router.post("/resolve", response_model=ParticipantResponse, status_code=status.HTTP_200_OK)

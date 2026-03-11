@@ -13,7 +13,11 @@ from sqlalchemy.orm import Session, joinedload
 from models.participant import Participant
 from models.participant_email import ParticipantEmail
 from models.user import User
-from schemas.participants import ParticipantFilterRequest, ParticipantResolveRequest
+from schemas.participants import (
+    ParticipantEmailLookupRequest,
+    ParticipantFilterRequest,
+    ParticipantResolveRequest,
+)
 
 
 def _normalize_name(value: str) -> str:
@@ -102,6 +106,26 @@ def _find_by_normalized_name(db: Session, normalized_name: str) -> Participant |
         .order_by(Participant.is_active.desc(), Participant.display_name.asc())
         .first()
     )
+
+
+def _find_by_email_and_name(
+    db: Session,
+    email: str,
+    normalized_name: str,
+) -> Participant | None:
+    found = (
+        db.query(ParticipantEmail)
+        .join(Participant, Participant.id == ParticipantEmail.participant_id)
+        .options(joinedload(ParticipantEmail.participant).joinedload(Participant.emails))
+        .filter(
+            ParticipantEmail.email == email,
+            ParticipantEmail.deleted_at.is_(None),
+            Participant.deleted_at.is_(None),
+            Participant.normalized_name == normalized_name,
+        )
+        .first()
+    )
+    return found.participant if found else None
 
 
 def _ensure_email_assignment(
@@ -202,6 +226,58 @@ def list_participants(db: Session, filters: ParticipantFilterRequest) -> dict:
     }
 
 
+def lookup_participant_emails(db: Session, payload: ParticipantEmailLookupRequest) -> dict:
+    cleaned_names = [" ".join(str(name or "").strip().split()) for name in (payload.names or [])]
+    normalized_names = [_normalize_name(name) for name in cleaned_names]
+    wanted_names = [name for name in normalized_names if name]
+
+    if not wanted_names:
+        return {"items": []}
+
+    participants = (
+        _participant_query(db)
+        .filter(
+            Participant.deleted_at.is_(None),
+            Participant.normalized_name.in_(sorted(set(wanted_names))),
+        )
+        .order_by(Participant.is_active.desc(), Participant.display_name.asc(), Participant.id.asc())
+        .all()
+    )
+
+    grouped: dict[str, list[Participant]] = {}
+    for participant in participants:
+        grouped.setdefault(participant.normalized_name, []).append(participant)
+
+    items = []
+    for original_name, normalized_name in zip(cleaned_names, normalized_names):
+        matches = grouped.get(normalized_name, []) if normalized_name else []
+        unique_emails: dict[str, dict] = {}
+
+        for participant in matches:
+            active_emails = [email for email in (participant.emails or []) if email.deleted_at is None]
+            active_emails.sort(key=lambda email: (not bool(email.is_primary), email.email))
+            for email in active_emails:
+                unique_emails.setdefault(email.email, _participant_email_to_dict(email))
+
+        only_match = matches[0] if len(matches) == 1 else None
+        sorted_emails = sorted(
+            unique_emails.values(),
+            key=lambda item: (not bool(item["is_primary"]), item["email"]),
+        )
+
+        items.append({
+            "display_name": original_name,
+            "normalized_name": normalized_name,
+            "participant_id": str(only_match.id) if only_match else None,
+            "organization": only_match.organization if only_match else None,
+            "title": only_match.title if only_match else None,
+            "matched_participants": len(matches),
+            "emails": sorted_emails,
+        })
+
+    return {"items": items}
+
+
 def resolve_participant(db: Session, payload: ParticipantResolveRequest, actor_id: str) -> dict:
     clean_name = " ".join(payload.display_name.strip().split())
     normalized_name = _normalize_name(clean_name)
@@ -213,7 +289,9 @@ def resolve_participant(db: Session, payload: ParticipantResolveRequest, actor_i
     if payload.participant_id:
         participant = _get_or_404(db, payload.participant_id)
     else:
-        participant = _find_by_normalized_name(db, normalized_name)
+        participant = _find_by_email_and_name(db, clean_email, normalized_name) if clean_email else None
+        if participant is None:
+            participant = _find_by_normalized_name(db, normalized_name)
         if participant is None:
             participant = Participant(
                 id=str(uuid.uuid4()),
