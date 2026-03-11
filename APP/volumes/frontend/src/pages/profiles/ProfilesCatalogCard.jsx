@@ -101,7 +101,8 @@ const ProfilesCatalogCard = ({ id, summary, categories = [], onUpdated, onDelete
       ModalManager.show({
         type:       "custom",
         title:      "Detalle de Perfil",
-        size:       "large",
+        size:       "clientWide",
+        showHeader: false,
         showFooter: false,
         content: (
           <ProfilesCatalogModal
@@ -134,7 +135,8 @@ const ProfilesCatalogCard = ({ id, summary, categories = [], onUpdated, onDelete
       ModalManager.show({
         type:       "custom",
         title:      "Editar Perfil",
-        size:       "large",
+        size:       "clientWide",
+        showHeader: false,
         showFooter: false,
         content: (
           <ProfilesCatalogModal

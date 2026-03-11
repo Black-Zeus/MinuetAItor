@@ -729,30 +729,31 @@ const TeamsModal = ({ mode, data, onSubmit }) => {
   // h-[80vh] fijo — nunca cambia de tamaño entre pasos.
 
   return (
-    <div className="flex flex-col h-[80vh]">
+    <div className="w-full rounded-[26px] bg-white/8 p-[2px] shadow-[0_0_24px_rgba(255,255,255,0.08),0_24px_70px_rgba(15,23,42,0.24)] backdrop-blur-[3px] dark:bg-white/[0.06] dark:shadow-[0_0_28px_rgba(255,255,255,0.06),0_24px_70px_rgba(2,6,23,0.52)]">
+    <div className="flex h-[78vh] min-h-[620px] w-full flex-col rounded-[24px] border border-white/45 bg-slate-100 dark:border-white/10 dark:bg-slate-950">
 
       {/* ── HEADER: stepper + título ─────────────────────────────────────── */}
-      <div className="flex-shrink-0 px-6 pt-4 pb-4 border-b border-gray-200 dark:border-gray-700 space-y-3">
+      <div className="flex-shrink-0 px-8 pt-6 pb-5 border-b border-slate-200/80 dark:border-slate-700/80 space-y-4">
         {/* Stepper */}
         <div className="flex items-center justify-center gap-0.5">
           {steps.map((step, idx) => (
             <div key={idx} className="flex items-center flex-shrink-0">
               <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold transition-colors ${
-                idx === currentStep ? "bg-primary-600 text-white"
-                : idx < currentStep ? "bg-green-600 text-white"
-                : "bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
+                idx === currentStep ? "bg-slate-700 text-white dark:bg-slate-300 dark:text-slate-900"
+                : idx < currentStep ? "bg-sky-700 text-white dark:bg-sky-300 dark:text-slate-900"
+                : "bg-white border border-gray-300 text-gray-500 dark:bg-slate-800 dark:border-slate-700 dark:text-gray-400"
               }`}>
                 {idx < currentStep ? "✓" : step.number}
               </div>
               {idx < steps.length - 1 && (
-                <div className={`w-6 h-1 mx-0.5 rounded ${idx < currentStep ? "bg-green-600" : "bg-gray-200 dark:bg-gray-700"}`} />
+                <div className={`w-6 h-1 mx-0.5 rounded ${idx < currentStep ? "bg-sky-700 dark:bg-sky-300" : "bg-gray-300 dark:bg-slate-700"}`} />
               )}
             </div>
           ))}
         </div>
         {/* Título + badge estado */}
         <div className="flex items-center justify-between">
-          <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+          <h3 className="text-2xl font-semibold text-gray-900 dark:text-white flex items-center gap-2">
             <Icon name="FaUsers" className="w-4 h-4" />
             {isCreate && `Nuevo Usuario — ${steps[currentStep].title}`}
             {isEdit   && `Editar Usuario — ${steps[currentStep].title}`}
@@ -770,7 +771,7 @@ const TeamsModal = ({ mode, data, onSubmit }) => {
 
       {/* ── BODY: scroll interno por paso ───────────────────────────────── */}
       {/* El paso de Acceso usa flex+overflow-hidden para que su acordeón scrollee */}
-      <div className={`flex-1 min-h-0 px-6 py-5 ${isAccessStep ? "flex flex-col overflow-hidden" : "overflow-y-auto"}`}>
+      <div className={`flex-1 min-h-0 px-8 py-6 ${isAccessStep ? "flex flex-col overflow-hidden" : "overflow-y-auto"}`}>
 
         {/* ── PASO 0: Información General ──────────────────────────────── */}
         {currentStep === 0 && (
@@ -1027,11 +1028,11 @@ const TeamsModal = ({ mode, data, onSubmit }) => {
       </div>
 
       {/* ── FOOTER — patrón ProjectModal / ClientModal ───────────────────── */}
-      <div className="flex-shrink-0 px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-between">
+      <div className="flex-shrink-0 px-8 py-5 border-t border-slate-200/80 dark:border-slate-700/80 flex justify-between">
         <button
           type="button"
           onClick={currentStep === 0 ? closeModal : handlePrevious}
-          className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+          className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-300 dark:hover:bg-slate-700"
         >
           {currentStep === 0 ? "Cancelar" : "Anterior"}
         </button>
@@ -1040,7 +1041,7 @@ const TeamsModal = ({ mode, data, onSubmit }) => {
           type="button"
           onClick={handleNext}
           disabled={submitting}
-          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors disabled:opacity-60 flex items-center gap-2"
+          className="rounded-xl bg-sky-700 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-sky-800 dark:bg-sky-300 dark:text-slate-900 dark:hover:bg-sky-200 disabled:opacity-60 flex items-center gap-2"
         >
           {submitting && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
           {isLastStep
@@ -1050,6 +1051,7 @@ const TeamsModal = ({ mode, data, onSubmit }) => {
             : "Siguiente"}
         </button>
       </div>
+    </div>
     </div>
   );
 };

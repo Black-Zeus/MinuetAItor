@@ -79,7 +79,8 @@ const TagsCard = ({ id, summary, categories = [], onUpdated, onDeleted }) => {
       ModalManager.show({
         type:       "custom",
         title:      "Detalle de Tag",
-        size:       "large",
+        size:       "clientWide",
+        showHeader: false,
         showFooter: false,
         content: (
           <TagsModal
@@ -113,7 +114,8 @@ const TagsCard = ({ id, summary, categories = [], onUpdated, onDeleted }) => {
       ModalManager.show({
         type:       "custom",
         title:      "Editar Tag",
-        size:       "large",
+        size:       "clientWide",
+        showHeader: false,
         showFooter: false,
         content: (
           <TagsModal

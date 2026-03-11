@@ -48,7 +48,8 @@ const ParticipantsCard = ({ id, summary, onUpdated, onDeleted }) => {
     ModalManager.show({
       type: "custom",
       title: mode === PARTICIPANTS_MODAL_MODES.VIEW ? "Detalle participante" : "Editar participante",
-      size: "large",
+      size: "clientWide",
+      showHeader: false,
       showFooter: false,
       content: (
         <ParticipantsModal

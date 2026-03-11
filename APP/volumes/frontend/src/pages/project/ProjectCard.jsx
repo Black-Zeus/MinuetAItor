@@ -79,7 +79,8 @@ const ProjectCard = ({ id, summary = null, clientCatalog = [], onUpdated, onDele
     ModalManager.show({
       type: 'custom',
       title: 'Detalle Proyecto',
-      size: 'large',
+      size: 'clientWide',
+      showHeader: false,
       showFooter: false,
       content: (
         <ProjectModal
@@ -102,7 +103,8 @@ const ProjectCard = ({ id, summary = null, clientCatalog = [], onUpdated, onDele
     ModalManager.show({
       type: 'custom',
       title: 'Editar Proyecto',
-      size: 'large',
+      size: 'clientWide',
+      showHeader: false,
       showFooter: false,
       content: (
         <ProjectModal

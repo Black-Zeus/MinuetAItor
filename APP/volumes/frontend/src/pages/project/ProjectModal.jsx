@@ -26,6 +26,8 @@ import clientService from "@/services/clientService";
 import logger from "@/utils/logger";
 const modalLog = logger.scope("projectModal");
 
+const cn = (...classes) => classes.filter(Boolean).join(" ");
+
 // ─── Modos ───────────────────────────────────────────────────────────────────
 
 const MODES = {
@@ -225,50 +227,50 @@ const ProjectModal = ({ mode, data, onSubmit, onClose }) => {
   };
 
   const inputCls = (field) => `
-    w-full px-3 py-2 border rounded-lg
-    bg-white dark:bg-gray-800
+    w-full rounded-xl border px-3.5 py-2.5 text-sm transition-colors
+    bg-white dark:bg-slate-800
     text-gray-900 dark:text-gray-100
-    focus:outline-none focus:ring-2 focus:ring-blue-500
-    transition-colors
+    focus:outline-none focus:ring-2 focus:ring-sky-200 dark:focus:ring-sky-800
     ${errors[field]
       ? "border-red-500 dark:border-red-400"
-      : "border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500"}
+      : "border-gray-300 dark:border-slate-700"}
   `;
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col w-full h-[600px]">
+    <div className="w-full rounded-[26px] bg-white/8 p-[2px] shadow-[0_0_24px_rgba(255,255,255,0.08),0_24px_70px_rgba(15,23,42,0.24)] backdrop-blur-[3px] dark:bg-white/[0.06] dark:shadow-[0_0_28px_rgba(255,255,255,0.06),0_24px_70px_rgba(2,6,23,0.52)]">
+    <div className="flex h-[78vh] min-h-[620px] w-full flex-col rounded-[24px] border border-white/45 bg-slate-100 dark:border-white/10 dark:bg-slate-950">
 
       {/* ── Stepper ── */}
-      <div className="flex-shrink-0 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-        <div className="flex items-center justify-between mb-4">
+      <div className="flex-shrink-0 border-b border-slate-200/80 px-8 py-6 dark:border-slate-700/80">
+        <div className="flex items-center justify-between mb-6">
           {steps.map((step, idx) => (
             <div key={idx} className="flex items-center">
               <div className={`
                 flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold
-                ${idx === currentStep  ? "bg-blue-600 text-white"
-                : idx < currentStep   ? "bg-green-600 text-white"
-                : "bg-gray-300 dark:bg-gray-600 text-gray-600 dark:text-gray-400"}
+                ${idx === currentStep  ? "bg-slate-700 text-white dark:bg-slate-300 dark:text-slate-900"
+                : idx < currentStep   ? "bg-sky-700 text-white dark:bg-sky-300 dark:text-slate-900"
+                : "bg-white border border-gray-300 text-gray-600 dark:bg-slate-800 dark:border-slate-700 dark:text-gray-400"}
               `}>
                 {idx < currentStep ? "✓" : step.number}
               </div>
               {idx < steps.length - 1 && (
-                <div className={`w-12 h-1 mx-2 ${idx < currentStep ? "bg-green-600" : "bg-gray-300 dark:bg-gray-600"}`} />
+                <div className={`w-12 h-1 mx-2 rounded ${idx < currentStep ? "bg-sky-700 dark:bg-sky-300" : "bg-gray-300 dark:bg-slate-700"}`} />
               )}
             </div>
           ))}
         </div>
 
         <div className="flex items-center justify-between gap-4">
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+          <h3 className="text-2xl font-semibold text-gray-900 dark:text-white flex items-center gap-2">
             <Icon name="FaFolderOpen" className="w-5 h-5" />
             {isCreate && `Crear Proyecto — ${steps[currentStep].title}`}
             {isEdit   && `Editar Proyecto — ${steps[currentStep].title}`}
             {isView   && `Detalle del Proyecto — ${steps[currentStep].title}`}
           </h3>
           {formData.isConfidential && (
-            <span className="px-3 py-1 rounded-full text-sm font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 flex items-center gap-1">
+            <span className="rounded-full border border-sky-200 bg-sky-50/80 px-3 py-1 text-xs font-medium text-sky-700 dark:border-sky-800/80 dark:bg-sky-900/20 dark:text-sky-300 flex items-center gap-1">
               <Icon name="FaLock" className="w-3 h-3" /> Confidencial
             </span>
           )}
@@ -276,7 +278,7 @@ const ProjectModal = ({ mode, data, onSubmit, onClose }) => {
       </div>
 
       {/* ── Contenido ── */}
-      <div className="flex-1 overflow-y-auto px-6 py-4 min-h-0">
+      <div className="flex-1 overflow-y-auto px-8 py-6 min-h-0">
 
         {/* Paso 0: Proyecto */}
         {currentStep === 0 && (
@@ -556,20 +558,11 @@ const ProjectModal = ({ mode, data, onSubmit, onClose }) => {
       </div>
 
       {/* ── Footer ── */}
-      <div className="flex-shrink-0 px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-between">
+      <div className="flex-shrink-0 border-t border-slate-200/80 px-8 py-5 dark:border-slate-700/80 flex justify-between">
         <button
           type="button"
           onClick={currentStep === 0 ? closeModal : handlePrevious}
-          className="
-            px-4 py-2 text-sm font-medium
-            text-gray-700 dark:text-gray-300
-            bg-white dark:bg-gray-800
-            border border-gray-300 dark:border-gray-600
-            rounded-lg
-            hover:bg-gray-50 dark:hover:bg-gray-700
-            focus:outline-none focus:ring-2 focus:ring-blue-500
-            transition-colors
-          "
+          className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-300 dark:hover:bg-slate-700"
         >
           {currentStep === 0 ? "Cancelar" : "Anterior"}
         </button>
@@ -577,13 +570,7 @@ const ProjectModal = ({ mode, data, onSubmit, onClose }) => {
         <button
           type="button"
           onClick={handleNext}
-          className="
-            px-4 py-2 text-sm font-medium text-white
-            bg-blue-600 rounded-lg
-            hover:bg-blue-700
-            focus:outline-none focus:ring-2 focus:ring-blue-500
-            transition-colors
-          "
+          className="rounded-xl bg-sky-700 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-sky-800 dark:bg-sky-300 dark:text-slate-900 dark:hover:bg-sky-200"
         >
           {currentStep === steps.length - 1
             ? isView ? "Cerrar" : isCreate ? "Crear" : "Guardar"
@@ -591,6 +578,7 @@ const ProjectModal = ({ mode, data, onSubmit, onClose }) => {
         </button>
       </div>
 
+    </div>
     </div>
   );
 };

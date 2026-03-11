@@ -83,7 +83,8 @@ const ClientCard = ({ id, summary = null, onUpdated, onDeleted }) => {
     ModalManager.show({
       type: 'custom',
       title: 'Detalle Cliente',
-      size: 'large',
+      size: 'clientWide',
+      showHeader: false,
       showFooter: false,
       content: (
         <ClientModal
@@ -104,7 +105,8 @@ const ClientCard = ({ id, summary = null, onUpdated, onDeleted }) => {
     ModalManager.show({
       type: 'custom',
       title: 'Editar Cliente',
-      size: 'large',
+      size: 'clientWide',
+      showHeader: false,
       showFooter: false,
       content: (
         <ClientModal
