@@ -90,7 +90,7 @@ const FilterField = ({ type, label, icon, value, onChange, options, placeholder 
   </div>
 );
 
-const ProjectFilters = ({ filters, onFilterChange, onClearFilters, onApplyFilters, data }) => {
+const ProjectFilters = ({ filters, onFilterChange, onClearFilters, clientCatalog = [], data }) => {
   // Visibilidad de filtros (como ClientFilters)
   const [visibleFilters, setVisibleFilters] = useState({
     search: true,
@@ -120,27 +120,25 @@ const ProjectFilters = ({ filters, onFilterChange, onClearFilters, onApplyFilter
   // Si `data` trae proyectos, intentamos construir lista de clientes en runtime.
   // Fallback: lista fija.
   const clientOptions = useMemo(() => {
-    const fallback = [
-      { value: "ACME Corporation", label: "ACME Corporation" },
-      { value: "TechStart Solutions", label: "TechStart Solutions" },
-      { value: "Globex Industries", label: "Globex Industries" },
-      { value: "Initech", label: "Initech" },
-      { value: "Umbrella Corporation", label: "Umbrella Corporation" },
-    ];
+    const catalog = Array.isArray(clientCatalog) ? clientCatalog : [];
+    if (catalog.length > 0) {
+      return catalog
+        .filter((client) => client?.id && client?.name)
+        .sort((a, b) => String(a.name).localeCompare(String(b.name)))
+        .map((client) => ({ value: String(client.id), label: client.name }));
+    }
 
     const raw = Array.isArray(data) ? data : [];
-    const set = new Set(
-      raw
-        .map((p) => String(p?.client ?? "").trim())
-        .filter((v) => v.length > 0)
-    );
-
-    if (set.size === 0) return fallback;
-
-    return Array.from(set)
-      .sort((a, b) => a.localeCompare(b))
-      .map((c) => ({ value: c, label: c }));
-  }, [data]);
+    const byId = new Map();
+    raw.forEach((project) => {
+      const id = project?.clientId ?? project?.client_id;
+      const name = project?.clientName ?? project?.client;
+      if (id && name) byId.set(String(id), String(name));
+    });
+    return [...byId.entries()]
+      .sort((a, b) => a[1].localeCompare(b[1]))
+      .map(([value, label]) => ({ value, label }));
+  }, [clientCatalog, data]);
 
   return (
     <div className="bg-surface shadow-card rounded-2xl p-6 mb-6 border border-secondary-200 dark:border-secondary-700/60 dark:ring-1 dark:ring-white/5 transition-theme">
@@ -205,8 +203,8 @@ const ProjectFilters = ({ filters, onFilterChange, onClearFilters, onApplyFilter
               type="select"
               label="Cliente"
               icon={FILTER_ICONS.client}
-              value={filters.client}
-              onChange={(value) => onFilterChange("client", value)}
+              value={filters.clientId}
+              onChange={(value) => onFilterChange("clientId", value)}
               options={clientOptions}
               placeholder="Todos los clientes"
             />
@@ -231,14 +229,6 @@ const ProjectFilters = ({ filters, onFilterChange, onClearFilters, onApplyFilter
               size="sm"
               icon={<Icon name="FaEraser" />}
               onClick={onClearFilters}
-              className="w-full"
-            />
-            <ActionButton
-              label="Filtrar"
-              variant="primary"
-              size="sm"
-              icon={<Icon name="FaSearch" />}
-              onClick={onApplyFilters}
               className="w-full"
             />
           </div>

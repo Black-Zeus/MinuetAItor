@@ -134,10 +134,6 @@ const ProfilesCatalog = () => {
     setFilters({ search: "", status: "", categoryId: "", sort: "az" });
   };
 
-  const handleApplyFilters = () => {
-    profileLog.log("Filtros aplicados:", filters);
-  };
-
   // ─── Paginación ─────────────────────────────────────────────────────────────
 
   const totalPages       = Math.max(1, Math.ceil(filteredProfiles.length / itemsPerPage));
@@ -191,7 +187,6 @@ const ProfilesCatalog = () => {
         filters={filters}
         onFilterChange={handleFilterChange}
         onClearFilters={handleClearFilters}
-        onApplyFilters={handleApplyFilters}
         categories={categories}
         profiles={profiles}
       />

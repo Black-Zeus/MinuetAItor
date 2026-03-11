@@ -155,7 +155,6 @@ const Teams = () => {
         filters={filters}
         onFilterChange={handleFilterChange}
         onClearFilters={handleClearFilters}
-        data={users}
       />
 
       <TeamsStats stats={stats} />

@@ -29,18 +29,15 @@ const toApiPayload = (formData) => ({
   is_confidential: Boolean(formData.isConfidential),
 });
 
-const getStatusColor = (status) => {
+const getStatusColor = (isActive) => {
   const map = {
     activo: "bg-success-50 text-success-700 dark:bg-success-900/20 dark:text-success-200",
     inactivo: "bg-secondary-100 text-secondary-700 dark:bg-secondary-900/20 dark:text-secondary-200",
   };
-  return map[status] || map.activo;
+  return isActive ? map.activo : map.inactivo;
 };
 
-const getStatusText = (status) => {
-  const map = { activo: "Activo", inactivo: "Inactivo" };
-  return map[status] || status;
-};
+const getStatusText = (isActive) => (isActive ? "Activo" : "Inactivo");
 
 const ProjectCard = ({ id, summary = null, clientCatalog = [], onUpdated, onDeleted }) => {
   const [loadingDetail, setLoadingDetail] = useState(false);
@@ -146,7 +143,6 @@ const ProjectCard = ({ id, summary = null, clientCatalog = [], onUpdated, onDele
   // ─── Render (usa summary para mostrar la card) ────────────────────────────
 
   const name = summary?.name ?? '—';
-  const status = summary?.status ?? 'activo';
   const isActive = summary?.isActive ?? true;
   const isConf = summary?.isConfidential ?? false;
   const description = summary?.description ?? null;
@@ -209,8 +205,8 @@ const ProjectCard = ({ id, summary = null, clientCatalog = [], onUpdated, onDele
               </span>
             ) : null}
 
-            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(status)}`}>
-              {getStatusText(status)}
+            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(isActive)}`}>
+              {getStatusText(isActive)}
             </span>
           </div>
         </div>

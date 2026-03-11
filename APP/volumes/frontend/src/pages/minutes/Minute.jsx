@@ -51,9 +51,8 @@ const Minutes = () => {
   // ── Paginación ───────────────────────────────────────────────────────────
   const [currentPage, setCurrentPage] = useState(1);
 
-  // ── Filtros draft / aplicados ─────────────────────────────────────────────
-  const [filtersDraft,    setFiltersDraft]    = useState({ ...EMPTY_FILTERS });
-  const [appliedFilters,  setAppliedFilters]  = useState({ ...EMPTY_FILTERS });
+  // ── Filtros reactivos ─────────────────────────────────────────────────────
+  const [filters, setFilters] = useState({ ...EMPTY_FILTERS });
 
   // ─── Fetch principal ──────────────────────────────────────────────────────
   const fetchMinutes = useCallback(async (page, filters, showSpinner = false) => {
@@ -90,46 +89,41 @@ const Minutes = () => {
 
   // ── Re-fetch al cambiar filtros aplicados o página ────────────────────────
   useEffect(() => {
-    fetchMinutes(currentPage, appliedFilters, false);
-  }, [currentPage, appliedFilters, fetchMinutes]);
+    fetchMinutes(currentPage, filters, false);
+  }, [currentPage, filters, fetchMinutes]);
 
   // ── Exponer refresh global para useMinuteSSE ──────────────────────────────
   // El hook SSE llama window.__minutesRefresh() al recibir "completed" o "failed"
   // para actualizar la lista sin que el usuario tenga que hacer F5.
   useEffect(() => {
     window.__minutesRefresh = () => {
-      fetchMinutes(currentPage, appliedFilters, false);
+      fetchMinutes(currentPage, filters, false);
     };
     return () => {
       window.__minutesRefresh = null;
     };
-  }, [fetchMinutes, currentPage, appliedFilters]);
+  }, [fetchMinutes, currentPage, filters]);
 
   // ─── Handlers de filtros ──────────────────────────────────────────────────
   const handleFilterChange = (name, value) => {
-    setFiltersDraft((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleApplyFilters = () => {
     setCurrentPage(1);
-    setAppliedFilters({ ...filtersDraft });
+    setFilters((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleClearFilters = () => {
-    setFiltersDraft({ ...EMPTY_FILTERS });
     setCurrentPage(1);
-    setAppliedFilters({ ...EMPTY_FILTERS });
+    setFilters({ ...EMPTY_FILTERS });
   };
 
   // ─── Handler de transición de estado ─────────────────────────────────────
   const handleStatusChange = useCallback(async (minuteId, targetStatus, commitMessage) => {
     try {
       await transitionMinute(minuteId, targetStatus, commitMessage ?? null);
-      fetchMinutes(currentPage, appliedFilters, false);
+      fetchMinutes(currentPage, filters, false);
     } catch {
       // El interceptor de axios ya muestra el toast de error
     }
-  }, [currentPage, appliedFilters, fetchMinutes]);
+  }, [currentPage, filters, fetchMinutes]);
 
   // ─── Opciones para filtros ────────────────────────────────────────────────
   const { clients, projects } = useMemo(() => extractOptions(minutes), [minutes]);
@@ -153,17 +147,15 @@ const Minutes = () => {
       <MinutesHeader
         onNewMinute={() => {
           setCurrentPage(1);
-          fetchMinutes(1, appliedFilters, false);
+          fetchMinutes(1, filters, false);
         }}
       />
 
       <MinutesFilters
-        filters={filtersDraft}
+        filters={filters}
         onFilterChange={handleFilterChange}
         onClearFilters={handleClearFilters}
-        onApplyFilters={handleApplyFilters}
-        clients={clients}
-        projects={projects}
+        data={{ clients, projects }}
       />
 
       <MinutesResults

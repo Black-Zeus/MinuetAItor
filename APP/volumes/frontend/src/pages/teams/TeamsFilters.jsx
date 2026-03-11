@@ -15,14 +15,12 @@ const FILTER_LABELS = {
   search: "Búsqueda",
   status: "Estado",
   systemRole: "Rol del Sistema",
-  client: "Cliente",
 };
 
 const FILTER_ICONS = {
   search: "FaSearch",
   status: "FaToggleOn",
   systemRole: "FaUserShield",
-  client: "FaBuilding",
 };
 
 // Subcomponente: FilterDropdown (patrón ClientFilters)
@@ -92,13 +90,12 @@ const FilterField = ({ type, label, icon, value, onChange, options, placeholder 
   </div>
 );
 
-const TeamsFilters = ({ filters, onFilterChange, onClearFilters, onApplyFilters, data }) => {
+const TeamsFilters = ({ filters, onFilterChange, onClearFilters, data }) => {
   // Visibilidad de filtros (como ClientFilters)
   const [visibleFilters, setVisibleFilters] = useState({
     search: true,
     status: true,
     systemRole: true,
-    client: true,
   });
 
   const [showFiltersDropdown, setShowFiltersDropdown] = useState(false);
@@ -121,31 +118,9 @@ const TeamsFilters = ({ filters, onFilterChange, onClearFilters, onApplyFilters,
 
   const systemRoleOptions = [
     { value: "admin", label: "Administrador" },
-    { value: "EDITOR", label: "Escritura" },
-    { value: "read", label: "Lectura" },
+    { value: "editor", label: "Escritura" },
+    { value: "viewer", label: "Lectura" },
   ];
-
-  // Clientes: intenta derivar desde `data` (fallback a lista fija)
-  const clientOptions = useMemo(() => {
-    const fallback = [
-      { value: "TechCorp Solutions", label: "TechCorp Solutions" },
-      { value: "Global Industries", label: "Global Industries" },
-      { value: "StartupXYZ", label: "StartupXYZ" },
-    ];
-
-    const raw = Array.isArray(data) ? data : [];
-    const set = new Set(
-      raw
-        .map((u) => String(u?.client ?? u?.clientName ?? "").trim())
-        .filter((v) => v.length > 0)
-    );
-
-    if (set.size === 0) return fallback;
-
-    return Array.from(set)
-      .sort((a, b) => a.localeCompare(b))
-      .map((c) => ({ value: c, label: c }));
-  }, [data]);
 
   // Handlers (manteniendo tu contrato: onFilterChange recibe objeto parcial)
   const setFilter = (key, value) => onFilterChange({ [key]: value });
@@ -208,18 +183,6 @@ const TeamsFilters = ({ filters, onFilterChange, onClearFilters, onApplyFilters,
             </div>
           )}
 
-          {visibleFilters.client && (
-            <FilterField
-              type="select"
-              label="Cliente"
-              icon={FILTER_ICONS.client}
-              value={filters.client}
-              onChange={(value) => setFilter("client", value)}
-              options={clientOptions}
-              placeholder="Todos los clientes"
-            />
-          )}
-
           {visibleFilters.status && (
             <FilterField
               type="select"
@@ -251,14 +214,6 @@ const TeamsFilters = ({ filters, onFilterChange, onClearFilters, onApplyFilters,
               size="sm"
               icon={<Icon name="FaEraser" />}
               onClick={onClearFilters}
-              className="w-full"
-            />
-            <ActionButton
-              label="Filtrar"
-              variant="primary"
-              size="sm"
-              icon={<Icon name="FaSearch" />}
-              onClick={onApplyFilters}
               className="w-full"
             />
           </div>
