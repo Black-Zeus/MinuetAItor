@@ -8,6 +8,7 @@ import {
   FaClipboardCheck,
   FaListCheck,
   FaRegFile,
+  FaRegWindowRestore,
   FaCode,
   FaTerminal,
 } from "react-icons/fa6";
@@ -22,6 +23,7 @@ export const fileIcons = {
   listCheck: FaListCheck,
   FaList: FaListCheck,
   regFile: FaRegFile,
+  regWindowRestore: FaRegWindowRestore,
   code: FaCode,
   terminal: FaTerminal,
   
@@ -34,6 +36,7 @@ export const fileIcons = {
   FaClipboardCheck,
   FaListCheck,
   FaRegFile,
+  FaRegWindowRestore,
   FaCode,
   FaTerminal,
   list: FaListCheck,

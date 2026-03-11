@@ -54,7 +54,7 @@ export const SIDEBAR_MODULES = [
   {
     id: 'participants',
     name: 'Participantes',
-    icon: 'FaUsers',
+    icon: 'FaUser',
     path: '/participants',
     section: 'management',
     order: 6
@@ -184,7 +184,7 @@ export const SIDEBAR_MODULES = [
   {
     id: 'profiles',
     name: 'Perfiles',
-    icon: 'FaTags',
+    icon: 'FaBrain',
     path: '/settings/profiles',
     section: 'config',
     order: 11

@@ -181,7 +181,7 @@ export const SEARCH_MODULES = [
   { id: 'proyectos', label: 'Proyectos', icon: 'FaFolderOpen', fn: searchProyectos },
   { id: 'minutes', label: 'Minutas', icon: 'FaFileAlt', fn: searchMinutes },
   { id: 'teams', label: 'Equipos', icon: 'FaUsers', fn: searchTeams },
-  { id: 'participants', label: 'Participantes', icon: 'FaUsers', fn: searchParticipants },
+  { id: 'participants', label: 'Participantes', icon: 'FaUser', fn: searchParticipants },
   { id: 'tags', label: 'Etiquetas', icon: 'FaTag', fn: searchTags },
   { id: 'profiles', label: 'Perfiles IA', icon: 'FaBrain', fn: searchProfiles },
 ];
