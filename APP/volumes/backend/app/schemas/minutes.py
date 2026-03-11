@@ -150,6 +150,10 @@ class MinuteDetailResponse(BaseModel):
         None,
         serialization_alias="contentType",
     )
+    input_attachments: list[dict[str, Any]] = Field(
+        default_factory=list,
+        serialization_alias="inputAttachments",
+    )
 
     model_config = {"populate_by_name": True}
 
