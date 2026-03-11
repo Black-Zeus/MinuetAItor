@@ -27,12 +27,30 @@ class ParticipantFilterRequest(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class ParticipantEmailLookupRequest(BaseModel):
+    names: list[str] = Field(default_factory=list, min_length=1, max_length=100)
+
+    model_config = {"populate_by_name": True}
+
+
 class ParticipantResolveRequest(BaseModel):
     participant_id: str | None = Field(None, alias="participantId")
     display_name: str = Field(..., min_length=1, max_length=220, alias="displayName")
     organization: str | None = Field(None, max_length=220)
     title: str | None = Field(None, max_length=160)
     email: str | None = Field(None, max_length=254)
+
+    model_config = {"populate_by_name": True}
+
+
+class ParticipantEmailLookupItem(BaseModel):
+    display_name: str = Field(..., serialization_alias="displayName")
+    normalized_name: str = Field(..., serialization_alias="normalizedName")
+    participant_id: str | None = Field(None, serialization_alias="participantId")
+    organization: str | None = None
+    title: str | None = None
+    matched_participants: int = Field(0, serialization_alias="matchedParticipants")
+    emails: list[ParticipantEmailResponse] = Field(default_factory=list)
 
     model_config = {"populate_by_name": True}
 
@@ -63,5 +81,11 @@ class ParticipantListResponse(BaseModel):
     total: int
     skip: int
     limit: int
+
+    model_config = {"populate_by_name": True}
+
+
+class ParticipantEmailLookupResponse(BaseModel):
+    items: list[ParticipantEmailLookupItem] = Field(default_factory=list)
 
     model_config = {"populate_by_name": True}
