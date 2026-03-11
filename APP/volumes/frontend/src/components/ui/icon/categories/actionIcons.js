@@ -19,6 +19,7 @@ import {
   FaUserCheck,
   FaCalendarPlus,
   FaPaperPlane,
+  FaPaperclip,
   FaRotate,
   FaRotateLeft,
   FaComment,
@@ -69,7 +70,8 @@ export const actionIcons = {
   FaCalendarPlus,
   filterClear: FaEraser,
 
-    paperPlane: FaPaperPlane,
+  paperPlane: FaPaperPlane,
+  paperclip: FaPaperclip,
   trash: FaTrash,
   rotate: FaRotate,
   rotateLeft: FaRotateLeft,
@@ -78,6 +80,7 @@ export const actionIcons = {
   penToSquare: FaPenToSquare,
   xmark: FaXmark,
   FaXmark,
+  FaPaperclip,
 
   floppyDisk: FaFloppyDisk,
 };

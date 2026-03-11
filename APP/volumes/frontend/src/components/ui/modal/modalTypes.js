@@ -113,7 +113,7 @@ export const MODAL_SIZES = {
   maxHeight: 'max-h-[90vh]'
 },
   pdfViewer: {
-    width: '!w-[80vw]',
+    width: '!w-[80vw] !max-w-[80vw]',
     padding: 'p-6'
   },
   fullscreen: {

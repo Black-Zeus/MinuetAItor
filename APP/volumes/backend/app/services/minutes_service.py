@@ -206,6 +206,55 @@ def get_minute_attachment_blob(
     return file_bytes, mime_type, filename
 
 
+def list_minute_input_attachments(db: Session, record_id: str) -> list[dict[str, str]]:
+    """
+    Lista los adjuntos de entrada persistidos para una minuta.
+
+    Se limita a objetos bajo {record_id}/inputs/ y normaliza el tipo a
+    transcript/summary para que el frontend pueda mostrarlos aunque el draft
+    guardado no los incluya.
+    """
+    rows = (
+        db.query(RecordArtifact, Object)
+        .join(Object, Object.id == RecordArtifact.object_id)
+        .filter(
+            RecordArtifact.record_id == record_id,
+            RecordArtifact.deleted_at.is_(None),
+            Object.deleted_at.is_(None),
+            Object.object_key.like(f"{record_id}/inputs/%"),
+        )
+        .order_by(RecordArtifact.created_at.asc())
+        .all()
+    )
+
+    attachments: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for artifact, obj in rows:
+        sha256 = obj.sha256 or ""
+        if sha256 and sha256 in seen:
+            continue
+        if sha256:
+            seen.add(sha256)
+
+        file_name = Path(obj.object_key).name or artifact.natural_name or "adjunto"
+        lower_name = file_name.lower()
+        if "transcrip" in lower_name or "transcript" in lower_name:
+            file_type = "transcript"
+        elif "resumen" in lower_name or "summary" in lower_name:
+            file_type = "summary"
+        else:
+            file_type = "attachment"
+
+        attachments.append({
+            "fileName": file_name,
+            "mimeType": obj.content_type or "application/octet-stream",
+            "sha256": sha256,
+            "fileType": file_type,
+        })
+
+    return attachments
+
+
 # ─── Helper Redis: encolar jobs ───────────────────────────────────────────────
 
 async def _enqueue_job(queue: str, job: dict) -> None:
@@ -478,10 +527,16 @@ def get_minute_detail(db: Session, record_id: str) -> MinuteDetailResponse:
         prepared_by=prepared_by_name,
         created_at=record.created_at.isoformat() if getattr(record, "created_at", None) else None,
     )
+    input_attachments = list_minute_input_attachments(db, record_id)
 
     # Estados sin contenido
     if status_code in _STATUSES_NO_CONTENT:
-        return MinuteDetailResponse(record=record_info, content=None, content_type=None)
+        return MinuteDetailResponse(
+            record=record_info,
+            content=None,
+            content_type=None,
+            input_attachments=input_attachments,
+        )
 
     minio       = get_minio_client()
     content     = None
@@ -513,7 +568,12 @@ def get_minute_detail(db: Session, record_id: str) -> MinuteDetailResponse:
         content      = _read_json_from_minio(minio, BUCKET_JSON, f"{record_id}/schema_output_v{version_num}.json")
         content_type = "snapshot"
 
-    return MinuteDetailResponse(record=record_info, content=content, content_type=content_type)
+    return MinuteDetailResponse(
+        record=record_info,
+        content=content,
+        content_type=content_type,
+        input_attachments=input_attachments,
+    )
 
 
 # ─── save_minute_draft ────────────────────────────────────────────────────────

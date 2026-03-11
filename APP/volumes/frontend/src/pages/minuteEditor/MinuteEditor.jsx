@@ -29,6 +29,39 @@ import MinuteEditorSectionMetadata      from "./sections/MinuteEditorSectionMeta
 
 const EDITABLE_STATUSES = new Set(["pending", "ready-for-edit"]);
 
+const mergeInputAttachments = (content, inputAttachments = []) => {
+  if (!content || !Array.isArray(inputAttachments) || inputAttachments.length === 0) {
+    return content;
+  }
+
+  const currentInputAttachments = content?.inputInfo?.attachments;
+  if (
+    content?.inputInfo &&
+    (!Array.isArray(currentInputAttachments) || currentInputAttachments.length === 0)
+  ) {
+    return {
+      ...content,
+      inputInfo: {
+        ...content.inputInfo,
+        attachments: inputAttachments,
+      },
+    };
+  }
+
+  const currentLocked = content?.metadataLocked?.attachments;
+  if (content?.metadataLocked && (!Array.isArray(currentLocked) || currentLocked.length === 0)) {
+    return {
+      ...content,
+      metadataLocked: {
+        ...content.metadataLocked,
+        attachments: inputAttachments,
+      },
+    };
+  }
+
+  return content;
+};
+
 const MinuteEditor = () => {
   const { id: recordId } = useParams();
   const navigate = useNavigate();
@@ -63,7 +96,7 @@ const MinuteEditor = () => {
         const data = await getMinuteDetail(recordId);
         if (cancelled) return;
 
-        const { record, content, contentType } = data;
+        const { record, content, contentType, inputAttachments } = data;
 
         if (!content || !contentType) {
           setLoadError({
@@ -74,13 +107,15 @@ const MinuteEditor = () => {
           return;
         }
 
+        const hydratedContent = mergeInputAttachments(content, inputAttachments);
+
         setRecordMeta(record);
         setIsReadOnly(!EDITABLE_STATUSES.has(record.status));
 
         if (contentType === "ai_output") {
-          loadFromIAResponse(content);
+          loadFromIAResponse(hydratedContent);
         } else if (contentType === "draft" || contentType === "snapshot") {
-          loadFromDraft(content);
+          loadFromDraft(hydratedContent);
         } else {
           setLoadError({
             type:    "unknown_content_type",
