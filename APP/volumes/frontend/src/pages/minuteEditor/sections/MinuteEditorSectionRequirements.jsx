@@ -33,7 +33,7 @@ const PrioBadge = ({ prio }) => (
 );
 
 const MinuteEditorSectionRequirements = ({ isReadOnly = false }) => {
-  const { requirements, addRequirement, updateRequirement, deleteRequirement } = useMinuteEditorStore();
+  const { requirements, addRequirement, updateRequirement, deleteRequirement, activeSearchTargetId } = useMinuteEditorStore();
 
   const openForm = (existing = null) => {
     let draft = existing
@@ -188,7 +188,10 @@ const MinuteEditorSectionRequirements = ({ isReadOnly = false }) => {
               requirements.map((r) => (
                 <tr
                   key={r.id}
-                  className="border-b border-gray-100 dark:border-gray-700/50 last:border-0 align-top transition-theme"
+                  data-search-target={`requirement-${r.id}`}
+                  className={`border-b border-gray-100 dark:border-gray-700/50 last:border-0 align-top transition-theme ${
+                    activeSearchTargetId === `requirement-${r.id}` ? "bg-primary-50/70 dark:bg-primary-900/15" : ""
+                  }`}
                 >
                   <td className="py-3 pr-4 font-mono text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
                     {r.requirementId}

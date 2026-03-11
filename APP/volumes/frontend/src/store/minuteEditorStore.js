@@ -210,6 +210,111 @@ const diffComparable = (base, curr) => {
   return changes;
 };
 
+const escapeRegExp = (value = "") =>
+  String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const findMatchIndexes = (text, query) => {
+  if (!query) return [];
+  const source = String(text ?? "");
+  if (!source) return [];
+  const re = new RegExp(escapeRegExp(query), "gi");
+  const matches = [];
+  let match;
+  while ((match = re.exec(source)) !== null) {
+    matches.push({ start: match.index, length: match[0].length });
+    if (match[0].length === 0) re.lastIndex += 1;
+  }
+  return matches;
+};
+
+const buildSearchPreview = (text, start, length) => {
+  const source = String(text ?? "");
+  if (!source) return "—";
+  const from = Math.max(0, start - 28);
+  const to = Math.min(source.length, start + length + 28);
+  const prefix = from > 0 ? "..." : "";
+  const suffix = to < source.length ? "..." : "";
+  return `${prefix}${source.slice(from, to)}${suffix}`;
+};
+
+const buildSearchResults = (state) => {
+  const query = String(state?.findQuery ?? "").trim();
+  if (!query) return [];
+
+  const results = [];
+  let ordinal = 0;
+
+  const pushMatches = ({ tab, targetId, label, text, fieldKey }) => {
+    const source = String(text ?? "");
+    const matches = findMatchIndexes(source, query);
+    matches.forEach((match, indexInField) => {
+      ordinal += 1;
+      results.push({
+        id: `${targetId}:${fieldKey}:${ordinal}`,
+        ordinal,
+        tab,
+        targetId,
+        label,
+        fieldKey,
+        text: source,
+        start: match.start,
+        length: match.length,
+        indexInField,
+        preview: buildSearchPreview(source, match.start, match.length),
+      });
+    });
+  };
+
+  pushMatches({ tab: "info", targetId: "meeting-card", label: "Cliente", text: state.meetingInfo?.client, fieldKey: "meetingInfo.client" });
+  pushMatches({ tab: "info", targetId: "meeting-card", label: "Asunto", text: state.meetingInfo?.subject, fieldKey: "meetingInfo.subject" });
+  pushMatches({ tab: "info", targetId: "meeting-card", label: "Ubicación", text: state.meetingInfo?.location, fieldKey: "meetingInfo.location" });
+  pushMatches({ tab: "info", targetId: "meeting-card", label: "Preparado por", text: state.meetingInfo?.preparedBy, fieldKey: "meetingInfo.preparedBy" });
+  pushMatches({ tab: "info", targetId: "meeting-card", label: "Fecha", text: state.meetingInfo?.meetingDate, fieldKey: "meetingInfo.meetingDate" });
+
+  pushMatches({ tab: "info", targetId: "times-card", label: "Inicio programado", text: state.meetingTimes?.scheduledStart, fieldKey: "meetingTimes.scheduledStart" });
+  pushMatches({ tab: "info", targetId: "times-card", label: "Término programado", text: state.meetingTimes?.scheduledEnd, fieldKey: "meetingTimes.scheduledEnd" });
+  pushMatches({ tab: "info", targetId: "times-card", label: "Inicio real", text: state.meetingTimes?.actualStart, fieldKey: "meetingTimes.actualStart" });
+  pushMatches({ tab: "info", targetId: "times-card", label: "Término real", text: state.meetingTimes?.actualEnd, fieldKey: "meetingTimes.actualEnd" });
+
+  (state.scopeSections ?? []).forEach((section) => {
+    const targetId = `scope-${section.id}`;
+    pushMatches({ tab: "scope", targetId, label: `${section.title} · Resumen`, text: section.summary, fieldKey: `scope.${section.id}.summary` });
+    (section.topicsList ?? []).forEach((topic) => {
+      pushMatches({ tab: "scope", targetId, label: `${section.title} · Tema`, text: topic.text, fieldKey: `scope.${section.id}.topic.${topic.id}` });
+    });
+    (section.details ?? []).forEach((detail) => {
+      pushMatches({ tab: "scope", targetId, label: `${section.title} · Detalle`, text: detail.label, fieldKey: `scope.${section.id}.detail.${detail.id}.label` });
+      pushMatches({ tab: "scope", targetId, label: `${section.title} · Descripción`, text: detail.description, fieldKey: `scope.${section.id}.detail.${detail.id}.description` });
+    });
+  });
+
+  (state.agreements ?? []).forEach((agreement) => {
+    const targetId = `agreement-${agreement.id}`;
+    pushMatches({ tab: "agreements", targetId, label: `${agreement.agreementId || "Acuerdo"} · Asunto`, text: agreement.subject, fieldKey: `agreements.${agreement.id}.subject` });
+    pushMatches({ tab: "agreements", targetId, label: `${agreement.agreementId || "Acuerdo"} · Detalle`, text: agreement.body, fieldKey: `agreements.${agreement.id}.body` });
+    pushMatches({ tab: "agreements", targetId, label: `${agreement.agreementId || "Acuerdo"} · Responsable`, text: agreement.responsible, fieldKey: `agreements.${agreement.id}.responsible` });
+  });
+
+  (state.requirements ?? []).forEach((requirement) => {
+    const targetId = `requirement-${requirement.id}`;
+    pushMatches({ tab: "requirements", targetId, label: `${requirement.requirementId || "Requerimiento"} · Requerimiento`, text: requirement.body, fieldKey: `requirements.${requirement.id}.body` });
+    pushMatches({ tab: "requirements", targetId, label: `${requirement.requirementId || "Requerimiento"} · Entidad`, text: requirement.entity, fieldKey: `requirements.${requirement.id}.entity` });
+    pushMatches({ tab: "requirements", targetId, label: `${requirement.requirementId || "Requerimiento"} · Responsable`, text: requirement.responsible, fieldKey: `requirements.${requirement.id}.responsible` });
+  });
+
+  (state.userTags ?? []).forEach((tag) => {
+    pushMatches({ tab: "tags", targetId: `user-tag-${tag.id}`, label: "Tag de usuario", text: tag.name, fieldKey: `userTags.${tag.id}.name` });
+  });
+
+  (state.upcomingMeetings ?? []).forEach((meeting) => {
+    const targetId = `next-meeting-${meeting.id}`;
+    pushMatches({ tab: "next", targetId, label: `${meeting.meetingId || "Próxima reunión"} · Fecha`, text: meeting.scheduledDate, fieldKey: `upcomingMeetings.${meeting.id}.scheduledDate` });
+    pushMatches({ tab: "next", targetId, label: `${meeting.meetingId || "Próxima reunión"} · Agenda`, text: meeting.agenda, fieldKey: `upcomingMeetings.${meeting.id}.agenda` });
+  });
+
+  return results;
+};
+
 
 // ============================================================
 // MAPPER: IA → STATE
@@ -532,6 +637,10 @@ const EMPTY_STATE = {
   activeTab:    "info",
   findQuery:    "",
   replaceQuery: "",
+  searchResults: [],
+  activeSearchIndex: -1,
+  activeSearchTargetId: null,
+  pendingSearchResult: null,
 
   isDirty:        false,
   lastPublishedAt: null,
@@ -895,77 +1004,125 @@ const useMinuteEditorStore = create((set, get) => ({
   // FIND / REPLACE
   // ----------------------------------------------------------
 
-  setFindQuery:    (q) => set({ findQuery:    q }),
+  setFindQuery: (q) =>
+    set((s) => {
+      const nextState = { ...s, findQuery: q };
+      const searchResults = buildSearchResults(nextState);
+      return {
+        findQuery: q,
+        searchResults,
+        activeSearchIndex: searchResults.length > 0 ? 0 : -1,
+        activeSearchTargetId: searchResults.length > 0 ? searchResults[0].targetId : null,
+        pendingSearchResult: null,
+      };
+    }),
   setReplaceQuery: (q) => set({ replaceQuery: q }),
 
-  countMatches: () => {
-    const { findQuery, scopeSections, agreements, requirements, userTags, upcomingMeetings, meetingInfo, meetingTimes } = get();
-    if (!findQuery) return 0;
-    const re   = new RegExp(findQuery.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
-    const hits = (str) => ((str ?? "").match(re) ?? []).length;
+  refreshSearchResults: () =>
+    set((s) => {
+      const searchResults = buildSearchResults(s);
+      const nextIndex = searchResults.length === 0
+        ? -1
+        : Math.min(Math.max(s.activeSearchIndex, 0), searchResults.length - 1);
+      return {
+        searchResults,
+        activeSearchIndex: nextIndex,
+        activeSearchTargetId: nextIndex >= 0 ? searchResults[nextIndex]?.targetId ?? null : null,
+      };
+    }),
 
-    return (
-      hits(meetingInfo.client) + hits(meetingInfo.subject) + hits(meetingInfo.location) +
-      hits(meetingInfo.preparedBy) + hits(meetingInfo.meetingDate) +
-      scopeSections.reduce((acc, sec) =>
-        acc + hits(sec.summary) +
-        sec.topicsList.reduce((a, t) => a + hits(t.text), 0) +
-        sec.details.reduce((a, d) => a + hits(d.label) + hits(d.description), 0), 0) +
-      agreements.reduce((acc, a) => acc + hits(a.subject) + hits(a.body) + hits(a.responsible), 0) +
-      requirements.reduce((acc, r) => acc + hits(r.entity) + hits(r.body) + hits(r.responsible), 0) +
-      userTags.reduce((acc, t) => acc + hits(t.name), 0) +
-      upcomingMeetings.reduce((acc, m) => acc + hits(m.scheduledDate) + hits(m.agenda), 0)
-    );
+  countMatches: () => {
+    const { searchResults } = get();
+    return searchResults.length;
   },
+
+  goToSearchResult: (index) => {
+    const { searchResults } = get();
+    if (!searchResults.length) return;
+
+    const normalizedIndex = ((index % searchResults.length) + searchResults.length) % searchResults.length;
+    const result = searchResults[normalizedIndex];
+
+    set({
+      activeSearchIndex: normalizedIndex,
+      activeSearchTargetId: result.targetId,
+      activeTab: result.tab,
+      pendingSearchResult: result,
+    });
+  },
+
+  goToNextSearchResult: () => {
+    const { activeSearchIndex, goToSearchResult } = get();
+    goToSearchResult(activeSearchIndex + 1);
+  },
+
+  goToPreviousSearchResult: () => {
+    const { activeSearchIndex, goToSearchResult } = get();
+    goToSearchResult(activeSearchIndex - 1);
+  },
+
+  clearPendingSearchResult: () => set({ pendingSearchResult: null }),
 
   applyReplace: (replaceAll = true) => {
     const { findQuery, replaceQuery } = get();
     if (!findQuery) return;
     const flags = replaceAll ? "gi" : "i";
-    const re    = new RegExp(findQuery.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), flags);
+    const re    = new RegExp(escapeRegExp(findQuery), flags);
     const rep   = (str) => (str ?? "").replace(re, replaceQuery);
 
-    set((s) => ({
-      meetingInfo: {
+    set((s) => {
+      const nextState = {
+        ...s,
+        meetingInfo: {
         client:      rep(s.meetingInfo.client),
         subject:     rep(s.meetingInfo.subject),
         meetingDate: rep(s.meetingInfo.meetingDate),
         location:    rep(s.meetingInfo.location),
         preparedBy:  rep(s.meetingInfo.preparedBy),
-      },
-      meetingTimes: {
+        },
+        meetingTimes: {
         scheduledStart: rep(s.meetingTimes.scheduledStart),
         actualStart:    rep(s.meetingTimes.actualStart),
         scheduledEnd:   rep(s.meetingTimes.scheduledEnd),
         actualEnd:      rep(s.meetingTimes.actualEnd),
-      },
-      scopeSections: s.scopeSections.map((sec) => ({
+        },
+        scopeSections: s.scopeSections.map((sec) => ({
         ...sec,
         summary:    rep(sec.summary),
         topicsList: (sec.topicsList ?? []).map((t) => ({ ...t, text: rep(t.text) })),
         details:    (sec.details    ?? []).map((d) => ({ ...d, label: rep(d.label), description: rep(d.description) })),
-      })),
-      agreements: s.agreements.map((a) => ({
+        })),
+        agreements: s.agreements.map((a) => ({
         ...a,
         subject:     rep(a.subject),
         body:        rep(a.body),
         responsible: rep(a.responsible),
         status:      rep(a.status),
-      })),
-      requirements: s.requirements.map((r) => ({
+        })),
+        requirements: s.requirements.map((r) => ({
         ...r,
         entity:      rep(r.entity),
         body:        rep(r.body),
         responsible: rep(r.responsible),
-      })),
-      userTags:        s.userTags.map((t) => ({ ...t, name: rep(t.name) })),
-      upcomingMeetings: s.upcomingMeetings.map((m) => ({
+        })),
+        userTags:        s.userTags.map((t) => ({ ...t, name: rep(t.name) })),
+        upcomingMeetings: s.upcomingMeetings.map((m) => ({
         ...m,
         scheduledDate: rep(m.scheduledDate),
         agenda:        rep(m.agenda),
-      })),
-      isDirty: true,
-    }));
+        })),
+        isDirty: true,
+      };
+
+      const searchResults = buildSearchResults(nextState);
+      return {
+        ...nextState,
+        searchResults,
+        activeSearchIndex: searchResults.length > 0 ? 0 : -1,
+        activeSearchTargetId: searchResults.length > 0 ? searchResults[0].targetId : null,
+        pendingSearchResult: null,
+      };
+    });
   },
 
   // ----------------------------------------------------------

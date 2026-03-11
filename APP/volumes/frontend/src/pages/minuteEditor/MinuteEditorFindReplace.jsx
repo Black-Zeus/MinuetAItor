@@ -12,16 +12,47 @@ const MinuteEditorFindReplace = () => {
     findQuery, replaceQuery,
     setFindQuery, setReplaceQuery,
     countMatches, applyReplace,
+    refreshSearchResults,
+    goToSearchResult,
+    goToNextSearchResult,
+    goToPreviousSearchResult,
+    activeSearchIndex,
+    searchResults,
+    meetingInfo,
+    meetingTimes,
+    scopeSections,
+    agreements,
+    requirements,
+    userTags,
+    upcomingMeetings,
   } = useMinuteEditorStore();
 
   const [matchCount, setMatchCount] = useState(0);
+  const currentResult = activeSearchIndex >= 0 ? searchResults[activeSearchIndex] : null;
 
   // Recalcular coincidencias al cambiar la query de búsqueda
   useEffect(() => {
-    setMatchCount(countMatches());
-  }, [findQuery]);
+    refreshSearchResults();
+  }, [
+    findQuery,
+    refreshSearchResults,
+    meetingInfo,
+    meetingTimes,
+    scopeSections,
+    agreements,
+    requirements,
+    userTags,
+    upcomingMeetings,
+  ]);
 
-  const handleFind = () => setMatchCount(countMatches());
+  useEffect(() => {
+    setMatchCount(countMatches());
+  }, [countMatches, searchResults]);
+
+  const handleFind = () => {
+    setMatchCount(countMatches());
+    goToSearchResult(0);
+  };
 
   const handleReplace = (all) => {
     if (!findQuery) return;
@@ -63,6 +94,24 @@ const MinuteEditorFindReplace = () => {
           />
           <button
             type="button"
+            disabled={!matchCount}
+            onClick={goToPreviousSearchResult}
+            className="px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition-theme text-sm font-medium whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Icon name="chevronLeft" className="mr-1" />
+            Anterior
+          </button>
+          <button
+            type="button"
+            disabled={!matchCount}
+            onClick={goToNextSearchResult}
+            className="px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition-theme text-sm font-medium whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Siguiente
+            <Icon name="chevronRight" className="ml-1" />
+          </button>
+          <button
+            type="button"
             onClick={() => handleReplace(false)}
             className="px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition-theme text-sm font-medium whitespace-nowrap"
           >
@@ -79,10 +128,21 @@ const MinuteEditorFindReplace = () => {
 
         {/* Contador */}
         <div className="text-sm text-gray-500 dark:text-gray-400 transition-theme whitespace-nowrap">
-          <span className="font-mono font-semibold text-gray-900 dark:text-gray-100">{matchCount}</span> coincidencias
+          <span className="font-mono font-semibold text-gray-900 dark:text-gray-100">
+            {matchCount > 0 ? `${activeSearchIndex + 1}/${matchCount}` : 0}
+          </span>{" "}
+          coincidencias
         </div>
 
       </div>
+
+      {currentResult && (
+        <div className="mt-3 rounded-lg bg-primary-50/70 px-3 py-2 text-xs text-primary-800 transition-theme dark:bg-primary-900/20 dark:text-primary-200">
+          <span className="font-semibold">{currentResult.label}</span>
+          {" · "}
+          <span className="font-mono">{currentResult.preview}</span>
+        </div>
+      )}
     </section>
   );
 };

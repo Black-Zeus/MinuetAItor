@@ -15,7 +15,7 @@ import ModalManager from '@components/ui/modal';
 import useMinuteEditorStore from '@/store/minuteEditorStore';
 
 const MinuteEditorSectionAgreements = ({ isReadOnly = false }) => {
-    const { agreements, addAgreement, updateAgreement, deleteAgreement } = useMinuteEditorStore();
+    const { agreements, addAgreement, updateAgreement, deleteAgreement, activeSearchTargetId } = useMinuteEditorStore();
 
     // ---------------------------
     // Helpers (fecha)
@@ -195,7 +195,10 @@ const MinuteEditorSectionAgreements = ({ isReadOnly = false }) => {
                         ) : agreements.map(a => (
                             <tr
                                 key={a.id}
-                                className="border-b border-gray-100 dark:border-gray-700/50 last:border-0 align-top transition-theme"
+                                data-search-target={`agreement-${a.id}`}
+                                className={`border-b border-gray-100 dark:border-gray-700/50 last:border-0 align-top transition-theme ${
+                                  activeSearchTargetId === `agreement-${a.id}` ? "bg-primary-50/70 dark:bg-primary-900/15" : ""
+                                }`}
                             >
                                 {/* Mantengo tu ID visible actual (agreementId). */}
                                 <td className="py-3 pr-4 font-mono text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
