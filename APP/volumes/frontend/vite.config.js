@@ -146,7 +146,6 @@ export default defineConfig({
     include: [
       'react', 'react-dom', 'react-router-dom',
       'axios', 'zustand', 'lucide-react',
-      'xlsx', 'exceljs', 'pdfmake', 'file-saver',
     ],
     esbuildOptions: {
       target:      'es2020',
