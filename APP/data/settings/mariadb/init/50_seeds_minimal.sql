@@ -175,6 +175,10 @@ INSERT IGNORE INTO projects (
   NOW(), 'c168b91d-e16f-468c-afd1-547efd2c486b'
 );
 
+-- ============================================================
+-- Participantes y correos de prueba (5)
+-- ============================================================
+
 INSERT INTO participants (
   id, display_name, normalized_name, organization, title, notes, is_active
 ) VALUES
