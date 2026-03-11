@@ -5,20 +5,22 @@ ARG BACKEND_PORT_INTERNAL=8000
 WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    TZ=America/Santiago \
+    DEBIAN_FRONTEND=noninteractive
 
-# deps del sistema (ajusta si usas psycopg2, etc.)
-RUN apt-get update  \
-    && apt-get install -y --no-install-recommends wget ca-certificates \
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+       wget \
+       ca-certificates \
+       tzdata \
+    && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime \
+    && echo $TZ > /etc/timezone \
     && rm -rf /var/lib/apt/lists/*
 
-# Cache deps Python
-# Si tu backend usa requirements.txt:
 COPY APP/volumes/backend/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 EXPOSE ${BACKEND_PORT_INTERNAL}
 
-# En dev/qa NO copiamos código: se monta por volumen
-# Host/port normalmente los define compose. Dejo valores default.
 CMD ["sh","-lc","uvicorn main:app --host 0.0.0.0 --port ${BACKEND_PORT_INTERNAL} --reload"]
