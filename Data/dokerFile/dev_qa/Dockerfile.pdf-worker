@@ -1,0 +1,22 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Dependencias del sistema (mínimas)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Dependencias Python
+COPY APP/volumes/pdf-worker/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Código fuente
+COPY APP/volumes/pdf-worker/app/ .
+
+# watchmedo para hot-reload en dev (mismo patrón que worker)
+RUN pip install --no-cache-dir watchdog[watchmedo]
+
+CMD ["watchmedo", "auto-restart", \
+     "--directory=.", "--pattern=*.py", "--recursive", "--", \
+     "python", "main.py"]

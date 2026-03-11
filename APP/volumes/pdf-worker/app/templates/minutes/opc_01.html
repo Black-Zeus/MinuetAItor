@@ -1,0 +1,515 @@
+{% extends "base/base.html" %}
+
+{# ============================================================
+   minutes/opc_01.html — Corporativa Completa
+   Origen: opc_01_b.html + minuta_opc_01.css
+   
+   Contexto esperado (JobEnvelope.payload):
+     general_info, participants, scope, agreements,
+     requirements, upcoming_meetings, pdf_format,
+     version_label, options
+============================================================ #}
+
+{% block extra_styles %}
+/* ── OPC_01: Corporativa Completa ─────────────────────────── */
+
+.doc-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--primary);
+  margin-bottom: 14px;
+}
+.doc-title    { margin: 0; font-size: 22px; line-height: 1.2; color: var(--primary-dark); font-weight: 700; }
+.doc-subtitle { margin: 6px 0 0 0; font-size: 12px; color: var(--muted); }
+.doc-header-meta { min-width: 180px; text-align: right; font-size: 12px; color: var(--muted); }
+
+/* Portada */
+.cover-page   { display: flex; flex-direction: column; min-height: calc(297mm - 30mm); }
+.cover-top    { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; }
+.logo-box     {
+  width: 220px; height: 80px;
+  border: 1px solid var(--line-strong); border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--muted); font-size: 12px; background: #fcfdff; overflow: hidden;
+}
+.cover-center { flex: 1; display: flex; align-items: center; justify-content: center; }
+.cover-card   { width: 100%; border: 1px solid var(--line); border-radius: 18px; overflow: hidden; background: #fff; }
+.cover-header { padding: 26px 30px; background: linear-gradient(180deg,#f7faff 0%,#eef3fc 100%); border-bottom: 1px solid var(--line); }
+.cover-kicker { margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 0.8px; font-size: 11px; color: var(--primary); font-weight: 700; }
+.cover-title  { margin: 0; font-size: 28px; line-height: 1.18; color: var(--primary-dark); font-weight: 700; }
+.cover-subtitle { margin: 8px 0 0 0; font-size: 14px; color: var(--muted); }
+.cover-body   { padding: 20px 30px 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px 28px; }
+.cover-item   { padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+.cover-item .label { display: block; margin-bottom: 4px; font-size: 11px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; }
+.cover-item .value { font-size: 15px; color: var(--text); font-weight: 600; }
+.cover-footer { padding: 14px 30px 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+
+/* Info table */
+.info-table, .data-table {
+  width: 100%; border-collapse: collapse; table-layout: fixed;
+  border: 1px solid var(--line); border-radius: 12px; overflow: hidden; margin-bottom: 14px;
+}
+.info-table th, .info-table td,
+.data-table th, .data-table td {
+  border: 1px solid var(--line); padding: 9px 10px;
+  text-align: left; vertical-align: top; word-break: break-word;
+}
+.info-table th, .data-table thead th { background: #f7faff; color: var(--primary-dark); font-weight: 700; }
+.info-table .field  { width: 16%; background: #fbfcfe; color: var(--muted); font-size: 12px; font-weight: 700; }
+.info-table .separator td { background: var(--primary-soft); color: var(--primary-dark); font-weight: 700; text-align: center; letter-spacing: 0.3px; }
+
+/* Participantes */
+.participants-table th { text-align: center; }
+.participants-table td { vertical-align: top; }
+.abbr { text-align: center; font-weight: 700; color: var(--primary-dark); background: var(--primary-soft); }
+
+/* Scope */
+.scope-block         { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; margin-bottom: 12px; background: #fff; }
+.scope-head          { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 10px 12px; background: #f8fbff; border-bottom: 1px solid var(--line); }
+.scope-title         { margin: 0; font-size: 14px; color: var(--primary-dark); font-weight: 700; }
+.scope-meta          { margin-top: 3px; font-size: 11px; color: var(--muted); }
+.scope-summary       { padding: 12px; font-size: 13px; }
+.scope-inner         { padding: 0 12px 12px 12px; }
+.detail-table        { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 8px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.detail-table th, .detail-table td { border: 1px solid var(--line); padding: 8px 9px; text-align: left; vertical-align: top; }
+.detail-table th     { width: 18%; background: #fbfcfe; color: var(--primary-dark); }
+
+/* Signature grid */
+.signature-grid      { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; margin-top: 28px; }
+.signature-box       { min-height: 120px; border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; justify-content: flex-end; }
+.signature-line      { border-top: 1px solid var(--line-strong); margin-top: 40px; padding-top: 8px; }
+.signature-name      { font-weight: 700; color: var(--text); }
+.signature-role      { font-size: 12px; color: var(--muted); }
+.footer-legend       { margin-top: 14px; font-size: 11.5px; color: var(--muted); }
+
+/* Timeline */
+.timeline-table td:first-child, .timeline-table th:first-child { width: 14%; }
+.timeline-table td:nth-child(2), .timeline-table th:nth-child(2) { width: 12%; }
+{% endblock %}
+
+{% block content %}
+<div class="document">
+
+  {# ── HOJA OPCIONAL: PORTADA ────────────────────────────── #}
+  {% if pdf_format is not defined or pdf_format.cover_page is not defined or pdf_format.cover_page.enabled %}
+  <section class="page">
+    <div class="cover-page">
+      <div class="cover-top">
+        <div class="logo-box">Logo Cliente</div>
+        <div class="logo-box">Logo Empresa</div>
+      </div>
+      <div class="cover-center">
+        <div class="cover-card">
+          <div class="cover-header">
+            <p class="cover-kicker">Documento de sesión</p>
+            <h1 class="cover-title">{{ general_info.subject }}</h1>
+            <p class="cover-subtitle">{{ general_info.client }} · {{ general_info.meeting_date }}</p>
+          </div>
+          <div class="cover-body">
+            <div class="cover-item">
+              <span class="label">Cliente</span>
+              <span class="value">{{ general_info.client }}</span>
+            </div>
+            <div class="cover-item">
+              <span class="label">Proyecto</span>
+              <span class="value">{{ general_info.project | default('—') }}</span>
+            </div>
+            <div class="cover-item">
+              <span class="label">Título de la minuta</span>
+              <span class="value">{{ general_info.subject }}</span>
+            </div>
+            <div class="cover-item">
+              <span class="label">Fecha de reunión</span>
+              <span class="value">{{ general_info.meeting_date }}</span>
+            </div>
+            <div class="cover-item">
+              <span class="label">Elaborado por</span>
+              <span class="value">{{ general_info.prepared_by }}</span>
+            </div>
+            <div class="cover-item">
+              <span class="label">Versión</span>
+              <span class="value">{{ version_label | default('v1.0') }}</span>
+            </div>
+          </div>
+          <div class="cover-footer">
+            {{ pdf_format.cover_page.subtitle | default('') if pdf_format is defined and pdf_format.cover_page is defined else '' }}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="page-number">Página 1</div>
+  </section>
+  {% endif %}
+
+  {# ── HOJA OPCIONAL: CARÁTULA / FICHA ───────────────────── #}
+  {% if pdf_format is not defined or pdf_format.summary_sheet is not defined or pdf_format.summary_sheet.enabled %}
+  <section class="page">
+    <div class="doc-header">
+      <div>
+        <h1 class="doc-title">Carátula / Ficha de Documento</h1>
+        <p class="doc-subtitle">Resumen documental para uso de cliente, control interno y circulación formal.</p>
+      </div>
+      <div class="doc-header-meta">
+        <div>Documento: Minuta de Reunión</div>
+        <div>Versión: {{ version_label | default('v1.0') }}</div>
+      </div>
+    </div>
+
+    <table class="info-table">
+      <tbody>
+        <tr>
+          <th class="field">Cliente</th>
+          <td colspan="2">{{ general_info.client }}</td>
+          <th class="field">Proyecto</th>
+          <td colspan="2">{{ general_info.project | default('—') }}</td>
+        </tr>
+        <tr>
+          <th class="field">Título</th>
+          <td colspan="2">{{ general_info.subject }}</td>
+          <th class="field">Versión</th>
+          <td colspan="2">{{ version_label | default('v1.0') }}</td>
+        </tr>
+        <tr>
+          <th class="field">Fecha reunión</th>
+          <td colspan="2">{{ general_info.meeting_date }}</td>
+          <th class="field">Estado</th>
+          <td colspan="2">{{ 'Borrador' if options is defined and options.watermark else 'Emitida' }}</td>
+        </tr>
+        <tr>
+          <th class="field">Lugar / Plataforma</th>
+          <td colspan="2">{{ general_info.location | default('—') }}</td>
+          <th class="field">Elaborado por</th>
+          <td colspan="2">{{ general_info.prepared_by }}</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="footer-legend">Nota: en caso de no utilizar esta hoja, puede desactivarse desde la configuración del PDF.</div>
+  </section>
+  {% endif %}
+
+  {# ── MINUTA PRINCIPAL ───────────────────────────────────── #}
+  <section class="page">
+    <div class="doc-header">
+      <div>
+        <h1 class="doc-title">Minuta de Reunión</h1>
+        <p class="doc-subtitle">{{ general_info.client }} · {{ general_info.project | default('') }} · {{ general_info.meeting_date }}</p>
+      </div>
+      <div class="doc-header-meta">
+        <div>Versión: {{ version_label | default('v1.0') }}</div>
+        <div>Preparado por: {{ general_info.prepared_by }}</div>
+      </div>
+    </div>
+
+    {# 1. Información General #}
+    <h2 class="section-title">1. Información General</h2>
+    <table class="info-table">
+      <tbody>
+        <tr>
+          <th class="field">Cliente</th>
+          <td colspan="2">{{ general_info.client }}</td>
+          <th class="field">Proyecto</th>
+          <td colspan="2">{{ general_info.project | default('—') }}</td>
+        </tr>
+        <tr>
+          <th class="field">Tema reunión</th>
+          <td colspan="2">{{ general_info.subject }}</td>
+          <th class="field">Preparado por</th>
+          <td colspan="2">{{ general_info.prepared_by }}</td>
+        </tr>
+        <tr>
+          <th class="field">Fecha sesión</th>
+          <td colspan="2">{{ general_info.meeting_date }}</td>
+          <th class="field">Plataforma</th>
+          <td colspan="2">{{ general_info.location | default('—') }}</td>
+        </tr>
+        <tr class="separator">
+          <td colspan="6">HORARIOS DE LA SESIÓN</td>
+        </tr>
+        <tr>
+          <th class="field">Programado</th>
+          <td colspan="2"><strong>Inicio</strong>: {{ general_info.scheduled_start_time | default('—') }}</td>
+          <td><strong>Término</strong>: {{ general_info.scheduled_end_time | default('—') }}</td>
+          <td colspan="2"></td>
+        </tr>
+        <tr>
+          <th class="field">Observado</th>
+          <td colspan="2"><strong>Inicio</strong>: {{ general_info.actual_start_time | default('—') }}</td>
+          <td><strong>Término</strong>: {{ general_info.actual_end_time | default('—') }}</td>
+          <td colspan="2"></td>
+        </tr>
+      </tbody>
+    </table>
+
+    {# 2. Participantes #}
+    <h2 class="section-title">2. Participantes</h2>
+    <div class="section-note">Distribución formal de invitados, asistentes efectivos y destinatarios en copia de la presente minuta.</div>
+
+    {# Calcular máximo de filas #}
+    {% set max_rows = [
+        participants.invited | length,
+        participants.attendees | length,
+        participants.copy_recipients | length
+    ] | max %}
+
+    <table class="data-table participants-table">
+      <thead>
+        <tr>
+          <th colspan="2">Invitados</th>
+          <th colspan="2">Asistentes</th>
+          <th colspan="2">Copia Minuta</th>
+        </tr>
+        <tr>
+          <th>Nombre</th><th>Abrev.</th>
+          <th>Nombre</th><th>Abrev.</th>
+          <th>Nombre</th><th>Abrev.</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for i in range(max_rows) %}
+        <tr>
+          {% set inv = participants.invited[i] if i < participants.invited | length else None %}
+          {% set att = participants.attendees[i] if i < participants.attendees | length else None %}
+          {% set cc  = participants.copy_recipients[i] if i < participants.copy_recipients | length else None %}
+          <td>{{ inv.full_name if inv else '' }}</td>
+          <td class="abbr">{{ inv.initials if inv else '' }}</td>
+          <td>{{ att.full_name if att else '' }}</td>
+          <td class="abbr">{{ att.initials if att else '' }}</td>
+          <td>{{ cc.full_name if cc else '' }}</td>
+          <td class="abbr">{{ cc.initials if cc else '' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {# Tags #}
+    {% if ai_tags is defined and ai_tags | length > 0 %}
+    <div class="tag-list">
+      {% for tag in ai_tags %}
+      <span class="tag">{{ tag.name }}</span>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {# 3. Alcances #}
+    <h2 class="section-title">3. Alcances</h2>
+    <div class="section-note">Cuerpo principal de la minuta, estructurado desde la salida semántica de la IA.</div>
+
+    {% for section in scope.sections %}
+    <section class="scope-block">
+      <div class="scope-head">
+        <div>
+          <h3 class="scope-title">{{ section.section_title }}</h3>
+          <div class="scope-meta">{{ section.section_id }}</div>
+        </div>
+        <div><span class="chip">{{ section.section_type }}</span></div>
+      </div>
+      <div class="scope-summary">{{ section.content.summary }}</div>
+
+      {% if section.section_type == 'introduction' and section.content.topics_list is defined and section.content.topics_list | length > 0 %}
+      <div class="scope-inner">
+        <h4 class="section-subtitle">Temas incluidos</h4>
+        <ul class="clean-list">
+          {% for topic in section.content.topics_list %}
+          <li>{{ topic }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% elif section.content.details is defined and section.content.details | length > 0 %}
+      <div class="scope-inner">
+        <h4 class="section-subtitle">Detalle</h4>
+        <table class="detail-table">
+          <tbody>
+            {% for detail in section.content.details %}
+            <tr>
+              <th>{{ detail.label }}</th>
+              <td>{{ detail.description }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+    </section>
+    {% endfor %}
+
+    {# 4. Acuerdos #}
+    <h2 class="section-title">4. Acuerdos</h2>
+    <div class="section-note">Tabla formal de compromisos acordados durante la sesión.</div>
+
+    {% if agreements["items"] | length > 0 %}
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th style="width:20%">Asunto</th>
+          <th>Detalle</th>
+          <th style="width:15%">Responsable</th>
+          <th style="width:12%">Vencimiento</th>
+          <th style="width:11%">Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in agreements["items"] %}
+        <tr>
+          <td>{{ item.subject }}</td>
+          <td>{{ item.body }}</td>
+          <td>{{ item.responsible | default('No definido') }}</td>
+          <td>{{ item.due_date | default('No definido') }}</td>
+          <td><span class="badge status-{{ item.status | default('pending') }}">{{ item.status | default('pending') }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">No hay acuerdos registrados.</div>
+    {% endif %}
+
+    {# 5. Requerimientos #}
+    <h2 class="section-title">5. Requerimientos</h2>
+    <div class="section-note">Solicitudes, dependencias o necesidades identificadas, con prioridad y estado.</div>
+
+    {% if requirements["items"] | length > 0 %}
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th style="width:18%">Entidad</th>
+          <th>Detalle</th>
+          <th style="width:15%">Responsable</th>
+          <th style="width:11%">Prioridad</th>
+          <th style="width:11%">Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in requirements["items"] %}
+        <tr>
+          <td>{{ item.entity }}</td>
+          <td>{{ item.body }}</td>
+          <td>{{ item.responsible | default('No definido') }}</td>
+          <td><span class="badge priority-{{ item.priority | default('medium') }}">{{ item.priority | default('medium') }}</span></td>
+          <td><span class="badge status-{{ item.status | default('open') }}">{{ item.status | default('open') }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">No hay requerimientos registrados.</div>
+    {% endif %}
+
+    {# 6. Próximas reuniones #}
+    <h2 class="section-title">6. Próximas reuniones</h2>
+    {% if upcoming_meetings is defined and upcoming_meetings["items"] | length > 0 %}
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th style="width:15%">Fecha</th>
+          <th>Agenda</th>
+          <th style="width:30%">Asistentes requeridos</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in upcoming_meetings["items"] %}
+        <tr>
+          <td>{{ item.scheduled_date | default('—') }}</td>
+          <td>{{ item.agenda }}</td>
+          <td>{{ item.attendees | join(', ') if item.attendees else '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">No hay próximas reuniones registradas.</div>
+    {% endif %}
+
+  </section>
+
+  {# ── HOJA OPCIONAL: CONTROL DE VERSIONES ───────────────── #}
+  {% if pdf_format is defined and pdf_format.version_control is defined and pdf_format.version_control.enabled %}
+  <section class="page">
+    <div class="doc-header">
+      <div>
+        <h1 class="doc-title">Control de Versiones</h1>
+        <p class="doc-subtitle">Historial documental para trazabilidad del contenido emitido.</p>
+      </div>
+      <div class="doc-header-meta">
+        <div>Documento: Minuta</div>
+        <div>Versión actual: {{ version_label | default('v1.0') }}</div>
+      </div>
+    </div>
+    <table class="data-table timeline-table">
+      <thead>
+        <tr>
+          <th>Versión</th>
+          <th>Fecha</th>
+          <th>Autor</th>
+          <th>Descripción del cambio</th>
+          <th>Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if pdf_format.version_control.entries is defined %}
+          {% for entry in pdf_format.version_control.entries %}
+          <tr>
+            <td>{{ entry.version }}</td>
+            <td>{{ entry.date }}</td>
+            <td>{{ entry.author }}</td>
+            <td>{{ entry.description }}</td>
+            <td>{{ entry.status }}</td>
+          </tr>
+          {% endfor %}
+        {% else %}
+        <tr>
+          <td>{{ version_label | default('v1.0') }}</td>
+          <td>{{ general_info.meeting_date }}</td>
+          <td>{{ general_info.prepared_by }}</td>
+          <td>Versión generada por MinuetAItor.</td>
+          <td>{{ 'Borrador' if options is defined and options.watermark else 'Emitida' }}</td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </section>
+  {% endif %}
+
+  {# ── HOJA OPCIONAL: FIRMAS / APROBACIÓN ────────────────── #}
+  {% if pdf_format is defined and pdf_format.signature_page is defined and pdf_format.signature_page.enabled %}
+  <section class="page">
+    <div class="doc-header">
+      <div>
+        <h1 class="doc-title">Firmas / Aprobación</h1>
+        <p class="doc-subtitle">Espacio destinado a validación formal del documento.</p>
+      </div>
+      <div class="doc-header-meta">
+        <div>Cliente: {{ general_info.client }}</div>
+        <div>Fecha: {{ general_info.meeting_date }}</div>
+      </div>
+    </div>
+    <div class="signature-grid">
+      {% if pdf_format.signature_page.signatories is defined and pdf_format.signature_page.signatories | length > 0 %}
+        {% for sig in pdf_format.signature_page.signatories %}
+        <div class="signature-box">
+          <div class="signature-line">
+            <div class="signature-name">{{ sig.full_name }}</div>
+            <div class="signature-role">{{ sig.role }}</div>
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        {# Fallback: usar asistentes #}
+        {% for person in participants.attendees %}
+        <div class="signature-box">
+          <div class="signature-line">
+            <div class="signature-name">{{ person.full_name }}</div>
+            <div class="signature-role">Asistente</div>
+          </div>
+        </div>
+        {% endfor %}
+      {% endif %}
+    </div>
+    <div class="footer-legend">Esta hoja puede mantenerse visible sólo cuando el flujo documental requiera firma o aprobación formal.</div>
+  </section>
+  {% endif %}
+
+</div>
+{% endblock %}

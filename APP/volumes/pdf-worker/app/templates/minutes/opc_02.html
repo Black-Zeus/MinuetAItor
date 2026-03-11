@@ -1,0 +1,292 @@
+{% extends "base/base.html" %}
+
+{# ============================================================
+   minutes/opc_02.html — Ejecutiva Moderna
+   Origen: opc_02_b.html + minuta_opc_02.css
+============================================================ #}
+
+{% block extra_styles %}
+/* ── OPC_02: Ejecutiva Moderna ────────────────────────────── */
+
+.header-shell { margin-bottom: 18px; border: 1px solid var(--line); border-radius: 18px; overflow: hidden; background: linear-gradient(180deg,#fbfcff 0%,#ffffff 100%); }
+.header-top   { display: flex; justify-content: space-between; gap: 18px; padding: 24px 28px 20px; background: linear-gradient(135deg,var(--primary) 0%,var(--primary-dark) 100%); color: #fff; }
+.header-title h1 { margin: 0; font-size: 27px; line-height: 1.15; font-weight: 700; }
+.header-title p  { margin: 8px 0 0; font-size: 13px; opacity: 0.92; }
+.header-meta     { text-align: right; font-size: 12px; min-width: 190px; }
+.header-meta .meta-pill { display: inline-block; padding: 5px 10px; border: 1px solid rgba(255,255,255,0.18); border-radius: 999px; margin-top: 6px; background: rgba(255,255,255,0.08); }
+.header-body     { padding: 18px 20px 20px; }
+
+/* Info grid */
+.info-grid    { display: grid; grid-template-columns: repeat(6,1fr); gap: 0; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.info-label   { background: var(--secondary); color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px; font-weight: 700; }
+.info-value   { background: #fff; font-weight: 600; }
+.info-cell    { padding: 10px 12px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.info-grid .span-2 { grid-column: span 2; }
+.info-grid .span-3 { grid-column: span 3; }
+.info-grid .span-4 { grid-column: span 4; }
+.info-grid .span-5 { grid-column: span 5; }
+.info-grid .span-6 { grid-column: span 6; }
+.info-row-end { border-right: none; }
+
+/* Tags */
+.tag-wrap { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.tag-chip  { display: inline-block; padding: 5px 10px; border-radius: 999px; background: var(--primary-soft); color: var(--primary-dark); font-size: 12px; font-weight: 600; }
+
+/* Participantes grid */
+.participants-grid    { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
+.participant-box      { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: #fff; }
+.participant-box-head { padding: 10px 14px; background: #f7faff; border-bottom: 1px solid var(--line); color: var(--primary-dark); font-size: 13px; font-weight: 700; }
+.participant-box-body { padding: 10px 14px 12px; }
+.participant-row      { display: grid; grid-template-columns: 1fr 44px; gap: 10px; align-items: center; padding: 7px 0; border-bottom: 1px dashed var(--line); }
+.participant-row:last-child { border-bottom: none; }
+.participant-name     { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.participant-initials { text-align: center; font-weight: 700; color: var(--primary-dark); background: var(--primary-soft); border-radius: 999px; padding: 3px 0; }
+
+/* Scope items */
+.scope-item           { border: 1px solid var(--line); border-radius: 14px; margin-bottom: 14px; overflow: hidden; background: #fff; }
+.scope-item-head      { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 12px 14px; background: #f8fbff; border-bottom: 1px solid var(--line); }
+.scope-item-title     { margin: 0; font-size: 15px; color: var(--primary-dark); }
+.scope-item-code      { margin-top: 4px; font-size: 11px; color: var(--muted); }
+.scope-item-type      { white-space: nowrap; font-size: 11px; font-weight: 700; color: var(--primary-dark); background: var(--primary-soft); border-radius: 999px; padding: 4px 8px; }
+.scope-summary        { padding: 14px; font-size: 13.5px; }
+.scope-subblock       { padding: 0 14px 14px; }
+.scope-subtitle       { font-size: 12px; font-weight: 700; color: var(--primary-dark); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.3px; }
+
+/* Detail grid */
+.detail-grid  { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 0 14px 14px; }
+.detail-card  { border: 1px solid var(--line); border-radius: 12px; padding: 10px 11px; background: #fcfdff; }
+.detail-label { display: inline-block; margin-bottom: 6px; font-size: 11px; font-weight: 700; color: var(--primary-dark); background: var(--primary-soft); border-radius: 999px; padding: 4px 8px; }
+.detail-body  { font-size: 13px; }
+
+/* Tabla moderna */
+.modern-table  { width: 100%; border-collapse: collapse; table-layout: fixed; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.modern-table th, .modern-table td { border: 1px solid var(--line); padding: 10px 11px; vertical-align: top; text-align: left; word-break: break-word; }
+.modern-table thead th { background: #f7faff; color: var(--primary-dark); font-weight: 700; }
+.w-12 { width: 12%; } .w-16 { width: 16%; } .w-20 { width: 20%; }
+{% endblock %}
+
+{% block content %}
+<div class="page">
+
+  {# Header shell #}
+  <section class="header-shell">
+    <div class="header-top">
+      <div class="header-title">
+        <h1>{{ general_info.subject }}</h1>
+        <p>{{ general_info.client }}{% if general_info.project is defined and general_info.project %} · {{ general_info.project }}{% endif %}</p>
+      </div>
+      <div class="header-meta">
+        <div>Cliente: <strong>{{ general_info.client }}</strong></div>
+        <div>Fecha: <strong>{{ general_info.meeting_date }}</strong></div>
+        {% if general_info.location %}
+        <div class="meta-pill">{{ general_info.location }}</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="header-body">
+      <div class="info-grid">
+        <div class="info-cell info-label">Cliente</div>
+        <div class="info-cell info-value span-2">{{ general_info.client }}</div>
+        <div class="info-cell info-label">Preparado por</div>
+        <div class="info-cell info-value span-2 info-row-end">{{ general_info.prepared_by }}</div>
+
+        <div class="info-cell info-label">Tema(s)</div>
+        <div class="info-cell info-value span-5 info-row-end">{{ general_info.subject }}</div>
+
+        <div class="info-cell info-label">Fecha reunión</div>
+        <div class="info-cell info-value">{{ general_info.meeting_date }}</div>
+        <div class="info-cell info-label">Lugar</div>
+        <div class="info-cell info-value">{{ general_info.location | default('—') }}</div>
+        <div class="info-cell info-label">Versión</div>
+        <div class="info-cell info-value info-row-end">{{ version_label | default('v1.0') }}</div>
+
+        <div class="info-cell info-label">Inicio programado</div>
+        <div class="info-cell info-value">{{ general_info.scheduled_start_time | default('—') }}</div>
+        <div class="info-cell info-label">Término programado</div>
+        <div class="info-cell info-value">{{ general_info.scheduled_end_time | default('—') }}</div>
+        <div class="info-cell info-label">Inicio real</div>
+        <div class="info-cell info-value info-row-end">{{ general_info.actual_start_time | default('—') }}</div>
+      </div>
+
+      {% if ai_tags is defined and ai_tags | length > 0 %}
+      <div class="tag-wrap">
+        {% for tag in ai_tags %}
+        <span class="tag-chip">{{ tag.name }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </section>
+
+  {# Participantes #}
+  <h2 class="section-title">Participantes</h2>
+  <div class="participants-grid">
+    <section class="participant-box">
+      <div class="participant-box-head">Invitados</div>
+      <div class="participant-box-body">
+        {% for p in participants.invited %}
+        <div class="participant-row">
+          <div class="participant-name">{{ p.full_name }}</div>
+          <div class="participant-initials">{{ p.initials }}</div>
+        </div>
+        {% else %}
+        <div style="color:var(--muted);font-style:italic;font-size:12px">Sin invitados</div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="participant-box">
+      <div class="participant-box-head">Asistentes</div>
+      <div class="participant-box-body">
+        {% for p in participants.attendees %}
+        <div class="participant-row">
+          <div class="participant-name">{{ p.full_name }}</div>
+          <div class="participant-initials">{{ p.initials }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="participant-box">
+      <div class="participant-box-head">Copia minuta</div>
+      <div class="participant-box-body">
+        {% for p in participants.copy_recipients %}
+        <div class="participant-row">
+          <div class="participant-name">{{ p.full_name }}</div>
+          <div class="participant-initials">{{ p.initials }}</div>
+        </div>
+        {% else %}
+        <div style="color:var(--muted);font-style:italic;font-size:12px">Sin destinatarios en copia</div>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+
+  {# Alcances #}
+  <h2 class="section-title">Alcances</h2>
+
+  {% for section in scope.sections %}
+  <section class="scope-item">
+    <div class="scope-item-head">
+      <div class="scope-item-title-wrap">
+        <h3 class="scope-item-title">{{ section.section_title }}</h3>
+        <div class="scope-item-code">{{ section.section_id }}</div>
+      </div>
+      <div class="scope-item-type">{{ section.section_type }}</div>
+    </div>
+    <div class="scope-summary">{{ section.content.summary }}</div>
+
+    {% if section.section_type == 'introduction' and section.content.topics_list is defined and section.content.topics_list | length > 0 %}
+    <div class="scope-subblock">
+      <div class="scope-subtitle">Temas incluidos</div>
+      <ul class="clean-list">
+        {% for topic in section.content.topics_list %}
+        <li>{{ topic }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% elif section.content.details is defined and section.content.details | length > 0 %}
+    <div class="detail-grid">
+      {% for detail in section.content.details %}
+      <div class="detail-card">
+        <div class="detail-label">{{ detail.label }}</div>
+        <div class="detail-body">{{ detail.description }}</div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </section>
+  {% endfor %}
+
+  {# Acuerdos #}
+  <h2 class="section-title">Acuerdos</h2>
+
+  {% if agreements["items"] | length > 0 %}
+  <table class="modern-table">
+    <thead>
+      <tr>
+        <th class="w-20">Asunto</th>
+        <th>Detalle</th>
+        <th class="w-16">Responsable</th>
+        <th class="w-12">Vencimiento</th>
+        <th class="w-12">Estado</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in agreements["items"] %}
+      <tr>
+        <td>{{ item.subject }}</td>
+        <td>{{ item.body }}</td>
+        <td>{{ item.responsible | default('No definido') }}</td>
+        <td>{{ item.due_date | default('No definido') }}</td>
+        <td><span class="badge status-{{ item.status | default('pending') }}">{{ item.status | default('pending') }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">No hay acuerdos registrados.</div>
+  {% endif %}
+
+  {# Requerimientos #}
+  <h2 class="section-title">Requerimientos</h2>
+
+  {% if requirements["items"] | length > 0 %}
+  <table class="modern-table">
+    <thead>
+      <tr>
+        <th class="w-20">Entidad</th>
+        <th>Detalle</th>
+        <th class="w-16">Responsable</th>
+        <th class="w-12">Prioridad</th>
+        <th class="w-12">Estado</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in requirements["items"] %}
+      <tr>
+        <td>{{ item.entity }}</td>
+        <td>{{ item.body }}</td>
+        <td>{{ item.responsible | default('No definido') }}</td>
+        <td><span class="badge priority-{{ item.priority | default('medium') }}">{{ item.priority | default('medium') }}</span></td>
+        <td><span class="badge status-{{ item.status | default('open') }}">{{ item.status | default('open') }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">No hay requerimientos registrados.</div>
+  {% endif %}
+
+  {# Próximas reuniones #}
+  <h2 class="section-title">Próximas reuniones</h2>
+  {% if upcoming_meetings is defined and upcoming_meetings["items"] | length > 0 %}
+  <table class="modern-table">
+    <thead>
+      <tr>
+        <th class="w-16">Fecha</th>
+        <th>Agenda</th>
+        <th class="w-20">Asistentes</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in upcoming_meetings["items"] %}
+      <tr>
+        <td>{{ item.scheduled_date | default('—') }}</td>
+        <td>{{ item.agenda }}</td>
+        <td>{{ item.attendees | join(', ') if item.attendees else '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">No hay próximas reuniones registradas.</div>
+  {% endif %}
+
+  <div class="footer-note">
+    <span>{{ general_info.client }} · Generado por MinuetAItor · {{ version_label | default('v1.0') }}</span>
+    <span>{{ general_info.meeting_date }}</span>
+  </div>
+</div>
+{% endblock %}
