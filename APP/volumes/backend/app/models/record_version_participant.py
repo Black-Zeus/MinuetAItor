@@ -31,6 +31,7 @@ class RecordVersionParticipant(Base):
     id = Column(BIGINT(unsigned=True), primary_key=True, autoincrement=True)
 
     record_version_id = Column(String(36), ForeignKey("record_versions.id"), nullable=False)
+    participant_id    = Column(String(36), ForeignKey("participants.id"), nullable=True)
 
     role = Column(
         Enum(RecordVersionParticipantRole, name="record_version_participant_role"),
@@ -52,6 +53,7 @@ class RecordVersionParticipant(Base):
 
     # Relationships
     record_version = relationship("RecordVersion", lazy="select", back_populates="participants")
+    participant    = relationship("Participant", lazy="select", back_populates="record_version_participants")
 
     def __repr__(self) -> str:
         return (

@@ -134,6 +134,11 @@ app.include_router(objects_router, prefix="/v1")
 # from routers.v1.permissions import router as permissions_router
 # app.include_router(permissions_router, prefix="/v1")
 
+# ── Participants ──────────────────────────────────────────────────────────────
+# [ACTIVO]
+from routers.v1.participants import router as participants_router
+app.include_router(participants_router, prefix="/v1")
+
 # ── Projects ──────────────────────────────────────────────────────────────────
 # [ACTIVO]
 from routers.v1.projects import router as projects_router
