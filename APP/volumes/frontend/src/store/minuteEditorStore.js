@@ -228,21 +228,31 @@ export const mapIAResponseToEditorState = (iaResponse) => {
     aiSuggestedTags, inputInfo, upcomingMeetings, metadata,
   } = iaResponse ?? {};
 
+  const inputMeetingInfo = inputInfo?.meetingInfo ?? {};
+  const fallbackPreparedBy =
+    generalInfo?.preparedBy ??
+    inputInfo?.preparedBy ??
+    "";
+  const fallbackLocation =
+    generalInfo?.location ??
+    inputMeetingInfo?.location ??
+    "";
+
   // --- Información de la reunión ---
   const meetingInfo = {
-    client:      generalInfo?.client      ?? "",
-    subject:     generalInfo?.subject     ?? "",
-    meetingDate: generalInfo?.meetingDate ?? "",
-    location:    generalInfo?.location    ?? "",
-    preparedBy:  generalInfo?.preparedBy  ?? "",
+    client:      generalInfo?.client ?? inputInfo?.projectInfo?.client ?? "",
+    subject:     generalInfo?.subject ?? inputMeetingInfo?.title ?? "",
+    meetingDate: generalInfo?.meetingDate ?? inputMeetingInfo?.scheduledDate ?? "",
+    location:    fallbackLocation,
+    preparedBy:  fallbackPreparedBy,
   };
 
   // --- Horarios ---
   const meetingTimes = {
-    scheduledStart: generalInfo?.scheduledStartTime ?? "",
-    actualStart:    generalInfo?.actualStartTime    ?? "",
-    scheduledEnd:   generalInfo?.scheduledEndTime   ?? "",
-    actualEnd:      generalInfo?.actualEndTime      ?? "",
+    scheduledStart: generalInfo?.scheduledStartTime ?? inputMeetingInfo?.scheduledStartTime ?? "",
+    actualStart:    generalInfo?.actualStartTime    ?? inputMeetingInfo?.actualStartTime    ?? "",
+    scheduledEnd:   generalInfo?.scheduledEndTime   ?? inputMeetingInfo?.scheduledEndTime   ?? "",
+    actualEnd:      generalInfo?.actualEndTime      ?? inputMeetingInfo?.actualEndTime      ?? "",
   };
 
   // --- Participantes: unificar las 3 listas con tipo + id ---
@@ -352,7 +362,7 @@ export const mapIAResponseToEditorState = (iaResponse) => {
       id:             uid(),
       version:        "v1.0",
       publishedAt:    new Date().toISOString(),
-      publishedBy:    generalInfo?.preparedBy ?? "Sistema",
+      publishedBy:    fallbackPreparedBy || "Sistema",
       observation:    "Publicación inicial generada desde IA.",
       changesSummary: "Versión original sin modificaciones.",
     },
@@ -364,8 +374,8 @@ export const mapIAResponseToEditorState = (iaResponse) => {
     coverPage: {
       enabled:     false,
       projectName: inputInfo?.projectInfo?.project ?? "",
-      minuteTitle: generalInfo?.subject ?? "",
-      preparedBy:  generalInfo?.preparedBy ?? "",
+      minuteTitle: generalInfo?.subject ?? inputMeetingInfo?.title ?? "",
+      preparedBy:  fallbackPreparedBy,
       footerNote:  "",
     },
     summarySheet:   { enabled: false },

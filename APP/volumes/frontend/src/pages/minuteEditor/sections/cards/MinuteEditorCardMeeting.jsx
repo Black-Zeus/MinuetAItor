@@ -1,8 +1,8 @@
 /**
  * pages/minuteEditor/cards/MinuteEditorCardMeeting.jsx
  * Card: Información de la reunión
- * - NO editables: Proyecto (derivado), Cliente, Ubicación, Preparado por
- * - Editables: Fecha (type="date" con normalización), Asunto (textarea 4 filas)
+ * - NO editables: Proyecto (derivado), Cliente, Preparado por
+ * - Editables: Ubicación, Fecha (type="date"), Asunto
  *
  * Normaliza meetingDate para input date:
  *   - acepta "YYYY-MM-DD"
@@ -109,7 +109,34 @@ export const MinuteEditorCardMeeting = ({ isReadOnly = false }) => {
         {/* 1) No editables - arriba */}
         <ReadRow label="Cliente" value={meetingInfo.client} />
         <ReadRow label="Proyecto" value={projectName} />
-        <ReadRow label="Ubicación" value={meetingInfo.location} />
+        <div className="flex items-start justify-between gap-3">
+          <span className="text-sm text-gray-500 dark:text-gray-400 transition-theme shrink-0 pt-2">
+            Ubicación
+          </span>
+
+          {editing && !isReadOnly ? (
+            <input
+              type="text"
+              value={meetingInfo.location ?? ""}
+              onChange={(e) => updateMeetingInfo("location", e.target.value)}
+              placeholder="Zoom, Meet, Teams, oficina..."
+              className={[
+                "w-full max-w-xs px-3 py-1.5 rounded-lg",
+                "bg-gray-50 dark:bg-gray-900",
+                "border border-gray-200 dark:border-gray-700",
+                "text-gray-900 dark:text-gray-100 text-sm transition-theme",
+                "focus:outline-none focus:ring-2 focus:ring-primary-500/40 text-right",
+              ].join(" ")}
+            />
+          ) : (
+            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 transition-theme text-right whitespace-pre-wrap max-w-xs">
+              {meetingInfo.location || (
+                <span className="text-gray-400 dark:text-gray-600 italic">—</span>
+              )}
+            </span>
+          )}
+        </div>
+
         <ReadRow label="Preparado por" value={meetingInfo.preparedBy} />
 
         {/* 2) Fecha - al final (editable) */}
