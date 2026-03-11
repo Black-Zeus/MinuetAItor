@@ -488,7 +488,7 @@ const validateModalProps = (props) => {
       modalLog.warn(`Modal: Tipo "${type}" no implementado. Usando fallback.`);
     }
 
-    if (size && !['small', 'medium', 'large', 'xlarge', 'fullscreen', 'fullscreenWide'].includes(size)) {
+    if (size && !['small', 'medium', 'large', 'xlarge', 'fullscreen', 'fullscreenWide', 'pdfViewer'].includes(size)) {
       modalLog.warn(`Modal: Tamaño "${size}" no válido. Usando "medium".`);
     }
 
