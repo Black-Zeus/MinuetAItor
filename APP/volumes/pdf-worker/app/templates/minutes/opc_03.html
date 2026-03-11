@@ -1,0 +1,342 @@
+{% extends "base/base.html" %}
+
+{# ============================================================
+   minutes/opc_04.html — Gobernanza / Comité
+   Origen: opc_04_b.html + minuta_opc_04.css
+============================================================ #}
+
+{% block extra_styles %}
+/* ── OPC_04: Gobernanza / Comité ──────────────────────────── */
+:root {
+  --governance-color: #1a4b8c;
+  --governance-bg:    #f8fbff;
+}
+
+.company-header   { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding-bottom: 15px; border-bottom: 2px solid var(--governance-color); }
+.company-logo     { font-size: 18px; font-weight: 700; color: var(--governance-color); letter-spacing: 0.5px; }
+.company-logo span{ display: block; font-size: 12px; font-weight: 400; color: #666; }
+.document-code    { text-align: right; font-size: 11px; color: #666; line-height: 1.4; }
+.document-code strong { color: var(--governance-color); font-size: 14px; }
+
+h1 { font-size: 28px; color: var(--governance-color); font-weight: 600; margin-bottom: 5px; letter-spacing: -0.5px; }
+.subtitle { font-size: 14px; color: #666; margin-bottom: 25px; border-left: 3px solid var(--governance-color); padding-left: 15px; }
+h2 { font-size: 16px; color: var(--governance-color); font-weight: 600; margin: 25px 0 15px 0; padding-bottom: 6px; border-bottom: 1px solid #d0d7de; text-transform: uppercase; letter-spacing: 0.5px; }
+h3 { font-size: 15px; color: var(--governance-color); margin-bottom: 10px; }
+
+/* Resolution box */
+.resolution-box { padding: 16px 20px; border-left: 5px solid var(--governance-color); background: var(--governance-bg); border-radius: 8px; border: 1px solid #d0d7de; border-left-width: 5px; margin-bottom: 20px; }
+.resolution-box strong { color: var(--governance-color); display: block; margin-bottom: 8px; }
+
+/* Agenda grid */
+.agenda-grid     { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px; }
+.agenda-grid > div { background: #f8fafc; padding: 18px; border-radius: 8px; }
+
+/* Scope */
+.scope-block     { margin-bottom: 20px; border-left: 3px solid var(--governance-color); padding-left: 20px; }
+.scope-header    { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.scope-title-gov { font-size: 16px; font-weight: 600; color: var(--governance-color); }
+.scope-tag       { font-size: 11px; color: #666; background: #eef2f6; padding: 3px 8px; border-radius: 20px; }
+.scope-summary   { color: #2d2d2d; margin-bottom: 12px; font-size: 13px; }
+
+.detail-item  { background: #f8fafc; padding: 10px 15px; border-radius: 6px; margin-bottom: 8px; }
+.detail-label { font-weight: 600; color: var(--governance-color); min-width: 100px; display: inline-block; }
+
+/* Signatures */
+.signatures { margin-top: 40px; display: grid; grid-template-columns: repeat(2,1fr); gap: 30px; }
+.signature-box-gov { border-top: 1px solid #2d2d2d; padding-top: 10px; margin-top: 20px; }
+.signature-name-gov { font-weight: 600; color: var(--governance-color); }
+.signature-role-gov { font-size: 11px; color: #666; margin-top: 3px; }
+{% endblock %}
+
+{% block content %}
+<div class="document">
+
+  {# ── PÁGINA 1: CARÁTULA DE COMITÉ ──────────────────────── #}
+  <div class="page">
+    <div class="company-header">
+      <div class="company-logo">
+        {{ general_info.client | upper }}
+        <span>{{ general_info.project | default('Comité de Dirección') }}</span>
+      </div>
+      <div class="document-code">
+        <strong>{{ general_info.document_code | default('COM-' ~ general_info.meeting_date | replace('-','')) }}</strong>
+        <div>{{ version_label | default('v1.0') }}</div>
+        <div>{{ general_info.meeting_date }}</div>
+      </div>
+    </div>
+
+    <h1>{{ general_info.subject }}</h1>
+    <div class="subtitle">Comité de Gobernanza · {{ general_info.project | default('') }}</div>
+
+    <div class="info-grid-doc">
+      <div class="info-item-doc">
+        <div class="info-label-doc">Cliente</div>
+        <div class="info-value-doc">{{ general_info.client }}</div>
+      </div>
+      <div class="info-item-doc">
+        <div class="info-label-doc">Proyecto</div>
+        <div class="info-value-doc">{{ general_info.project | default('—') }}</div>
+      </div>
+      <div class="info-item-doc">
+        <div class="info-label-doc">Fecha reunión</div>
+        <div class="info-value-doc">{{ general_info.meeting_date }}</div>
+      </div>
+      <div class="info-item-doc">
+        <div class="info-label-doc">Elaborado por</div>
+        <div class="info-value-doc">{{ general_info.prepared_by }}</div>
+      </div>
+    </div>
+
+    <div style="margin:30px 0;">
+      <h2>Información de la sesión</h2>
+      <table>
+        <tr>
+          <th width="20%">Concepto</th>
+          <th width="40%">Programado</th>
+          <th width="40%">Real</th>
+        </tr>
+        <tr>
+          <td>Horario</td>
+          <td>{{ general_info.scheduled_start_time | default('—') }} – {{ general_info.scheduled_end_time | default('—') }}</td>
+          <td>{{ general_info.actual_start_time | default('—') }} – {{ general_info.actual_end_time | default('—') }}</td>
+        </tr>
+        <tr>
+          <td>Plataforma</td>
+          <td colspan="2">{{ general_info.location | default('—') }}</td>
+        </tr>
+      </table>
+    </div>
+
+    {# Objetivo de la sesión: sección introduction #}
+    {% set intro = scope.sections | selectattr('section_type','eq','introduction') | first | default(None) %}
+    {% if intro %}
+    <div class="resolution-box">
+      <strong>🎯 OBJETIVO DE LA SESIÓN</strong>
+      {{ intro.content.summary }}
+    </div>
+    {% endif %}
+
+    <div class="footer-note">
+      <span>{{ general_info.client }} · Documento de gobernanza</span>
+    </div>
+  </div>
+
+  {# ── PÁGINA 2: PARTICIPANTES Y AGENDA ───────────────────── #}
+  <div class="page">
+    <h2>Participantes del comité</h2>
+    <table>
+      <thead>
+        <tr>
+          <th width="33%">Invitados</th>
+          <th width="33%">Asistentes</th>
+          <th width="34%">Copia</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>
+            {% for p in participants.invited %}{{ p.full_name }} ({{ p.initials }}){% if not loop.last %}<br>{% endif %}{% else %}—{% endfor %}
+          </td>
+          <td>
+            {% for p in participants.attendees %}<strong>{{ p.full_name }} ({{ p.initials }})</strong>{% if not loop.last %}<br>{% endif %}{% endfor %}
+          </td>
+          <td>
+            {% for p in participants.copy_recipients %}{{ p.full_name }} ({{ p.initials }}){% if not loop.last %}<br>{% endif %}{% else %}—{% endfor %}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    {# Agenda + participación #}
+    {% if intro %}
+    <div class="agenda-grid" style="margin-top:30px">
+      <div>
+        <h3 style="margin-top:0">📋 Agenda principal</h3>
+        <ul>
+          {% for topic in intro.content.topics_list | default([]) %}
+          <li>{{ topic }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+      <div>
+        <h3 style="margin-top:0">📊 Participación</h3>
+        <p><strong>Asistentes efectivos:</strong> {{ participants.attendees | length }}</p>
+        <p><strong>Invitados:</strong> {{ participants.invited | length }}</p>
+        <p><strong>Copia:</strong> {{ participants.copy_recipients | length }}</p>
+        {% if ai_tags is defined and ai_tags | length > 0 %}
+        <div class="tag-list" style="margin-top:10px">
+          {% for tag in ai_tags %}
+          <span class="tag">{{ tag.name }}</span>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    <h2 style="margin-top:35px">Alcances de la sesión</h2>
+
+    {% for section in scope.sections %}
+    {% if section.section_type != 'introduction' %}
+    <div class="scope-block">
+      <div class="scope-header">
+        <span class="scope-title-gov">{{ section.section_title }}</span>
+        <span class="scope-tag">{{ section.section_id }}</span>
+      </div>
+      <div class="scope-summary">{{ section.content.summary }}</div>
+      {% if section.content.details is defined %}
+        {% for detail in section.content.details %}
+        <div class="detail-item">
+          <span class="detail-label">{{ detail.label }}:</span> {{ detail.description }}
+        </div>
+        {% endfor %}
+      {% endif %}
+    </div>
+    {% endif %}
+    {% endfor %}
+
+    <div class="footer-note"><span>Documento para revisión del comité</span></div>
+  </div>
+
+  {# ── PÁGINA 3: RESOLUCIONES Y ACUERDOS ──────────────────── #}
+  <div class="page">
+    <h2>Resoluciones del comité</h2>
+
+    {% for item in agreements["items"] %}
+    <div class="resolution-box">
+      <strong>{{ '✅' if item.status == 'completed' else '⚠️' }} RESOLUCIÓN {{ loop.index | string | zfill(3) }}/{{ general_info.meeting_date[:4] }}</strong>
+      {{ item.body }}
+    </div>
+    {% else %}
+    <div class="empty-state">No hay resoluciones registradas.</div>
+    {% endfor %}
+
+    <h2 style="margin-top:35px">Acuerdos formales</h2>
+
+    {% if agreements["items"] | length > 0 %}
+    <table>
+      <thead>
+        <tr>
+          <th width="18%">Asunto</th>
+          <th width="42%">Detalle</th>
+          <th width="15%">Responsable</th>
+          <th width="15%">Vencimiento</th>
+          <th width="10%">Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in agreements["items"] %}
+        <tr>
+          <td><strong>{{ item.subject }}</strong></td>
+          <td>{{ item.body }}</td>
+          <td>{{ item.responsible | default('—') }}</td>
+          <td>{{ item.due_date | default('No definido') }}</td>
+          <td><span class="badge status-{{ item.status | default('pending') }}">{{ item.status | default('pending') }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+
+    {% if requirements["items"] | length > 0 %}
+    <h2 style="margin-top:35px">Requerimientos formales</h2>
+    <table>
+      <thead>
+        <tr>
+          <th width="18%">Entidad</th>
+          <th width="47%">Detalle</th>
+          <th width="15%">Prioridad</th>
+          <th width="20%">Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in requirements["items"] %}
+        <tr>
+          <td>{{ item.entity }}</td>
+          <td>{{ item.body }}</td>
+          <td><span class="badge priority-{{ item.priority | default('medium') }}">{{ item.priority | default('medium') }}</span></td>
+          <td><span class="badge status-{{ item.status | default('open') }}">{{ item.status | default('open') }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+
+    <div class="footer-note"><span>Los acuerdos tienen carácter vinculante</span></div>
+  </div>
+
+  {# ── PÁGINA 4: PRÓXIMAS REUNIONES Y FIRMAS ───────────────── #}
+  <div class="page">
+    {% if upcoming_meetings is defined and upcoming_meetings["items"] | length > 0 %}
+    <h2>Próximas instancias de gobernanza</h2>
+    <table>
+      <thead>
+        <tr>
+          <th width="18%">Fecha</th>
+          <th width="52%">Agenda</th>
+          <th width="30%">Asistentes requeridos</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in upcoming_meetings["items"] %}
+        <tr>
+          <td>{{ item.scheduled_date | default('—') }}</td>
+          <td>{{ item.agenda }}</td>
+          <td>{{ item.attendees | join(', ') if item.attendees else '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+
+    <h2 style="margin-top:35px">Firmas y conformidad</h2>
+    <div class="subtitle" style="margin-bottom:30px">
+      Los abajo firmantes, en calidad de miembros del comité, validan las resoluciones y acuerdos contenidos en la presente minuta.
+    </div>
+
+    <div class="signatures">
+      {% set signatories = pdf_format.signature_page.signatories if (pdf_format is defined and pdf_format.signature_page is defined and pdf_format.signature_page.signatories is defined and pdf_format.signature_page.signatories | length > 0) else participants.attendees %}
+      {% for sig in signatories %}
+      <div>
+        <div class="signature-box-gov">
+          <div class="signature-name-gov">{{ sig.full_name }}</div>
+          <div class="signature-role-gov">{{ sig.role | default('Asistente') }}</div>
+        </div>
+        <div style="margin-top:10px;font-size:11px;color:#999">Firma: ___________________</div>
+      </div>
+      {% endfor %}
+    </div>
+
+    {# Control de versiones inline #}
+    {% if pdf_format is defined and pdf_format.version_control is defined and pdf_format.version_control.enabled %}
+    <div style="margin-top:60px;background:#f8fafc;padding:15px;">
+      <table style="margin:0;background:white;">
+        <tr>
+          <th width="30%">Versión</th>
+          <th width="30%">Fecha</th>
+          <th width="40%">Descripción</th>
+        </tr>
+        {% if pdf_format.version_control.entries is defined %}
+          {% for entry in pdf_format.version_control.entries %}
+          <tr>
+            <td>{{ entry.version }}</td>
+            <td>{{ entry.date }}</td>
+            <td>{{ entry.description }}</td>
+          </tr>
+          {% endfor %}
+        {% else %}
+        <tr>
+          <td><strong>{{ version_label | default('v1.0') }}</strong></td>
+          <td>{{ general_info.meeting_date }}</td>
+          <td><strong>{{ 'Borrador' if options is defined and options.watermark else 'Versión aprobada' }}</strong></td>
+        </tr>
+        {% endif %}
+      </table>
+    </div>
+    {% endif %}
+
+    <div class="footer-note"><span>Archivar en carpeta de gobernanza del proyecto</span></div>
+  </div>
+
+</div>
+{% endblock %}

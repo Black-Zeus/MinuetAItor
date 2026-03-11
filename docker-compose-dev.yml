@@ -276,6 +276,46 @@ services:
     logging: *default-logging
     <<: *resources-small
 
+  pdf-worker:
+    build:
+      context: .
+      dockerfile: ./Data/dokerFile/dev_qa/Dockerfile.pdf-worker
+    container_name: ${PROJECT_NAME}-pdf-worker
+    restart: unless-stopped
+    environment:
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      MINIO_HOST: ${MINIO_HOST}
+      MINIO_PORT: ${MINIO_PORT}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      GOTENBERG_URL: http://${PROJECT_NAME}-gotenberg:3000
+    depends_on:
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      gotenberg:
+        condition: service_started
+    labels:
+      - "stack=${PROJECT_NAME}"
+      - "env=${ENV_NAME}"
+    networks:
+      - internal
+
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    container_name: ${PROJECT_NAME}-gotenberg
+    restart: unless-stopped
+    command:
+      - "gotenberg"
+      - "--chromium-disable-javascript=true"
+    labels:
+      - "stack=${PROJECT_NAME}"
+      - "env=${ENV_NAME}"
+    networks:
+      - internal
+
   scheduler:
     container_name: ${PROJECT_NAME}-scheduler
     labels:
