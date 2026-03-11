@@ -107,11 +107,15 @@ export const MODAL_SIZES = {
     width: 'max-w-4xl',
     padding: 'p-8'
   },
- modalLarge: {
+  modalLarge: {
   width: 'max-w-5xl',
   padding: 'p-8',
   maxHeight: 'max-h-[90vh]'
 },
+  pdfViewer: {
+    width: '!w-[80vw]',
+    padding: 'p-6'
+  },
   fullscreen: {
     width: 'max-w-7xl min-h-screen',
     padding: 'p-8',
