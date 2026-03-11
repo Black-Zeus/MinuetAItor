@@ -10,6 +10,7 @@ import {
   FaDoorOpen,
   FaArrowLeft,
   FaEllipsisVertical,
+  FaRightToBracket,
 } from "react-icons/fa6";
 
 export const navigationIcons = {
@@ -22,6 +23,7 @@ export const navigationIcons = {
   openExternal: FaArrowUpRightFromSquare,
   home: FaHouse,
   doorOpen: FaDoorOpen,
+  rightToBracket: FaRightToBracket,
   
   // Compatibilidad
   FaChevronLeft,
@@ -32,6 +34,7 @@ export const navigationIcons = {
   FaArrowUpRightFromSquare,
   FaHouse,
   FaDoorOpen,
+  FaRightToBracket,
   FaArrowLeft,
   arrowLeft: FaArrowLeft,
   FaEllipsisVertical,
