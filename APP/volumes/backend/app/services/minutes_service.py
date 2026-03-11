@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from fastapi import HTTPException, UploadFile, status
+from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
