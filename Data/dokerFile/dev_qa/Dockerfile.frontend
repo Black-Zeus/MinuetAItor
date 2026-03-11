@@ -1,17 +1,20 @@
-# Data/dokerFile/dev_qa/Dockerfile.frontend
 FROM node:20-bookworm-slim
 
 ARG FRONTEND_PORT_INTERNAL=5173
 WORKDIR /app
 
+ENV TZ=America/Santiago \
+    DEBIAN_FRONTEND=noninteractive \
+    CI=true
+
 RUN apt-get update \
- && apt-get install -y --no-install-recommends curl ca-certificates \
+ && apt-get install -y --no-install-recommends curl ca-certificates tzdata \
+ && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime \
+ && echo $TZ > /etc/timezone \
  && rm -rf /var/lib/apt/lists/*
 
-# Actualiza npm para mitigar bugs con optional deps
 RUN npm install -g npm@11.10.0 --no-audit --no-fund
 
-ENV CI=true
 EXPOSE ${FRONTEND_PORT_INTERNAL}
 
 CMD ["sh","-lc", "\
@@ -23,7 +26,6 @@ CMD ["sh","-lc", "\
   node -e \"require('@rollup/rollup-linux-x64-gnu')\" >/dev/null 2>&1 || NEED_INSTALL=1; \
   if [ \"$NEED_INSTALL\" = \"1\" ]; then \
     echo '[frontend] node_modules incompleto => limpiando contenido del volumen e instalando...'; \
-    # OJO: /app/node_modules es un VOLUME -> no borrar el directorio, borrar su contenido \
     rm -rf /app/node_modules/* /app/node_modules/.[!.]* /app/node_modules/..?* 2>/dev/null || true; \
     if [ -f package-lock.json ]; then \
       npm ci --no-audit --no-fund; \
