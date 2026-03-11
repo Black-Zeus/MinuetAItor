@@ -174,3 +174,33 @@ INSERT IGNORE INTO projects (
   NOW(), 'c168b91d-e16f-468c-afd1-547efd2c486b',
   NOW(), 'c168b91d-e16f-468c-afd1-547efd2c486b'
 );
+
+INSERT INTO participants (
+  id, display_name, normalized_name, organization, title, notes, is_active
+) VALUES
+  ('11111111-1111-1111-1111-111111111111', 'Juan Pérez', 'juan perez', 'Acme Chile', 'Consultor', NULL, 1),
+  ('22222222-2222-2222-2222-222222222222', 'María González', 'maria gonzalez', 'NovaCorp', 'Jefa de Proyecto', NULL, 1),
+  ('33333333-3333-3333-3333-333333333333', 'Carlos Rodríguez', 'carlos rodriguez', 'Innova TI', 'Arquitecto de Soluciones', NULL, 1),
+  ('44444444-4444-4444-4444-444444444444', 'Juan Pérez', 'juan perez', 'Global Data', 'Gerente Comercial', NULL, 1),
+  ('55555555-5555-5555-5555-555555555555', 'María González', 'maria gonzalez', 'Servicios Andinos', 'Analista Funcional', NULL, 1);
+
+INSERT INTO participant_emails (
+  participant_id, email, is_primary, is_active
+) VALUES
+  ('11111111-1111-1111-1111-111111111111', 'juan.perez@acme.cl', 1, 1),
+  ('11111111-1111-1111-1111-111111111111', 'jperez.consultor@gmail.com', 0, 1),
+  ('11111111-1111-1111-1111-111111111111', 'juan.perez@partner-acme.com', 0, 1),
+
+  ('22222222-2222-2222-2222-222222222222', 'maria.gonzalez@novacorp.com', 1, 1),
+  ('22222222-2222-2222-2222-222222222222', 'm.gonzalez.pm@outlook.com', 0, 1),
+  ('22222222-2222-2222-2222-222222222222', 'maria.g@cliente-nova.net', 0, 1),
+
+  ('33333333-3333-3333-3333-333333333333', 'carlos.rodriguez@innovati.com', 1, 1),
+  ('33333333-3333-3333-3333-333333333333', 'crodriguez.tech@gmail.com', 0, 1),
+  ('33333333-3333-3333-3333-333333333333', 'carlos.r@arquitectura-cloud.io', 0, 1),
+
+  ('44444444-4444-4444-4444-444444444444', 'juan.perez@globaldata.com', 1, 1),
+  ('44444444-4444-4444-4444-444444444444', 'jperez.sales@consulting.biz', 0, 1),
+
+  ('55555555-5555-5555-5555-555555555555', 'maria.gonzalez@serviciosandinos.cl', 1, 1),
+  ('55555555-5555-5555-5555-555555555555', 'maria.g.functional@proton.me', 0, 1);

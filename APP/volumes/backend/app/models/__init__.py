@@ -26,6 +26,8 @@ from models.ai_profile_categories import AiProfileCategory
 # ── Entidades de negocio ──────────────────────────────────────────────────────
 from models.clients import Client
 from models.projects import Project
+from models.participant import Participant
+from models.participant_email import ParticipantEmail
 from models.objects import Object
 from models.ai_profiles import AiProfile
 from models.audit_logs import AuditLog
@@ -66,6 +68,7 @@ __all__ = [
     "DashboardWidget", "AiProfileCategory",
     # Negocio
     "Client", "Project", "Object", "AiProfile", "AuditLog",
+    "Participant", "ParticipantEmail",
     # Tags
     "Tag", "AITag", "AiTagConversion",
     # Records
