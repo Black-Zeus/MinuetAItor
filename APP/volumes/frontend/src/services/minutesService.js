@@ -191,6 +191,13 @@ export const transitionMinute = async (recordId, targetStatus, commitMessage = n
   return unwrap(res);
 };
 
+export const sendMinuteEmail = async (recordId, reviewEmail) => {
+  const res = await api.post(`${BASE}/${recordId}/send-email`, {
+    reviewEmail,
+  });
+  return unwrap(res);
+};
+
 // ─── STATUS (polling) ─────────────────────────────────────────────────────────
 /**
  * GET /v1/minutes/{transaction_id}/status

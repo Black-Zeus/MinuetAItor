@@ -32,6 +32,7 @@ from schemas.minutes import (
     MinuteGenerateRequest,
     MinuteGenerateResponse,
     MinuteRecordInfo,
+    MinuteSendEmailResponse,
     MinuteStatusResponse,
     MinuteTransitionRequest,
     MinuteTransitionResponse,
@@ -1018,6 +1019,79 @@ async def transition_minute(
         version_num = int(new_version.version_num) if new_version else None,
         version_id  = new_version.id               if new_version else None,
         message     = f"Transición '{current_status_code}' → '{target_status}' completada.",
+    )
+
+
+async def send_minute_email(
+    db: Session,
+    record_id: str,
+    actor_user_id: str,
+    review_email: MinuteTransitionRequest.ReviewEmailOptions,
+) -> MinuteSendEmailResponse:
+    from models.record_statuses import RecordStatus
+
+    record = db.query(Record).filter(Record.id == record_id, Record.deleted_at.is_(None)).first()
+    if record is None:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "record_not_found", "message": f"Minuta '{record_id}' no encontrada."},
+        )
+
+    current_status_row = db.query(RecordStatus).filter_by(id=record.status_id).first()
+    current_status_code = current_status_row.code if current_status_row else "unknown"
+    allowed_statuses = {RECORD_STATUS_PREVIEW, RECORD_STATUS_COMPLETED}
+    if current_status_code not in allowed_statuses:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "invalid_send_status",
+                "message": (
+                    "Solo se puede enviar la minuta por correo cuando su estado es "
+                    f"'preview' o 'completed'. Estado actual: '{current_status_code}'."
+                ),
+            },
+        )
+
+    active_version = db.query(RecordVersion).filter_by(id=record.active_version_id).first()
+    version_num = getattr(active_version, "version_num", None) or record.latest_version_num
+    if not version_num:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "snapshot_not_found",
+                "message": "La minuta no tiene una versión activa disponible para enviar.",
+            },
+        )
+
+    minio = get_minio_client()
+    snapshot_key = f"{record_id}/schema_output_v{int(version_num)}.json"
+    snapshot_content = _read_json_from_minio(minio, BUCKET_JSON, snapshot_key)
+    if snapshot_content is None:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "snapshot_not_found",
+                "message": "No se encontró el contenido publicado de la minuta para el envío.",
+            },
+        )
+
+    await enqueue_minute_review_email(
+        db,
+        record_id,
+        content=snapshot_content,
+        subject=review_email.subject,
+        body_note=review_email.body_note,
+        selected_participant_ids=review_email.selected_participant_ids,
+        attach_pdf=review_email.attach_pdf,
+        published_pdf=current_status_code == RECORD_STATUS_COMPLETED,
+    )
+
+    logger.info("[minutes] Envío manual email | record=%s status=%s actor=%s", record_id, current_status_code, actor_user_id)
+
+    return MinuteSendEmailResponse(
+        record_id=record_id,
+        status=current_status_code,
+        message="Email de minuta encolado correctamente.",
     )
 
 
