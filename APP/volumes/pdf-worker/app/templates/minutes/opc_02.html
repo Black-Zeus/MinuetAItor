@@ -120,7 +120,10 @@
   </section>
 
   {# Participantes #}
-  <h2 class="section-title">Participantes</h2>
+  <section class="pdf-section pdf-section--keep pdf-section--new-page">
+  <div class="pdf-section-header">
+    <h2 class="section-title">Participantes</h2>
+  </div>
   <div class="participants-grid">
     <section class="participant-box">
       <div class="participant-box-head">Invitados</div>
@@ -162,9 +165,13 @@
       </div>
     </section>
   </div>
+  </section>
 
   {# Alcances #}
-  <h2 class="section-title">Alcances</h2>
+  <section class="pdf-section pdf-section--new-page">
+  <div class="pdf-section-header">
+    <h2 class="section-title">Alcances</h2>
+  </div>
 
   {% for section in scope.sections %}
   <section class="scope-item">
@@ -198,12 +205,15 @@
     {% endif %}
   </section>
   {% endfor %}
+  </section>
 
   {# Acuerdos #}
-  <h2 class="section-title">Acuerdos</h2>
-
+  <section class="pdf-section pdf-section--new-page">
   {% if agreements["items"] | length > 0 %}
   <table class="modern-table">
+    <caption class="section-table-caption">
+      <h2 class="section-title">Acuerdos</h2>
+    </caption>
     <thead>
       <tr>
         <th class="w-20">Asunto</th>
@@ -226,14 +236,20 @@
     </tbody>
   </table>
   {% else %}
+  <div class="pdf-section-header">
+    <h2 class="section-title">Acuerdos</h2>
+  </div>
   <div class="empty-state">No hay acuerdos registrados.</div>
   {% endif %}
+  </section>
 
   {# Requerimientos #}
-  <h2 class="section-title">Requerimientos</h2>
-
+  <section class="pdf-section pdf-section--new-page">
   {% if requirements["items"] | length > 0 %}
   <table class="modern-table">
+    <caption class="section-table-caption">
+      <h2 class="section-title">Requerimientos</h2>
+    </caption>
     <thead>
       <tr>
         <th class="w-20">Entidad</th>
@@ -256,13 +272,20 @@
     </tbody>
   </table>
   {% else %}
+  <div class="pdf-section-header">
+    <h2 class="section-title">Requerimientos</h2>
+  </div>
   <div class="empty-state">No hay requerimientos registrados.</div>
   {% endif %}
+  </section>
 
   {# Próximas reuniones #}
-  <h2 class="section-title">Próximas reuniones</h2>
+  <section class="pdf-section pdf-section--new-page">
   {% if upcoming_meetings is defined and upcoming_meetings["items"] | length > 0 %}
   <table class="modern-table">
+    <caption class="section-table-caption">
+      <h2 class="section-title">Próximas reuniones</h2>
+    </caption>
     <thead>
       <tr>
         <th class="w-16">Fecha</th>
@@ -281,8 +304,12 @@
     </tbody>
   </table>
   {% else %}
+  <div class="pdf-section-header">
+    <h2 class="section-title">Próximas reuniones</h2>
+  </div>
   <div class="empty-state">No hay próximas reuniones registradas.</div>
   {% endif %}
+  </section>
 
   <div class="footer-note">
     <span>{{ general_info.client }} · Generado por MinuetAItor · {{ version_label | default('v1.0') }}</span>

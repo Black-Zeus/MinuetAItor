@@ -204,7 +204,10 @@
     </div>
 
     {# 1. Información General #}
-    <h2 class="section-title">1. Información General</h2>
+    <section class="pdf-section pdf-section--keep">
+    <div class="pdf-section-header">
+      <h2 class="section-title">1. Información General</h2>
+    </div>
     <table class="info-table">
       <tbody>
         <tr>
@@ -242,10 +245,14 @@
         </tr>
       </tbody>
     </table>
+    </section>
 
     {# 2. Participantes #}
-    <h2 class="section-title">2. Participantes</h2>
-    <div class="section-note">Distribución formal de invitados, asistentes efectivos y destinatarios en copia de la presente minuta.</div>
+    <section class="pdf-section pdf-section--keep">
+    <div class="pdf-section-header">
+      <h2 class="section-title">2. Participantes</h2>
+      <div class="section-note">Distribución formal de invitados, asistentes efectivos y destinatarios en copia de la presente minuta.</div>
+    </div>
 
     {# Calcular máximo de filas #}
     {% set max_rows = [
@@ -283,6 +290,7 @@
         {% endfor %}
       </tbody>
     </table>
+    </section>
 
     {# Tags #}
     {% if ai_tags is defined and ai_tags | length > 0 %}
@@ -294,8 +302,11 @@
     {% endif %}
 
     {# 3. Alcances #}
-    <h2 class="section-title">3. Alcances</h2>
-    <div class="section-note">Cuerpo principal de la minuta, estructurado desde la salida semántica de la IA.</div>
+    <section class="pdf-section pdf-section--new-page">
+    <div class="pdf-section-header">
+      <h2 class="section-title">3. Alcances</h2>
+      <div class="section-note">Cuerpo principal de la minuta, estructurado desde la salida semántica de la IA.</div>
+    </div>
 
     {% for section in scope.sections %}
     <section class="scope-block">
@@ -334,13 +345,16 @@
       {% endif %}
     </section>
     {% endfor %}
+    </section>
 
     {# 4. Acuerdos #}
-    <h2 class="section-title">4. Acuerdos</h2>
-    <div class="section-note">Tabla formal de compromisos acordados durante la sesión.</div>
-
+    <section class="pdf-section">
     {% if agreements["items"] | length > 0 %}
     <table class="data-table">
+      <caption class="section-table-caption">
+        <h2 class="section-title">4. Acuerdos</h2>
+        <div class="section-note">Tabla formal de compromisos acordados durante la sesión.</div>
+      </caption>
       <thead>
         <tr>
           <th style="width:20%">Asunto</th>
@@ -363,15 +377,22 @@
       </tbody>
     </table>
     {% else %}
+    <div class="pdf-section-header">
+      <h2 class="section-title">4. Acuerdos</h2>
+      <div class="section-note">Tabla formal de compromisos acordados durante la sesión.</div>
+    </div>
     <div class="empty-state">No hay acuerdos registrados.</div>
     {% endif %}
+    </section>
 
     {# 5. Requerimientos #}
-    <h2 class="section-title">5. Requerimientos</h2>
-    <div class="section-note">Solicitudes, dependencias o necesidades identificadas, con prioridad y estado.</div>
-
+    <section class="pdf-section">
     {% if requirements["items"] | length > 0 %}
     <table class="data-table">
+      <caption class="section-table-caption">
+        <h2 class="section-title">5. Requerimientos</h2>
+        <div class="section-note">Solicitudes, dependencias o necesidades identificadas, con prioridad y estado.</div>
+      </caption>
       <thead>
         <tr>
           <th style="width:18%">Entidad</th>
@@ -394,13 +415,21 @@
       </tbody>
     </table>
     {% else %}
+    <div class="pdf-section-header">
+      <h2 class="section-title">5. Requerimientos</h2>
+      <div class="section-note">Solicitudes, dependencias o necesidades identificadas, con prioridad y estado.</div>
+    </div>
     <div class="empty-state">No hay requerimientos registrados.</div>
     {% endif %}
+    </section>
 
     {# 6. Próximas reuniones #}
-    <h2 class="section-title">6. Próximas reuniones</h2>
+    <section class="pdf-section">
     {% if upcoming_meetings is defined and upcoming_meetings["items"] | length > 0 %}
     <table class="data-table">
+      <caption class="section-table-caption">
+        <h2 class="section-title">6. Próximas reuniones</h2>
+      </caption>
       <thead>
         <tr>
           <th style="width:15%">Fecha</th>
@@ -419,8 +448,12 @@
       </tbody>
     </table>
     {% else %}
+    <div class="pdf-section-header">
+      <h2 class="section-title">6. Próximas reuniones</h2>
+    </div>
     <div class="empty-state">No hay próximas reuniones registradas.</div>
     {% endif %}
+    </section>
 
   </section>
 

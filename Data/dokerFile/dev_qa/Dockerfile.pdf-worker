@@ -17,4 +17,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY APP/volumes/pdf-worker/app/ .
 
-CMD ["watchmedo", "auto-restart", "--patterns=*.py;*.html", "--recursive", "--", "python", "main.py"]
+CMD ["watchmedo", "auto-restart", "--debug-force-polling", "--patterns=*.py;*.html", "--recursive", "--", "python", "main.py"]
