@@ -125,6 +125,10 @@ ALTER TABLE record_version_observations
   ADD COLUMN IF NOT EXISTS resolved_by CHAR(36) NULL AFTER editor_comment,
   ADD COLUMN IF NOT EXISTS applied_in_version_id CHAR(36) NULL AFTER resolved_at;
 
+ALTER TABLE projects
+  ADD COLUMN IF NOT EXISTS auto_send_on_preview TINYINT(1) NOT NULL DEFAULT 0 AFTER is_active,
+  ADD COLUMN IF NOT EXISTS auto_send_on_completed TINYINT(1) NOT NULL DEFAULT 0 AFTER auto_send_on_preview;
+
 SET @fk_rvo_resolved_by_exists := (
   SELECT COUNT(*)
   FROM information_schema.TABLE_CONSTRAINTS

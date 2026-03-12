@@ -267,8 +267,24 @@ const ClientModal = ({ mode, data, onSubmit, onClose }) => {
       <div className="min-h-0 flex-1 overflow-y-auto px-8 py-6">
         {currentStep === 0 ? (
           <div className="space-y-6">
-            {!isView ? (
-              <Section title="Visibilidad" description="Controla si el cliente debe quedar restringido dentro del sistema.">
+            <Section title="Visibilidad" description="Controla si el cliente debe quedar restringido dentro del sistema.">
+              {isView ? (
+                <div className="flex items-start justify-between gap-4 rounded-xl border border-slate-200/80 bg-white px-4 py-3 dark:border-slate-700/80 dark:bg-slate-900/50">
+                  <div>
+                    <div className="text-sm font-medium text-gray-900 dark:text-white">Cliente confidencial</div>
+                    <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                      Restringe su visibilidad según roles y permisos.
+                    </div>
+                  </div>
+                  <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${
+                    formData.isConfidential
+                      ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                      : "bg-gray-100 text-gray-600 dark:bg-slate-700 dark:text-gray-300"
+                  }`}>
+                    {formData.isConfidential ? "Activo" : "Inactivo"}
+                  </span>
+                </div>
+              ) : (
                 <label className="flex items-start gap-3">
                   <input
                     type="checkbox"
@@ -283,8 +299,8 @@ const ClientModal = ({ mode, data, onSubmit, onClose }) => {
                     </div>
                   </div>
                 </label>
-              </Section>
-            ) : null}
+              )}
+            </Section>
 
             <Section title="Información corporativa" description="Datos principales del cliente dentro del sistema.">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

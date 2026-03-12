@@ -21,6 +21,8 @@ class Project(Base, TimestampMixin):
 
     is_confidential = Column(Boolean, nullable=False, default=False)
     is_active = Column(Boolean, nullable=False, default=True)
+    auto_send_on_preview = Column(Boolean, nullable=False, default=False)
+    auto_send_on_completed = Column(Boolean, nullable=False, default=False)
 
     created_by = Column(String(36), ForeignKey("users.id"), nullable=True)
     updated_by = Column(String(36), ForeignKey("users.id"), nullable=True)

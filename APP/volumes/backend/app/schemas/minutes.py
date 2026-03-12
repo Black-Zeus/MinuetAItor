@@ -198,6 +198,7 @@ class MinuteTransitionResponse(BaseModel):
     version_num: Optional[int] = Field(None, serialization_alias="versionNum")
     version_id:  Optional[str] = Field(None, serialization_alias="versionId")
     message:     str
+    auto_email_queued: bool = Field(False, serialization_alias="autoEmailQueued")
 
     model_config = {"populate_by_name": True}
 

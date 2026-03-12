@@ -390,7 +390,12 @@ def pdf_endpoint(
     return Response(
         content    = pdf_bytes,
         media_type = "application/pdf",
-        headers    = {"Content-Disposition": "inline"},
+        headers    = {
+            "Content-Disposition": "inline",
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        },
     )
 
 
