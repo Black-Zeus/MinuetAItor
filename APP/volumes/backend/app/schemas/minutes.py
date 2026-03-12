@@ -216,6 +216,8 @@ class MinuteListItem(BaseModel):
     title:        str
     date:         Optional[str]           = None
     time:         Optional[str]           = None
+    duration:     Optional[str]           = None
+    prepared_by:  Optional[str]           = Field(None, serialization_alias="preparedBy")
     status:       str
     client:       Optional[str]           = None
     project:      Optional[str]           = None

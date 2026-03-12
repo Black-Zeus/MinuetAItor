@@ -9,6 +9,7 @@ import logging
 import os
 import uuid
 from datetime import datetime, timezone
+from datetime import time as dt_time
 from pathlib import Path
 from typing import Any, Optional
 
@@ -100,7 +101,7 @@ _VALID_TRANSITIONS: dict[str, set[str]] = {
     RECORD_STATUS_DELETED:     set(),   # terminal
 }
 
-PROMPT_FILE = getattr(settings, "prompt_file", "system_prompt_v02.txt")
+PROMPT_FILE = getattr(settings, "openai_system_prompt", "system_prompt_v08.txt")
 
 
 # ─── Helpers de catálogo ──────────────────────────────────────────────────────
@@ -152,6 +153,119 @@ def _write_json_to_minio(minio, bucket: str, object_key: str, data: dict) -> int
         data=io.BytesIO(raw), length=len(raw), content_type="application/json",
     )
     return len(raw)
+
+
+def _parse_hhmm(value: Optional[str]) -> Optional[dt_time]:
+    raw = str(value or "").strip()
+    if not raw:
+        return None
+    try:
+        return datetime.strptime(raw, "%H:%M").time()
+    except ValueError:
+        return None
+
+
+def _format_hhmm(value: Optional[dt_time]) -> Optional[str]:
+    return value.strftime("%H:%M") if value else None
+
+
+def _calculate_duration_label(
+    scheduled_start: Optional[dt_time],
+    scheduled_end: Optional[dt_time],
+    actual_start: Optional[dt_time],
+    actual_end: Optional[dt_time],
+) -> Optional[str]:
+    start = actual_start or scheduled_start
+    end = actual_end or scheduled_end
+    if not start or not end:
+        return None
+
+    start_minutes = start.hour * 60 + start.minute
+    end_minutes = end.hour * 60 + end.minute
+    if end_minutes < start_minutes:
+        return None
+
+    duration_minutes = end_minutes - start_minutes
+    if duration_minutes <= 0:
+        return None
+
+    return f"{duration_minutes} min"
+
+
+def _build_initial_intro_snippet(
+    summary_candidates: list[bytes],
+    additional_notes: Optional[str],
+) -> Optional[str]:
+    """
+    Construye un resumen preliminar para la card antes de que exista output IA.
+    """
+    for raw in summary_candidates:
+        if not raw:
+            continue
+        for encoding in ("utf-8", "latin-1"):
+            try:
+                text = raw.decode(encoding)
+                break
+            except UnicodeDecodeError:
+                text = None
+        if not text:
+            continue
+
+        collapsed = " ".join(text.split())
+        if collapsed:
+            return collapsed[:800]
+
+    notes = str(additional_notes or "").strip()
+    return notes[:800] if notes else None
+
+
+def _extract_summary_from_minute_content(content: Optional[dict]) -> Optional[str]:
+    if not isinstance(content, dict):
+        return None
+
+    scope = content.get("scope")
+    if isinstance(scope, dict):
+        sections = scope.get("sections")
+        if isinstance(sections, list):
+            for section in sections:
+                if not isinstance(section, dict):
+                    continue
+                section_content = section.get("content")
+                if not isinstance(section_content, dict):
+                    continue
+                summary = str(section_content.get("summary") or "").strip()
+                if summary:
+                    return summary
+
+    scope_sections = content.get("scopeSections")
+    if isinstance(scope_sections, list):
+        for section in scope_sections:
+            if not isinstance(section, dict):
+                continue
+            summary = str(section.get("summary") or "").strip()
+            if summary:
+                return summary
+
+    return None
+
+
+def _load_minute_list_summary(minio, record_id: str, status_code: str, version_num: int) -> Optional[str]:
+    if status_code == RECORD_STATUS_READY:
+        content = _read_json_from_minio(minio, BUCKET_JSON, f"{record_id}/schema_output_v1.json")
+        return _extract_summary_from_minute_content(content)
+
+    if status_code == RECORD_STATUS_PENDING:
+        draft = _read_json_from_minio(minio, BUCKET_DRAFT, f"{record_id}/draft_current.json")
+        if draft is not None:
+            return _extract_summary_from_minute_content(draft)
+        content = _read_json_from_minio(minio, BUCKET_JSON, f"{record_id}/schema_output_v1.json")
+        return _extract_summary_from_minute_content(content)
+
+    if status_code in (RECORD_STATUS_PREVIEW, RECORD_STATUS_COMPLETED):
+        content = _read_json_from_minio(minio, BUCKET_JSON, f"{record_id}/schema_output_v{version_num}.json")
+        return _extract_summary_from_minute_content(content)
+
+    return None
 
 
 def get_minute_attachment_blob(
@@ -347,6 +461,7 @@ async def generate_minute(
 
     # ── Subir archivos a MinIO ────────────────────────────────────────────────
     input_objects_meta = []
+    summary_candidates: list[bytes] = []
     for f in files:
         raw       = await f.read()
         obj_key   = f"{record_id}/inputs/{f.filename}"
@@ -363,6 +478,8 @@ async def generate_minute(
         is_transcript = any(kw in f.filename.lower() for kw in ["transcript", "transcripcion", "transcripción"]) \
                         if f.filename else False
         art_type_id = art_transcript_id if is_transcript else art_summary_id
+        if not is_transcript:
+            summary_candidates.append(raw)
 
         db.add(_build_object_row(obj_id, bucket_inputs_id, obj_key, mime, ext, len(raw), sha, requested_by_id))
 
@@ -380,6 +497,7 @@ async def generate_minute(
     # ── Record ────────────────────────────────────────────────────────────────
     mi = request.meeting_info
     pi = request.project_info
+    intro_snippet = _build_initial_intro_snippet(summary_candidates, request.additional_notes)
 
     record = Record(
         id=record_id,
@@ -391,7 +509,12 @@ async def generate_minute(
         project_id=pi.project_id,
         document_date=mi.scheduled_date,
         location=mi.location,
+        scheduled_start_time=_parse_hhmm(mi.scheduled_start_time),
+        scheduled_end_time=_parse_hhmm(mi.scheduled_end_time),
+        actual_start_time=_parse_hhmm(mi.actual_start_time),
+        actual_end_time=_parse_hhmm(mi.actual_end_time),
         prepared_by_user_id=requested_by_id,
+        intro_snippet=intro_snippet,
         latest_version_num=0,
         created_by=requested_by_id,
     )
@@ -980,6 +1103,7 @@ def list_minutes(
 
     total   = query.count()
     records = query.order_by(Record.created_at.desc()).offset(skip).limit(limit).all()
+    minio   = get_minio_client()
 
     items = []
     for rec in records:
@@ -988,6 +1112,24 @@ def list_minutes(
 
         client_name  = getattr(getattr(rec, "client",  None), "name", None)
         project_name = getattr(getattr(rec, "project", None), "name", None)
+        prep_user = getattr(rec, "prepared_by_user", None)
+        prep_profile = getattr(prep_user, "profile", None) if prep_user else None
+        prepared_by_name = (
+            getattr(prep_profile, "full_name", None)
+            or getattr(prep_user, "username", None)
+        )
+        version_num  = int(rec.latest_version_num) if rec.latest_version_num else 1
+        summary_text = (
+            getattr(rec, "intro_snippet", None)
+            or _load_minute_list_summary(minio, rec.id, status_code, version_num)
+        )
+        time_text = _format_hhmm(rec.actual_start_time or rec.scheduled_start_time)
+        duration_text = _calculate_duration_label(
+            rec.scheduled_start_time,
+            rec.scheduled_end_time,
+            rec.actual_start_time,
+            rec.actual_end_time,
+        )
 
         participant_rows = (
             db.query(RecordVersionParticipant)
@@ -1009,12 +1151,14 @@ def list_minutes(
             id=rec.id,
             title=rec.title or "",
             date=rec.document_date.isoformat() if rec.document_date else None,
-            time=None,
+            time=time_text,
+            duration=duration_text,
+            prepared_by=prepared_by_name,
             status=status_code,
             client=client_name,
             project=project_name,
             participants=participant_names,
-            summary=getattr(rec, "summary", None),
+            summary=summary_text,
             tags=tag_items,
         ))
 

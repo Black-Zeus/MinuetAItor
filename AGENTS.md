@@ -15,7 +15,7 @@ Este archivo alinea a cualquier agente que trabaje en este repositorio. El objet
 - `APP/volumes/backend/app`: backend principal
 - `APP/volumes/frontend/src`: frontend principal
 - `APP/data/settings/mariadb/init`: bootstrap y cambios de esquema SQL
-- `APP/volumes/backend/app/assets/prompts`: prompts internos del sistema
+- `APP/data/settings/worker/prompts`: prompts internos del sistema
 - `Data/dokerFile/dev_qa`: Dockerfiles de desarrollo y QA
 - `docker-compose-dev.yml`: entorno principal de desarrollo
 
@@ -85,7 +85,7 @@ Reglas:
 - Si una dependencia cambia, modifica `package.json` y notifica al usuario; no ejecutes `npm install`, `npm update` ni tareas equivalentes.
 
 ### Al modificar prompts o IA
-- Los prompts del sistema viven en `APP/volumes/backend/app/assets/prompts`.
+- Los prompts del sistema viven en `APP/data/settings/worker/prompts`.
 - No mezclar instrucciones de producto con instrucciones del agente si el cambio corresponde a prompt runtime.
 - Mantén explícitas las reglas de “no inventar información” y salida estructurada cuando el cambio toque generación de minutas.
 
@@ -125,5 +125,5 @@ Cuando un agente termine una tarea, debería dejar claro:
 ## Referencias internas rápidas
 - Backend entrypoint: `APP/volumes/backend/app/main.py`
 - Frontend manifest: `APP/volumes/frontend/package.json`
-- Prompt base IA: `APP/volumes/backend/app/assets/prompts/agent.md`
+- Prompt base IA: `APP/data/settings/worker/prompts/system_prompt_v08.txt`
 - Compose principal: `docker-compose-dev.yml`

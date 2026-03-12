@@ -113,7 +113,11 @@ export const MODAL_SIZES = {
   maxHeight: 'max-h-[90vh]'
 },
   clientWide: {
-    width: '!w-[80vw] !max-w-[80vw]',
+    width: '!w-[50vw] !max-w-[50vw]',
+    padding: 'p-6'
+  },
+  minuteWide: {
+    width: '!w-[50vw] !max-w-[50vw]',
     padding: 'p-6'
   },
   pdfViewer: {

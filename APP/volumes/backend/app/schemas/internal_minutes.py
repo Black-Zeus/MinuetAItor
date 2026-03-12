@@ -37,6 +37,10 @@ class MinuteCommitRequest(BaseModel):
         default_factory=dict,
         description="Schema de entrada usado para generar la minuta",
     )
+    derived_fields: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Campos derivados determinísticamente por el worker a partir del input/adjuntos",
+    )
     openai_run_id: str = Field(..., description="ID del run de OpenAI (chatcmpl-xxx)")
     tokens_input: int = Field(..., ge=0, description="Tokens consumidos en el prompt")
     tokens_output: int = Field(..., ge=0, description="Tokens generados en la respuesta")

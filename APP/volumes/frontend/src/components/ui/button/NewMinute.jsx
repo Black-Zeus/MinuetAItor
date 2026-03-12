@@ -17,7 +17,7 @@ import { generateMinute } from "@/services/minutesService";
 import clientService from "@/services/clientService";
 import projectService from "@/services/projectService";
 import profileService, { profileCategoryService } from "@/services/profileService";
-import useAuthStore from "@/store/authStore";
+import useSessionStore from "@/store/sessionStore";
 import useMinuteNotificationStore from "@/store/minuteNotificationStore";
 
 import logger from "@/utils/logger";
@@ -983,7 +983,7 @@ const NewMinuteFormWithCatalog = ({ onSubmit, onCancel, isSubmitting }) => {
  *                          Desde Dashboard → navega a /minutes.
  */
 const NewMinute = ({ onSuccess }) => {
-  const user       = useAuthStore((s) => s.user);
+  const user       = useSessionStore((s) => s.user);
   const addPending = useMinuteNotificationStore((s) => s.addPending);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -991,7 +991,7 @@ const NewMinute = ({ onSuccess }) => {
     ModalManager.show({
       type:       "custom",
       title:      "Asistente de Preparación de Minutas",
-      size:       "clientWide",
+      size:       "minuteWide",
       showHeader: false,
       showFooter: false,
       content: (

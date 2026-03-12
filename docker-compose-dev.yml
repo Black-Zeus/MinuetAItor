@@ -160,6 +160,8 @@ services:
       OPENAI_MODEL: ${OPENAI_MODEL}
       OPENAI_ASSISTANT_ID: ${OPENAI_ASSISTANT_ID}
       OPENAI_MAX_TOKENS: ${OPENAI_MAX_TOKENS}
+      OPENAI_SYSTEM_PROMPT: ${OPENAI_SYSTEM_PROMPT}
+      PROMPT_PATH_BASE: "/app/assets/prompts"
       MINUTES_MAX_FILE_SIZE_MB: ${MINUTES_MAX_FILE_SIZE_MB}
       MINUTES_RATE_LIMIT_PER_DAY: ${MINUTES_RATE_LIMIT_PER_DAY}
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET}
@@ -167,6 +169,7 @@ services:
       - ./APP/volumes/backend/.env
     volumes:
       - ./APP/volumes/backend/app:/app
+      - ./APP/data/settings/worker/prompts:/app/assets/prompts:ro
       - ./APP/data/backend_data:/app/remote_data
       - ./APP/logs/backend:/var/log/app
     ports:
@@ -257,7 +260,7 @@ services:
       OPENAI_MODEL:         ${OPENAI_MODEL:-gpt-4o}
       OPENAI_MAX_TOKENS:    ${OPENAI_MAX_TOKENS:-16000}
       OPENAI_TIMEOUT:       ${OPENAI_TIMEOUT:-300}
-      OPENAI_SYSTEM_PROMPT: ${OPENAI_SYSTEM_PROMPT:-system_prompt_v06.txt}
+      OPENAI_SYSTEM_PROMPT: ${OPENAI_SYSTEM_PROMPT}
 
       # ── Backend interno ────────────────────────────────────────
       BACKEND_INTERNAL_URL: http://${PROJECT_NAME}-backend:8000

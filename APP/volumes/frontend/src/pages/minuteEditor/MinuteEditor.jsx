@@ -62,6 +62,46 @@ const mergeInputAttachments = (content, inputAttachments = []) => {
   return content;
 };
 
+
+const mergeRecordFallbacks = (content, record) => {
+  if (!content || !record?.preparedBy) {
+    return content;
+  }
+
+  const currentPreparedBy = String(
+    content?.generalInfo?.preparedBy ??
+    content?.inputInfo?.preparedBy ??
+    content?.meetingInfo?.preparedBy ??
+    ""
+  ).trim();
+
+  if (currentPreparedBy) {
+    return content;
+  }
+
+  if (content?.generalInfo) {
+    return {
+      ...content,
+      generalInfo: {
+        ...content.generalInfo,
+        preparedBy: record.preparedBy,
+      },
+    };
+  }
+
+  if (content?.meetingInfo) {
+    return {
+      ...content,
+      meetingInfo: {
+        ...content.meetingInfo,
+        preparedBy: record.preparedBy,
+      },
+    };
+  }
+
+  return content;
+};
+
 const MinuteEditor = () => {
   const { id: recordId } = useParams();
   const navigate = useNavigate();
@@ -111,7 +151,10 @@ const MinuteEditor = () => {
           return;
         }
 
-        const hydratedContent = mergeInputAttachments(content, inputAttachments);
+        const hydratedContent = mergeRecordFallbacks(
+          mergeInputAttachments(content, inputAttachments),
+          record,
+        );
 
         setRecordMeta(record);
         setIsReadOnly(!EDITABLE_STATUSES.has(record.status));

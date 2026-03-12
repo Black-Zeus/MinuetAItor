@@ -1,7 +1,7 @@
 /**
  * pages/minuteEditor/cards/MinuteEditorCardTimes.jsx
  * Card editable: horarios (Programado/Real) + duración derivada.
- * Duración = actualEnd - actualStart (solo horas reales).
+ * Duración = (actualEnd || scheduledEnd) - (actualStart || scheduledStart).
  */
 
 import React, { useMemo, useState } from "react";
@@ -57,16 +57,21 @@ export const MinuteEditorCardTimes = ({ isReadOnly = false }) => {
   const { meetingTimes, updateMeetingTimes, activeSearchTargetId } = useMinuteEditorStore();
   const [editing, setEditing] = useState(false);
 
-  // Duración: SOLO real - real
+  // Duración: prioriza horas reales; si faltan, usa las programadas.
   const durationMinutes = useMemo(() => {
-    const start = parseHHMM(meetingTimes.actualStart);
-    const end = parseHHMM(meetingTimes.actualEnd);
+    const start = parseHHMM(meetingTimes.actualStart) ?? parseHHMM(meetingTimes.scheduledStart);
+    const end = parseHHMM(meetingTimes.actualEnd) ?? parseHHMM(meetingTimes.scheduledEnd);
     if (start == null || end == null) return null;
 
     let diff = end - start;
     if (diff < 0) diff += 24 * 60; // cruce medianoche
     return diff > 0 ? diff : null;
-  }, [meetingTimes.actualStart, meetingTimes.actualEnd]);
+  }, [
+    meetingTimes.actualStart,
+    meetingTimes.actualEnd,
+    meetingTimes.scheduledStart,
+    meetingTimes.scheduledEnd,
+  ]);
 
   const durationLabel = useMemo(() => formatDuration(durationMinutes), [durationMinutes]);
 
