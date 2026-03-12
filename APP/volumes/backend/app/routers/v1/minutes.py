@@ -27,6 +27,11 @@ from schemas.minutes import (
     MinuteListResponse,
     MinuteVersionsResponse,
 )
+from schemas.minute_observations import (
+    MinuteObservationListResponse,
+    MinuteObservationResolveRequest,
+    MinuteObservationResolveResponse,
+)
 from services.auth_service import get_current_user
 from services.minutes_service import (
     generate_minute,
@@ -39,6 +44,10 @@ from services.minutes_service import (
     send_minute_email,
     transition_minute,
     list_minutes,
+)
+from services.minute_views_service import (
+    list_editor_minute_observations,
+    resolve_editor_minute_observation,
 )
 
 logger = logging.getLogger(__name__)
@@ -185,6 +194,42 @@ def attachment_endpoint(
         content=file_bytes,
         media_type=mime_type,
         headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
+
+
+@router.get(
+    "/{record_id}/observations",
+    response_model=MinuteObservationListResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Listar observaciones visitantes de la minuta",
+)
+def observations_endpoint(
+    record_id: str,
+    db: Session = Depends(get_db),
+    session: UserSession = Depends(current_user_dep),
+):
+    return list_editor_minute_observations(db, record_id=record_id)
+
+
+@router.post(
+    "/observations/{observation_id}/resolve",
+    response_model=MinuteObservationResolveResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Resolver una observación visitante",
+)
+def resolve_observation_endpoint(
+    observation_id: int,
+    body: MinuteObservationResolveRequest,
+    db: Session = Depends(get_db),
+    session: UserSession = Depends(current_user_dep),
+):
+    return resolve_editor_minute_observation(
+        db,
+        observation_id=observation_id,
+        status=body.status,
+        resolution_type=body.resolution_type,
+        editor_comment=body.editor_comment,
+        actor_user_id=session.user_id,
     )
 
 

@@ -65,9 +65,96 @@ CREATE TABLE participant_emails (
 -- El mail histórico de la versión se mantiene en la propia tabla.
 -- ----------------------------------------------------------------------------
 ALTER TABLE record_version_participants
-  ADD COLUMN participant_id CHAR(36) NULL AFTER record_version_id;
+  ADD COLUMN IF NOT EXISTS participant_id CHAR(36) NULL AFTER record_version_id;
 
-ALTER TABLE record_version_participants
-  ADD CONSTRAINT fk_rvp_participant FOREIGN KEY (participant_id) REFERENCES participants(id);
+SET @fk_rvp_participant_exists := (
+  SELECT COUNT(*)
+  FROM information_schema.TABLE_CONSTRAINTS
+  WHERE CONSTRAINT_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'record_version_participants'
+    AND CONSTRAINT_NAME = 'fk_rvp_participant'
+    AND CONSTRAINT_TYPE = 'FOREIGN KEY'
+);
+SET @sql := IF(
+  @fk_rvp_participant_exists = 0,
+  'ALTER TABLE record_version_participants ADD CONSTRAINT fk_rvp_participant FOREIGN KEY (participant_id) REFERENCES participants(id)',
+  'SELECT 1'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
-CREATE INDEX idx_rvp_participant ON record_version_participants(participant_id);
+SET @idx_rvp_participant_exists := (
+  SELECT COUNT(*)
+  FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'record_version_participants'
+    AND INDEX_NAME = 'idx_rvp_participant'
+);
+SET @sql := IF(
+  @idx_rvp_participant_exists = 0,
+  'CREATE INDEX idx_rvp_participant ON record_version_participants(participant_id)',
+  'SELECT 1'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @idx_rvp_ver_email_exists := (
+  SELECT COUNT(*)
+  FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'record_version_participants'
+    AND INDEX_NAME = 'idx_rvp_ver_email'
+);
+SET @sql := IF(
+  @idx_rvp_ver_email_exists = 0,
+  'CREATE INDEX idx_rvp_ver_email ON record_version_participants(record_version_id, email)',
+  'SELECT 1'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+ALTER TABLE record_version_observations
+  MODIFY COLUMN status ENUM('new','inserted','approved','rejected') NOT NULL DEFAULT 'new';
+
+ALTER TABLE record_version_observations
+  ADD COLUMN IF NOT EXISTS resolution_type ENUM('none','direct_insert','manual_update') NOT NULL DEFAULT 'none' AFTER status,
+  ADD COLUMN IF NOT EXISTS editor_comment TEXT NULL AFTER resolution_type,
+  ADD COLUMN IF NOT EXISTS resolved_by CHAR(36) NULL AFTER editor_comment,
+  ADD COLUMN IF NOT EXISTS applied_in_version_id CHAR(36) NULL AFTER resolved_at;
+
+SET @fk_rvo_resolved_by_exists := (
+  SELECT COUNT(*)
+  FROM information_schema.TABLE_CONSTRAINTS
+  WHERE CONSTRAINT_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'record_version_observations'
+    AND CONSTRAINT_NAME = 'fk_rvo_resolved_by'
+    AND CONSTRAINT_TYPE = 'FOREIGN KEY'
+);
+SET @sql := IF(
+  @fk_rvo_resolved_by_exists = 0,
+  'ALTER TABLE record_version_observations ADD CONSTRAINT fk_rvo_resolved_by FOREIGN KEY (resolved_by) REFERENCES users(id)',
+  'SELECT 1'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @fk_rvo_applied_version_exists := (
+  SELECT COUNT(*)
+  FROM information_schema.TABLE_CONSTRAINTS
+  WHERE CONSTRAINT_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'record_version_observations'
+    AND CONSTRAINT_NAME = 'fk_rvo_applied_version'
+    AND CONSTRAINT_TYPE = 'FOREIGN KEY'
+);
+SET @sql := IF(
+  @fk_rvo_applied_version_exists = 0,
+  'ALTER TABLE record_version_observations ADD CONSTRAINT fk_rvo_applied_version FOREIGN KEY (applied_in_version_id) REFERENCES record_versions(id)',
+  'SELECT 1'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;

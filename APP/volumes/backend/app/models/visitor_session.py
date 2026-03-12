@@ -1,0 +1,39 @@
+from __future__ import annotations
+
+from datetime import datetime, timezone
+
+from sqlalchemy import Column, DateTime, ForeignKey, String, func
+from sqlalchemy.dialects.mysql import BIGINT
+from sqlalchemy.orm import relationship
+
+from db.base import Base
+
+
+class VisitorSession(Base):
+    __tablename__ = "visitor_sessions"
+
+    id = Column(String(36), primary_key=True)
+    record_id = Column(String(36), ForeignKey("records.id"), nullable=False, index=True)
+    record_version_participant_id = Column(BIGINT(unsigned=True), ForeignKey("record_version_participants.id"), nullable=True)
+    access_request_id = Column(String(36), ForeignKey("visitor_access_requests.id"), nullable=True)
+    email = Column(String(200), nullable=False)
+    jti = Column(String(36), nullable=False, unique=True)
+    ip_v4 = Column(String(45), nullable=True)
+    ip_v6 = Column(String(45), nullable=True)
+    user_agent = Column(String(500), nullable=True)
+    device = Column(String(200), nullable=True)
+    expires_at = Column(DateTime, nullable=False)
+    revoked_at = Column(DateTime, nullable=True)
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        server_default=func.now(),
+    )
+
+    record = relationship("Record", lazy="select")
+    access_request = relationship("VisitorAccessRequest", lazy="select")
+    record_version_participant = relationship("RecordVersionParticipant", lazy="select")
+
+    def __repr__(self) -> str:
+        return f"<VisitorSession id={self.id} record_id={self.record_id} email={self.email!r}>"

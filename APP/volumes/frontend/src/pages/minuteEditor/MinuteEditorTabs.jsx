@@ -12,6 +12,7 @@ const TABS = [
   { id: 'scope',        label: 'Alcance y Contenido',  icon: 'diagramProject', counter: 'scopeSections' },
   { id: 'agreements',   label: 'Acuerdos',             icon: 'check',          counter: 'agreements' },
   { id: 'requirements', label: 'Requerimientos',       icon: 'thumbtack',      counter: 'requirements' },
+  { id: 'observations', label: 'Observaciones',        icon: 'comment',        counter: null },
   { id: 'tags',         label: 'Tags',                 icon: 'tags',           counter: 'tags' },
   { id: 'next',         label: 'Próximas Reuniones',   icon: 'calendar',       counter: 'upcomingMeetings' },
   { id: 'timeline',     label: 'Línea de Tiempo',      icon: 'history',        counter: null },
@@ -20,7 +21,7 @@ const TABS = [
   { id: 'metadata',     label: 'Metadata',             icon: 'gear',           counter: null },
 ];
 
-const MinuteEditorTabs = () => {
+const MinuteEditorTabs = ({ observationPendingCount = 0 }) => {
   const {
     activeTab, setActiveTab,
     participants, scopeSections, agreements, requirements,
@@ -45,7 +46,11 @@ const MinuteEditorTabs = () => {
       <div className="flex flex-wrap gap-2">
         {TABS.map(tab => {
           const isActive = activeTab === tab.id;
-          const count    = tab.counter ? getCounter(tab.counter) : null;
+          const count = tab.id === "observations"
+            ? observationPendingCount
+            : tab.counter
+              ? getCounter(tab.counter)
+              : null;
           return (
             <button
               key={tab.id}

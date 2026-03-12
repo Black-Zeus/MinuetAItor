@@ -48,6 +48,9 @@ from models.record_version_tags import RecordVersionTag
 from models.record_version_ai_tags import RecordVersionAiTag
 from models.record_version_commits import RecordVersionCommit
 from models.record_version_participant import RecordVersionParticipant
+from models.visitor_access_request import VisitorAccessRequest
+from models.visitor_session import VisitorSession
+from models.record_version_observation import RecordVersionObservation
 
 # ── Tablas relacionales ───────────────────────────────────────────────────────
 from models.artifact_type_mime_types import ArtifactTypeMimeType   # ← verificar nombre clase
@@ -74,7 +77,8 @@ __all__ = [
     # Records
     "Record", "RecordDraft", "RecordVersion", "RecordArtifact",
     "RecordVersionTag", "RecordVersionAiTag", "RecordVersionCommit",
-    "RecordVersionParticipant",
+    "RecordVersionParticipant", "VisitorAccessRequest", "VisitorSession",
+    "RecordVersionObservation",
     # Relacionales
     "ArtifactTypeMimeType", "RecordTypeArtifactType",
     "UserClient", "UserClientAcl", "UserProjectACL", "UserDashboardWidget",

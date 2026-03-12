@@ -49,14 +49,26 @@ const AppRouter = () => {
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
         {/* ── Rutas de módulos (dinámicas) ───────────────────────────────── */}
-        {allRoutes.map(({ path, component: Component, isPublic, roles, permissions }) => {
+        {allRoutes.map(({ path, component: Component, isPublic, roles, permissions, guard, layout }) => {
+          const accessMode = guard ?? (isPublic ? "public" : "protected");
+          const useAppLayout = layout !== "none";
           const element = (
-            <Suspense fallback={isPublic ? <PageLoader /> : <InnerLoader />}>
+            <Suspense fallback={accessMode === "protected" ? <InnerLoader /> : <PageLoader />}>
               <Component />
             </Suspense>
           );
 
-          if (isPublic) {
+          if (accessMode === "none") {
+            return (
+              <Route
+                key={path}
+                path={path}
+                element={element}
+              />
+            );
+          }
+
+          if (accessMode === "public") {
             return (
               <Route
                 key={path}
@@ -75,11 +87,15 @@ const AppRouter = () => {
                   requiredRoles={roles ?? []}
                   requiredPermissions={permissions ?? []}
                 >
-                  <Layout>
-                    <Suspense fallback={<InnerLoader />}>
-                      <Component />
-                    </Suspense>
-                  </Layout>
+                  {useAppLayout ? (
+                    <Layout>
+                      <Suspense fallback={<InnerLoader />}>
+                        <Component />
+                      </Suspense>
+                    </Layout>
+                  ) : (
+                    element
+                  )}
                 </ProtectedRoute>
               }
             />

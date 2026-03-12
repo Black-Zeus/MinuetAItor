@@ -1007,6 +1007,95 @@ CREATE TABLE user_sessions (
 ALTER TABLE user_sessions
   ADD CONSTRAINT fk_us_user FOREIGN KEY (user_id) REFERENCES users(id);
 
+-- ----------------------------------------------------------------------------
+-- 9) Acceso visitante a minutas + observaciones por versión
+-- ----------------------------------------------------------------------------
+CREATE TABLE visitor_access_requests (
+  id                            CHAR(36) NOT NULL,
+  record_id                     CHAR(36) NOT NULL,
+  record_version_id             CHAR(36) NULL,
+  record_version_participant_id BIGINT UNSIGNED NULL,
+  email                         VARCHAR(200) NOT NULL,
+  otp_code_hash                 CHAR(64) NOT NULL,
+  otp_expires_at                DATETIME NOT NULL,
+  consumed_at                   DATETIME NULL,
+  attempt_count                 SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  last_attempt_at               DATETIME NULL,
+  requester_ip                  VARCHAR(45) NULL,
+  requester_user_agent          VARCHAR(500) NULL,
+  delivery_status               VARCHAR(30) NOT NULL DEFAULT 'pending',
+  created_at                    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  PRIMARY KEY (id),
+  CONSTRAINT fk_var_record FOREIGN KEY (record_id) REFERENCES records(id),
+  CONSTRAINT fk_var_version FOREIGN KEY (record_version_id) REFERENCES record_versions(id),
+  CONSTRAINT fk_var_participant FOREIGN KEY (record_version_participant_id) REFERENCES record_version_participants(id),
+
+  KEY idx_var_record_email (record_id, email),
+  KEY idx_var_version (record_version_id),
+  KEY idx_var_expires_at (otp_expires_at),
+  KEY idx_var_consumed_at (consumed_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE visitor_sessions (
+  id                            CHAR(36) NOT NULL,
+  record_id                     CHAR(36) NOT NULL,
+  record_version_participant_id BIGINT UNSIGNED NULL,
+  access_request_id             CHAR(36) NULL,
+  email                         VARCHAR(200) NOT NULL,
+  jti                           VARCHAR(36) NOT NULL,
+  ip_v4                         VARCHAR(45) NULL,
+  ip_v6                         VARCHAR(45) NULL,
+  user_agent                    VARCHAR(500) NULL,
+  device                        VARCHAR(200) NULL,
+  expires_at                    DATETIME NOT NULL,
+  revoked_at                    DATETIME NULL,
+  created_at                    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_vs_jti (jti),
+  CONSTRAINT fk_vs_record FOREIGN KEY (record_id) REFERENCES records(id),
+  CONSTRAINT fk_vs_participant FOREIGN KEY (record_version_participant_id) REFERENCES record_version_participants(id),
+  CONSTRAINT fk_vs_access_request FOREIGN KEY (access_request_id) REFERENCES visitor_access_requests(id),
+
+  KEY idx_vs_record_email (record_id, email),
+  KEY idx_vs_expires_at (expires_at),
+  KEY idx_vs_revoked_at (revoked_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE record_version_observations (
+  id                            BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  record_id                     CHAR(36) NOT NULL,
+  record_version_id             CHAR(36) NOT NULL,
+  record_version_participant_id BIGINT UNSIGNED NULL,
+  visitor_session_id            CHAR(36) NULL,
+  author_email                  VARCHAR(200) NOT NULL,
+  author_name                   VARCHAR(220) NULL,
+  body                          TEXT NOT NULL,
+  status                        ENUM('new','inserted','approved','rejected') NOT NULL DEFAULT 'new',
+  resolution_type               ENUM('none','direct_insert','manual_update') NOT NULL DEFAULT 'none',
+  editor_comment                TEXT NULL,
+  resolved_by                   CHAR(36) NULL,
+  resolution_note               TEXT NULL,
+  resolved_at                   DATETIME NULL,
+  applied_in_version_id         CHAR(36) NULL,
+  created_at                    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at                    DATETIME NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+  CONSTRAINT fk_rvo_record FOREIGN KEY (record_id) REFERENCES records(id),
+  CONSTRAINT fk_rvo_version FOREIGN KEY (record_version_id) REFERENCES record_versions(id),
+  CONSTRAINT fk_rvo_participant FOREIGN KEY (record_version_participant_id) REFERENCES record_version_participants(id),
+  CONSTRAINT fk_rvo_visitor_session FOREIGN KEY (visitor_session_id) REFERENCES visitor_sessions(id),
+  CONSTRAINT fk_rvo_resolved_by FOREIGN KEY (resolved_by) REFERENCES users(id),
+  CONSTRAINT fk_rvo_applied_version FOREIGN KEY (applied_in_version_id) REFERENCES record_versions(id),
+
+  KEY idx_rvo_record (record_id),
+  KEY idx_rvo_version (record_version_id),
+  KEY idx_rvo_participant (record_version_participant_id),
+  KEY idx_rvo_status (status),
+  KEY idx_rvo_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 
 -- ----------------------------------------------------------------------------
 -- 10) Minute Transactions (auditoría de interacciones con la IA)
