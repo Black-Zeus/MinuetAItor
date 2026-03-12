@@ -130,7 +130,10 @@ border-radius: 8px; border: 1px solid #d0d7de; border-left-width: 5px; margin-bo
 
   {# ── PÁGINA 2: PARTICIPANTES Y AGENDA ───────────────────── #}
   <div class="page">
-    <h2>Participantes del comité</h2>
+    <section class="pdf-section pdf-section--keep">
+    <div class="pdf-section-header">
+      <h2>Participantes del comité</h2>
+    </div>
     <table>
       <thead>
         <tr>
@@ -156,6 +159,7 @@ border-radius: 8px; border: 1px solid #d0d7de; border-left-width: 5px; margin-bo
         </tr>
       </tbody>
     </table>
+    </section>
 
     {# Agenda + participación #}
     {% if intro %}
@@ -222,7 +226,9 @@ border-radius: 8px; border: 1px solid #d0d7de; border-left-width: 5px; margin-bo
     <div class="empty-state">No hay resoluciones registradas.</div>
     {% endfor %}
 
-    <h2 style="margin-top:35px">Acuerdos formales</h2>
+    <div class="pdf-section-header">
+      <h2 style="margin-top:35px">Acuerdos formales</h2>
+    </div>
 
     {% if agreements["items"] | length > 0 %} <!-- CORREGIDO -->
     <table>
@@ -251,7 +257,9 @@ border-radius: 8px; border: 1px solid #d0d7de; border-left-width: 5px; margin-bo
     {% endif %}
 
     {% if requirements["items"] | length > 0 %} <!-- CORREGIDO -->
-    <h2 style="margin-top:35px">Requerimientos formales</h2>
+    <div class="pdf-section-header">
+      <h2 style="margin-top:35px">Requerimientos formales</h2>
+    </div>
     <table>
       <thead>
         <tr>
@@ -282,7 +290,10 @@ border-radius: 8px; border: 1px solid #d0d7de; border-left-width: 5px; margin-bo
   {# ── PÁGINA 4: PRÓXIMAS REUNIONES Y FIRMAS ───────────────── #}
   <div class="page">
     {% if upcoming_meetings is defined and upcoming_meetings["items"] | length > 0 %} <!-- CORREGIDO -->
-    <h2>Próximas instancias de gobernanza</h2>
+    <section class="pdf-section">
+    <div class="pdf-section-header">
+      <h2>Próximas instancias de gobernanza</h2>
+    </div>
     <table>
       <thead>
         <tr>
@@ -301,6 +312,7 @@ border-radius: 8px; border: 1px solid #d0d7de; border-left-width: 5px; margin-bo
         {% endfor %}
       </tbody>
     </table>
+    </section>
     {% endif %}
 
   </div>

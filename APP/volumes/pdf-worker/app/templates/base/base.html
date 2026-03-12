@@ -44,11 +44,10 @@
       line-height: 1.5;
     }
 
-    /* ── Paginación para Gotenberg ─────────────────────────── */
+    /* ── Paginación para Gotenberg ────-─────────────────────── */
     .page {
-      width: 210mm;
-      min-height: 297mm;
-      padding: 14mm 15mm 16mm 15mm;
+      width: auto;
+      min-height: auto;
       position: relative;
       page-break-after: always;
       background: #fff;
@@ -56,10 +55,11 @@
     .page:last-child { page-break-after: auto; }
 
     /* Evitar corte dentro de bloques */
-    table            { break-inside: avoid; }
+    table            { break-inside: auto; page-break-inside: auto; }
     .scope-block,
     .scope-item      { break-inside: avoid; }
     .signature-box   { break-inside: avoid; }
+    tr, th, td       { break-inside: avoid; page-break-inside: avoid; }
 
     /* thead repetido en tablas multipágina */
     thead { display: table-header-group; }
@@ -67,7 +67,7 @@
 
     @page {
       size: A4;
-      margin: 0;
+      margin: 14mm 15mm 16mm 15mm;
     }
     @media print {
       body { background: #fff; }
@@ -75,6 +75,12 @@
 
     /* ── Tipografía ─────────────────────────────────────────── */
     h1, h2, h3, h4, p { margin-top: 0; }
+    p, li, td, th {
+      orphans: 3;
+      widows: 3;
+      overflow-wrap: break-word;
+      word-break: break-word;
+    }
 
     .section-title {
       margin: 18px 0 10px 0;
@@ -98,6 +104,43 @@
       margin: -2px 0 10px 0;
       font-size: 12px;
       color: var(--muted);
+    }
+
+    .pdf-section {
+      margin-bottom: 18px;
+    }
+
+    .pdf-section--keep {
+      break-inside: avoid-page;
+      page-break-inside: avoid;
+    }
+
+    .pdf-section--new-page {
+      break-before: page;
+      page-break-before: always;
+    }
+
+    .pdf-section-header {
+      break-after: avoid-page;
+      page-break-after: avoid;
+    }
+
+    .pdf-section-header .section-title:last-child,
+    .pdf-section-header .section-note:last-child,
+    .pdf-section-header .section-subtitle:last-child {
+      margin-bottom: 0;
+    }
+
+    .section-table-caption {
+      caption-side: top;
+      text-align: left;
+      padding: 0 0 10px 0;
+    }
+
+    .section-table-caption .section-title,
+    .section-table-caption .section-note {
+      break-after: avoid-page;
+      page-break-after: avoid;
     }
 
     /* ── Tablas base ────────────────────────────────────────── */

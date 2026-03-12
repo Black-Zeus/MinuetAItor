@@ -308,8 +308,9 @@ services:
     volumes:
       - ./APP/volumes/pdf-worker/app:/app
       - ./APP/logs/pdf-worker:/var/log/app
-    # Hot-reload: igual que el worker. Incluye *.html para templates Jinja2.
-    command: watchmedo auto-restart --patterns='*.py;*.html' --recursive -- python main.py
+    # Hot-reload: forzar polling en bind mounts Docker para que detecte cambios
+    # de templates y código tanto en Linux como en Windows.
+    command: watchmedo auto-restart --debug-force-polling --patterns='*.py;*.html' --recursive -- python main.py
     depends_on:
       redis:
         condition: service_healthy
