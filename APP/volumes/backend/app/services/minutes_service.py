@@ -42,6 +42,17 @@ from services.minute_participants_service import (
     build_version_participants_from_content,
     persist_record_version_participants,
 )
+from services.minutes import catalogs as minute_catalogs
+from services.minutes import constants as minute_constants
+from services.minutes import generate as minute_generate
+from services.minutes import queue as minute_queue
+from services.minutes import query as minute_query
+from services.minutes import sanitizers as minute_sanitizers
+from services.minutes import storage as minute_storage
+from services.minutes.attachments import (
+    get_minute_attachment_blob as get_minute_attachment_blob_use_case,
+    list_minute_input_attachments as list_minute_input_attachments_use_case,
+)
 from services.notification_service import enqueue_minute_officialized_email, enqueue_minute_review_email
 
 logger = logging.getLogger(__name__)
@@ -136,38 +147,19 @@ def _build_object_row(obj_id, bucket_id, key, content_type, ext, size, sha, by_i
 # ─── Helper MinIO: leer / escribir JSON ──────────────────────────────────────
 
 def _read_json_from_minio(minio, bucket: str, object_key: str) -> Optional[dict]:
-    try:
-        response = minio.get_object(bucket, object_key)
-        raw      = response.read()
-        response.close()
-        response.release_conn()
-        return json.loads(raw.decode("utf-8"))
-    except Exception as e:
-        logger.warning(f"[minutes] No se pudo leer {bucket}/{object_key}: {e}")
-        return None
+    return minute_storage.read_json(bucket, object_key)
 
 
 def _write_json_to_minio(minio, bucket: str, object_key: str, data: dict) -> int:
-    raw = json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
-    minio.put_object(
-        bucket_name=bucket, object_name=object_key,
-        data=io.BytesIO(raw), length=len(raw), content_type="application/json",
-    )
-    return len(raw)
+    return minute_storage.write_json(bucket, object_key, data)
 
 
 def _parse_hhmm(value: Optional[str]) -> Optional[dt_time]:
-    raw = str(value or "").strip()
-    if not raw:
-        return None
-    try:
-        return datetime.strptime(raw, "%H:%M").time()
-    except ValueError:
-        return None
+    return minute_sanitizers.parse_hhmm(value)
 
 
 def _format_hhmm(value: Optional[dt_time]) -> Optional[str]:
-    return value.strftime("%H:%M") if value else None
+    return minute_sanitizers.format_hhmm(value)
 
 
 def _calculate_duration_label(
@@ -176,21 +168,12 @@ def _calculate_duration_label(
     actual_start: Optional[dt_time],
     actual_end: Optional[dt_time],
 ) -> Optional[str]:
-    start = actual_start or scheduled_start
-    end = actual_end or scheduled_end
-    if not start or not end:
-        return None
-
-    start_minutes = start.hour * 60 + start.minute
-    end_minutes = end.hour * 60 + end.minute
-    if end_minutes < start_minutes:
-        return None
-
-    duration_minutes = end_minutes - start_minutes
-    if duration_minutes <= 0:
-        return None
-
-    return f"{duration_minutes} min"
+    return minute_sanitizers.calculate_duration_label(
+        scheduled_start,
+        scheduled_end,
+        actual_start,
+        actual_end,
+    )
 
 
 def _build_initial_intro_snippet(
@@ -200,54 +183,11 @@ def _build_initial_intro_snippet(
     """
     Construye un resumen preliminar para la card antes de que exista output IA.
     """
-    for raw in summary_candidates:
-        if not raw:
-            continue
-        for encoding in ("utf-8", "latin-1"):
-            try:
-                text = raw.decode(encoding)
-                break
-            except UnicodeDecodeError:
-                text = None
-        if not text:
-            continue
-
-        collapsed = " ".join(text.split())
-        if collapsed:
-            return collapsed[:800]
-
-    notes = str(additional_notes or "").strip()
-    return notes[:800] if notes else None
+    return minute_sanitizers.build_initial_intro_snippet(summary_candidates, additional_notes)
 
 
 def _extract_summary_from_minute_content(content: Optional[dict]) -> Optional[str]:
-    if not isinstance(content, dict):
-        return None
-
-    scope = content.get("scope")
-    if isinstance(scope, dict):
-        sections = scope.get("sections")
-        if isinstance(sections, list):
-            for section in sections:
-                if not isinstance(section, dict):
-                    continue
-                section_content = section.get("content")
-                if not isinstance(section_content, dict):
-                    continue
-                summary = str(section_content.get("summary") or "").strip()
-                if summary:
-                    return summary
-
-    scope_sections = content.get("scopeSections")
-    if isinstance(scope_sections, list):
-        for section in scope_sections:
-            if not isinstance(section, dict):
-                continue
-            summary = str(section.get("summary") or "").strip()
-            if summary:
-                return summary
-
-    return None
+    return minute_sanitizers.extract_summary_from_minute_content(content)
 
 
 def _load_minute_list_summary(minio, record_id: str, status_code: str, version_num: int) -> Optional[str]:
@@ -274,6 +214,8 @@ def get_minute_attachment_blob(
     record_id: str,
     sha256: str,
 ) -> tuple[bytes, str, str]:
+    return get_minute_attachment_blob_use_case(db=db, record_id=record_id, sha256=sha256)
+
     """
     Retorna el binario real de un adjunto de entrada asociado a una minuta.
 
@@ -330,6 +272,8 @@ def get_minute_attachment_blob(
 
 
 def list_minute_input_attachments(db: Session, record_id: str) -> list[dict[str, str]]:
+    return list_minute_input_attachments_use_case(db=db, record_id=record_id)
+
     """
     Lista los adjuntos de entrada persistidos para una minuta.
 
@@ -381,10 +325,7 @@ def list_minute_input_attachments(db: Session, record_id: str) -> list[dict[str,
 # ─── Helper Redis: encolar jobs ───────────────────────────────────────────────
 
 async def _enqueue_job(queue: str, job: dict) -> None:
-    from db.redis import get_redis
-    redis = get_redis()
-    await redis.rpush(queue, json.dumps(job))
-    logger.info(f"[minutes] Job encolado | queue={queue} type={job.get('type')}")
+    await minute_queue.enqueue_job(queue, job)
 
 
 # ─── Helper: construir schema de input para el worker ────────────────────────
@@ -412,7 +353,10 @@ def _build_input_schema(request: MinuteGenerateRequest) -> dict:
         },
         "profileInfo": {"profileId": pr.profile_id, "profileName": pr.profile_name},
         "preparedBy":  request.prepared_by,
-        "systemPrompt": {"name": PROMPT_FILE, "signedSha": _calculate_prompt_sha()},
+        "systemPrompt": {
+            "name": minute_constants.PROMPT_FILE,
+            "signedSha": minute_storage.get_prompt_sha(),
+        },
     }
     if mi.actual_start_time: schema["meetingInfo"]["actualStartTime"] = mi.actual_start_time
     if mi.actual_end_time:   schema["meetingInfo"]["actualEndTime"]   = mi.actual_end_time
@@ -434,6 +378,13 @@ async def generate_minute(
     files:           list[UploadFile],
     requested_by_id: str,
 ) -> MinuteGenerateResponse:
+    return await minute_generate.generate_minute(
+        db=db,
+        request=request,
+        files=files,
+        requested_by_id=requested_by_id,
+    )
+
     """
     TX1: crea Record + MinuteTransaction + sube archivos a MinIO.
     Encola el job al worker para que ejecute TX2 (OpenAI + artefactos + versión).
@@ -446,15 +397,16 @@ async def generate_minute(
     from models.record_types     import RecordType
     from models.record_drafts    import RecordDraft
 
+    request = minute_sanitizers.sanitize_generate_request(request)
     minio = get_minio_client()
 
     # ── Catálogos ─────────────────────────────────────────────────────────────
-    bucket_inputs_id    = _get_catalog_id(db, Bucket,       BUCKET_CODE_INPUTS)
-    art_transcript_id   = _get_catalog_id(db, ArtifactType, ART_INPUT_TRANSCRIPT)
-    art_summary_id      = _get_catalog_id(db, ArtifactType, ART_INPUT_SUMMARY)
-    art_state_ready_id  = _get_catalog_id(db, ArtifactState, ART_STATE_READY)
-    status_in_prog_id   = _get_catalog_id(db, RecordStatus,  RECORD_STATUS_IN_PROGRESS)
-    record_type_id      = _get_catalog_id(db, RecordType,    RECORD_TYPE_MINUTE)
+    bucket_inputs_id = minute_catalogs.get_catalog_id(db, Bucket, BUCKET_CODE_INPUTS)
+    art_transcript_id = minute_catalogs.get_catalog_id(db, ArtifactType, ART_INPUT_TRANSCRIPT)
+    art_summary_id = minute_catalogs.get_catalog_id(db, ArtifactType, ART_INPUT_SUMMARY)
+    art_state_ready_id = minute_catalogs.get_catalog_id(db, ArtifactState, ART_STATE_READY)
+    status_in_prog_id = minute_catalogs.get_catalog_id(db, RecordStatus, RECORD_STATUS_IN_PROGRESS)
+    record_type_id = minute_catalogs.get_catalog_id(db, RecordType, RECORD_TYPE_MINUTE)
 
     # ── IDs ───────────────────────────────────────────────────────────────────
     record_id      = str(uuid.uuid4())
@@ -464,12 +416,13 @@ async def generate_minute(
     input_objects_meta = []
     summary_candidates: list[bytes] = []
     for f in files:
-        raw       = await f.read()
-        obj_key   = f"{record_id}/inputs/{f.filename}"
-        obj_id    = str(uuid.uuid4())
-        sha       = hashlib.sha256(raw).hexdigest()
-        mime      = f.content_type or "application/octet-stream"
-        ext       = Path(f.filename).suffix.lstrip(".") if f.filename else ""
+        raw, safe_name, mime, sha = await minute_sanitizers.sanitize_upload_file(
+            f,
+            max_bytes=settings.minutes_max_file_size_mb * 1024 * 1024,
+        )
+        obj_key = f"{record_id}/inputs/{safe_name}"
+        obj_id = str(uuid.uuid4())
+        ext = Path(safe_name).suffix.lstrip(".")
 
         minio.put_object(
             bucket_name=BUCKET_INPUTS, object_name=obj_key,
@@ -478,11 +431,23 @@ async def generate_minute(
 
         is_transcript = any(kw in f.filename.lower() for kw in ["transcript", "transcripcion", "transcripción"]) \
                         if f.filename else False
+        is_transcript = minute_sanitizers.detect_input_file_type(safe_name) == "transcript"
         art_type_id = art_transcript_id if is_transcript else art_summary_id
         if not is_transcript:
             summary_candidates.append(raw)
 
-        db.add(_build_object_row(obj_id, bucket_inputs_id, obj_key, mime, ext, len(raw), sha, requested_by_id))
+        db.add(
+            minute_storage.build_object_row(
+                obj_id,
+                bucket_inputs_id,
+                obj_key,
+                mime,
+                ext,
+                len(raw),
+                sha,
+                requested_by_id,
+            )
+        )
 
         input_objects_meta.append({
             "obj_id":      obj_id,
@@ -492,13 +457,13 @@ async def generate_minute(
             "mime":        mime,
             "art_type_id": art_type_id,
             "art_state_id": art_state_ready_id,
-            "filename":    f.filename,
+            "filename":    safe_name,
         })
 
     # ── Record ────────────────────────────────────────────────────────────────
     mi = request.meeting_info
     pi = request.project_info
-    intro_snippet = _build_initial_intro_snippet(summary_candidates, request.additional_notes)
+    intro_snippet = minute_sanitizers.build_initial_intro_snippet(summary_candidates, request.additional_notes)
 
     record = Record(
         id=record_id,
@@ -510,10 +475,10 @@ async def generate_minute(
         project_id=pi.project_id,
         document_date=mi.scheduled_date,
         location=mi.location,
-        scheduled_start_time=_parse_hhmm(mi.scheduled_start_time),
-        scheduled_end_time=_parse_hhmm(mi.scheduled_end_time),
-        actual_start_time=_parse_hhmm(mi.actual_start_time),
-        actual_end_time=_parse_hhmm(mi.actual_end_time),
+        scheduled_start_time=minute_sanitizers.parse_hhmm(mi.scheduled_start_time),
+        scheduled_end_time=minute_sanitizers.parse_hhmm(mi.scheduled_end_time),
+        actual_start_time=minute_sanitizers.parse_hhmm(mi.actual_start_time),
+        actual_end_time=minute_sanitizers.parse_hhmm(mi.actual_end_time),
         prepared_by_user_id=requested_by_id,
         intro_snippet=intro_snippet,
         latest_version_num=0,
@@ -584,7 +549,7 @@ async def generate_minute(
     }
     
     try:
-        await _enqueue_job("queue:minutes", job_payload)
+        await minute_queue.enqueue_job(minute_constants.QUEUE_MINUTES, job_payload)
     except Exception as e:
         logger.error(f"[minutes] No se pudo encolar el job: {e}")
         # TX1 ya está committed — el job puede reencolar manualmente desde DLQ
@@ -618,6 +583,8 @@ async def get_minute_status(db: Session, transaction_id: str) -> MinuteStatusRes
 # ─── get_minute_detail ────────────────────────────────────────────────────────
 
 def get_minute_detail(db: Session, record_id: str) -> MinuteDetailResponse:
+    return minute_query.get_minute_detail(db=db, record_id=record_id)
+
     """
     Carga la minuta con su contenido embebido y el content_type correcto
     para que el frontend sepa qué mapper aplicar.
@@ -663,7 +630,7 @@ def get_minute_detail(db: Session, record_id: str) -> MinuteDetailResponse:
     input_attachments = list_minute_input_attachments(db, record_id)
 
     # Estados sin contenido
-    if status_code in _STATUSES_NO_CONTENT:
+    if status_code in minute_constants.STATUSES_NO_CONTENT:
         return MinuteDetailResponse(
             record=record_info,
             content=None,
@@ -742,6 +709,8 @@ async def save_minute_draft(db: Session, record_id: str, content: dict) -> None:
             detail={"error": "invalid_status_for_save",
                     "message": f"Autosave solo disponible en estado 'pending'. Estado actual: '{status_code}'."})
 
+    content = minute_sanitizers.sanitize_editor_content(content)
+
     try:
         draft_bytes = json.dumps(content, ensure_ascii=False, indent=2).encode("utf-8")
         minio = get_minio_client()
@@ -759,7 +728,7 @@ async def save_minute_draft(db: Session, record_id: str, content: dict) -> None:
     try:
         from services.pdf_job_builder import build_pdf_job_on_save
         envelope = build_pdf_job_on_save(record=record, draft_content=content)
-        await _enqueue_job(QUEUE_PDF, envelope)
+        await minute_queue.enqueue_job(minute_constants.QUEUE_PDF, envelope)
         logger.debug(f"[minutes] PDF borrador encolado tras save | record={record_id}")
     except Exception as e:
         logger.warning(f"[minutes] No se pudo encolar PDF en save | record={record_id}: {e}")
@@ -788,6 +757,8 @@ async def generate_minute_pdf_preview(db: Session, record_id: str, content: dict
             detail={"error": "record_not_found", "message": f"Minuta '{record_id}' no encontrada."},
         )
 
+    content = minute_sanitizers.sanitize_editor_content(content)
+
     try:
         from services.pdf_job_builder import build_pdf_job_on_save
 
@@ -800,7 +771,7 @@ async def generate_minute_pdf_preview(db: Session, record_id: str, content: dict
             envelope["payload"]["callback"]["notify_redis_channel"] = None
             envelope["payload"]["callback"]["pdf_url_field"] = None
 
-        await _enqueue_job(QUEUE_PDF, envelope)
+        await minute_queue.enqueue_job(minute_constants.QUEUE_PDF, envelope)
     except HTTPException:
         raise
     except Exception as e:
@@ -886,17 +857,25 @@ async def transition_minute(
     current_status_row  = db.query(RecordStatus).filter_by(id=record.status_id).first()
     current_status_code = current_status_row.code if current_status_row else "unknown"
 
-    allowed = _VALID_TRANSITIONS.get(current_status_code, set())
+    allowed = minute_constants.VALID_TRANSITIONS.get(current_status_code, set())
     if target_status not in allowed:
         raise HTTPException(status_code=409,
             detail={"error": "invalid_transition",
                     "message": f"No se puede transicionar de '{current_status_code}' a '{target_status}'. "
                                f"Válidas: {sorted(allowed) or 'ninguna (estado terminal)'}."})
 
-    target_status_id   = _get_catalog_id(db, RecordStatus,  target_status)
-    snapshot_status_id = _get_catalog_id(db, VersionStatus, VERSION_STATUS_SNAPSHOT)
-    final_status_id    = _get_catalog_id(db, VersionStatus, VERSION_STATUS_FINAL)
-    bucket_json_id     = _get_catalog_id(db, Bucket,        BUCKET_CODE_JSON)
+    target_status_id = minute_catalogs.get_catalog_id(db, RecordStatus, target_status)
+    snapshot_status_id = minute_catalogs.get_catalog_id(
+        db,
+        VersionStatus,
+        minute_constants.VERSION_STATUS_SNAPSHOT,
+    )
+    final_status_id = minute_catalogs.get_catalog_id(
+        db,
+        VersionStatus,
+        minute_constants.VERSION_STATUS_FINAL,
+    )
+    bucket_json_id = minute_catalogs.get_catalog_id(db, Bucket, BUCKET_CODE_JSON)
 
     minio         = get_minio_client()
     new_version: Optional[RecordVersion] = None
@@ -948,10 +927,18 @@ async def transition_minute(
         snap_sha    = hashlib.sha256(
             json.dumps(draft_content, ensure_ascii=False, indent=2).encode("utf-8")
         ).hexdigest()
-        db.add(_build_object_row(
-            snap_obj_id, bucket_json_id, snapshot_key,
-            "application/json", "json", snap_size, snap_sha, actor_user_id,
-        ))
+        db.add(
+            minute_storage.build_object_row(
+                snap_obj_id,
+                bucket_json_id,
+                snapshot_key,
+                "application/json",
+                "json",
+                snap_size,
+                snap_sha,
+                actor_user_id,
+            )
+        )
         db.flush()
 
         new_version_id = str(uuid.uuid4())
@@ -1109,6 +1096,19 @@ def list_minutes(
     participant_user_id: Optional[str] = None,
     exclude_prepared_by_user_id: Optional[str] = None,
 ):
+    return minute_query.list_minutes(
+        db=db,
+        skip=skip,
+        limit=limit,
+        q=q,
+        status_filter=status_filter,
+        client_id=client_id,
+        project_id=project_id,
+        prepared_by_user_id=prepared_by_user_id,
+        participant_user_id=participant_user_id,
+        exclude_prepared_by_user_id=exclude_prepared_by_user_id,
+    )
+
     from schemas.minutes         import MinuteListResponse, MinuteListItem, MinuteTagItem
     from models.clients          import Client
     from models.projects         import Project
@@ -1242,6 +1242,8 @@ def list_minutes(
 # ─── get_minute_versions ──────────────────────────────────────────────────────
 
 def get_minute_versions(db: Session, record_id: str) -> "MinuteVersionsResponse":
+    return minute_query.get_minute_versions(db=db, record_id=record_id)
+
     """
     Retorna todas las RecordVersion de una minuta ordenadas por version_num desc.
     Incluye autor (nombre completo o username), fecha, estado y commit_message.
