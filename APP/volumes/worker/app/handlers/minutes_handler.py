@@ -26,8 +26,9 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import re
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, time, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -70,6 +71,75 @@ def _now_utc() -> datetime:
 
 def _sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def _parse_clock_time(value: str | None) -> time | None:
+    raw = str(value or "").strip()
+    if not raw:
+        return None
+    try:
+        return datetime.strptime(raw, "%H:%M").time()
+    except ValueError:
+        return None
+
+
+def _format_clock_time(value: time) -> str:
+    return value.strftime("%H:%M")
+
+
+def _extract_last_transcript_offset_seconds(files: list[dict]) -> int | None:
+    """
+    Busca el último timestamp relativo de la transcripción.
+
+    Soporta formatos típicos:
+      [MM:SS]
+      [HH:MM:SS]
+    """
+    pattern = re.compile(r"\[(?:(\d{1,2}):)?([0-5]?\d):([0-5]\d)\]")
+    max_seconds: int | None = None
+
+    for file in files:
+        file_name = str(file.get("fileName") or "").lower()
+        if "transcrip" not in file_name and "transcript" not in file_name:
+            continue
+
+        raw = file.get("content", b"")
+        if isinstance(raw, bytes):
+            try:
+                text = raw.decode("utf-8")
+            except UnicodeDecodeError:
+                text = raw.decode("latin-1", errors="replace")
+        else:
+            text = str(raw)
+
+        for match in pattern.finditer(text):
+            hours = int(match.group(1) or 0)
+            minutes = int(match.group(2))
+            seconds = int(match.group(3))
+            total_seconds = (hours * 3600) + (minutes * 60) + seconds
+            if max_seconds is None or total_seconds > max_seconds:
+                max_seconds = total_seconds
+
+    return max_seconds
+
+
+def _infer_actual_end_time(ai_input: dict, files: list[dict]) -> str | None:
+    meeting_info = ai_input.get("meetingInfo") if isinstance(ai_input, dict) else {}
+    if not isinstance(meeting_info, dict):
+        return None
+
+    base_time = (
+        _parse_clock_time(meeting_info.get("actualStartTime"))
+        or _parse_clock_time(meeting_info.get("scheduledStartTime"))
+    )
+    offset_seconds = _extract_last_transcript_offset_seconds(files)
+    if not base_time or offset_seconds is None:
+        return None
+
+    base_dt = datetime.combine(datetime(2000, 1, 1), base_time)
+    inferred_dt = base_dt + timedelta(seconds=offset_seconds)
+    rounded_dt = inferred_dt + timedelta(seconds=30)
+    return _format_clock_time(rounded_dt.time())
 
 
 # ── TRACE: volcado de archivos de debug ───────────────────────────────────────
@@ -355,6 +425,11 @@ def _execute_tx2_sync(payload: dict) -> tuple[str, str, int, int]:
         run_id=run_id,
     )
 
+    derived_fields = {}
+    inferred_actual_end_time = _infer_actual_end_time(ai_input, files)
+    if inferred_actual_end_time:
+        derived_fields["actual_end_time"] = inferred_actual_end_time
+
     # 5. Enviar al backend para persistencia (TX2)
     result = commit_tx2(
         transaction_id=tx_id,
@@ -362,6 +437,7 @@ def _execute_tx2_sync(payload: dict) -> tuple[str, str, int, int]:
         requested_by_id=by_id,
         ai_output=ai_output,
         ai_input_schema=ai_input,
+        derived_fields=derived_fields,
         openai_run_id=run_id,
         tokens_input=tokens_in,
         tokens_output=tokens_out,

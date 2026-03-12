@@ -190,6 +190,7 @@ const showConfirmCancelModal = ({ minuteId, onConfirm }) => {
 const CardHeader = ({ minute, statusConfig }) => {
   const title   = String(minute?.title ?? "");
   const titleUi = title.length > 28 ? `${title.slice(0, 28)}...` : title;
+  const timeLine = [minute?.time, minute?.duration].filter(Boolean).join(" • ") || "-";
 
   return (
     <div className="p-6 border-b border-secondary-200 dark:border-secondary-700/60 transition-theme min-h-[120px]">
@@ -207,7 +208,7 @@ const CardHeader = ({ minute, statusConfig }) => {
           </span>
           <span className="flex items-center gap-1.5">
             <Icon name="clock" className="text-xs" />
-            {minute?.time ?? "-"}
+            {timeLine}
           </span>
         </div>
         <div className="flex justify-end">
@@ -259,6 +260,11 @@ const CardBody = ({ minute }) => {
             ))
           )}
         </div>
+      </div>
+
+      <div className={`flex items-center gap-2 mb-4 text-sm ${TXT_BODY} transition-theme`}>
+        <Icon name="penToSquare" className="text-primary-500 dark:text-primary-400 text-sm" />
+        <span>{minute?.preparedBy ?? "Sin elaborador"}</span>
       </div>
 
       <div className={`text-sm ${TXT_BODY} leading-relaxed mb-4 line-clamp-3 transition-theme`}>

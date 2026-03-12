@@ -99,6 +99,53 @@ def _get_status_id(db: Session, code: str) -> int:
     return obj.id
 
 
+def _build_canonical_ai_output(ai_output: dict, ai_input_schema: dict, derived_fields: dict | None = None) -> dict:
+    """
+    Normaliza el JSON canónico persistido por el backend.
+
+    El output original del LLM se conserva sin tocar, pero el canónico aplica
+    fallback sobre campos determinísticos que ya vienen en el input del sistema.
+    """
+    canonical = json.loads(json.dumps(ai_output, ensure_ascii=False))
+    general_info = canonical.setdefault("generalInfo", {})
+
+    prepared_by = str(general_info.get("preparedBy") or "").strip()
+    if not prepared_by:
+        input_prepared_by = str(ai_input_schema.get("preparedBy") or "").strip()
+        if input_prepared_by:
+            general_info["preparedBy"] = input_prepared_by
+
+    actual_end_time = str(general_info.get("actualEndTime") or "").strip()
+    if not actual_end_time:
+        derived_actual_end_time = str((derived_fields or {}).get("actual_end_time") or "").strip()
+        if derived_actual_end_time:
+            general_info["actualEndTime"] = derived_actual_end_time
+
+    return canonical
+
+
+def _extract_intro_snippet(ai_output: dict) -> str | None:
+    """
+    Extrae un resumen corto útil para cards/listados desde el output de IA.
+    """
+    scope = ai_output.get("scope") if isinstance(ai_output, dict) else {}
+    sections = scope.get("sections") if isinstance(scope, dict) else []
+    if not isinstance(sections, list):
+        return None
+
+    for section in sections:
+        if not isinstance(section, dict):
+            continue
+        content = section.get("content")
+        if not isinstance(content, dict):
+            continue
+        summary = str(content.get("summary") or "").strip()
+        if summary:
+            return summary[:800]
+
+    return None
+
+
 # ── TX2 principal ─────────────────────────────────────────────────────────────
 
 async def commit_minute_tx2(
@@ -183,8 +230,16 @@ def _execute_tx2(db: Session, body: MinuteCommitRequest) -> str:
     version_status_id = cat.get("version_status_id") or _get_catalog_id(db, VersionStatus, VERSION_STATUS_SNAPSHOT)
 
     # ── Subir outputs a MinIO ─────────────────────────────────────────────────
+    canonical_output = _build_canonical_ai_output(
+        body.ai_output,
+        body.ai_input_schema,
+        body.derived_fields,
+    )
+
     out_bytes = json.dumps(body.ai_output, ensure_ascii=False, indent=2).encode("utf-8")
     out_sha   = _sha256_bytes(out_bytes)
+    canonical_bytes = json.dumps(canonical_output, ensure_ascii=False, indent=2).encode("utf-8")
+    canonical_sha   = _sha256_bytes(canonical_bytes)
 
     # LLM output original
     llm_key    = f"{rec_id}/llm_output_v1.json"
@@ -205,13 +260,13 @@ def _execute_tx2(db: Session, body: MinuteCommitRequest) -> str:
     can_obj_id = str(uuid.uuid4())
     minio.put_object(
         BUCKET_JSON, can_key,
-        io.BytesIO(out_bytes), len(out_bytes),
+        io.BytesIO(canonical_bytes), len(canonical_bytes),
         "application/json",
     )
     db.add(Object(
         id=can_obj_id, bucket_id=bucket_json_id, object_key=can_key,
         content_type="application/json", file_ext="json",
-        size_bytes=len(out_bytes), sha256=out_sha, created_by=by_id,
+        size_bytes=len(canonical_bytes), sha256=canonical_sha, created_by=by_id,
     ))
 
     # ── Crear RecordVersion ───────────────────────────────────────────────────
@@ -293,6 +348,7 @@ def _execute_tx2(db: Session, body: MinuteCommitRequest) -> str:
     record.status_id          = ready_status_id
     record.active_version_id  = ver_id
     record.latest_version_num = 1
+    record.intro_snippet      = _extract_intro_snippet(canonical_output)
     record.updated_by         = by_id
 
     db.commit()

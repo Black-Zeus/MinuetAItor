@@ -77,7 +77,7 @@ class WorkerConfig:
     OPENAI_MODEL:      str = os.environ.get("OPENAI_MODEL",           "gpt-4o")
     OPENAI_MAX_TOKENS: int = int(os.environ.get("OPENAI_MAX_TOKENS",  "16000"))
     OPENAI_TIMEOUT:    int = int(os.environ.get("OPENAI_TIMEOUT_SECONDS", "300"))
-    OPENAI_SYSTEM_PROMPT: str = os.environ.get("OPENAI_SYSTEM_PROMPT", "system_prompt_v06")
+    OPENAI_SYSTEM_PROMPT: str = os.environ.get("OPENAI_SYSTEM_PROMPT", "system_prompt_v08.txt")
 
     # Modelos con soporte de bloques nativos 'type: file' en Chat Completions
     OPENAI_MODELS_WITH_FILE_SUPPORT: list[str] = ["gpt-4o", "gpt-4-turbo"]
