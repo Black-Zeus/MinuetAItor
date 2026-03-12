@@ -47,7 +47,9 @@ const normalizeProject = (data = {}) => ({
   projectCode:        data.projectCode        ?? data.code        ?? "",
   clientId:           (data.clientId ?? data.client?.id ?? "")?.toString?.() ?? "",
   clientName:         data.clientName ?? data.client ?? data.client?.name ?? "",
-  isConfidential:     Boolean(data.isConfidential ?? data.confidential ?? false),
+  isConfidential:     Boolean(data.isConfidential ?? data.is_confidential ?? data.confidential ?? false),
+  autoSendOnPreview:  Boolean(data.autoSendOnPreview ?? data.auto_send_on_preview ?? false),
+  autoSendOnCompleted:Boolean(data.autoSendOnCompleted ?? data.auto_send_on_completed ?? false),
   minutas:            Number.isFinite(Number(data.minutas)) ? Number(data.minutas) : 0,
   createdAt:          data.createdAt ?? "",
 });
@@ -189,6 +191,8 @@ const ProjectModal = ({ mode, data, onSubmit, onClose }) => {
         clientId:           String(formData.clientId || "").trim(),
         clientName:         selectedClient?.company || formData.clientName || "",
         isConfidential:     Boolean(formData.isConfidential),
+        autoSendOnPreview:  Boolean(formData.autoSendOnPreview),
+        autoSendOnCompleted:Boolean(formData.autoSendOnCompleted),
       });
 
       toastSuccess(
@@ -391,6 +395,65 @@ const ProjectModal = ({ mode, data, onSubmit, onClose }) => {
                 </label>
               )}
             </div>
+
+            <div className="rounded-xl border border-slate-200/80 bg-slate-50 px-4 py-4 dark:border-slate-700/80 dark:bg-slate-800/60">
+              <div className="mb-3">
+                <div className="text-sm font-medium text-gray-900 dark:text-white">
+                  Envío automático de minutas
+                </div>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  Estos switches pertenecen al proyecto y sólo afectan envíos automáticos por transición. El envío manual sigue disponible.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                {[
+                  {
+                    key: "autoSendOnPreview",
+                    label: "Enviar automáticamente al pasar a revisión",
+                    hint: "Usa esta regla en la transición de edición a preview.",
+                  },
+                  {
+                    key: "autoSendOnCompleted",
+                    label: "Enviar automáticamente al publicar la minuta",
+                    hint: "Usa esta regla en la transición a completed.",
+                  },
+                ].map((item) => (
+                  <div key={item.key} className="flex items-start justify-between gap-4 rounded-lg border border-slate-200/80 bg-white px-3 py-3 dark:border-slate-700/80 dark:bg-slate-900/50">
+                    <div>
+                      <div className="text-sm font-medium text-gray-800 dark:text-gray-100">{item.label}</div>
+                      <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">{item.hint}</div>
+                    </div>
+                    {isView ? (
+                      <span className={`mt-0.5 inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${
+                        formData[item.key]
+                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                          : "bg-gray-100 text-gray-600 dark:bg-slate-700 dark:text-gray-300"
+                      }`}>
+                        {formData[item.key] ? "Activo" : "Inactivo"}
+                      </span>
+                    ) : (
+                      <label className="cursor-pointer select-none">
+                        <div
+                          onClick={() => handleChange(item.key, !formData[item.key])}
+                          className={cn(
+                            "relative h-6 w-11 rounded-full transition-colors",
+                            formData[item.key] ? "bg-emerald-500" : "bg-gray-300 dark:bg-gray-600"
+                          )}
+                        >
+                          <div
+                            className={cn(
+                              "absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform",
+                              formData[item.key] ? "translate-x-5" : "translate-x-0"
+                            )}
+                          />
+                        </div>
+                      </label>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
@@ -548,6 +611,8 @@ const ProjectModal = ({ mode, data, onSubmit, onClose }) => {
                   {formData.isConfidential ? "Sí" : "No"}
                 </span>
               </div>
+              <FieldRow label="Auto envío al pasar a revisión" value={formData.autoSendOnPreview ? "Sí" : "No"} />
+              <FieldRow label="Auto envío al publicar" value={formData.autoSendOnCompleted ? "Sí" : "No"} />
               {isView && formData.createdAt && (
                 <FieldRow label="Creado" value={new Date(formData.createdAt).toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" })} />
               )}

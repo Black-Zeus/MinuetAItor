@@ -161,6 +161,10 @@ def _minute_url(record_id: str) -> str:
     return f"{_frontend_base_url()}/minutes/view/{record_id}"
 
 
+def _minute_edit_url(record_id: str) -> str:
+    return f"{_frontend_base_url()}/minutes/process/{record_id}"
+
+
 def _reset_url(token: str) -> str:
     configured = _env("FRONTEND_RESET_PASSWORD_URL", "")
     if configured:
@@ -657,8 +661,7 @@ async def enqueue_ai_processed_ready_email(
         "AI_NOTE_1": notes[0] if len(notes) > 0 else "Revisar redaccion general.",
         "AI_NOTE_2": notes[1] if len(notes) > 1 else "Validar participantes y acuerdos.",
         "AI_NOTE_3": notes[2] if len(notes) > 2 else "Confirmar fechas y compromisos.",
-        "EDIT_URL": _minute_url(record.id),
-        "VIEW_URL": _minute_url(record.id),
+        "EDIT_URL": _minute_edit_url(record.id),
         "ISSUED_AT": _format_dt(_utcnow()),
         "REQUEST_ID": str(uuid.uuid4()),
         "REQUEST_ORIGIN": "internal-worker",

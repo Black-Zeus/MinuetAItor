@@ -25,6 +25,8 @@ class ProjectCreateRequest(BaseModel):
     status: str = "activo"
     is_confidential: bool = False
     is_active: bool = True
+    auto_send_on_preview: bool = False
+    auto_send_on_completed: bool = False
 
     model_config = {"populate_by_name": True}
 
@@ -40,6 +42,8 @@ class ProjectUpdateRequest(BaseModel):
     status: str | None = None
     is_confidential: bool | None = None
     is_active: bool | None = None
+    auto_send_on_preview: bool | None = None
+    auto_send_on_completed: bool | None = None
 
     model_config = {"populate_by_name": True}
 
@@ -76,6 +80,8 @@ class ProjectResponse(BaseModel):
 
     is_confidential: bool = Field(..., serialization_alias="isConfidential")
     is_active: bool = Field(..., serialization_alias="isActive")
+    auto_send_on_preview: bool = Field(False, serialization_alias="autoSendOnPreview")
+    auto_send_on_completed: bool = Field(False, serialization_alias="autoSendOnCompleted")
 
     created_at: str = Field(..., serialization_alias="createdAt")
     updated_at: str | None = Field(None, serialization_alias="updatedAt")

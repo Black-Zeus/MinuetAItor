@@ -11,7 +11,7 @@
  *
  *   pending         → editor activo, split button:
  *                       · "Guardar"                    → saveMinuteDraft
- *                       · "Guardar y enviar a revisión" → saveMinuteDraft + transitionMinute(preview)
+ *                       · "Guardar y pasar a revisión" → saveMinuteDraft + transitionMinute(preview)
  *
  *   preview         → solo lectura, botones de decisión:
  *                       · "Aprobar y publicar"  → transitionMinute(completed)
@@ -108,6 +108,26 @@ const triggerBrowserDownload = async (url, filename) => {
   a.click();
   a.remove();
   URL.revokeObjectURL(objectUrl);
+};
+
+const notifyAutoEmailQueued = (status) => {
+  const messages = {
+    preview: [
+      "Correo automático encolado",
+      "La minuta también quedó encolada para envío automático según la configuración del proyecto.",
+    ],
+    completed: [
+      "Notificación automática encolada",
+      "La notificación de publicación quedó encolada según la configuración del proyecto.",
+    ],
+  };
+
+  const [title, message] = messages[status] ?? [
+    "Envío automático encolado",
+    "Se encoló una notificación automática para esta transición.",
+  ];
+
+  toastSuccess(title, message);
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -313,8 +333,8 @@ const SendToReviewModalContent = ({ onConfirm, onCancel }) => {
             bg-primary-600 hover:bg-primary-700 text-white"
         >
           {submitting
-            ? <><i className="fas fa-spinner fa-spin text-sm" /> Guardando y enviando…</>
-            : <><Icon name="paperPlane" /> Guardar y enviar</>
+            ? <><i className="fas fa-spinner fa-spin text-sm" /> Guardando y pasando…</>
+            : <><Icon name="paperPlane" /> Guardar y pasar</>
           }
         </button>
       </div>
@@ -425,7 +445,7 @@ const SaveButton = ({ status, saving, onSaveDraft, onSaveAndReview }) => {
                 <Icon name="paperPlane" className="text-primary-500 mt-0.5 shrink-0" />
                 <div>
                   <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 transition-theme">
-                    Guardar y enviar a revisión
+                    Guardar y pasar a revisión
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 transition-theme">
                     Genera snapshot y PDF borrador con marca de agua
@@ -515,10 +535,10 @@ const MinuteEditorHeader = ({ recordMeta, isReadOnly, onTransitionSuccess }) => 
     }
   };
 
-  // ── Guardar y enviar a revisión (pending → preview) ─────────────────────────
+  // ── Guardar y pasar a revisión (pending → preview) ──────────────────────────
   const handleSaveAndReview = () => {
     ModalManager.custom({
-      title: "Guardar y enviar a revisión",
+      title: "Guardar y pasar a revisión",
       size: "medium",
       showFooter: false,
       content: (
@@ -527,11 +547,14 @@ const MinuteEditorHeader = ({ recordMeta, isReadOnly, onTransitionSuccess }) => 
           onConfirm={async (observation) => {
             const payload = getExportPayload();
             await saveMinuteDraft(recordId, payload);
-            await transitionMinute(recordId, "preview", observation);
+            const result = await transitionMinute(recordId, "preview", observation);
             markClean(new Date().toISOString());
             takeSnapshot?.();
             ModalManager.closeAll?.();
-            toastSuccess("Enviado a revisión", "La minuta fue guardada y enviada a revisión correctamente.");
+            toastSuccess("Enviada a revisión", "La minuta fue guardada, se generó un nuevo PDF borrador y quedó en revisión.");
+            if (result?.autoEmailQueued) {
+              notifyAutoEmailQueued("preview");
+            }
             onTransitionSuccess?.("preview");
           }}
         />
@@ -552,7 +575,7 @@ const MinuteEditorHeader = ({ recordMeta, isReadOnly, onTransitionSuccess }) => 
           currentStatus={status}
           onCancel={() => ModalManager.closeAll?.()}
           onConfirm={async (targetStatus, observation) => {
-            await transitionMinute(recordId, targetStatus, observation);
+            const result = await transitionMinute(recordId, targetStatus, observation);
             ModalManager.closeAll?.();
             const toastMap = {
               completed: ["Minuta publicada",    "La minuta fue aprobada y publicada correctamente."],
@@ -561,6 +584,9 @@ const MinuteEditorHeader = ({ recordMeta, isReadOnly, onTransitionSuccess }) => 
             };
             const [title, msg] = toastMap[targetStatus] ?? ["Transición completada", `Estado actualizado a '${targetStatus}'.`];
             toastSuccess(title, msg);
+            if (result?.autoEmailQueued) {
+              notifyAutoEmailQueued(targetStatus);
+            }
             onTransitionSuccess?.(targetStatus);
           }}
         />

@@ -22,6 +22,8 @@ const toApiPayload = (formData) => ({
   status:          formData.projectStatus     ?? 'activo',
   is_confidential: Boolean(formData.isConfidential),
   is_active:       true,
+  auto_send_on_preview: Boolean(formData.autoSendOnPreview),
+  auto_send_on_completed: Boolean(formData.autoSendOnCompleted),
 });
 
 const NewProject = ({ onCreated, clientCatalog = [] }) => {

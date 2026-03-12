@@ -190,6 +190,8 @@ CREATE TABLE projects (
   status          VARCHAR(40) NOT NULL DEFAULT 'activo',
   is_confidential TINYINT(1) NOT NULL DEFAULT 0,
   is_active       TINYINT(1) NOT NULL DEFAULT 1,
+  auto_send_on_preview   TINYINT(1) NOT NULL DEFAULT 0,
+  auto_send_on_completed TINYINT(1) NOT NULL DEFAULT 0,
 
   created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   created_by      CHAR(36) NULL,

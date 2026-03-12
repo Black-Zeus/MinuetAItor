@@ -357,7 +357,7 @@ const MinuteEditorSectionPreview = ({ recordId, recordStatus, isReadOnly }) => {
           <p className="text-xs text-blue-800 transition-theme dark:text-blue-300">
             {isReadOnly
               ? 'La minuta ya salió del flujo editable. Esta vista muestra cómo quedó el envío configurado.'
-              : 'Al confirmar, el sistema guarda el borrador actual, genera la versión en revisión y encola el correo con los destinatarios seleccionados.'}
+              : 'Al confirmar, el sistema guarda el borrador actual, genera la versión en revisión y un nuevo PDF borrador. El envío de correo se realiza manualmente desde esta misma vista.'}
           </p>
         </div>
       </div>

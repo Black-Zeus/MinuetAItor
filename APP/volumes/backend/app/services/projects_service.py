@@ -41,6 +41,8 @@ def _build_response_dict(obj: Project) -> dict:
         # "status": obj.status,   ← ELIMINADO (redundante con is_active)
         "is_confidential": bool(obj.is_confidential),
         "is_active": bool(obj.is_active),
+        "auto_send_on_preview": bool(getattr(obj, "auto_send_on_preview", False)),
+        "auto_send_on_completed": bool(getattr(obj, "auto_send_on_completed", False)),
         "created_at": obj.created_at.isoformat() if obj.created_at else None,
         "updated_at": obj.updated_at.isoformat() if obj.updated_at else None,
         "created_by": _user_ref(getattr(obj, "created_by_user", None)),
@@ -168,6 +170,8 @@ def create_project(
         status=body.status,
         is_confidential=bool(body.is_confidential),
         is_active=bool(body.is_active),
+        auto_send_on_preview=bool(body.auto_send_on_preview),
+        auto_send_on_completed=bool(body.auto_send_on_completed),
         created_by=created_by_id,
         updated_by=None,
         deleted_at=None,
@@ -217,6 +221,10 @@ def update_project(
         obj.is_confidential = bool(body.is_confidential)
     if body.is_active is not None:
         obj.is_active = bool(body.is_active)
+    if body.auto_send_on_preview is not None:
+        obj.auto_send_on_preview = bool(body.auto_send_on_preview)
+    if body.auto_send_on_completed is not None:
+        obj.auto_send_on_completed = bool(body.auto_send_on_completed)
 
     obj.updated_by = updated_by_id
 

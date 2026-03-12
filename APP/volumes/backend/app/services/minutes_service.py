@@ -54,7 +54,6 @@ from services.minutes.attachments import (
     list_minute_input_attachments as list_minute_input_attachments_use_case,
 )
 from services.notification_service import enqueue_minute_officialized_email, enqueue_minute_review_email
-
 logger = logging.getLogger(__name__)
 
 # ─── Constantes de catálogo ───────────────────────────────────────────────────
@@ -958,8 +957,17 @@ async def transition_minute(
         record.active_version_id  = new_version_id
         record.latest_version_num = new_version_num
 
-        # PDF borrador ya generado en el último save (draft_current.pdf en MinIO).
-        # No se encola job adicional aquí para evitar duplicados.
+        # Fuerza un PDF borrador fresco para la versión que entra a revisión.
+        # No dependemos del job disparado por el autosave anterior, porque el
+        # cliente puede reutilizar un PDF previo mientras ese job sigue en cola.
+        try:
+            from services.pdf_job_builder import build_pdf_job_on_save
+
+            envelope = build_pdf_job_on_save(record=record, draft_content=draft_content)
+            await minute_queue.enqueue_job(minute_constants.QUEUE_PDF, envelope)
+            logger.debug(f"[minutes] PDF borrador encolado en transición a preview | record={record_id}")
+        except Exception as e:
+            logger.warning(f"[minutes] No se pudo encolar PDF en transición a preview | record={record_id}: {e}")
 
     # ── preview → completed ───────────────────────────────────────────────────
     elif current_status_code == RECORD_STATUS_PREVIEW and target_status == RECORD_STATUS_COMPLETED:
@@ -986,8 +994,12 @@ async def transition_minute(
 
     logger.info(f"[minutes] Transición | record={record_id} {current_status_code} → {target_status}")
 
-    actor_user = db.query(User).filter(User.id == actor_user_id, User.deleted_at.is_(None)).first()
-    if current_status_code == RECORD_STATUS_PENDING and target_status == RECORD_STATUS_PREVIEW:
+    project = db.query(Project).filter(Project.id == record.project_id).first() if record.project_id else None
+    auto_send_on_preview = bool(getattr(project, "auto_send_on_preview", False))
+    auto_send_on_completed = bool(getattr(project, "auto_send_on_completed", False))
+
+    auto_email_queued = False
+    if current_status_code == RECORD_STATUS_PENDING and target_status == RECORD_STATUS_PREVIEW and auto_send_on_preview:
         await enqueue_minute_review_email(
             db,
             record_id,
@@ -997,14 +1009,18 @@ async def transition_minute(
             selected_participant_ids=review_email.selected_participant_ids if review_email else None,
             attach_pdf=review_email.attach_pdf if review_email else True,
         )
-    elif current_status_code == RECORD_STATUS_PREVIEW and target_status == RECORD_STATUS_COMPLETED:
+        auto_email_queued = True
+    elif current_status_code == RECORD_STATUS_PREVIEW and target_status == RECORD_STATUS_COMPLETED and auto_send_on_completed:
+        actor_user = db.query(User).filter(User.id == actor_user_id, User.deleted_at.is_(None)).first()
         await enqueue_minute_officialized_email(db, record_id, actor_user=actor_user)
+        auto_email_queued = True
 
     return MinuteTransitionResponse(
         record_id   = record_id,
         status      = target_status,
         version_num = int(new_version.version_num) if new_version else None,
         version_id  = new_version.id               if new_version else None,
+        auto_email_queued = auto_email_queued,
         message     = f"Transición '{current_status_code}' → '{target_status}' completada.",
     )
 
