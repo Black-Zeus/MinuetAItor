@@ -906,6 +906,64 @@ const useMinuteEditorStore = create((set, get) => ({
       isDirty: true,
     })),
 
+  insertObservationIntoScope: ({ sectionId, sectionTitle, body, authorLabel, observationId }) =>
+    set((s) => {
+      const detail = {
+        id: uid(),
+        label: observationId ? `OBS-${observationId}` : `Observación de ${authorLabel || "visitante"}`,
+        description: String(body ?? "").trim(),
+      };
+
+      let targetSectionId = sectionId;
+      let nextSections = s.scopeSections;
+
+      if (!sectionId) {
+        const cleanSectionTitle = String(sectionTitle || "Extras / Observaciones").trim();
+        targetSectionId = uid();
+        let introUpdated = false;
+        nextSections = s.scopeSections.map((sec) => {
+          if (sec.type !== "introduction" || introUpdated) return sec;
+          introUpdated = true;
+
+          const hasTopic = (sec.topicsList ?? []).some(
+            (topic) => String(topic.text || "").trim().toLowerCase() === cleanSectionTitle.toLowerCase()
+          );
+
+          if (hasTopic) return sec;
+
+          return {
+            ...sec,
+            topicsList: [...(sec.topicsList ?? []), { id: uid(), text: cleanSectionTitle }],
+          };
+        });
+
+        nextSections = [
+          ...nextSections,
+          {
+            id: targetSectionId,
+            type: "topic",
+            title: cleanSectionTitle,
+            summary: "Observaciones insertadas desde revisión externa.",
+            topicsList: [],
+            details: [detail],
+          },
+        ];
+      } else {
+        nextSections = s.scopeSections.map((sec) =>
+          sec.id === sectionId
+            ? { ...sec, details: [...(sec.details ?? []), detail] }
+            : sec
+        );
+      }
+
+      return {
+        scopeSections: nextSections,
+        activeTab: "scope",
+        activeSearchTargetId: `scope-${targetSectionId}`,
+        isDirty: true,
+      };
+    }),
+
   // ----------------------------------------------------------
   // ACUERDOS
   // ----------------------------------------------------------

@@ -158,7 +158,7 @@ def _password_reset_otp_key(otp_code: str) -> str:
 
 
 def _minute_url(record_id: str) -> str:
-    return f"{_frontend_base_url()}/minutes/process/{record_id}"
+    return f"{_frontend_base_url()}/minutes/view/{record_id}"
 
 
 def _reset_url(token: str) -> str:

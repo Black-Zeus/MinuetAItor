@@ -14,6 +14,7 @@ import logging
 from functools import lru_cache
 
 from minio import Minio
+from minio.error import S3Error
 
 from core.config import settings
 
@@ -51,7 +52,13 @@ def _ensure_buckets(client: Minio) -> None:
     ]
     for bucket in required:
         if not client.bucket_exists(bucket):
-            client.make_bucket(bucket)
-            logger.info(f"[minio] Bucket creado: {bucket}")
+            try:
+                client.make_bucket(bucket)
+                logger.info(f"[minio] Bucket creado: {bucket}")
+            except S3Error as exc:
+                if exc.code in {"BucketAlreadyOwnedByYou", "BucketAlreadyExists"}:
+                    logger.debug(f"[minio] Bucket ya existente durante create: {bucket}")
+                    continue
+                raise
         else:
             logger.debug(f"[minio] Bucket OK: {bucket}")

@@ -65,6 +65,13 @@ TEMPLATE_DEFINITIONS: dict[str, EmailTemplateDefinition] = {
         description="Confirma que la minuta ya fue aprobada y oficializada.",
         default_subject="Minuta oficializada y aprobada",
     ),
+    "minute_view_otp": EmailTemplateDefinition(
+        template_id="minute_view_otp",
+        filename="minute_view_otp.html",
+        title="Codigo de acceso a minuta",
+        description="Entrega un OTP de un solo uso para acceso visitante a la minuta.",
+        default_subject="Codigo de acceso para revisar la minuta {{ MINUTE_ID }}",
+    ),
     "password_changed_confirmation": EmailTemplateDefinition(
         template_id="password_changed_confirmation",
         filename="password_changed_confirmation.html",

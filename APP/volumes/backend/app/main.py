@@ -288,6 +288,11 @@ app.include_router(sendmail_router, prefix="/v1")
 from routers.v1.minutes import router as minutes_router
 app.include_router(minutes_router, prefix="/v1")
 
+# ── Minute Views (acceso visitante) ───────────────────────────────────────────
+# [ACTIVO]
+from routers.v1.minute_views import router as minute_views_router
+app.include_router(minute_views_router, prefix="/v1")
+
 # ── Internal API (worker → backend, sin JWT, con X-Internal-Secret) ───────────
 # [ACTIVO] Solo accesible dentro de la red Docker interna — nunca expuesto por nginx
 from routers.internal.minutes import router as internal_minutes_router

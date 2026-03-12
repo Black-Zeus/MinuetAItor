@@ -6,10 +6,8 @@
  *
  * LÓGICA DE ESTADOS:
  *
- *   ready-for-edit  → editor activo, botón "Guardar"
- *                     Al guardar: transitionMinute(pending) → saveMinuteDraft
- *                     (el backend crea draft_current.json en la transición;
- *                      el save posterior persiste los cambios del editor)
+ *   ready-for-edit  → solo lectura, botón "Entrar a edición"
+ *                     Al entrar: transitionMinute(pending)
  *
  *   pending         → editor activo, split button:
  *                       · "Guardar"                    → saveMinuteDraft
@@ -23,7 +21,7 @@
  *   cancelled       → solo lectura, sin acciones
  *
  *   Cancelar minuta → siempre en menú "..." para estados cancellable
- *   Rollback        → visible solo si isDirty en estado editable
+ *   Rollback        → visible solo si isDirty en estado editable real (pending)
  *
  * PROPS:
  *   recordMeta          { id, status, pdfUrl? }
@@ -36,9 +34,8 @@ import { useNavigate } from "react-router-dom";
 import Icon from "@components/ui/icon/iconManager";
 import useMinuteEditorStore from "@/store/minuteEditorStore";
 import ModalManager from "@components/ui/modal";
-import ActionButton from "@/components/ui/button/ActionButton";
 import { saveMinuteDraft, transitionMinute } from "@/services/minutesService";
-import { toastSuccess, toastError } from "@/components/common/toast/toastHelpers";
+import { toastSuccess } from "@/components/common/toast/toastHelpers";
 import { openPdfViewer } from "@/components/ui/pdf/PdfViewerModal";
 
 import logger from "@/utils/logger";
@@ -385,24 +382,6 @@ const RollbackModalContent = ({ changes = [] }) => (
 const SaveButton = ({ status, saving, onSaveDraft, onSaveAndReview }) => {
   const [ddlOpen, setDdlOpen] = useState(false);
 
-  // ready-for-edit: botón simple
-  if (status === "ready-for-edit") {
-    return (
-      <button
-        type="button"
-        onClick={onSaveDraft}
-        disabled={saving}
-        className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold shadow-sm transition-all disabled:opacity-60
-          bg-primary-600 hover:bg-primary-700 text-white"
-      >
-        {saving
-          ? <><i className="fas fa-spinner fa-spin text-sm" /> Guardando…</>
-          : <><Icon name="floppyDisk" className="text-sm" /> Guardar</>
-        }
-      </button>
-    );
-  }
-
   // pending: split button
   if (status === "pending") {
     return (
@@ -490,9 +469,27 @@ const MinuteEditorHeader = ({ recordMeta, isReadOnly, onTransitionSuccess }) => 
   const subject    = (meetingInfo.subject ?? "").trim() || "Sin asunto";
 
   const isEditable       = !isReadOnly;
-  const showSaveBtn      = isEditable && (status === "ready-for-edit" || status === "pending");
+  const canEnterEditMode = status === "ready-for-edit";
+  const showSaveBtn      = isEditable && status === "pending";
   const showPreviewBtns  = status === "preview";
   const showCancelOption = CANCELLABLE.has(status);
+
+  const handleEnterEditMode = async () => {
+    setSaving(true);
+    try {
+      await transitionMinute(recordId, "pending");
+      toastSuccess("Edición habilitada", "La minuta fue llevada a edición activa.");
+      onTransitionSuccess?.("pending");
+    } catch (err) {
+      log.error("Error al entrar a edición:", err);
+      ModalManager.error({
+        title: "No fue posible entrar a edición",
+        message: err?.message ?? "La minuta no pudo pasar a edición activa.",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   // ── Guardar borrador ────────────────────────────────────────────────────────
   // Para ready-for-edit: el backend crea draft_current.json DURANTE la transición
@@ -504,18 +501,9 @@ const MinuteEditorHeader = ({ recordMeta, isReadOnly, onTransitionSuccess }) => 
     try {
       const payload = getExportPayload();
 
-      if (status === "ready-for-edit") {
-        await transitionMinute(recordId, "pending");
-        await saveMinuteDraft(recordId, payload);
-        markClean(new Date().toISOString());
-        takeSnapshot?.();
-        onTransitionSuccess?.("pending");
-      } else {
-        // pending: solo guardar draft
-        await saveMinuteDraft(recordId, payload);
-        markClean(new Date().toISOString());
-        takeSnapshot?.();
-      }
+      await saveMinuteDraft(recordId, payload);
+      markClean(new Date().toISOString());
+      takeSnapshot?.();
     } catch (err) {
       log.error("Error al guardar:", err);
       ModalManager.error({
@@ -664,14 +652,14 @@ const MinuteEditorHeader = ({ recordMeta, isReadOnly, onTransitionSuccess }) => 
                 onClick={() => handleTransitionClick({
                   target:      "completed",
                   label:       "Aprobar y publicar",
-                  icon:        "circleCheck",
+                  icon:        "check",
                   style:       "success",
                   description: "Marca esta versión como final y encola el PDF de publicación sin marca de agua.",
                 })}
                 className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold shadow-sm transition-all
                   bg-green-600 hover:bg-green-700 text-white"
               >
-                <Icon name="circleCheck" className="text-xs" />
+                <Icon name="check" className="text-xs" />
                 Aprobar y publicar
               </button>
 
@@ -718,6 +706,21 @@ const MinuteEditorHeader = ({ recordMeta, isReadOnly, onTransitionSuccess }) => 
               onSaveDraft={handleSaveDraft}
               onSaveAndReview={handleSaveAndReview}
             />
+          )}
+
+          {canEnterEditMode && (
+            <button
+              type="button"
+              onClick={handleEnterEditMode}
+              disabled={saving}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold shadow-sm transition-all disabled:opacity-60
+                bg-primary-600 hover:bg-primary-700 text-white"
+            >
+              {saving
+                ? <><i className="fas fa-spinner fa-spin text-sm" /> Abriendo edición…</>
+                : <><Icon name="edit" className="text-sm" /> Entrar a edición</>
+              }
+            </button>
           )}
 
           {/* Ver / Descargar PDF */}

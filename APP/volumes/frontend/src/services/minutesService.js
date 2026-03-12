@@ -108,6 +108,16 @@ export const getMinuteDetail = async (recordId) => {
   return unwrap(res);
 };
 
+export const listMinuteObservations = async (recordId) => {
+  const res = await api.get(`${BASE}/${recordId}/observations`);
+  return unwrap(res);
+};
+
+export const resolveMinuteObservation = async (observationId, payload) => {
+  const res = await api.post(`${BASE}/observations/${observationId}/resolve`, payload);
+  return unwrap(res);
+};
+
 // ─── SAVE (autosave) ──────────────────────────────────────────────────────────
 /**
  * PUT /v1/minutes/{record_id}/save

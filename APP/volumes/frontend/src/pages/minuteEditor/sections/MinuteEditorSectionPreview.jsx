@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Icon from '@components/ui/icon/iconManager';
 import ModalManager from '@components/ui/modal';
 import useMinuteEditorStore from '@/store/minuteEditorStore';
@@ -25,87 +25,6 @@ const Badge = ({ label, color = 'gray' }) => {
     <span className={`inline-flex items-center rounded-lg border px-2.5 py-0.5 text-xs font-semibold transition-theme ${palette[color] ?? palette.gray}`}>
       {label}
     </span>
-  );
-};
-
-const PdfPreviewContent = ({ meetingInfo, meetingTimes, participants, agreements, requirements, timeline }) => {
-  const currentVersion = useMemo(() => {
-    const sorted = [...timeline].sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
-    return sorted[0]?.version ?? 'v1.0';
-  }, [timeline]);
-
-  return (
-    <div className="flex h-full flex-col gap-3">
-      <div className="flex items-center gap-2 rounded-xl border border-amber-200/60 bg-amber-50 px-4 py-2.5 transition-theme dark:border-amber-700/40 dark:bg-amber-900/15">
-        <Icon name="triangleExclamation" className="shrink-0 text-xs text-amber-500" />
-        <p className="text-xs text-amber-800 transition-theme dark:text-amber-300">
-          Vista previa aproximada. El PDF real puede diferir según el template configurado.
-        </p>
-      </div>
-
-      <div className="flex-1 overflow-auto rounded-xl bg-gray-100 p-4 transition-theme dark:bg-gray-900">
-        <div className="mx-auto rounded bg-white shadow-xl" style={{ maxWidth: '620px', minHeight: '800px', fontFamily: 'sans-serif' }}>
-          <div style={{ background: '#1d4ed8', color: 'white', padding: '24px 32px' }}>
-            <p style={{ fontSize: '10px', opacity: 0.7, textTransform: 'uppercase', letterSpacing: '2px', margin: 0 }}>Minuta de Reunión</p>
-            <h1 style={{ fontSize: '18px', fontWeight: 'bold', margin: '6px 0 2px' }}>{meetingInfo.subject || 'Sin asunto'}</h1>
-            <p style={{ fontSize: '12px', opacity: 0.8, margin: 0 }}>{meetingInfo.client || 'Sin cliente'}</p>
-            <div style={{ display: 'flex', gap: '24px', marginTop: '12px', fontSize: '11px', opacity: 0.85 }}>
-              <span>📅 {meetingInfo.meetingDate || '—'}</span>
-              <span>📍 {meetingInfo.location || '—'}</span>
-              <span style={{ marginLeft: 'auto', fontWeight: 'bold', fontSize: '14px' }}>{currentVersion}</span>
-            </div>
-          </div>
-
-          <div style={{ padding: '24px 32px', fontSize: '11px', color: '#374151', lineHeight: 1.6 }}>
-            <div style={{ marginBottom: '20px' }}>
-              <p style={{ fontSize: '9px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', color: '#6b7280', borderBottom: '1px solid #e5e7eb', paddingBottom: '4px', marginBottom: '8px' }}>INFORMACIÓN GENERAL</p>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 24px' }}>
-                <div><span style={{ color: '#9ca3af' }}>Inicio real: </span>{meetingTimes.actualStart || meetingTimes.scheduledStart || '—'}</div>
-                <div><span style={{ color: '#9ca3af' }}>Término real: </span>{meetingTimes.actualEnd || meetingTimes.scheduledEnd || '—'}</div>
-                <div><span style={{ color: '#9ca3af' }}>Elaborado por: </span>{meetingInfo.preparedBy || '—'}</div>
-              </div>
-            </div>
-
-            <div style={{ marginBottom: '20px' }}>
-              <p style={{ fontSize: '9px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', color: '#6b7280', borderBottom: '1px solid #e5e7eb', paddingBottom: '4px', marginBottom: '8px' }}>PARTICIPANTES ({participants.length})</p>
-              {participants.length === 0 ? (
-                <p style={{ color: '#9ca3af', fontStyle: 'italic' }}>Sin participantes.</p>
-              ) : (
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
-                  <thead><tr style={{ background: '#f9fafb' }}>{['Nombre', 'Email', 'Tipo'].map((h) => <th key={h} style={{ textAlign: 'left', padding: '4px 8px', fontWeight: '600', color: '#6b7280' }}>{h}</th>)}</tr></thead>
-                  <tbody>{participants.map((p) => <tr key={p.id} style={{ borderTop: '1px solid #e5e7eb' }}><td style={{ padding: '4px 8px' }}>{p.fullName || p.name || '—'}</td><td style={{ padding: '4px 8px', color: '#6b7280' }}>{p.email || '—'}</td><td style={{ padding: '4px 8px', color: '#6b7280' }}>{TYPE_INFO[p.type]?.label ?? p.type}</td></tr>)}</tbody>
-                </table>
-              )}
-            </div>
-
-            {agreements.length > 0 && (
-              <div style={{ marginBottom: '20px' }}>
-                <p style={{ fontSize: '9px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', color: '#6b7280', borderBottom: '1px solid #e5e7eb', paddingBottom: '4px', marginBottom: '8px' }}>ACUERDOS ({agreements.length})</p>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
-                  <thead><tr style={{ background: '#f9fafb' }}>{['ID', 'Asunto', 'Responsable', 'Vence'].map((h) => <th key={h} style={{ textAlign: 'left', padding: '4px 8px', fontWeight: '600', color: '#6b7280' }}>{h}</th>)}</tr></thead>
-                  <tbody>{agreements.map((a, i) => <tr key={a.id} style={{ borderTop: '1px solid #e5e7eb' }}><td style={{ padding: '4px 8px', color: '#2563eb', fontFamily: 'monospace' }}>{a.agreementId || `AGR-${String(i + 1).padStart(3, '0')}`}</td><td style={{ padding: '4px 8px' }}>{a.subject}</td><td style={{ padding: '4px 8px', color: '#6b7280' }}>{a.responsible}</td><td style={{ padding: '4px 8px', color: '#6b7280' }}>{a.dueDate || '—'}</td></tr>)}</tbody>
-                </table>
-              </div>
-            )}
-
-            {requirements.length > 0 && (
-              <div>
-                <p style={{ fontSize: '9px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', color: '#6b7280', borderBottom: '1px solid #e5e7eb', paddingBottom: '4px', marginBottom: '8px' }}>REQUERIMIENTOS ({requirements.length})</p>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
-                  <thead><tr style={{ background: '#f9fafb' }}>{['ID', 'Entidad', 'Descripción', 'Prioridad'].map((h) => <th key={h} style={{ textAlign: 'left', padding: '4px 8px', fontWeight: '600', color: '#6b7280' }}>{h}</th>)}</tr></thead>
-                  <tbody>{requirements.map((r, i) => <tr key={r.id} style={{ borderTop: '1px solid #e5e7eb' }}><td style={{ padding: '4px 8px', color: '#7c3aed', fontFamily: 'monospace' }}>{r.requirementId || `REQ-${String(i + 1).padStart(3, '0')}`}</td><td style={{ padding: '4px 8px' }}>{r.entity}</td><td style={{ padding: '4px 8px', color: '#6b7280' }}>{r.body}</td><td style={{ padding: '4px 8px', color: '#6b7280' }}>{r.priority}</td></tr>)}</tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-          <div style={{ borderTop: '1px solid #e5e7eb', padding: '12px 32px', display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: '#9ca3af' }}>
-            <span>MinuetAItor — documento generado automáticamente</span>
-            <span>{currentVersion}</span>
-          </div>
-        </div>
-      </div>
-    </div>
   );
 };
 
@@ -420,47 +339,17 @@ const EmailForm = ({ recordId, recordStatus, isReadOnly }) => {
 };
 
 const MinuteEditorSectionPreview = ({ recordId, recordStatus, isReadOnly }) => {
-  const { meetingInfo, meetingTimes, participants, agreements, requirements, timeline } = useMinuteEditorStore();
-
-  const openPdfPreview = () => {
-    ModalManager.custom({
-      title: 'Vista Previa — Minuta',
-      size: 'large',
-      showFooter: false,
-      content: (
-        <PdfPreviewContent
-          meetingInfo={meetingInfo}
-          meetingTimes={meetingTimes}
-          participants={participants}
-          agreements={agreements}
-          requirements={requirements}
-          timeline={timeline}
-        />
-      ),
-    });
-  };
-
   return (
     <div className="space-y-6">
       <div className="rounded-xl border border-gray-200/50 bg-white p-6 shadow-md transition-theme dark:border-gray-700/50 dark:bg-gray-800">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900 transition-theme dark:text-white">
-              <Icon name="paperPlane" className="text-primary-600 dark:text-primary-400" />
-              Envío de Minuta
-            </h2>
-            <p className="mt-0.5 text-sm text-gray-600 transition-theme dark:text-gray-300">
-              Configura los destinatarios y envía la minuta por correo electrónico.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={openPdfPreview}
-            className="flex shrink-0 items-center gap-2 rounded-xl border border-gray-200/50 bg-gray-100 px-5 py-2.5 text-sm font-semibold text-gray-800 shadow-sm transition-theme hover:bg-gray-200 dark:border-gray-600/50 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
-          >
-            <Icon name="eye" className="text-primary-600 dark:text-primary-400" />
-            Vista Previa
-          </button>
+        <div>
+          <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900 transition-theme dark:text-white">
+            <Icon name="paperPlane" className="text-primary-600 dark:text-primary-400" />
+            Envío de Minuta
+          </h2>
+          <p className="mt-0.5 text-sm text-gray-600 transition-theme dark:text-gray-300">
+            Configura los destinatarios y envía la minuta por correo electrónico.
+          </p>
         </div>
 
         <div className="mt-4 flex items-start gap-3 rounded-xl border border-blue-200/60 bg-blue-50 px-4 py-3 transition-theme dark:border-blue-700/40 dark:bg-blue-900/15">

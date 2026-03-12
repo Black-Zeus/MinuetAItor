@@ -9,7 +9,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 
 import useMinuteEditorStore from "@store/minuteEditorStore";
-import { getMinuteDetail } from "@/services/minutesService";
+import { getMinuteDetail, listMinuteObservations } from "@/services/minutesService";
 
 import MinuteEditorHeader      from "./MinuteEditorHeader";
 import MinuteEditorFindReplace from "./MinuteEditorFindReplace";
@@ -20,6 +20,7 @@ import MinuteEditorSectionParticipants, { useParticipantEmailHydration } from ".
 import MinuteEditorSectionScope         from "./sections/MinuteEditorSectionScope";
 import MinuteEditorSectionAgreements    from "./sections/MinuteEditorSectionAgreements";
 import MinuteEditorSectionRequirements  from "./sections/MinuteEditorSectionRequirements";
+import MinuteEditorSectionObservations  from "./sections/MinuteEditorSectionObservations";
 import MinuteEditorSectionTags          from "./sections/MinuteEditorSectionTags";
 import MinuteEditorSectionNextMeetings  from "./sections/MinuteEditorSectionNextMeetings";
 import MinuteEditorSectionTimeline      from "./sections/MinuteEditorSectionTimeline";
@@ -27,7 +28,7 @@ import MinuteEditorSectionPdfFormat     from "./sections/MinuteEditorSectionPdfF
 import MinuteEditorSectionPreview       from "./sections/MinuteEditorSectionPreview";
 import MinuteEditorSectionMetadata      from "./sections/MinuteEditorSectionMetadata";
 
-const EDITABLE_STATUSES = new Set(["pending", "ready-for-edit"]);
+const EDITABLE_STATUSES = new Set(["pending"]);
 
 const mergeInputAttachments = (content, inputAttachments = []) => {
   if (!content || !Array.isArray(inputAttachments) || inputAttachments.length === 0) {
@@ -102,6 +103,9 @@ const mergeRecordFallbacks = (content, record) => {
   return content;
 };
 
+const countPendingObservations = (items = []) =>
+  items.filter((item) => item.status === "new" || item.status === "approved").length;
+
 const MinuteEditor = () => {
   const { id: recordId } = useParams();
   const navigate = useNavigate();
@@ -114,6 +118,7 @@ const MinuteEditor = () => {
   const [loadError,  setLoadError]  = useState(null);
   const [recordMeta, setRecordMeta] = useState(null);
   const [isReadOnly, setIsReadOnly] = useState(false);
+  const [observationPendingCount, setObservationPendingCount] = useState(0);
 
   useParticipantEmailHydration();
 
@@ -182,6 +187,27 @@ const MinuteEditor = () => {
     return () => {
       cancelled = true;
       reset();
+    };
+  }, [recordId]);
+
+  useEffect(() => {
+    if (!recordId) return;
+
+    let cancelled = false;
+
+    const loadObservationCount = async () => {
+      try {
+        const data = await listMinuteObservations(recordId);
+        if (cancelled) return;
+        setObservationPendingCount(countPendingObservations(data?.items || []));
+      } catch {
+        if (!cancelled) setObservationPendingCount(0);
+      }
+    };
+
+    loadObservationCount();
+    return () => {
+      cancelled = true;
     };
   }, [recordId]);
 
@@ -288,13 +314,19 @@ const MinuteEditor = () => {
       <main className="max-w-7xl mx-auto px-4 py-6 space-y-6">
         {!isReadOnly && <MinuteEditorFindReplace />}
 
-        <MinuteEditorTabs />
+        <MinuteEditorTabs observationPendingCount={observationPendingCount} />
 
         {activeTab === "info"         && <MinuteEditorSectionInfo         isReadOnly={isReadOnly} />}
         {activeTab === "participants" && <MinuteEditorSectionParticipants isReadOnly={isReadOnly} />}
         {activeTab === "scope"        && <MinuteEditorSectionScope        isReadOnly={isReadOnly} />}
         {activeTab === "agreements"   && <MinuteEditorSectionAgreements   isReadOnly={isReadOnly} />}
         {activeTab === "requirements" && <MinuteEditorSectionRequirements isReadOnly={isReadOnly} />}
+        {activeTab === "observations" && (
+          <MinuteEditorSectionObservations
+            recordId={recordId}
+            onPendingCountChange={setObservationPendingCount}
+          />
+        )}
         {activeTab === "tags"         && <MinuteEditorSectionTags         isReadOnly={isReadOnly} />}
         {activeTab === "next"         && <MinuteEditorSectionNextMeetings isReadOnly={isReadOnly} />}
         {activeTab === "timeline"     && <MinuteEditorSectionTimeline     recordId={recordId} recordStatus={recordMeta?.status} />}

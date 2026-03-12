@@ -600,7 +600,7 @@ const MinuteEditorSectionParticipants = ({ isReadOnly = false }) => {
 
                     {/* Email */}
                     <td className="py-3 pr-4">
-                      {hasMultipleEmails ? (
+                      {hasMultipleEmails && !isReadOnly ? (
                         <div className="relative inline-block text-left">
                           <button
                             type="button"
@@ -644,6 +644,10 @@ const MinuteEditorSectionParticipants = ({ isReadOnly = false }) => {
                             </div>
                           )}
                         </div>
+                      ) : hasMultipleEmails ? (
+                        <span className="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-mono text-amber-800 shadow-sm transition-theme dark:border-amber-700/60 dark:bg-amber-900/20 dark:text-amber-200">
+                          <span>{p.email || 'Sin correo seleccionado'}</span>
+                        </span>
                       ) : p.email ? (
                         <span className="text-xs font-mono text-gray-600 dark:text-gray-400 transition-theme">{p.email}</span>
                       ) : (
