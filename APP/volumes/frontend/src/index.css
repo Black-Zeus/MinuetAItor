@@ -2,16 +2,14 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-@import "tailwindcss";
-
 @theme {
-  --color-primary-50:  #eff6ff;
-  --color-primary-700: #1d4ed8;
-  --color-primary-900: #1e3a8a;
+  --color-primary-50:  #f2f7ff;
+  --color-primary-700: #3b5a99;
+  --color-primary-900: #304368;
 
-  --color-warm-50:  #fefcfb;
-  --color-warm-700: #d4772b;
-  --color-warm-900: #9a5419;
+  --color-warm-50:  #fff8f1;
+  --color-warm-700: #a74f22;
+  --color-warm-900: #6c361b;
 
   --color-info-50:  #ecfeff;
   --color-info-700: #0e7490;
@@ -20,4 +18,40 @@
   --color-success-50:  #f0fdf4;
   --color-success-700: #15803d;
   --color-success-900: #14532d;
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-background-light text-gray-900 antialiased;
+  }
+
+  .dark body {
+    @apply bg-background-dark text-gray-50;
+  }
+
+  #root {
+    @apply min-h-screen bg-background-light text-gray-900;
+  }
+
+  .dark #root {
+    @apply bg-background-dark text-gray-50;
+  }
+
+  ::selection {
+    background: rgba(53, 111, 214, 0.18);
+    color: #111827;
+  }
+
+  .dark ::selection {
+    background: rgba(147, 197, 253, 0.24);
+    color: #f8fafc;
+  }
 }
