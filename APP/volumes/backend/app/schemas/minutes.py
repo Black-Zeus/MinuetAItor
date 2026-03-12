@@ -202,6 +202,20 @@ class MinuteTransitionResponse(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class MinuteSendEmailRequest(BaseModel):
+    review_email: MinuteTransitionRequest.ReviewEmailOptions = Field(..., alias="reviewEmail")
+
+    model_config = {"populate_by_name": True}
+
+
+class MinuteSendEmailResponse(BaseModel):
+    record_id: str = Field(..., serialization_alias="recordId")
+    status: str
+    message: str
+
+    model_config = {"populate_by_name": True}
+
+
 # ── PASO LIST: GET /minutes ───────────────────────────────────────────────────
 
 class MinuteTagItem(BaseModel):

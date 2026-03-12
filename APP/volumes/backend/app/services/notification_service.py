@@ -680,6 +680,7 @@ async def enqueue_minute_review_email(
     body_note: str | None = None,
     selected_participant_ids: list[str] | None = None,
     attach_pdf: bool = True,
+    published_pdf: bool = False,
 ) -> bool:
     record = _record_with_relations(db, record_id)
     if not record:
@@ -698,7 +699,7 @@ async def enqueue_minute_review_email(
     summary, points = _extract_summary_from_content(content)
     attendee_names = [p.display_name for p in (version.participants or [])] if version else []
     normalized_note = str(body_note or "").strip()
-    attachment = _minute_pdf_attachment(record_id) if attach_pdf else None
+    attachment = _minute_pdf_attachment(record_id, published=published_pdf) if attach_pdf else None
     context = {
         "MEETING_TITLE": record.title,
         "MEETING_DATETIME": _format_record_datetime(record),

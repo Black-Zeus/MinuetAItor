@@ -535,7 +535,7 @@ const MinuteEditorHeader = ({ recordMeta, isReadOnly, onTransitionSuccess }) => 
       showFooter: false,
       content: (
         <SendToReviewModalContent
-          onCancel={() => ModalManager.close()}
+          onCancel={() => ModalManager.closeAll?.()}
           onConfirm={async (observation) => {
             const payload = getExportPayload();
             await saveMinuteDraft(recordId, payload);
@@ -562,7 +562,7 @@ const MinuteEditorHeader = ({ recordMeta, isReadOnly, onTransitionSuccess }) => 
         <TransitionModalContent
           transition={transition}
           currentStatus={status}
-          onCancel={() => ModalManager.close()}
+          onCancel={() => ModalManager.closeAll?.()}
           onConfirm={async (targetStatus, observation) => {
             await transitionMinute(recordId, targetStatus, observation);
             ModalManager.closeAll?.();
@@ -589,13 +589,13 @@ const MinuteEditorHeader = ({ recordMeta, isReadOnly, onTransitionSuccess }) => 
       showFooter: true,
       content: <RollbackModalContent changes={changes} />,
       buttons: [
-        { text: "Cancelar", variant: "secondary", onClick: () => ModalManager.hide?.() },
+        { text: "Cancelar", variant: "secondary", onClick: () => ModalManager.closeAll?.() },
         {
           text: "Confirmar rollback",
           variant: "primary",
           onClick: () => {
             rollbackToSnapshot?.();
-            ModalManager.hide?.();
+            ModalManager.closeAll?.();
             ModalManager.custom({
               title: "Rollback aplicado",
               size: "small",

@@ -18,6 +18,8 @@ from schemas.minutes import (
     MinuteDetailResponse,
     MinuteGenerateRequest,
     MinuteGenerateResponse,
+    MinuteSendEmailRequest,
+    MinuteSendEmailResponse,
     MinuteSaveRequest,
     MinuteStatusResponse,
     MinuteTransitionRequest,
@@ -34,6 +36,7 @@ from services.minutes_service import (
     get_minute_status,
     get_minute_versions,
     save_minute_draft,
+    send_minute_email,
     transition_minute,
     list_minutes,
 )
@@ -206,6 +209,26 @@ async def transition_endpoint(
         commit_message = body.commit_message,
         actor_user_id  = session.user_id,
         review_email   = body.review_email,
+    )
+
+
+@router.post(
+    "/{record_id}/send-email",
+    response_model = MinuteSendEmailResponse,
+    status_code    = status.HTTP_200_OK,
+    summary        = "Enviar email de minuta",
+)
+async def send_email_endpoint(
+    record_id: str,
+    body: MinuteSendEmailRequest,
+    db: Session = Depends(get_db),
+    session: UserSession = Depends(current_user_dep),
+):
+    return await send_minute_email(
+        db=db,
+        record_id=record_id,
+        actor_user_id=session.user_id,
+        review_email=body.review_email,
     )
 
 

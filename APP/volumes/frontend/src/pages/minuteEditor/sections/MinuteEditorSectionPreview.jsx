@@ -2,34 +2,10 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Icon from '@components/ui/icon/iconManager';
 import ModalManager from '@components/ui/modal';
 import useMinuteEditorStore from '@/store/minuteEditorStore';
-import { saveMinuteDraft, transitionMinute } from '@/services/minutesService';
+import { sendMinuteEmail } from '@/services/minutesService';
+import { toastSuccess } from '@/components/common/toast/toastHelpers';
 
-let toastTimeout = null;
-
-const Toast = ({ visible, onHide }) => {
-  useEffect(() => {
-    if (visible) {
-      clearTimeout(toastTimeout);
-      toastTimeout = setTimeout(onHide, 3500);
-    }
-    return () => clearTimeout(toastTimeout);
-  }, [visible, onHide]);
-
-  if (!visible) return null;
-
-  return (
-    <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-xl bg-green-600 px-5 py-3.5 text-white shadow-2xl animate-fade-in-up">
-      <Icon name="check" className="shrink-0 text-base" />
-      <div>
-        <p className="text-sm font-bold">Minuta enviada</p>
-        <p className="text-xs opacity-80">El correo quedó encolado para los destinatarios seleccionados.</p>
-      </div>
-      <button type="button" onClick={onHide} className="ml-2 opacity-70 transition-opacity hover:opacity-100">
-        <Icon name="xmark" className="text-sm" />
-      </button>
-    </div>
-  );
-};
+const SEND_ALLOWED_STATUSES = new Set(['preview', 'completed']);
 
 const TYPE_INFO = {
   attendee: { label: 'Asistente', color: 'green' },
@@ -184,20 +160,16 @@ const ConfirmSendContent = ({ recipientCount, subject, attachPdf, onConfirm, onC
   </div>
 );
 
-const EmailForm = ({ recordId, recordStatus, isReadOnly, onTransitionSuccess }) => {
+const EmailForm = ({ recordId, recordStatus, isReadOnly }) => {
   const {
     meetingInfo,
     participants,
     additionalNote,
     setAdditionalNote,
-    getExportPayload,
-    markClean,
-    takeSnapshot,
   } = useMinuteEditorStore();
 
   const [subject, setSubject] = useState(`Minuta de Reunión: ${meetingInfo.subject || 'Reunión'}`);
   const [attachPdf, setAttachPdf] = useState(true);
-  const [toast, setToast] = useState(false);
   const [sending, setSending] = useState(false);
   const [selected, setSelected] = useState(() => new Set((participants || []).filter((participant) => participant.email).map((participant) => participant.id)));
 
@@ -228,6 +200,7 @@ const EmailForm = ({ recordId, recordStatus, isReadOnly, onTransitionSuccess }) 
   const recipientCount = selectedParticipants.length;
   const toList = participants.filter((participant) => participant.type !== 'copy');
   const ccList = participants.filter((participant) => participant.type === 'copy');
+  const canEditSendOptions = !sending && (!isReadOnly || SEND_ALLOWED_STATUSES.has(recordStatus));
 
   const toggleParticipant = (id) => setSelected((prev) => {
     const next = new Set(prev);
@@ -238,6 +211,14 @@ const EmailForm = ({ recordId, recordStatus, isReadOnly, onTransitionSuccess }) 
   const executeSend = async () => {
     setSending(true);
     try {
+      if (!SEND_ALLOWED_STATUSES.has(recordStatus)) {
+        ModalManager.warning({
+          title: 'Envío no disponible',
+          message: 'La minuta solo puede enviarse por correo cuando está en estado preview o completed.',
+        });
+        return;
+      }
+
       if (directRecipientCount === 0) {
         ModalManager.error({
           title: 'Destinatarios incompletos',
@@ -246,7 +227,6 @@ const EmailForm = ({ recordId, recordStatus, isReadOnly, onTransitionSuccess }) 
         return;
       }
 
-      const payload = getExportPayload();
       const reviewEmail = {
         subject: subject.trim(),
         bodyNote: additionalNote?.trim() || null,
@@ -254,18 +234,9 @@ const EmailForm = ({ recordId, recordStatus, isReadOnly, onTransitionSuccess }) 
         selectedParticipantIds: [...selected],
       };
 
-      if (recordStatus === 'ready-for-edit') {
-        await transitionMinute(recordId, 'pending');
-        onTransitionSuccess?.('pending');
-      }
-
-      await saveMinuteDraft(recordId, payload);
-      await transitionMinute(recordId, 'preview', null, reviewEmail);
-      markClean(new Date().toISOString());
-      takeSnapshot?.();
+      await sendMinuteEmail(recordId, reviewEmail);
       ModalManager.closeAll?.();
-      onTransitionSuccess?.('preview');
-      setToast(true);
+      toastSuccess('Minuta enviada', 'El correo quedó encolado para los destinatarios seleccionados.');
     } catch (err) {
       ModalManager.error({
         title: 'Error al enviar',
@@ -277,7 +248,23 @@ const EmailForm = ({ recordId, recordStatus, isReadOnly, onTransitionSuccess }) 
   };
 
   const handleSendClick = () => {
-    if (!recordId || recipientCount === 0 || directRecipientCount === 0 || sending || isReadOnly) return;
+    if (!recordId || sending) return;
+
+    if (!SEND_ALLOWED_STATUSES.has(recordStatus)) {
+      ModalManager.warning({
+        title: 'Envío no disponible',
+        message: 'La minuta todavía está en edición. Solo podrás enviarla por mail cuando ya esté lista para revisión o finalizada.',
+      });
+      return;
+    }
+
+    if (recipientCount === 0 || directRecipientCount === 0) {
+      ModalManager.error({
+        title: 'Destinatarios incompletos',
+        message: 'Selecciona al menos un destinatario principal con correo válido antes de enviar.',
+      });
+      return;
+    }
 
     ModalManager.custom({
       title: 'Envío de Minuta',
@@ -289,7 +276,7 @@ const EmailForm = ({ recordId, recordStatus, isReadOnly, onTransitionSuccess }) 
           subject={subject}
           attachPdf={attachPdf}
           sending={sending}
-          onCancel={() => ModalManager.close()}
+          onCancel={() => ModalManager.closeAll?.()}
           onConfirm={executeSend}
         />
       ),
@@ -304,7 +291,7 @@ const EmailForm = ({ recordId, recordStatus, isReadOnly, onTransitionSuccess }) 
         <input
           type="checkbox"
           checked={checked}
-          disabled={!participant.email || isReadOnly || sending}
+          disabled={!participant.email || !canEditSendOptions}
           onChange={() => toggleParticipant(participant.id)}
           className="h-4 w-4 shrink-0 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
         />
@@ -321,8 +308,6 @@ const EmailForm = ({ recordId, recordStatus, isReadOnly, onTransitionSuccess }) 
 
   return (
     <>
-      <Toast visible={toast} onHide={() => setToast(false)} />
-
       <div className="grid grid-cols-12 gap-6">
         <div className="col-span-12 lg:col-span-5">
           <div className="rounded-xl border border-gray-200/50 bg-white p-5 shadow-sm transition-theme dark:border-gray-700/50 dark:bg-gray-800">
@@ -365,7 +350,7 @@ const EmailForm = ({ recordId, recordStatus, isReadOnly, onTransitionSuccess }) 
             <input
               type="text"
               value={subject}
-              disabled={isReadOnly || sending}
+              disabled={!canEditSendOptions}
               onChange={(e) => setSubject(e.target.value)}
               className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 transition-theme focus:outline-none focus:ring-2 focus:ring-primary-500/40 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
             />
@@ -378,7 +363,7 @@ const EmailForm = ({ recordId, recordStatus, isReadOnly, onTransitionSuccess }) 
             <textarea
               rows={5}
               value={additionalNote}
-              disabled={isReadOnly || sending}
+              disabled={!canEditSendOptions}
               onChange={(e) => setAdditionalNote(e.target.value)}
               placeholder="Mensaje que se incluirá al inicio del correo…"
               className="w-full resize-none rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 transition-theme focus:outline-none focus:ring-2 focus:ring-primary-500/40 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
@@ -390,7 +375,7 @@ const EmailForm = ({ recordId, recordStatus, isReadOnly, onTransitionSuccess }) 
               <input
                 type="checkbox"
                 checked={attachPdf}
-                disabled={isReadOnly || sending}
+                disabled={!canEditSendOptions}
                 onChange={(e) => setAttachPdf(e.target.checked)}
                 className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
               />
@@ -407,24 +392,25 @@ const EmailForm = ({ recordId, recordStatus, isReadOnly, onTransitionSuccess }) 
                 <span className="font-semibold text-gray-900 dark:text-gray-100">{recipientCount}</span> destinatario{recipientCount !== 1 ? 's' : ''} con correo válido
               </p>
 
-              {isReadOnly ? (
-                <div className="flex items-center gap-2 rounded-lg border border-blue-200/60 bg-blue-50 px-4 py-2 transition-theme dark:border-blue-700/40 dark:bg-blue-900/20">
-                  <Icon name="check" className="text-blue-600 dark:text-blue-400" />
-                  <span className="text-sm font-semibold text-blue-800 dark:text-blue-300">
-                    {recordStatus === 'completed' ? 'Minuta oficializada' : 'Enviada a revisión'}
-                  </span>
-                </div>
-              ) : (
+              <div className="flex items-center gap-3">
+                {isReadOnly && (
+                  <div className="flex items-center gap-2 rounded-lg border border-blue-200/60 bg-blue-50 px-4 py-2 transition-theme dark:border-blue-700/40 dark:bg-blue-900/20">
+                    <Icon name="check" className="text-blue-600 dark:text-blue-400" />
+                    <span className="text-sm font-semibold text-blue-800 dark:text-blue-300">
+                      {recordStatus === 'completed' ? 'Minuta oficializada' : 'Enviada a revisión'}
+                    </span>
+                  </div>
+                )}
                 <button
                   type="button"
                   onClick={handleSendClick}
-                  disabled={recipientCount === 0 || directRecipientCount === 0 || sending}
+                  disabled={sending}
                   className="flex items-center gap-2 rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md transition-all hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Icon name={sending ? 'spinner' : 'paperPlane'} className={sending ? 'animate-spin' : ''} />
                   {sending ? 'Enviando...' : 'Enviar Minuta'}
                 </button>
-              )}
+              </div>
             </div>
           </div>
         </div>
@@ -433,7 +419,7 @@ const EmailForm = ({ recordId, recordStatus, isReadOnly, onTransitionSuccess }) 
   );
 };
 
-const MinuteEditorSectionPreview = ({ recordId, recordStatus, isReadOnly, onTransitionSuccess }) => {
+const MinuteEditorSectionPreview = ({ recordId, recordStatus, isReadOnly }) => {
   const { meetingInfo, meetingTimes, participants, agreements, requirements, timeline } = useMinuteEditorStore();
 
   const openPdfPreview = () => {
@@ -491,7 +477,6 @@ const MinuteEditorSectionPreview = ({ recordId, recordStatus, isReadOnly, onTran
         recordId={recordId}
         recordStatus={recordStatus}
         isReadOnly={isReadOnly}
-        onTransitionSuccess={onTransitionSuccess}
       />
     </div>
   );
