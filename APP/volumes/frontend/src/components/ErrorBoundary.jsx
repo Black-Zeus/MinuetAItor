@@ -245,7 +245,7 @@ class ErrorBoundary extends React.Component {
                 </div>
 
                 {/* Fila de botones fija horizontal - Sin título */}
-                <div className="px-6 py-4 border-t border-border dark:border-border-dark bg-background-light dark:bg-secondary-800">
+                <div className="px-6 py-4 border-t border-border dark:border-border-dark  dark:bg-secondary-800">
                   <div className="flex space-x-3">
                     <button
                       onClick={this.handleReset}
@@ -380,7 +380,7 @@ class ErrorBoundary extends React.Component {
                 </div>
 
                 {/* Fila de botones fija horizontal antes del footer */}
-                <div className="px-6 py-4 border-t border-border dark:border-border-dark bg-background-light dark:bg-secondary-800">
+                <div className="px-6 py-4 border-t border-border dark:border-border-dark  dark:bg-secondary-800">
                   <div className="flex justify-end space-x-3">
                     <button
                       onClick={this.copyErrorDetails}
