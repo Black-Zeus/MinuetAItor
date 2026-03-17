@@ -30,19 +30,19 @@
   }
 
   body {
-    @apply bg-background-light text-gray-900 antialiased;
+    @apply  text-gray-900 antialiased;
   }
 
   .dark body {
-    @apply bg-background-dark text-gray-50;
+    @apply  text-gray-50;
   }
 
   #root {
-    @apply min-h-screen bg-background-light text-gray-900;
+    @apply min-h-screen  text-gray-900;
   }
 
   .dark #root {
-    @apply bg-background-dark text-gray-50;
+    @apply  text-gray-50;
   }
 
   ::selection {

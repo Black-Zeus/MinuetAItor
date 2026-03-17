@@ -161,7 +161,7 @@ const Dashboard = () => {
   if (hasError) return <div>Error al cargar los datos del dashboard.</div>;
 
   return (
-    <div className="space-y-6 p-6 bg-background-light dark:bg-background-dark transition-theme min-h-screen">
+    <div className="space-y-6 p-6  dark: transition-theme min-h-screen">
 
       <DashboardHeader
         userName={userName}

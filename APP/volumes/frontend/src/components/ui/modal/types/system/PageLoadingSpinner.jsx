@@ -49,7 +49,7 @@ const PageLoadingSpinner = ({
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-background-light dark:bg-background-dark">
+    <div className="flex items-center justify-center min-h-screen  dark:">
       <div className="text-center">
         <LoadingSpinner 
           message={message}
