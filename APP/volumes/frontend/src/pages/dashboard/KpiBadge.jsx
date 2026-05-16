@@ -1,5 +1,5 @@
 import React from "react";
-import { FaArrowUp } from "react-icons/fa";
+import { FaArrowDown, FaArrowUp } from "react-icons/fa";
 
 const KPI_BADGE_VARIANTS = {
   primary: {
@@ -18,13 +18,20 @@ const KPI_BADGE_VARIANTS = {
 
 const KpiBadge = ({ variant = "primary", isNew, change, className = "" }) => {
   const v = KPI_BADGE_VARIANTS[variant] ?? KPI_BADGE_VARIANTS.primary;
+  const numericChange = Number(change) || 0;
+  const ChangeIcon = numericChange === 0 ? null : numericChange < 0 ? FaArrowDown : FaArrowUp;
+  const formattedChange = Math.abs(numericChange);
 
   return (
     <span
       className={`inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-2xl transition-theme ${v.badge} ${className}`}
     >
-      <FaArrowUp className={`w-3 h-3 ${v.arrow}`} />
-      {isNew ? `${change} nuevos este mes` : `${change}% vs mes anterior`}
+      {ChangeIcon && <ChangeIcon className={`w-3 h-3 ${v.arrow}`} />}
+      {isNew
+        ? `${formattedChange} nuevos este mes`
+        : numericChange === 0
+          ? "Sin cambios vs mes anterior"
+          : `${formattedChange}% vs mes anterior`}
     </span>
   );
 };

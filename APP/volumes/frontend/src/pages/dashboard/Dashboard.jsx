@@ -7,7 +7,6 @@ import React, { useEffect, useState } from "react";
 import { FaCalendarAlt, FaFileAlt, FaUsers } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 
-import dashboardData from "@/data/dataDashBoard.json";
 import ActionButton from "@/components/ui/button/ActionButton";
 import Icon from "@/components/ui/icon/iconManager";
 
@@ -21,6 +20,7 @@ import useBaseSiteStore from "@store/baseSiteStore"; // ← FIX: era dashboardSt
 import useSessionStore, { sessionSelectors } from "@store/sessionStore";
 import { listMinutes } from "@/services/minutesService";
 import clientService from "@/services/clientService";
+import { getDashboardStats } from "@/services/dashboardService";
 import projectService from "@/services/projectService";
 
 import logger from '@/utils/logger';
@@ -96,6 +96,11 @@ const Dashboard = () => {
   const [completedMinutes, setCompletedMinutes] = useState([]);
   const [confidentialClients, setConfidentialClients] = useState([]);
   const [confidentialProjects, setConfidentialProjects] = useState([]);
+  const [stats, setStats] = useState({
+    minutesThisMonth: { value: 0, change: 0 },
+    activeProjects: { value: 0, change: 0 },
+    activeClients: { value: 0, change: 0 },
+  });
   const userName = sessionUser?.full_name || sessionUser?.username || "Usuario";
 
   useEffect(() => {
@@ -108,6 +113,7 @@ const Dashboard = () => {
           completedResult,
           clientsResult,
           projectsResult,
+          statsResult,
         ] = await Promise.all([
           listMinutes({
             limit: 6,
@@ -135,6 +141,7 @@ const Dashboard = () => {
             limit: 6,
             filters: { isConfidential: true },
           }),
+          getDashboardStats(),
         ]);
 
         setReadyMinutes(Array.isArray(readyResult?.minutes) ? readyResult.minutes : []);
@@ -147,6 +154,7 @@ const Dashboard = () => {
             .slice(0, 6)
         );
         setConfidentialProjects(Array.isArray(projectsResult?.items) ? projectsResult.items : []);
+        setStats(statsResult);
       } catch (err) {
         dashboardLog.error("[Dashboard] Error loading data:", err);
         setHasError(true);
@@ -174,24 +182,24 @@ const Dashboard = () => {
           <MetricCard
             icon={FaCalendarAlt}
             title="Minutas este mes"
-            value={dashboardData?.metrics?.totalMinutes?.value ?? 0}
-            change={dashboardData?.metrics?.totalMinutes?.change ?? 0}
+            value={stats.minutesThisMonth.value}
+            change={stats.minutesThisMonth.change}
             isNew={false}
             variant="primary"
           />
           <MetricCard
             icon={FaFileAlt}
             title="Proyectos activos"
-            value={dashboardData?.metrics?.activeProjects?.value ?? 0}
-            change={dashboardData?.metrics?.activeProjects?.change ?? 0}
+            value={stats.activeProjects.value}
+            change={stats.activeProjects.change}
             isNew={false}
             variant="warm"
           />
           <MetricCard
             icon={FaUsers}
             title="Clientes activos"
-            value={dashboardData?.metrics?.totalClients?.value ?? 0}
-            change={Math.abs(dashboardData?.metrics?.totalClients?.change ?? 0)}
+            value={stats.activeClients.value}
+            change={stats.activeClients.change}
             isNew={false}
             variant="info"
           />
