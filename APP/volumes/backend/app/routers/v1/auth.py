@@ -1,5 +1,6 @@
 # routers/v1/auth.py
-from fastapi import APIRouter, Depends, File, Request, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Response, UploadFile, status
+from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
@@ -8,23 +9,37 @@ from schemas.auth import (
     LoginRequest, TokenResponse, UserSession, MeResponse,
     ValidateTokenResponse, ChangePasswordRequest,
     ChangePasswordByAdminRequest, ForgotPasswordRequest, ResetPasswordRequest,
+    ActiveSessionsResponse, LogoutSessionRequest, LogoutSessionResponse, LogoutAllSessionsResponse,
 )
 from services.auth_service import (
     login, logout, get_current_user, get_me,
     refresh_token, validate_token,
     change_password, change_password_by_admin,
     forgot_password, reset_password,
+    list_active_sessions, logout_session_by_jti, logout_all_other_sessions,
 )
+from services.session_events_service import auth_sse_headers, stream_session_events
 from services.avatar_service import read_user_avatar, remove_user_avatar, save_user_avatar
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 bearer = HTTPBearer()
+sse_bearer = HTTPBearer(auto_error=False)
 
 
 async def current_user_dep(
     credentials: HTTPAuthorizationCredentials = Depends(bearer),
 ) -> UserSession:
     return await get_current_user(credentials.credentials)
+
+
+async def current_user_or_token_dep(
+    credentials: HTTPAuthorizationCredentials = Depends(sse_bearer),
+    token: str | None = Query(None, description="JWT para autenticación vía SSE"),
+) -> UserSession:
+    jwt = (credentials.credentials if credentials else None) or token
+    if not jwt:
+        raise HTTPException(status_code=401, detail="No se proporcionó token de autenticación.")
+    return await get_current_user(jwt)
 
 
 # ── Auth base ─────────────────────────────────────────
@@ -41,6 +56,42 @@ async def logout_endpoint(
 ):
     await logout(session, db)
     return {"message": "Sesión cerrada"}
+
+
+@router.get("/me/sessions", response_model=ActiveSessionsResponse, status_code=status.HTTP_200_OK)
+async def my_active_sessions_endpoint(
+    session: UserSession = Depends(current_user_dep),
+    db: Session = Depends(get_db),
+):
+    return await list_active_sessions(session, db)
+
+
+@router.post("/logout-session", response_model=LogoutSessionResponse, status_code=status.HTTP_200_OK)
+async def logout_session_endpoint(
+    payload: LogoutSessionRequest,
+    session: UserSession = Depends(current_user_dep),
+    db: Session = Depends(get_db),
+):
+    return await logout_session_by_jti(session, payload, db)
+
+
+@router.post("/logout-all", response_model=LogoutAllSessionsResponse, status_code=status.HTTP_200_OK)
+async def logout_all_other_sessions_endpoint(
+    session: UserSession = Depends(current_user_dep),
+    db: Session = Depends(get_db),
+):
+    return await logout_all_other_sessions(session, db)
+
+
+@router.get("/session-events", summary="Stream SSE — escucha eventos de sesión", response_class=StreamingResponse)
+async def session_events_endpoint(
+    session: UserSession = Depends(current_user_or_token_dep),
+):
+    return StreamingResponse(
+        stream_session_events(session),
+        media_type="text/event-stream",
+        headers=auth_sse_headers(),
+    )
 
 
 @router.get("/me", response_model=MeResponse, status_code=status.HTTP_200_OK)

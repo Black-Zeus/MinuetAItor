@@ -113,6 +113,41 @@ class AuthService {
     }
   }
 
+  async getMySessions() {
+    try {
+      const response = await api.get(API_ENDPOINTS.AUTH.ME_SESSIONS);
+      return unwrap(response.data);
+    } catch (error) {
+      const formattedError = getFormattedError(error);
+      if (shouldLog()) console.error("❌ Get sessions failed:", formattedError);
+      throw formattedError;
+    }
+  }
+
+  async logoutAllSessions() {
+    try {
+      const response = await api.post(API_ENDPOINTS.AUTH.LOGOUT_ALL);
+      return unwrap(response.data);
+    } catch (error) {
+      const formattedError = getFormattedError(error);
+      if (shouldLog()) console.error("❌ Logout all sessions failed:", formattedError);
+      throw formattedError;
+    }
+  }
+
+  async logoutSession(jti) {
+    try {
+      if (!jti) throw new Error("jti requerido");
+
+      const response = await api.post(API_ENDPOINTS.AUTH.LOGOUT_SESSION, { jti });
+      return unwrap(response.data);
+    } catch (error) {
+      const formattedError = getFormattedError(error);
+      if (shouldLog()) console.error("❌ Logout session failed:", formattedError);
+      throw formattedError;
+    }
+  }
+
   /**
    * Logout
    * POST /v1/auth/logout
@@ -339,6 +374,9 @@ export const login = (credentials) => authService.login(credentials);
 export const getMe = () => authService.getMe();
 export const uploadMyAvatar = (file) => authService.uploadMyAvatar(file);
 export const deleteMyAvatar = () => authService.deleteMyAvatar();
+export const getMySessions = () => authService.getMySessions();
+export const logoutAllSessions = () => authService.logoutAllSessions();
+export const logoutSession = (jti) => authService.logoutSession(jti);
 export const logout = () => authService.logout();
 export const validateToken = () => authService.validateToken();
 

@@ -1,13 +1,14 @@
 /**
  * UserProfileSecurity.jsx
  * Tab de Seguridad: Cambiar contraseña + Sesiones activas.
- * Ambas secciones en scroll continuo dentro del tab.
  */
 
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Icon from "@/components/ui/icon/iconManager";
 import ActionButton from "@/components/ui/button/ActionButton";
 import { ModalManager } from "@/components/ui/modal";
+import { changePassword, getMySessions, logoutAllSessions, logoutSession } from "@/services/authService";
+import { formatDateTimeTechnical } from "@/utils/formats";
 
 const TXT_TITLE = "text-gray-900 dark:text-white";
 const TXT_BODY  = "text-gray-600 dark:text-gray-300";
@@ -22,51 +23,40 @@ const INPUT_BASE =
 
 const LABEL_BASE = `block text-sm font-medium ${TXT_META} mb-1.5 transition-theme`;
 
-// ─── Fake sessions data ───────────────────────────────────────────────────────
-const FAKE_SESSIONS = [
-  {
-    id: "ses-001",
-    device: "Chrome en Windows 11",
-    icon: "FaDesktop",
-    location: "Santiago, Chile",
-    ip: "200.111.45.32",
-    lastActive: "Ahora mismo",
-    isCurrent: true,
-  },
-  {
-    id: "ses-002",
-    device: "Safari en iPhone 15",
-    icon: "FaMobile",
-    location: "Santiago, Chile",
-    ip: "200.111.45.33",
-    lastActive: "Hace 2 horas",
-    isCurrent: false,
-  },
-  {
-    id: "ses-003",
-    device: "Firefox en macOS",
-    icon: "FaDesktop",
-    location: "Valparaíso, Chile",
-    ip: "190.82.16.10",
-    lastActive: "Hace 3 días",
-    isCurrent: false,
-  },
-];
+const SessionStatusBadge = ({ isOnline }) => (
+  <div
+    className={[
+      "inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-theme",
+      isOnline
+        ? "bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800/40"
+        : "bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-900/30 dark:text-gray-300 dark:border-gray-700/60",
+    ].join(" ")}
+  >
+    <span className={`w-2 h-2 rounded-full ${isOnline ? "bg-green-500 animate-pulse" : "bg-gray-400"}`} />
+    <span>{isOnline ? "Online" : "Offline"}</span>
+  </div>
+);
 
-// ─── PasswordStrength ─────────────────────────────────────────────────────────
+const pickSessionIcon = (device = "") => {
+  const normalized = String(device).toLowerCase();
+  if (/(iphone|android|mobile|telefono|phone)/.test(normalized)) return "FaMobile";
+  if (/(ipad|tablet)/.test(normalized)) return "FaTablet";
+  return "FaDesktop";
+};
+
 const getStrength = (pwd) => {
   if (!pwd) return { level: 0, label: "", color: "" };
   let score = 0;
-  if (pwd.length >= 8)              score++;
-  if (/[A-Z]/.test(pwd))           score++;
-  if (/[0-9]/.test(pwd))           score++;
-  if (/[^A-Za-z0-9]/.test(pwd))   score++;
+  if (pwd.length >= 8) score++;
+  if (/[A-Z]/.test(pwd)) score++;
+  if (/[0-9]/.test(pwd)) score++;
+  if (/[^A-Za-z0-9]/.test(pwd)) score++;
 
   const map = [
-    { level: 0, label: "",          color: "" },
-    { level: 1, label: "Débil",     color: "bg-red-500" },
-    { level: 2, label: "Regular",   color: "bg-yellow-400" },
-    { level: 3, label: "Buena",     color: "bg-blue-500" },
+    { level: 0, label: "", color: "" },
+    { level: 1, label: "Débil", color: "bg-red-500" },
+    { level: 2, label: "Regular", color: "bg-yellow-400" },
+    { level: 3, label: "Buena", color: "bg-blue-500" },
     { level: 4, label: "Excelente", color: "bg-green-500" },
   ];
   return map[score];
@@ -98,39 +88,61 @@ const PasswordStrengthBar = ({ password }) => {
   );
 };
 
-// ─── ChangePasswordSection ────────────────────────────────────────────────────
 const ChangePasswordSection = () => {
   const [form, setForm] = useState({
     currentPassword: "",
     newPassword: "",
     confirmPassword: "",
   });
-  const [showCurrent, setShowCurrent]   = useState(false);
-  const [showNew, setShowNew]           = useState(false);
-  const [showConfirm, setShowConfirm]   = useState(false);
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleChange = (field, value) =>
-    setForm((prev) => ({ ...prev, [field]: value }));
+  const handleChange = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
+  const handleReset = () => setForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
 
-  const handleReset = () =>
-    setForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
-
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.currentPassword || !form.newPassword || !form.confirmPassword) {
       ModalManager.error?.({ title: "Campos incompletos", message: "Completa todos los campos." });
       return;
     }
     if (form.newPassword !== form.confirmPassword) {
-      ModalManager.error?.({ title: "Error", message: "La nueva contraseña y su confirmación no coinciden." });
+      ModalManager.error?.({
+        title: "Error",
+        message: "La nueva contraseña y su confirmación no coinciden.",
+      });
       return;
     }
     if (form.newPassword.length < 8) {
-      ModalManager.error?.({ title: "Contraseña débil", message: "La contraseña debe tener al menos 8 caracteres." });
+      ModalManager.error?.({
+        title: "Contraseña débil",
+        message: "La contraseña debe tener al menos 8 caracteres.",
+      });
       return;
     }
-    // TODO: llamar servicio real
-    ModalManager.success?.({ title: "Contraseña actualizada", message: "Tu contraseña se cambió correctamente." });
-    handleReset();
+
+    try {
+      setIsSubmitting(true);
+      await changePassword({
+        current_password: form.currentPassword,
+        new_password: form.newPassword,
+        confirm_password: form.confirmPassword,
+        revoke_sessions: false,
+      });
+      ModalManager.success?.({
+        title: "Contraseña actualizada",
+        message: "Tu contraseña se cambió correctamente.",
+      });
+      handleReset();
+    } catch (error) {
+      ModalManager.error?.({
+        title: "No se pudo cambiar la contraseña",
+        message: error?.message ?? "Intenta nuevamente.",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const PasswordField = ({ label, fieldKey, show, onToggle, placeholder }) => (
@@ -187,7 +199,7 @@ const ChangePasswordSection = () => {
           />
         </div>
 
-        <div className="col-span-12 md:col-span-6" /> {/* spacer */}
+        <div className="col-span-12 md:col-span-6" />
 
         <div className="col-span-12 md:col-span-6">
           <PasswordField
@@ -210,14 +222,13 @@ const ChangePasswordSection = () => {
         </div>
       </div>
 
-      {/* Hint de requisitos */}
       <div className="mt-4 p-3 rounded-lg bg-gray-50 dark:bg-gray-900/40 border border-gray-200 dark:border-gray-700">
         <p className={`text-xs font-semibold ${TXT_META} mb-2`}>Requisitos mínimos:</p>
         <ul className={`text-xs ${TXT_META} space-y-0.5`}>
           {[
-            ["Al menos 8 caracteres",         form.newPassword.length >= 8],
-            ["Una letra mayúscula",            /[A-Z]/.test(form.newPassword)],
-            ["Un número",                      /[0-9]/.test(form.newPassword)],
+            ["Al menos 8 caracteres", form.newPassword.length >= 8],
+            ["Una letra mayúscula", /[A-Z]/.test(form.newPassword)],
+            ["Un número", /[0-9]/.test(form.newPassword)],
             ["Un carácter especial (!@#$...)", /[^A-Za-z0-9]/.test(form.newPassword)],
           ].map(([text, met]) => (
             <li key={text} className="flex items-center gap-2">
@@ -245,88 +256,135 @@ const ChangePasswordSection = () => {
           size="sm"
           icon={<Icon name="FaLock" />}
           onClick={handleSave}
+          disabled={isSubmitting}
         />
       </div>
     </div>
   );
 };
 
-// ─── SessionCard ──────────────────────────────────────────────────────────────
-const SessionCard = ({ session, onRevoke }) => (
-  <div className={[
-    "flex items-center justify-between gap-4 p-4 rounded-xl border transition-theme",
-    session.isCurrent
-      ? "border-primary-200 dark:border-primary-800/60 bg-primary-50 dark:bg-primary-900/10"
-      : "border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30",
-  ].join(" ")}>
+const SessionCard = ({ session, onRevoke, isRevoking }) => (
+  <div
+    className={[
+      "flex items-center justify-between gap-4 p-4 rounded-xl border transition-theme",
+      session.isCurrent
+        ? "border-primary-200 dark:border-primary-800/60 bg-primary-50 dark:bg-primary-900/10"
+        : "border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30",
+    ].join(" ")}
+  >
     <div className="flex items-center gap-4 min-w-0">
-      {/* Device icon */}
-      <div className={[
-        "w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
-        session.isCurrent
-          ? "bg-primary-100 dark:bg-primary-900/30"
-          : "bg-gray-200 dark:bg-gray-700",
-      ].join(" ")}>
+      <div
+        className={[
+          "w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
+          session.isCurrent ? "bg-primary-100 dark:bg-primary-900/30" : "bg-gray-200 dark:bg-gray-700",
+        ].join(" ")}
+      >
         <Icon
           name={session.icon}
           className={`w-5 h-5 ${session.isCurrent ? "text-primary-600 dark:text-primary-400" : "text-gray-500 dark:text-gray-400"}`}
         />
       </div>
 
-      {/* Info */}
       <div className="min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <p className={`text-sm font-semibold ${TXT_TITLE} transition-theme`}>
-            {session.device}
-          </p>
+          <p className={`text-sm font-semibold ${TXT_TITLE} transition-theme`}>{session.device}</p>
           {session.isCurrent && (
             <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300">
               Sesión actual
             </span>
           )}
+          <SessionStatusBadge isOnline={session.isOnline} />
         </div>
         <p className={`text-xs ${TXT_META} mt-0.5 transition-theme`}>
           {session.location} · {session.ip}
         </p>
         <p className={`text-xs ${TXT_META} transition-theme`}>
           <Icon name="clock" className="inline w-3 h-3 mr-1" />
-          {session.lastActive}
+          {formatDateTimeTechnical(session.lastActive)}
         </p>
       </div>
     </div>
 
     {!session.isCurrent && (
       <ActionButton
-        label="Revocar"
-        variant="soft"
+        label="Cerrar sesión"
+        variant="danger"
         size="xs"
-        icon={<Icon name="FaTrash" />}
-        onClick={() => onRevoke(session.id)}
-        className="shrink-0"
+        icon={<Icon name="FaPowerOff" />}
+        onClick={() => onRevoke(session)}
+        disabled={isRevoking}
       />
     )}
   </div>
 );
 
-// ─── ActiveSessionsSection ────────────────────────────────────────────────────
 const ActiveSessionsSection = () => {
-  const [sessions, setSessions] = useState(FAKE_SESSIONS);
+  const [sessions, setSessions] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRevoking, setIsRevoking] = useState(false);
+  const [revokingSessionId, setRevokingSessionId] = useState(null);
 
-  const handleRevoke = async (sessionId) => {
+  const loadSessions = async () => {
+    try {
+      setIsLoading(true);
+      const result = await getMySessions();
+      const items = Array.isArray(result?.sessions) ? result.sessions : [];
+      setSessions(
+        items.map((session) => ({
+          id: session.jti,
+          icon: pickSessionIcon(session.device),
+          device: session.device ?? "Dispositivo desconocido",
+          location: session.location ?? "Ubicación desconocida",
+          ip: session.ip_v4 ?? session.ip_v6 ?? "IP no disponible",
+          lastActive: session.ts,
+          isOnline: Boolean(session.is_online),
+          isCurrent: Boolean(session.is_current),
+        }))
+      );
+    } catch (error) {
+      ModalManager.error?.({
+        title: "No se pudieron cargar las sesiones",
+        message: error?.message ?? "Intenta nuevamente.",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadSessions();
+  }, []);
+
+  const otherSessions = useMemo(() => sessions.filter((session) => !session.isCurrent), [sessions]);
+  const onlineSessions = useMemo(() => sessions.filter((session) => session.isOnline), [sessions]);
+
+  const handleRevokeOne = async (session) => {
     try {
       const confirmed = await ModalManager.confirm?.({
-        title: "Revocar sesión",
-        message: "Se cerrará sesión en ese dispositivo. ¿Confirmas?",
-        confirmText: "Revocar",
+        title: "Cerrar sesión puntual",
+        message: `Se cerrará la sesión de ${session.device}. ¿Confirmas?`,
+        confirmText: "Cerrar sesión",
         cancelText: "Cancelar",
         variant: "danger",
       });
-      if (confirmed) {
-        setSessions((prev) => prev.filter((s) => s.id !== sessionId));
-        ModalManager.success?.({ title: "Sesión revocada", message: "El dispositivo fue desconectado." });
-      }
-    } catch {
-      // cancelado
+      if (!confirmed) return;
+
+      setRevokingSessionId(session.id);
+      const result = await logoutSession(session.id);
+      await loadSessions();
+      ModalManager.success?.({
+        title: "Sesión cerrada",
+        message: result?.session_revoked
+          ? "La sesión seleccionada fue desconectada."
+          : "La sesión ya no estaba activa.",
+      });
+    } catch (error) {
+      ModalManager.error?.({
+        title: "No se pudo cerrar la sesión",
+        message: error?.message ?? "Intenta nuevamente.",
+      });
+    } finally {
+      setRevokingSessionId(null);
     }
   };
 
@@ -339,16 +397,26 @@ const ActiveSessionsSection = () => {
         cancelText: "Cancelar",
         variant: "danger",
       });
-      if (confirmed) {
-        setSessions((prev) => prev.filter((s) => s.isCurrent));
-        ModalManager.success?.({ title: "Sesiones cerradas", message: "Todos los demás dispositivos fueron desconectados." });
-      }
-    } catch {
-      // cancelado
+      if (!confirmed) return;
+
+      setIsRevoking(true);
+      const result = await logoutAllSessions();
+      await loadSessions();
+      ModalManager.success?.({
+        title: "Sesiones cerradas",
+        message: result?.sessions_revoked
+          ? `Se desconectaron ${result.sessions_revoked} sesiones activas.`
+          : "No había otras sesiones activas para cerrar.",
+      });
+    } catch (error) {
+      ModalManager.error?.({
+        title: "No se pudieron cerrar las sesiones",
+        message: error?.message ?? "Intenta nuevamente.",
+      });
+    } finally {
+      setIsRevoking(false);
     }
   };
-
-  const otherSessions = sessions.filter((s) => !s.isCurrent);
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6 transition-theme">
@@ -359,7 +427,7 @@ const ActiveSessionsSection = () => {
             Sesiones activas
           </h2>
           <p className={`text-sm ${TXT_BODY} mt-0.5 transition-theme`}>
-            {sessions.length} {sessions.length === 1 ? "dispositivo conectado" : "dispositivos conectados"}.
+            {onlineSessions.length} en línea de {sessions.length} {sessions.length === 1 ? "sesión registrada" : "sesiones registradas"}.
           </p>
         </div>
 
@@ -370,20 +438,37 @@ const ActiveSessionsSection = () => {
             size="sm"
             icon={<Icon name="FaTrash" />}
             onClick={handleRevokeAll}
+            disabled={isRevoking}
           />
         )}
       </div>
 
-      <div className="space-y-3">
-        {sessions.map((session) => (
-          <SessionCard key={session.id} session={session} onRevoke={handleRevoke} />
-        ))}
-      </div>
+      {isLoading ? (
+        <div className="rounded-xl border border-dashed border-gray-200 dark:border-gray-700 p-4">
+          <p className={`text-sm ${TXT_BODY} transition-theme`}>Cargando sesiones activas...</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {sessions.length ? (
+            sessions.map((session) => (
+              <SessionCard
+                key={session.id}
+                session={session}
+                onRevoke={handleRevokeOne}
+                isRevoking={isRevoking || revokingSessionId === session.id}
+              />
+            ))
+          ) : (
+            <div className="rounded-xl border border-dashed border-gray-200 dark:border-gray-700 p-4">
+              <p className={`text-sm ${TXT_BODY} transition-theme`}>No hay sesiones activas registradas.</p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
 
-// ─── Main export ──────────────────────────────────────────────────────────────
 const UserProfileSecurity = () => (
   <div className="space-y-6">
     <ChangePasswordSection />

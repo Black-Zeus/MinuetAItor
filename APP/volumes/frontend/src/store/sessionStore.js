@@ -8,8 +8,8 @@
  *   authz: { roles, permissions },
  *   profile: { initials, color, department, avatarUrl },
  *   connections: {
- *     active: { ts, device, location, ip_v4, ip_v6 },
- *     last: [{ ts, device, location, ip_v4, ip_v6 }]
+ *     active: { ts, device, location, ip_v4, ip_v6, is_online },
+ *     last: [{ ts, device, location, ip_v4, ip_v6, is_online }]
  *   },
  *   meta: { fetched_at, request_id, source, schema_version }
  * }
@@ -69,6 +69,7 @@ const mapMeToSession = (meData, meta = {}) => {
           location: meData.active_connection.location ?? null,
           ip_v4: meData.active_connection.ip_v4 ?? null,
           ip_v6: meData.active_connection.ip_v6 ?? null,
+          is_online: meData.active_connection.is_online ?? false,
         }
         : null,
       last: Array.isArray(meData.last_connections)
@@ -78,6 +79,7 @@ const mapMeToSession = (meData, meta = {}) => {
           location: c.location ?? null,
           ip_v4: c.ip_v4 ?? null,
           ip_v6: c.ip_v6 ?? null,
+          is_online: c.is_online ?? false,
         }))
         : [],
     },

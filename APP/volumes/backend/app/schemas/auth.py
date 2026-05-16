@@ -37,12 +37,51 @@ class UserProfileData(BaseModel):
     avatar_url: str | None = None
 
 
+class ActiveSessionInfo(BaseModel):
+    jti: str
+    ts: str
+    device: str | None = None
+    location: str | None = None
+    ip_v4: str | None = None
+    ip_v6: str | None = None
+    is_online: bool = False
+    is_current: bool = False
+
+
+class ActiveSessionsResponse(BaseModel):
+    sessions: list[ActiveSessionInfo]
+
+
+class LogoutSessionRequest(BaseModel):
+    jti: str
+
+    @field_validator("jti")
+    @classmethod
+    def jti_not_empty(cls, v: str) -> str:
+        value = v.strip()
+        if not value:
+            raise ValueError("La sesión es requerida")
+        return value
+
+
+class LogoutSessionResponse(BaseModel):
+    message: str
+    jti: str
+    session_revoked: bool
+
+
+class LogoutAllSessionsResponse(BaseModel):
+    message: str
+    sessions_revoked: int
+
+
 class ConnectionInfo(BaseModel):
     ts:       str
     device:   str | None = None
     location: str | None = None
     ip_v4:    str | None = None
     ip_v6:    str | None = None
+    is_online: bool = False
 
 
 class MeResponse(BaseModel):

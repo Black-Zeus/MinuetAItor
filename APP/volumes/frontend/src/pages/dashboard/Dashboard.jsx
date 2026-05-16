@@ -107,6 +107,7 @@ const Dashboard = () => {
     const load = async () => {
       try {
         const [
+          ,
           readyResult,
           pendingResult,
           participantResult,
@@ -115,6 +116,9 @@ const Dashboard = () => {
           projectsResult,
           statsResult,
         ] = await Promise.all([
+          // El dashboard debe refrescar conexiones al entrar para no quedar
+          // mostrando un snapshot cacheado de otra sesión reciente.
+          useSessionStore.getState().loadFromApi(true),
           listMinutes({
             limit: 6,
             status_filter: "ready-for-edit",
