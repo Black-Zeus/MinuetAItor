@@ -89,6 +89,349 @@ define_compose_file() {
     esac
 }
 
+read_env_value() {
+    local key="$1"
+    local default_value="${2:-}"
+    local value=""
+    local env_files=(".env" ".env.$ENV")
+
+    for env_file in "${env_files[@]}"; do
+        if [[ -f "$env_file" ]]; then
+            local line
+            line=$(grep -E "^${key}=" "$env_file" 2>/dev/null | tail -n 1)
+            if [[ -n "$line" ]]; then
+                value=$(echo "$line" | cut -d'=' -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//;s/^"//;s/"$//')
+            fi
+        fi
+    done
+
+    if [[ -n "$value" ]]; then
+        echo "$value"
+    else
+        echo "$default_value"
+    fi
+}
+
+get_runtime_data_root() {
+    read_env_value "DATA_ROOT" "./APP/data/${ENV}"
+}
+
+get_runtime_logs_root() {
+    read_env_value "LOGS_ROOT" "./APP/logs/${ENV}"
+}
+
+get_runtime_volumes_root() {
+    read_env_value "VOLUMES_ROOT" "./APP/volumes"
+}
+
+build_compose_cmd() {
+    local action="$1"
+    local profile_args="${2:-}"
+    local service_args="${3:-}"
+    echo "$COMPOSE_CMD -f $COMPOSE_FILE --env-file .env --env-file .env.$ENV ${profile_args} ${action} ${service_args}"
+}
+
+get_service_block_from_compose() {
+    local compose_file="$1"
+    local service_name="$2"
+
+    awk -v target="$service_name" '
+        BEGIN {
+            in_services = 0
+            in_target = 0
+        }
+        /^services:/ {
+            in_services = 1
+            next
+        }
+        in_services && /^[^[:space:]]/ {
+            if ($0 !~ /^services:/) {
+                if (in_target) {
+                    exit
+                }
+                in_services = 0
+            }
+        }
+        in_services && $0 ~ ("^  " target ":$") {
+            in_target = 1
+            print
+            next
+        }
+        in_target && /^  [a-zA-Z0-9_-]+:/ {
+            exit
+        }
+        in_target {
+            print
+        }
+    ' "$compose_file"
+}
+
+list_services_by_group() {
+    local target_group="${1:-all}"
+    local services=()
+    local service_name=""
+    local service_block=""
+    local group_value=""
+
+    while IFS= read -r service_name; do
+        [[ -z "$service_name" ]] && continue
+        service_block="$(get_service_block_from_compose "$COMPOSE_FILE" "$service_name")"
+        group_value="$(echo "$service_block" | sed -n 's/^[[:space:]]*service\.group: //p' | head -1)"
+
+        if [[ "$target_group" == "all" || "$group_value" == "$target_group" ]]; then
+            services+=("$service_name")
+        fi
+    done < <(eval "$(build_compose_cmd "config --services" "--profile tools")" 2>/dev/null)
+
+    if [[ ${#services[@]} -gt 0 ]]; then
+        printf '%s\n' "${services[@]}"
+    fi
+}
+
+validate_compose_env_files() {
+    local missing_files=()
+    local env_file=""
+
+    for env_file in ".env" ".env.$ENV"; do
+        if [[ ! -f "$env_file" ]]; then
+            missing_files+=("$env_file")
+        fi
+    done
+
+    if [[ ${#missing_files[@]} -gt 0 ]]; then
+        echo -e "${RED}${BOLD}❌ Faltan archivos de entorno requeridos:${NC}"
+        for env_file in "${missing_files[@]}"; do
+            echo -e "${RED}   └─ ${env_file}${NC}"
+        done
+        echo ""
+        echo -e "${YELLOW}Cree los archivos locales a partir de .env.example y luego genere .env.${ENV} solo con overrides del entorno.${NC}"
+        return 1
+    fi
+
+    local required_vars=()
+    while IFS= read -r var_name; do
+        [[ -n "$var_name" ]] && required_vars+=("$var_name")
+    done < <(grep -oE '\$\{[A-Z0-9_]+(:-[^}]*)?\}' "$COMPOSE_FILE" 2>/dev/null | sed -E 's/^\$\{([A-Z0-9_]+).*/\1/' | sort -u)
+
+    local missing_vars=()
+    local optional_empty_vars=(
+        "ITOP_PACKAGE_URL"
+    )
+    local var_name=""
+    for var_name in "${required_vars[@]}"; do
+        if [[ " ${optional_empty_vars[*]} " == *" ${var_name} "* ]]; then
+            continue
+        fi
+        if [[ -z "$(read_env_value "$var_name")" ]]; then
+            missing_vars+=("$var_name")
+        fi
+    done
+
+    if [[ ${#missing_vars[@]} -gt 0 ]]; then
+        echo -e "${RED}${BOLD}❌ Hay variables requeridas sin valor para ${COMPOSE_FILE}:${NC}"
+        for var_name in "${missing_vars[@]}"; do
+            echo -e "${RED}   └─ ${var_name}${NC}"
+        done
+        echo ""
+        echo -e "${YELLOW}Revise .env y .env.${ENV} o regenérelos desde los archivos *.example.${NC}"
+        return 1
+    fi
+
+    return 0
+}
+
+ask_service_groups() {
+    local response=""
+    local core_services=()
+    local dependency_services=()
+    local tools_services=()
+    local selected_services=()
+    local service_name=""
+
+    SELECTED_PROFILE_ARGS=""
+    SELECTED_SERVICE_ARGS=""
+
+    while IFS= read -r service_name; do
+        [[ -n "$service_name" ]] && core_services+=("$service_name")
+    done < <(list_services_by_group "core")
+
+    while IFS= read -r service_name; do
+        [[ -n "$service_name" ]] && dependency_services+=("$service_name")
+    done < <(list_services_by_group "dependency")
+
+    while IFS= read -r service_name; do
+        [[ -n "$service_name" ]] && tools_services+=("$service_name")
+    done < <(list_services_by_group "tools")
+
+    selected_services=("${core_services[@]}")
+
+    echo ""
+    echo -e "${CYAN}${BOLD}🧩 ALCANCE DEL LEVANTE${NC}"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "El grupo base para el entorno ${BOLD}${ENV}${NC} sera siempre ${BOLD}core${NC}."
+    echo ""
+    if [[ ${#dependency_services[@]} -gt 0 ]]; then
+        echo -e "Dependencias disponibles:"
+        for service_name in "${dependency_services[@]}"; do
+            echo -e "   • ${service_name}"
+        done
+        echo ""
+        read -p "$(echo -e ${CYAN}"¿Desea anexar también dependency? [s/N]: "${NC})" response
+        if [[ "$response" =~ ^[Ss]$ ]]; then
+            selected_services+=("${dependency_services[@]}")
+        fi
+    fi
+
+    if [[ ${#tools_services[@]} -gt 0 ]]; then
+        echo ""
+        echo -e "Herramientas disponibles:"
+        for service_name in "${tools_services[@]}"; do
+            echo -e "   • ${service_name}"
+        done
+        echo ""
+        read -p "$(echo -e ${CYAN}"¿Desea anexar también tools? [s/N]: "${NC})" response
+        if [[ "$response" =~ ^[Ss]$ ]]; then
+            SELECTED_PROFILE_ARGS="--profile tools"
+            selected_services+=("${tools_services[@]}")
+        fi
+    fi
+
+    echo ""
+    echo -e "${YELLOW}Nota:${NC} Docker Compose puede iniciar dependencias tecnicas adicionales cuando corresponda."
+
+    if [[ ${#selected_services[@]} -gt 0 ]]; then
+        SELECTED_SERVICE_ARGS="${selected_services[*]}"
+    fi
+}
+
+remove_directory_contents() {
+    local target_dir="$1"
+    local label="$2"
+
+    if [[ ! -d "$target_dir" ]]; then
+        echo -e "${YELLOW}⚠️  No existe el directorio ${target_dir}${NC}"
+        return 0
+    fi
+
+    local found=false
+    shopt -s dotglob nullglob
+    for item in "$target_dir"/*; do
+        local base_name
+        base_name=$(basename "$item")
+
+        if [[ "$base_name" == ".gitkeep" ]]; then
+            continue
+        fi
+
+        found=true
+        rm -rf "$item" 2>/dev/null && \
+            echo -e "${GREEN}✅ Eliminado: $item${NC}" || \
+            echo -e "${RED}❌ Error al eliminar $item${NC}"
+    done
+    shopt -u dotglob nullglob
+
+    if [[ "$found" == false ]]; then
+        echo -e "${YELLOW}⚠️  ${label} ya está vacío${NC}"
+    fi
+}
+
+clean_runtime_artifacts() {
+    local volumes_root
+    volumes_root="$(get_runtime_volumes_root)"
+
+    echo -e "${BLUE}Buscando artefactos de runtime en ${volumes_root}...${NC}"
+
+    if [[ ! -d "$volumes_root" ]]; then
+        echo -e "${YELLOW}⚠️  No existe el directorio ${volumes_root}${NC}"
+        return 0
+    fi
+
+    local targets=(
+        "node_modules"
+        "__pycache__"
+        ".pytest_cache"
+        ".mypy_cache"
+        ".ruff_cache"
+        ".venv"
+        "venv"
+        "dist"
+        "build"
+        "coverage"
+    )
+
+    local removed_any=false
+    local target_name=""
+    for target_name in "${targets[@]}"; do
+        while IFS= read -r matched_path; do
+            [[ -z "$matched_path" ]] && continue
+            removed_any=true
+            rm -rf "$matched_path" 2>/dev/null && \
+                echo -e "${GREEN}✅ Eliminado: $matched_path${NC}" || \
+                echo -e "${RED}❌ Error al eliminar $matched_path${NC}"
+        done < <(find "$volumes_root" -path "*/.git/*" -prune -o -name "$target_name" -print 2>/dev/null)
+    done
+
+    while IFS= read -r matched_file; do
+        [[ -z "$matched_file" ]] && continue
+        removed_any=true
+        rm -f "$matched_file" 2>/dev/null && \
+            echo -e "${GREEN}✅ Eliminado: $matched_file${NC}" || \
+            echo -e "${RED}❌ Error al eliminar $matched_file${NC}"
+    done < <(find "$volumes_root" -path "*/.git/*" -prune -o \( -name "*.pyc" -o -name "*.pyo" \) -print 2>/dev/null)
+
+    if [[ "$removed_any" == false ]]; then
+        echo -e "${YELLOW}⚠️  No se encontraron artefactos de runtime para limpiar${NC}"
+    fi
+}
+
+list_project_named_volumes() {
+    docker volume ls --format "{{.Name}}" 2>/dev/null | grep -E "^${PROJECT_NAME}_" || true
+}
+
+get_volume_name_from_backup() {
+    local backup_filename="$1"
+    local base_name=""
+
+    base_name="${backup_filename%.tar.gz}"
+    base_name="${base_name%_[0-9][0-9][0-9][0-9][0-9][0-9]_[0-9][0-9][0-9][0-9][0-9][0-9]}"
+    echo "$base_name"
+}
+
+ensure_path_writable() {
+    local target_dir="$1"
+    local label="$2"
+    local current_user current_group
+
+    if [[ ! -d "$target_dir" ]]; then
+        return 0
+    fi
+
+    current_user="$(id -un 2>/dev/null)"
+    current_group="$(id -gn 2>/dev/null)"
+
+    if [[ -z "$current_user" || -z "$current_group" ]]; then
+        echo -e "${YELLOW}⚠️  No se pudo determinar el usuario actual para ajustar permisos en ${label}${NC}"
+        return 1
+    fi
+
+    if chown -R "$current_user:$current_group" "$target_dir" 2>/dev/null; then
+        echo -e "${GREEN}✅ Permisos actualizados: ${target_dir}${NC}"
+        return 0
+    fi
+
+    if command -v sudo >/dev/null 2>&1; then
+        echo -e "${YELLOW}⚠️  ${label} requiere privilegios para corregir ownership. Se intentará con sudo.${NC}"
+        if sudo chown -R "$current_user:$current_group" "$target_dir"; then
+            echo -e "${GREEN}✅ Permisos actualizados con sudo: ${target_dir}${NC}"
+            return 0
+        fi
+    fi
+
+    echo -e "${RED}❌ No se pudieron corregir permisos en ${target_dir}${NC}"
+    echo -e "${YELLOW}   └─ Si hay archivos creados por root dentro de bind mounts, la limpieza puede fallar sobre esos paths.${NC}"
+    return 1
+}
+
 # Función para obtener IP actual (versión simplificada)
 get_current_ip() {
     local ip=""
@@ -420,7 +763,7 @@ banner_principal() {
     fi
     
     local git_info=""
-    if git rev-parse --is-inside-work-tree 2>/dev/null; then
+    if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
         git_info="${GREEN}$(git rev-parse --abbrev-ref HEAD 2>/dev/null)${NC}"
     else
         git_info="${YELLOW}No es repositorio Git${NC}"
@@ -498,8 +841,10 @@ menu_contenedores() {
     echo -e "  ${CYAN}2)${NC} 🛑 Detener y eliminar contenedores"
     echo -e "  ${CYAN}3)${NC} 🔄 Reiniciar contenedores"
     echo -e "  ${CYAN}4)${NC} 🔃 Reiniciar contenedor unico"
-    echo -e "  ${CYAN}5)${NC} 🔨 Construir imágenes"
-    echo -e "  ${CYAN}6)${NC} 🔍 Validar Docker Compose"
+    echo -e "  ${CYAN}5)${NC} ♻️ Recrear contenedor unico"
+    echo -e "  ${CYAN}6)${NC} 🔨 Construir imágenes"
+    echo -e "  ${CYAN}7)${NC} 🔍 Validar Docker Compose"
+    echo -e "  ${CYAN}8)${NC} 📏 Validar reglas del proyecto"
     echo ""
     echo -e "  ${CYAN}V)${NC} ⬅️ Volver"
     echo -e "  ${CYAN}S)${NC} 🚪 Salir"
@@ -512,8 +857,10 @@ menu_contenedores() {
         2) down ;;
         3) restart ;;
         4) restart_single_container ;;
-        5) build ;;
-        6) validate_compose ;;
+        5) recreate_single_container ;;
+        6) build ;;
+        7) validate_compose ;;
+        8) validate_compose_rules ;;
         [Vv]) menu ;;
         [Ss]) exit_script ;;
         *)
@@ -531,10 +878,11 @@ menu_monitoreo() {
     echo -e "${BOLD}OPCIONES DISPONIBLES:${NC}"
     echo ""
     echo -e "  ${CYAN}1)${NC} 📋 Ver logs"
-    echo -e "  ${CYAN}2)${NC} 📊 Estado de los contenedores"
-    echo -e "  ${CYAN}3)${NC} 📦 Listar contenedores de stack"
-    echo -e "  ${CYAN}4)${NC} 💻 Abrir terminal en contenedor"
-    echo -e "  ${CYAN}5)${NC} 📈 Monitoreo de recursos"
+    echo -e "  ${CYAN}2)${NC} 🔎 Ver logs de un contenedor"
+    echo -e "  ${CYAN}3)${NC} 📊 Estado de los contenedores"
+    echo -e "  ${CYAN}4)${NC} 📦 Listar contenedores de stack"
+    echo -e "  ${CYAN}5)${NC} 💻 Abrir terminal en contenedor"
+    echo -e "  ${CYAN}6)${NC} 📈 Monitoreo de recursos"
     echo ""
     echo -e "  ${CYAN}V)${NC} ⬅️ Volver"
     echo -e "  ${CYAN}S)${NC} 🚪 Salir"
@@ -544,10 +892,11 @@ menu_monitoreo() {
     
     case "$choice" in
         1) logs ;;
-        2) ps ;;
-        3) list_stack ;;
-        4) exec_stack ;;
-        5) monitor_resources ;;
+        2) logs_single_container ;;
+        3) ps ;;
+        4) list_stack ;;
+        5) exec_stack ;;
+        6) monitor_resources ;;
         [Vv]) menu ;;
         [Ss]) exit_script ;;
         *)
@@ -567,8 +916,9 @@ menu_limpieza() {
     echo -e "  ${CYAN}1)${NC} 🧹 Limpiar contenedores, redes y volúmenes"
     echo -e "  ${CYAN}2)${NC} 🖼️ Limpiar imágenes no utilizadas"
     echo -e "  ${CYAN}3)${NC} 💾 Limpiar volúmenes no utilizados"
-    echo -e "  ${CYAN}4)${NC} 🗑️ Limpiar todo"
-    echo -e "  ${CYAN}5)${NC} 🔥 Eliminar Persistencias"
+    echo -e "  ${CYAN}4)${NC} 🏗️ Limpiar caché de builds"
+    echo -e "  ${CYAN}5)${NC} 🗑️ Limpiar todo"
+    echo -e "  ${CYAN}6)${NC} 🔥 Eliminar Persistencias"
     echo ""
     echo -e "  ${CYAN}V)${NC} ⬅️ Volver"
     echo -e "  ${CYAN}S)${NC} 🚪 Salir"
@@ -580,8 +930,9 @@ menu_limpieza() {
         1) clean ;;
         2) clean_images_enhanced ;;
         3) clean_volumes ;;
-        4) clean_all ;;
-        5) drop_persistence ;;
+        4) clean_build_cache ;;
+        5) clean_all ;;
+        6) drop_persistence ;;
         [Vv]) menu ;;
         [Ss]) exit_script ;;
         *)
@@ -599,8 +950,8 @@ menu_configuracion() {
     echo -e "${BOLD}OPCIONES DISPONIBLES:${NC}"
     echo ""
     echo -e "  ${CYAN}1)${NC} 🔧 Cambiar entorno (dev, qa, prd)"
-    echo -e "  ${CYAN}2)${NC} 🌐 Actualizar IP en Docker Compose"
-    echo -e "  ${CYAN}3)${NC} 🔍 Verificar IP actual"
+    echo -e "  ${CYAN}2)${NC} 🌐 Actualizar IP para Expo / Android"
+    echo -e "  ${CYAN}3)${NC} 🔍 Verificar IP de Expo / Android"
     echo -e "  ${CYAN}4)${NC} 📋 Listar variables de entorno"
     echo ""
     echo -e "  ${CYAN}V)${NC} ⬅️ Volver"
@@ -658,7 +1009,13 @@ menu_backup() {
 
 up() {
     banner_principal "INICIAR CONTENEDORES"
-    run_cmd "$COMPOSE_CMD -f $COMPOSE_FILE --env-file .env --env-file .env.$ENV up -d --build" \
+    if ! validate_compose_env_files; then
+        pause
+        menu_contenedores
+        return
+    fi
+    ask_service_groups
+    run_cmd "$(build_compose_cmd "up -d --build" "$SELECTED_PROFILE_ARGS" "$SELECTED_SERVICE_ARGS")" \
             "Error al iniciar contenedores" \
             "Contenedores iniciados exitosamente"
     pause
@@ -667,6 +1024,11 @@ up() {
 
 down() {
     banner_principal "DETENER CONTENEDORES"
+    if ! validate_compose_env_files; then
+        pause
+        menu_contenedores
+        return
+    fi
     if confirm_action "¿Detener y eliminar todos los contenedores del stack?" "no"; then
         run_cmd "$COMPOSE_CMD -f $COMPOSE_FILE --env-file .env --env-file .env.$ENV down" \
                 "Error al detener contenedores" \
@@ -678,10 +1040,16 @@ down() {
 
 restart() {
     banner_principal "REINICIAR CONTENEDORES"
+    if ! validate_compose_env_files; then
+        pause
+        menu_contenedores
+        return
+    fi
     if confirm_action "¿Reiniciar todos los contenedores del stack?" "no"; then
-        run_cmd "$COMPOSE_CMD -f $COMPOSE_FILE --env-file .env --env-file .env.$ENV down" \
+        ask_service_groups
+        run_cmd "$(build_compose_cmd "down")" \
                 "Error al detener contenedores"
-        run_cmd "$COMPOSE_CMD -f $COMPOSE_FILE --env-file .env --env-file .env.$ENV up -d --build" \
+        run_cmd "$(build_compose_cmd "up -d --build" "$SELECTED_PROFILE_ARGS" "$SELECTED_SERVICE_ARGS")" \
                 "Error al iniciar contenedores" \
                 "Contenedores reiniciados exitosamente"
     fi
@@ -707,9 +1075,77 @@ restart_single_container() {
     menu_contenedores
 }
 
+get_compose_service_from_container() {
+    local container_id="$1"
+    docker inspect --format '{{ index .Config.Labels "com.docker.compose.service" }}' "$container_id" 2>/dev/null
+}
+
+get_profile_args_for_service() {
+    local service_name="$1"
+    local service_block=""
+    local group_value=""
+
+    service_block="$(get_service_block_from_compose "$COMPOSE_FILE" "$service_name")"
+    group_value="$(echo "$service_block" | sed -n 's/^[[:space:]]*service\.group: //p' | head -1)"
+
+    if [[ "$group_value" == "tools" ]]; then
+        echo "--profile tools"
+    else
+        echo ""
+    fi
+}
+
+recreate_single_container() {
+    banner_principal "RECREAR CONTENEDOR ÚNICO"
+
+    if ! validate_compose_env_files; then
+        pause
+        menu_contenedores
+        return
+    fi
+
+    if ! select_container_from_stack "Seleccione contenedor a recrear" true false; then
+        menu_contenedores
+        return
+    fi
+
+    local selected_service=""
+    local selected_profile_args=""
+
+    selected_service="$(get_compose_service_from_container "$SELECTED_CONTAINER_ID")"
+    if [[ -z "$selected_service" || "$selected_service" == "<no value>" ]]; then
+        echo -e "${RED}❌ No se pudo resolver el servicio Docker Compose para ${SELECTED_CONTAINER_NAME}${NC}"
+        echo -e "${YELLOW}   └─ Verifique que el contenedor pertenezca al stack gestionado por Compose.${NC}"
+        pause
+        menu_contenedores
+        return
+    fi
+
+    selected_profile_args="$(get_profile_args_for_service "$selected_service")"
+
+    echo ""
+    echo -e "${BLUE}Servicio asociado:${NC} ${BOLD}${selected_service}${NC}"
+    [[ -n "$selected_profile_args" ]] && echo -e "${BLUE}Perfil requerido:${NC} ${BOLD}${selected_profile_args}${NC}"
+
+    if confirm_action "¿Recrear contenedor ${SELECTED_CONTAINER_NAME} usando el servicio ${selected_service}? Esto removerá y volverá a crear solo ese servicio." "no"; then
+        run_cmd "$(build_compose_cmd "up -d --force-recreate --no-deps" "$selected_profile_args" "$selected_service")" \
+                "Error al recrear contenedor" \
+                "Contenedor recreado exitosamente"
+    fi
+
+    pause
+    menu_contenedores
+}
+
 build() {
     banner_principal "CONSTRUIR IMÁGENES"
-    run_cmd "$COMPOSE_CMD -f $COMPOSE_FILE --env-file .env --env-file .env.$ENV build" \
+    if ! validate_compose_env_files; then
+        pause
+        menu_contenedores
+        return
+    fi
+    ask_service_groups
+    run_cmd "$(build_compose_cmd "build" "$SELECTED_PROFILE_ARGS" "$SELECTED_SERVICE_ARGS")" \
             "Error al construir imágenes" \
             "Imágenes construidas exitosamente"
     pause
@@ -718,14 +1154,37 @@ build() {
 
 logs() {
     banner_principal "VER LOGS"
-    $COMPOSE_CMD -f $COMPOSE_FILE --env-file .env --env-file .env.$ENV logs -f
+    if ! validate_compose_env_files; then
+        pause
+        menu_monitoreo
+        return
+    fi
+    $(build_compose_cmd "logs -f")
+    pause
+    menu_monitoreo
+}
+
+logs_single_container() {
+    banner_principal "LOGS DE CONTENEDOR"
+
+    if ! select_container_from_stack "Seleccione contenedor para ver logs" true true; then
+        menu_monitoreo
+        return
+    fi
+
+    docker logs -f "$SELECTED_CONTAINER_ID"
     pause
     menu_monitoreo
 }
 
 ps() {
     banner_principal "ESTADO DE CONTENEDORES"
-    $COMPOSE_CMD -f $COMPOSE_FILE --env-file .env --env-file .env.$ENV ps
+    if ! validate_compose_env_files; then
+        pause
+        menu_monitoreo
+        return
+    fi
+    $(build_compose_cmd "ps")
     pause
     menu_monitoreo
 }
@@ -760,8 +1219,13 @@ exec_stack() {
 
 clean() {
     banner_principal "LIMPIEZA DE RECURSOS"
+    if ! validate_compose_env_files; then
+        pause
+        menu_limpieza
+        return
+    fi
     if confirm_action "¿Limpiar contenedores, redes y volúmenes del stack?" "no"; then
-        run_cmd "$COMPOSE_CMD -f $COMPOSE_FILE --env-file .env --env-file .env.$ENV down --volumes --remove-orphans" \
+        run_cmd "$(build_compose_cmd "down --volumes --remove-orphans")" \
                 "Error durante la limpieza" \
                 "Limpieza completada"
     fi
@@ -780,8 +1244,36 @@ clean_volumes() {
     menu_limpieza
 }
 
+clean_build_cache() {
+    banner_principal "LIMPIAR CACHÉ DE BUILDS"
+
+    echo -e "${YELLOW}Se eliminará la caché de construcción de Docker.${NC}"
+    echo -e "${YELLOW}Esto no borra contenedores, volúmenes ni imágenes en uso.${NC}"
+    echo ""
+
+    if confirm_action "¿Eliminar la caché de builds de Docker?" "no"; then
+        run_cmd "docker builder prune -af" \
+                "Error al limpiar caché de builds" \
+                "Caché de builds eliminada"
+
+        if docker buildx version >/dev/null 2>&1; then
+            run_cmd "docker buildx prune -af" \
+                    "Error al limpiar caché de buildx" \
+                    "Caché de buildx eliminada"
+        fi
+    fi
+
+    pause
+    menu_limpieza
+}
+
 clean_all() {
     banner_principal "LIMPIEZA COMPLETA"
+    if ! validate_compose_env_files; then
+        pause
+        menu_limpieza
+        return
+    fi
     
     echo -e "${RED}${BOLD}⚠️  ADVERTENCIA: Esta acción realizará una limpieza profunda del sistema${NC}"
     echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
@@ -803,7 +1295,7 @@ clean_all() {
     echo -e "\n${CYAN}${BOLD}📦 PASO 1/3: Limpiando recursos del stack...${NC}"
     echo -e "${CYAN}────────────────────────────────────────────────${NC}"
     
-    run_cmd "$COMPOSE_CMD -f $COMPOSE_FILE --env-file .env --env-file .env.$ENV down --volumes --remove-orphans" \
+    run_cmd "$(build_compose_cmd "down --volumes --remove-orphans")" \
             "Error al limpiar recursos del stack" \
             "Recursos del stack eliminados"
     
@@ -928,6 +1420,9 @@ clean_all() {
     # Limpiar caché de builds (automático)
     echo -e "\n${CYAN}${BOLD}🧹 Limpiando caché de builds...${NC}"
     docker builder prune -af >/dev/null 2>&1
+    if docker buildx version >/dev/null 2>&1; then
+        docker buildx prune -af >/dev/null 2>&1
+    fi
     echo -e "${GREEN}✅ Caché de builds eliminada${NC}"
     
     # RESUMEN FINAL
@@ -942,12 +1437,18 @@ clean_all() {
 
 drop_persistence() {
     banner_principal "ELIMINAR PERSISTENCIAS"
+    local data_root
+    local logs_root
+    local volumes_root
+    data_root="$(get_runtime_data_root)"
+    logs_root="$(get_runtime_logs_root)"
+    volumes_root="$(get_runtime_volumes_root)"
     
     echo -e "${RED}${BOLD}⚠️  ADVERTENCIA: Esta acción eliminará:${NC}"
-    echo -e "   • Datos de bases de datos (volumes/*)"
-    echo -e "   • node_modules, package-lock.json y __pycache__"
-    echo -e "   • Datos de APP/data/*_data"
-    echo -e "   • Logs de APP/logs"
+    echo -e "   • Volúmenes Docker nombrados del proyecto"
+    echo -e "   • Artefactos de runtime en ${volumes_root}"
+    echo -e "   • Datos de ${data_root}"
+    echo -e "   • Logs de ${logs_root}"
     echo ""
     
     if confirm_action "¿Eliminar todas las persistencias?" "no"; then
@@ -957,103 +1458,60 @@ drop_persistence() {
         # ===========================================
         echo -e "${YELLOW}Cambiando permisos de archivos...${NC}"
         
-        # Cambiar permisos de data
-        if [[ -d ./APP/data ]]; then
-            sudo chown -R vsoto:vsoto ./APP/data/*_data 2>/dev/null
-            echo -e "${GREEN}✅ Permisos actualizados: APP/data/*_data${NC}"
-        fi
-        
-        # Cambiar permisos de logs
-        if [[ -d ./APP/logs ]]; then
-            sudo chown -R vsoto:vsoto ./APP/logs 2>/dev/null
-            echo -e "${GREEN}✅ Permisos actualizados: APP/logs${NC}"
-        fi
+        ensure_path_writable "$data_root" "datos persistentes"
+        ensure_path_writable "$logs_root" "logs persistentes"
+        ensure_path_writable "$volumes_root" "artefactos runtime"
         
         echo ""
         
         # ===========================================
-        # 1. VOLÚMENES DOCKER
+        # 1. VOLÚMENES DOCKER NOMBRADOS
         # ===========================================
-        if confirm_action "¿Eliminar volúmenes de Docker (volumes/*)?" "no"; then
-            # Verificar contenedores en ejecución
-            local active_containers=$(docker ps --format "{{.Names}}")
-            
-            # Eliminar volúmenes de servicios específicos
-            for service in mailpit mariadb minio rabbitmq redis redisinsight; do
-                if echo "$active_containers" | grep -q "$service"; then
-                    echo -e "${YELLOW}⚠️  $service está en ejecución - NO se elimina${NC}"
-                else
-                    if [[ -d "volumes/$service" ]]; then
-                        rm -rf "volumes/$service" 2>/dev/null && \
-                            echo -e "${GREEN}✅ Eliminado: volumes/$service${NC}" || \
-                            echo -e "${RED}❌ Error al eliminar volumes/$service${NC}"
+        if confirm_action "¿Eliminar volúmenes Docker nombrados del proyecto?" "no"; then
+            local named_volumes=("${PROJECT_NAME}_frontend_node_modules")
+            local deleted_named=false
+            for volume_name in "${named_volumes[@]}"; do
+                if docker volume inspect "$volume_name" >/dev/null 2>&1; then
+                    if docker volume rm "$volume_name" >/dev/null 2>&1; then
+                        deleted_named=true
+                        echo -e "${GREEN}✅ Eliminado: $volume_name${NC}"
+                    else
+                        echo -e "${YELLOW}⚠️  No se pudo eliminar $volume_name (puede estar en uso)${NC}"
                     fi
                 fi
             done
-        else
-            echo -e "${YELLOW}⏭️  Omitida eliminación de volúmenes Docker${NC}"
-        fi
-        
-        # ===========================================
-        # 2. NODE_MODULES, PACKAGE-LOCK Y PYCACHE
-        # ===========================================
-        if confirm_action "¿Eliminar node_modules, package-lock.json y __pycache__?" "no"; then
-            # node_modules
-            find . -type d -name "node_modules" -exec rm -rf {} + 2>/dev/null && \
-                echo -e "${GREEN}✅ Eliminados: node_modules${NC}"
-            
-            # package-lock.json
-            find . -type f -name "package-lock.json" -exec rm -f {} + 2>/dev/null && \
-                echo -e "${GREEN}✅ Eliminados: package-lock.json${NC}"
-            
-            # __pycache__
-            find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null && \
-                echo -e "${GREEN}✅ Eliminados: __pycache__${NC}"
-        else
-            echo -e "${YELLOW}⏭️  Omitida eliminación de node_modules, package-lock y __pycache__${NC}"
-        fi
-        
-        # ===========================================
-        # 3. APP/DATA/*_DATA
-        # ===========================================
-        if confirm_action "¿Eliminar carpetas APP/data/*_data?" "no"; then
-            if [[ -d ./APP/data ]]; then
-                local data_found=false
-                for data_dir in ./APP/data/*_data; do
-                    if [[ -d "$data_dir" ]]; then
-                        data_found=true
-                        rm -rf "$data_dir" 2>/dev/null && \
-                            echo -e "${GREEN}✅ Eliminado: $data_dir${NC}" || \
-                            echo -e "${RED}❌ Error al eliminar $data_dir${NC}"
-                    fi
-                done
-                if [[ "$data_found" == false ]]; then
-                    echo -e "${YELLOW}⚠️  No se encontraron carpetas *_data en APP/data${NC}"
-                fi
-            else
-                echo -e "${YELLOW}⚠️  No existe el directorio APP/data${NC}"
+            if [[ "$deleted_named" == false ]]; then
+                echo -e "${YELLOW}⚠️  No se encontraron volúmenes Docker nombrados del proyecto para eliminar${NC}"
             fi
         else
-            echo -e "${YELLOW}⏭️  Omitida eliminación de APP/data/*_data${NC}"
+            echo -e "${YELLOW}⏭️  Omitida eliminación de volúmenes Docker nombrados${NC}"
         fi
         
         # ===========================================
-        # 4. APP/LOGS
+        # 2. ARTEFACTOS DE RUNTIME
         # ===========================================
-        if confirm_action "¿Eliminar contenido de APP/logs?" "no"; then
-            if [[ -d ./APP/logs ]]; then
-                if [[ -n "$(ls -A ./APP/logs 2>/dev/null)" ]]; then
-                    rm -rf ./APP/logs/* 2>/dev/null && \
-                        echo -e "${GREEN}✅ Eliminados: APP/logs${NC}" || \
-                        echo -e "${RED}❌ Error al eliminar APP/logs${NC}"
-                else
-                    echo -e "${YELLOW}⚠️  APP/logs ya está vacío${NC}"
-                fi
-            else
-                echo -e "${YELLOW}⚠️  No existe el directorio APP/logs${NC}"
-            fi
+        if confirm_action "¿Eliminar artefactos de runtime de Node/Python en ${volumes_root}?" "no"; then
+            clean_runtime_artifacts
         else
-            echo -e "${YELLOW}⏭️  Omitida eliminación de APP/logs${NC}"
+            echo -e "${YELLOW}⏭️  Omitida eliminación de artefactos de runtime${NC}"
+        fi
+        
+        # ===========================================
+        # 3. PERSISTENCE DATA
+        # ===========================================
+        if confirm_action "¿Eliminar carpetas de ${data_root}?" "no"; then
+            remove_directory_contents "$data_root" "$data_root"
+        else
+            echo -e "${YELLOW}⏭️  Omitida eliminación de ${data_root}${NC}"
+        fi
+        
+        # ===========================================
+        # 4. PERSISTENCE LOGS
+        # ===========================================
+        if confirm_action "¿Eliminar contenido de ${logs_root}?" "no"; then
+            remove_directory_contents "$logs_root" "$logs_root"
+        else
+            echo -e "${YELLOW}⏭️  Omitida eliminación de ${logs_root}${NC}"
         fi
     fi
     
@@ -1086,6 +1544,7 @@ change_env() {
             ;;
     esac
     
+    export ENV
     define_compose_file
     echo -e "${GREEN}✅ Entorno cambiado a: $(get_env_color)${NC}"
     pause
@@ -1093,7 +1552,7 @@ change_env() {
 }
 
 update_ip_menu() {
-    banner_principal "ACTUALIZAR IP"
+    banner_principal "ACTUALIZAR IP EXPO / ANDROID"
     
     local current_ip=$(get_current_ip)
     local env_file=".env"
@@ -1106,13 +1565,14 @@ update_ip_menu() {
     fi
     
     echo -e "IP actual detectada: ${CYAN}$current_ip${NC}"
+    echo -e "${BLUE}Se usará para REACT_NATIVE_PACKAGER_HOSTNAME en Expo / android_app.${NC}"
     
     if [[ -z "$current_ip" ]]; then
         echo -e "${YELLOW}⚠️  No se pudo detectar IP automáticamente${NC}"
         read -p "Ingrese IP manualmente: " current_ip
     fi
     
-    if confirm_action "¿Actualizar IP en .env a $current_ip?" "si"; then
+    if confirm_action "¿Actualizar REACT_NATIVE_PACKAGER_HOSTNAME en .env a $current_ip?" "si"; then
         if grep -q "^REACT_NATIVE_PACKAGER_HOSTNAME=" "$env_file"; then
             sed_in_place "s/^REACT_NATIVE_PACKAGER_HOSTNAME=.*/REACT_NATIVE_PACKAGER_HOSTNAME=$current_ip/" "$env_file" --backup
         else
@@ -1126,7 +1586,7 @@ update_ip_menu() {
 }
 
 check_ip_menu() {
-    banner_principal "VERIFICAR IP"
+    banner_principal "VERIFICAR IP EXPO / ANDROID"
     
     local current_ip=$(get_current_ip)
     local env_file=".env"
@@ -1135,7 +1595,7 @@ check_ip_menu() {
     
     if [[ -f "$env_file" ]]; then
         local env_ip=$(grep "^REACT_NATIVE_PACKAGER_HOSTNAME=" "$env_file" | cut -d'=' -f2)
-        echo -e "IP en .env: ${CYAN}${env_ip:-No configurada}${NC}"
+        echo -e "REACT_NATIVE_PACKAGER_HOSTNAME en .env: ${CYAN}${env_ip:-No configurada}${NC}"
         
         if [[ -n "$current_ip" && -n "$env_ip" ]]; then
             if [[ "$current_ip" == "$env_ip" ]]; then
@@ -1201,21 +1661,176 @@ validate_compose() {
         menu_contenedores
         return
     fi
+
+    if ! validate_compose_env_files; then
+        pause
+        menu_contenedores
+        return
+    fi
     
     echo -e "${BLUE}Validando configuración...${NC}"
     echo ""
     
-    if $COMPOSE_CMD -f "$COMPOSE_FILE" --env-file .env --env-file ".env.$ENV" config > /dev/null 2>&1; then
+    if $(build_compose_cmd "config") > /dev/null 2>&1; then
         echo -e "${GREEN}${BOLD}✅ VALIDACIÓN EXITOSA${NC}"
         echo ""
         echo -e "${CYAN}📋 SERVICIOS CONFIGURADOS:${NC}"
-        $COMPOSE_CMD -f "$COMPOSE_FILE" --env-file .env --env-file ".env.$ENV" config --services | sed 's/^/   • /'
+        $(build_compose_cmd "config --services") | sed 's/^/   • /'
     else
         echo -e "${RED}${BOLD}❌ ERROR DE VALIDACIÓN${NC}"
         echo ""
-        $COMPOSE_CMD -f "$COMPOSE_FILE" --env-file .env --env-file ".env.$ENV" config
+        $(build_compose_cmd "config")
     fi
     
+    pause
+    menu_contenedores
+}
+
+validate_compose_rules() {
+    banner_principal "VALIDAR REGLAS DEL COMPOSE"
+
+    if ! check_file_exists "$COMPOSE_FILE" "validación de reglas"; then
+        pause
+        menu_contenedores
+        return
+    fi
+
+    if ! validate_compose_env_files; then
+        pause
+        menu_contenedores
+        return
+    fi
+
+    local tmp_config
+    tmp_config="$(mktemp)"
+
+    if ! eval "$(build_compose_cmd "config" "--profile tools")" >"$tmp_config" 2>/dev/null; then
+        echo -e "${RED}❌ No se pudo expandir la configuración de Compose para validar reglas${NC}"
+        rm -f "$tmp_config"
+        pause
+        menu_contenedores
+        return
+    fi
+
+    local services=()
+    while IFS= read -r service_name; do
+        [[ -n "$service_name" ]] && services+=("$service_name")
+    done < <(eval "$(build_compose_cmd "config --services" "--profile tools")" 2>/dev/null)
+
+    local errors=0
+    local warnings=0
+    local service_name=""
+
+    echo -e "${CYAN}${BOLD}📋 REGLAS EVALUADAS:${NC}"
+    echo -e "   • container_name debe usar ${PROJECT_NAME}-<servicio>"
+    echo -e "   • labels requeridos: stack, env, service.group, service.lifecycle"
+    echo -e "   • service.group debe ser: core, dependency o tools"
+    echo -e "   • no deben existir rutas legacy del layout anterior"
+    echo ""
+
+    for service_name in "${services[@]}"; do
+        local source_block
+        local expanded_block
+        local expected_container_name="${PROJECT_NAME}-${service_name}"
+        local group_value=""
+
+        source_block="$(get_service_block_from_compose "$COMPOSE_FILE" "$service_name")"
+        expanded_block="$(awk -v target="$service_name" '
+            BEGIN {
+                in_services = 0
+                in_target = 0
+            }
+            /^services:/ {
+                in_services = 1
+                next
+            }
+            in_services && /^[^[:space:]]/ {
+                if (in_target) {
+                    exit
+                }
+            }
+            in_services && $0 ~ ("^  " target ":$") {
+                in_target = 1
+                print
+                next
+            }
+            in_target && /^  [a-zA-Z0-9_-]+:/ {
+                exit
+            }
+            in_target {
+                print
+            }
+        ' "$tmp_config")"
+
+        echo -e "${BLUE}${BOLD}Servicio:${NC} ${service_name}"
+
+        if [[ -z "$source_block" ]]; then
+            echo -e "${RED}   ❌ No se pudo localizar el bloque del servicio en ${COMPOSE_FILE}${NC}"
+            ((errors++))
+            continue
+        fi
+
+        if echo "$expanded_block" | grep -q "container_name: ${expected_container_name}$"; then
+            echo -e "${GREEN}   ✅ container_name correcto (${expected_container_name})${NC}"
+        else
+            echo -e "${RED}   ❌ container_name inválido. Se espera ${expected_container_name}${NC}"
+            ((errors++))
+        fi
+
+        if echo "$expanded_block" | grep -q "stack: ${PROJECT_NAME}$"; then
+            echo -e "${GREEN}   ✅ label stack correcto${NC}"
+        else
+            echo -e "${RED}   ❌ falta label stack=${PROJECT_NAME}${NC}"
+            ((errors++))
+        fi
+
+        if echo "$expanded_block" | grep -q "env: ${ENV}$"; then
+            echo -e "${GREEN}   ✅ label env correcto${NC}"
+        else
+            echo -e "${RED}   ❌ falta label env=${ENV}${NC}"
+            ((errors++))
+        fi
+
+        group_value="$(echo "$expanded_block" | sed -n 's/^[[:space:]]*service\.group: //p' | head -1)"
+        if [[ "$group_value" =~ ^(core|dependency|tools)$ ]]; then
+            echo -e "${GREEN}   ✅ service.group válido (${group_value})${NC}"
+        else
+            echo -e "${RED}   ❌ service.group inválido o ausente${NC}"
+            ((errors++))
+        fi
+
+        if echo "$expanded_block" | grep -q "service.lifecycle:"; then
+            echo -e "${GREEN}   ✅ service.lifecycle presente${NC}"
+        else
+            echo -e "${RED}   ❌ falta service.lifecycle${NC}"
+            ((errors++))
+        fi
+
+        if echo "$source_block" | grep -Eq 'Data/dokerFile|persistence/|APP/data-prd|APP/data-qa|APP/logs-prd|APP/logs-qa|APP/data/settings'; then
+            echo -e "${RED}   ❌ el servicio usa rutas legacy del layout anterior${NC}"
+            ((errors++))
+        fi
+
+        if echo "$source_block" | grep -qE '^\s+- \./'; then
+            echo -e "${YELLOW}   ⚠️  hay mounts hardcodeados con rutas relativas directas; revisar si deben usar variables de entorno${NC}"
+            ((warnings++))
+        fi
+
+        echo ""
+    done
+
+    rm -f "$tmp_config"
+
+    echo -e "${CYAN}${BOLD}═══════════════════════════════════════════════════════════${NC}"
+    if [[ $errors -eq 0 ]]; then
+        echo -e "${GREEN}${BOLD}✅ VALIDACIÓN DE REGLAS SUPERADA${NC}"
+    else
+        echo -e "${RED}${BOLD}❌ VALIDACIÓN DE REGLAS CON ERRORES${NC}"
+    fi
+    echo -e "${CYAN}Errores:${NC} $errors"
+    echo -e "${CYAN}Advertencias:${NC} $warnings"
+    echo -e "${CYAN}${BOLD}═══════════════════════════════════════════════════════════${NC}"
+
     pause
     menu_contenedores
 }
@@ -1229,16 +1844,16 @@ backup_volumes() {
     
     mkdir -p "$BACKUP_DIR"
     
-    echo -e "${CYAN}${BOLD}📦 VOLÚMENES DISPONIBLES:${NC}"
+    echo -e "${CYAN}${BOLD}📦 VOLÚMENES DEL PROYECTO:${NC}"
     echo ""
     
     local volumes=()
     while IFS= read -r volume; do
         volumes+=("$volume")
-    done < <(docker volume ls --format "{{.Name}}" 2>/dev/null)
+    done < <(list_project_named_volumes)
     
     if [[ ${#volumes[@]} -eq 0 ]]; then
-        echo -e "${YELLOW}⚠️  No hay volúmenes disponibles${NC}"
+        echo -e "${YELLOW}⚠️  No hay volúmenes nombrados del proyecto disponibles${NC}"
         pause
         menu_backup
         return
@@ -1337,7 +1952,15 @@ restore_volume() {
     fi
     
     local selected_backup="${backups[$((backup_choice-1))]}"
-    local volume_name=$(echo "$selected_backup" | cut -d'_' -f1)
+    local volume_name
+    volume_name="$(get_volume_name_from_backup "$selected_backup")"
+
+    if [[ -z "$volume_name" ]]; then
+        echo -e "${RED}❌ No se pudo determinar el volumen a restaurar desde $selected_backup${NC}"
+        pause
+        menu_backup
+        return
+    fi
     
     echo ""
     echo -e "${YELLOW}⚠️  Se restaurará el volumen: $volume_name${NC}"
@@ -1617,16 +2240,16 @@ menu_portainer() {
             if confirm_action "¿Recrear contenedor Portainer?" "no"; then
                 docker stop "$PORTAINER_NAME" >/dev/null 2>&1
                 docker rm "$PORTAINER_NAME" >/dev/null 2>&1
-                docker volume create portainer_data >/dev/null
+                docker volume create portainer_data >/dev/null 2>&1 || true
                 docker run -d \
                     --name $PORTAINER_NAME \
                     --restart unless-stopped \
                     -p 9000:9000 \
                     -v /var/run/docker.sock:/var/run/docker.sock \
                     -v portainer_data:/data \
-                    $PORTAINER_IMAGE >/dev/null 2>&1 && \
-                    echo -e "${GREEN}✅ Portainer recreado${NC}" || \
-                    echo -e "${RED}❌ Error al recrear${NC}"
+                    $PORTAINER_IMAGE && \
+                        echo -e "${GREEN}✅ Portainer iniciado en http://localhost:9000${NC}" || \
+                        echo -e "${RED}❌ Error al iniciar Portainer${NC}"
             fi
             pause
             menu_portainer 
@@ -1672,6 +2295,7 @@ main() {
     
     # Variables iniciales
     ENV="dev"
+    export ENV
     PROJECT_NAME=$(read_project_name)
     STACK="${PROJECT_NAME:-NoExiteStackName}"
     LABEL_FILTER="stack=${STACK}"
@@ -1679,6 +2303,11 @@ main() {
     CURRENT_IP=""
     BACKUP_DIR="docker-backups"
     
+    # ── AGREGADO: Portainer ──────────────────
+    PORTAINER_NAME="portainer"
+    PORTAINER_IMAGE="portainer/portainer-ce:latest"
+    # ─────────────────────────────────────────
+
     # Definir archivo compose inicial
     define_compose_file
     
