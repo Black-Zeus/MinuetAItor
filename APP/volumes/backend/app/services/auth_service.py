@@ -19,6 +19,7 @@ from services.notification_service import (
     enqueue_password_changed_email,
     enqueue_recover_password_email,
 )
+from services.avatar_service import get_avatar_url_if_exists
 from utils.device import get_device_string
 from utils.geo import get_geo
 from utils.network import get_client_ip
@@ -157,14 +158,13 @@ async def get_me(token: str, db: Session) -> MeResponse:
         raise UnauthorizedException("Usuario no encontrado")
 
     # ── Perfil ────────────────────────────────────────
-    profile = None
-    if user.profile:
-        profile = UserProfileData(
-            initials   = user.profile.initials,
-            color      = user.profile.color,
-            position   = user.profile.position,
-            department = user.profile.department,
-        )
+    profile = UserProfileData(
+        initials   = user.profile.initials if user.profile else None,
+        color      = user.profile.color if user.profile else None,
+        position   = user.profile.position if user.profile else None,
+        department = user.profile.department if user.profile else None,
+        avatar_url = get_avatar_url_if_exists(user.id),
+    )
 
     # ── Sesiones ──────────────────────────────────────
     sessions = get_user_sessions(db, user_id, limit=11)
