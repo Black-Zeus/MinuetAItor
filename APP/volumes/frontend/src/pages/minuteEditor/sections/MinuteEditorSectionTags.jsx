@@ -17,18 +17,21 @@
  * Nota técnica:
  * - Tu store addUserTag(name) trabaja con string (name.trim()).
  * - Para soportar "tag usuario derivado de IA" con categoría y descripción, se mantiene un mapa local
- *   (customCatalogByName) para enriquecer tags que NO existen en @/data/dataTags.json.
+ *   (customCatalogByName) para enriquecer tags que NO existen en el catalogo de la API.
  *   Si quieres persistencia real, esto debería moverse al store.
  */
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Icon from '@components/ui/icon/iconManager';
 import ModalManager from '@components/ui/modal';
 import useMinuteEditorStore from '@/store/minuteEditorStore';
-import tagsCatalog from '@/data/dataTags.json';
+import tagService, { tagCategoryService } from '@/services/tagService';
 
 const MinuteEditorSectionTags = ({ isReadOnly = false }) => {
     const { aiTags, userTags, deleteAiTag, addUserTag, deleteUserTag, activeSearchTargetId } = useMinuteEditorStore();
+
+    const [tagsCatalog, setTagsCatalog] = useState([]);
+    const [tagCategories, setTagCategories] = useState([]);
 
     // Picker usuario (catálogo)
     const [catalogQuery, setCatalogQuery] = useState('');
@@ -46,6 +49,44 @@ const MinuteEditorSectionTags = ({ isReadOnly = false }) => {
     const normalizeName = (v) => String(v ?? '').trim().toLowerCase();
     const normalizeText = (v) => String(v ?? '').trim();
 
+    useEffect(() => {
+        let mounted = true;
+
+        const loadCatalog = async () => {
+            try {
+                const [tagsResult, categoriesResult] = await Promise.all([
+                    tagService.list({ isActive: null, limit: 200 }),
+                    tagCategoryService.list({ isActive: true, limit: 200 }),
+                ]);
+
+                if (!mounted) return;
+
+                const categories = categoriesResult.items ?? [];
+                const categoriesById = new Map(categories.map((category) => [category.id, category.name]));
+
+                setTagCategories(categories);
+                setTagsCatalog(
+                    (tagsResult.items ?? []).map((tag) => ({
+                        ...tag,
+                        category: categoriesById.get(tag.categoryId) ?? 'Sin categoria',
+                    }))
+                );
+            } catch (error) {
+                console.error('[MinuteEditorSectionTags] Error cargando catalogo de tags:', error);
+                if (mounted) {
+                    setTagCategories([]);
+                    setTagsCatalog([]);
+                }
+            }
+        };
+
+        loadCatalog();
+
+        return () => {
+            mounted = false;
+        };
+    }, []);
+
     // ---------------------------
     // Catálogo indexado
     // ---------------------------
@@ -53,16 +94,16 @@ const MinuteEditorSectionTags = ({ isReadOnly = false }) => {
         const map = new Map();
         (tagsCatalog ?? []).forEach((t) => map.set(normalizeName(t.name), t));
         return map;
-    }, []);
+    }, [tagsCatalog]);
 
     const catalogCategories = useMemo(() => {
-        const set = new Set();
+        const set = new Set((tagCategories ?? []).map((category) => normalizeText(category.name)).filter(Boolean));
         (tagsCatalog ?? []).forEach((t) => {
             const c = normalizeText(t.category);
             if (c) set.add(c);
         });
         return Array.from(set).sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
-    }, []);
+    }, [tagCategories, tagsCatalog]);
 
     const userTagNamesSet = useMemo(() => {
         const set = new Set();
@@ -78,7 +119,7 @@ const MinuteEditorSectionTags = ({ isReadOnly = false }) => {
             (t) => String(t.status ?? '').toLowerCase() === 'activo'
         );
         return list.filter((t) => !userTagNamesSet.has(normalizeName(t.name)));
-    }, [userTagNamesSet]);
+    }, [tagsCatalog, userTagNamesSet]);
 
     const filteredCatalog = useMemo(() => {
         const query = normalizeName(catalogQuery);

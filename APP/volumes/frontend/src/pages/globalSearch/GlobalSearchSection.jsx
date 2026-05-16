@@ -10,6 +10,7 @@ import ClientModal, { CLIENT_MODAL_MODES }           from '@/pages/clientes/Clie
 import ProjectModal, { PROJECT_MODAL_MODES }         from '@/pages/project/ProjectModal';
 import TagsModal, { TAGS_MODAL_MODES }               from '@/pages/tags/TagsModal';
 import ProfilesCatalogModal, { PROFILE_MODAL_MODES } from '@/pages/profiles/ProfilesCatalogModal';
+import { getMinutePdfBlob } from '@/services/minutesService';
 
 // ====================================
 // NOTA DE CAMPOS POR MÓDULO
@@ -112,13 +113,17 @@ const resolveMinuteAction = (item, navigate) => {
   }
   return {
     icon: 'FaDownload', label: 'Descargar PDF',
-    handler: () => {
+    handler: async () => {
       const filename = `${item.date ?? 'minuta'}_${item.label}.pdf`.replace(/\s+/g, '_');
-      fetch('/pdf/demo.pdf', { cache: 'no-store' }).then(r => r.blob()).then(blob => {
+      const pdfType = item.status === 'completed' ? 'published' : 'draft';
+      try {
+        const blob = await getMinutePdfBlob(item.id, pdfType);
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a'); a.href = url; a.download = filename;
         document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-      }).catch(() => ModalManager.error?.({ title: 'Error', message: 'No fue posible descargar el PDF.' }));
+      } catch {
+        ModalManager.error?.({ title: 'Error', message: 'No fue posible descargar el PDF.' });
+      }
     },
   };
 };
