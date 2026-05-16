@@ -107,6 +107,10 @@ app.include_router(clients_router, prefix="/v1")
 from routers.v1.dashboard_widgets import router as dashboard_widgets_router
 app.include_router(dashboard_widgets_router, prefix="/v1")
 
+# Dashboard
+from routers.v1.dashboard import router as dashboard_router
+app.include_router(dashboard_router, prefix="/v1")
+
 # ── File Extensions (catálogo de sistema) ─────────────────────────────────────
 # [ACTIVO] TODO: [RBAC] Restringir POST/PUT/DELETE/PATCH a rol admin
 from routers.v1.file_extensions import router as file_extensions_router
