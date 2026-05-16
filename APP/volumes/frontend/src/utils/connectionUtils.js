@@ -2,14 +2,19 @@
 
 export const isNonEmpty = (v) => v != null && String(v).trim() !== "";
 
+export const cleanDisplayIp = (value) => {
+  const ip = String(value ?? "").trim();
+  return ip;
+};
+
 export const toUiConnection = (c) => ({
   ts:       c?.ts ?? null,
   device:   c?.device ?? "Desconocido",
   location: c?.location ?? "Desconocido",
   // Normaliza v4: backend ip_v4 → UI ip
-  ip:       c?.ip ?? c?.ip_v4 ?? "",
+  ip:       cleanDisplayIp(c?.ip ?? c?.ip_v4),
   // v6 se mantiene
-  ip_v6:    c?.ip_v6 ?? "",
+  ip_v6:    cleanDisplayIp(c?.ip_v6),
 });
 
 /**
@@ -25,8 +30,8 @@ export const resolveCurrentConnection = (session) => {
       ts:       ac.ts       ?? session?.lastAccess   ?? null,
       device:   ac.device   ?? session?.lastDevice   ?? "Desconocido",
       location: ac.location ?? session?.lastLocation ?? "Desconocido",
-      ip_v4:    ac.ip       ?? ac.ip_v4 ?? session?.lastIp ?? "",
-      ip_v6:    ac.ip_v6    ?? session?.lastIpV6     ?? "",
+      ip_v4:    cleanDisplayIp(ac.ip ?? ac.ip_v4 ?? session?.lastIp),
+      ip_v6:    cleanDisplayIp(ac.ip_v6 ?? session?.lastIpV6),
     };
   }
 
@@ -34,14 +39,14 @@ export const resolveCurrentConnection = (session) => {
     ts:       session?.lastAccess   ?? null,
     device:   session?.lastDevice   ?? "Desconocido",
     location: session?.lastLocation ?? "Desconocido",
-    ip_v4:    session?.lastIp       ?? "",
-    ip_v6:    session?.lastIpV6     ?? "",
+    ip_v4:    cleanDisplayIp(session?.lastIp),
+    ip_v6:    cleanDisplayIp(session?.lastIpV6),
   };
 };
 
 export const buildIpLines = ({ ip_v4, ip_v6 }) => {
-  const v4 = String(ip_v4 ?? "").trim();
-  const v6 = String(ip_v6 ?? "").trim();
+  const v4 = cleanDisplayIp(ip_v4);
+  const v6 = cleanDisplayIp(ip_v6);
 
   const lines = [];
   if (isNonEmpty(v4)) lines.push({ label: "IPv4", value: v4 });
