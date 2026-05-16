@@ -1,5 +1,5 @@
 # routers/v1/auth.py
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, File, Request, Response, UploadFile, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
@@ -15,6 +15,7 @@ from services.auth_service import (
     change_password, change_password_by_admin,
     forgot_password, reset_password,
 )
+from services.avatar_service import read_user_avatar, remove_user_avatar, save_user_avatar
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 bearer = HTTPBearer()
@@ -48,6 +49,35 @@ async def me_endpoint(
     db: Session = Depends(get_db),
 ):
     return await get_me(credentials.credentials, db)
+
+
+@router.post("/me/avatar", status_code=status.HTTP_200_OK)
+async def upload_my_avatar_endpoint(
+    file: UploadFile = File(...),
+    session: UserSession = Depends(current_user_dep),
+):
+    avatar_url = await save_user_avatar(session.user_id, file)
+    return {"avatar_url": avatar_url}
+
+
+@router.delete("/me/avatar", status_code=status.HTTP_200_OK)
+async def delete_my_avatar_endpoint(
+    session: UserSession = Depends(current_user_dep),
+):
+    remove_user_avatar(session.user_id)
+    return {"avatar_url": None}
+
+
+@router.get("/users/{user_id}/avatar", status_code=status.HTTP_200_OK)
+def user_avatar_endpoint(user_id: str):
+    content, content_type = read_user_avatar(user_id)
+    return Response(
+        content=content,
+        media_type=content_type,
+        headers={
+            "Cache-Control": "public, max-age=300",
+        },
+    )
 
 
 # ── Token ─────────────────────────────────────────────
