@@ -15,6 +15,7 @@ export const toUiConnection = (c) => ({
   ip:       cleanDisplayIp(c?.ip ?? c?.ip_v4),
   // v6 se mantiene
   ip_v6:    cleanDisplayIp(c?.ip_v6),
+  is_online: Boolean(c?.is_online),
 });
 
 /**
@@ -32,6 +33,7 @@ export const resolveCurrentConnection = (session) => {
       location: ac.location ?? session?.lastLocation ?? "Desconocido",
       ip_v4:    cleanDisplayIp(ac.ip ?? ac.ip_v4 ?? session?.lastIp),
       ip_v6:    cleanDisplayIp(ac.ip_v6 ?? session?.lastIpV6),
+      is_online: ac.is_online ?? false,
     };
   }
 
@@ -41,6 +43,7 @@ export const resolveCurrentConnection = (session) => {
     location: session?.lastLocation ?? "Desconocido",
     ip_v4:    cleanDisplayIp(session?.lastIp),
     ip_v6:    cleanDisplayIp(session?.lastIpV6),
+    is_online: false,
   };
 };
 

@@ -60,6 +60,7 @@ def get_active_sessions(db: Session, user_id: str) -> list[UserSession]:
             UserSession.user_id == user_id,
             UserSession.logged_out_at.is_(None),
         )
+        .order_by(UserSession.created_at.desc())
         .all()
     )
 

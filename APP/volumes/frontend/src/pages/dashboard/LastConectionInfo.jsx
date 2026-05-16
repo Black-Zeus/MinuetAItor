@@ -16,6 +16,21 @@ const TXT_TITLE = "text-gray-900 dark:text-white";
 const TXT_BODY  = "text-gray-600 dark:text-gray-300";
 const TXT_META  = "text-gray-500 dark:text-gray-400";
 
+const StatusBadge = ({ isOnline, compact = false }) => (
+  <div
+    className={[
+      "inline-flex items-center gap-2 rounded-full border font-semibold transition-theme",
+      compact ? "px-2.5 py-1 text-[11px]" : "px-3 py-1.5 text-xs",
+      isOnline
+        ? "bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800/40"
+        : "bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-900/30 dark:text-gray-300 dark:border-gray-700/60",
+    ].join(" ")}
+  >
+    <span className={`w-2 h-2 rounded-full ${isOnline ? "bg-green-500 animate-pulse" : "bg-gray-400"}`} />
+    <span>{isOnline ? "Online" : "Offline"}</span>
+  </div>
+);
+
 // ─── Info pill (1 línea) ──────────────────────────────────────────────────────
 const InfoPill = ({ icon, label, value, noWrap = false }) => (
   <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-700/50 transition-theme">
@@ -78,9 +93,12 @@ const ConnectionRow = ({ conn }) => {
   return (
     <div className="flex items-start justify-between gap-4 p-3 rounded-xl bg-white dark:bg-gray-900/20 border border-gray-200 dark:border-gray-700/50 transition-theme">
       <div className="min-w-0">
-        <span className={`text-sm font-semibold ${TXT_TITLE} transition-theme`}>
-          {formatDateTimeTechnical(conn?.ts)}
-        </span>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className={`text-sm font-semibold ${TXT_TITLE} transition-theme`}>
+            {formatDateTimeTechnical(conn?.ts)}
+          </span>
+          <StatusBadge isOnline={Boolean(conn?.is_online)} compact />
+        </div>
         <p className={`text-sm ${TXT_BODY} transition-theme mt-0.5 whitespace-normal break-words`}>
           {conn?.device ?? "Desconocido"}
         </p>
@@ -153,12 +171,7 @@ const LastConectionInfo = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/40">
-          <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-          <span className="text-xs font-semibold text-green-700 dark:text-green-400">
-            {session.isLoggedIn ? "Sesión activa" : "Sesión no activa"}
-          </span>
-        </div>
+        <StatusBadge isOnline={Boolean(current?.is_online ?? session.isLoggedIn)} />
       </div>
 
       {/* ── Grid conexión actual ── */}

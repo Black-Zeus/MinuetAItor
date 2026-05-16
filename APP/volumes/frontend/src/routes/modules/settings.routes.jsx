@@ -7,6 +7,7 @@ import { lazy } from "react";
 const TagsPage         = lazy(() => import("@/pages/tags/Tags"));
 const ProfilesCatalog  = lazy(() => import("@/pages/profiles/ProfilesCatalog"));
 const UserProfile      = lazy(() => import("@/pages/userProfile/UserProfile"));
+const SystemSettings   = lazy(() => import("@/pages/system/SystemSettings"));
 const UnderConstruction = lazy(() =>
   import("@/pages/errorPages/UnderConstructionPage")
 );
@@ -38,7 +39,7 @@ export const settingsRoutes = [
   },
   {
     path: "/settings/system",
-    component: UnderConstruction,
+    component: SystemSettings,
     title: "Configuración del Sistema",
     requiresAuth: true,
     roles: ["admin"],

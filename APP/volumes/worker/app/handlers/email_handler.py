@@ -100,7 +100,9 @@ def _send_email_sync(
 
     recipients = to + cc + bcc
     with _open_smtp_client() as server:
-        if settings.SMTP_USER and settings.SMTP_PASSWORD:
+        # Mailpit en dev no requiere autenticacion aunque dejemos un password
+        # explicito para validadores de entorno.
+        if settings.SMTP_USER and settings.SMTP_PASSWORD and settings.SMTP_HOST.lower() != "mailpit":
             server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
         server.send_message(msg, to_addrs=recipients)
         logger.debug("Email enviado sincronamente | recipients=%s", recipients)

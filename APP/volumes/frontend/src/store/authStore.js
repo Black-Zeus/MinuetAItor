@@ -47,6 +47,7 @@ const initialState = {
     lastRefreshAt: null,
     nextRefreshAt: null,
   },
+  remoteLogoutNotice: null,
   // Runtime — no persistido
   isLoading:     false,
   isInitialized: false,
@@ -76,6 +77,7 @@ const useAuthStore = create(
           loginTimestamp:  now,
           logoutTimestamp: null,
           lastAuthError:   null,
+          remoteLogoutNotice: null,
           refresh: {
             enabled:       true,
             lastRefreshAt: null,
@@ -108,6 +110,25 @@ const useAuthStore = create(
         });
       },
 
+      openRemoteLogoutNotice: (payload = {}) => {
+        const current = get().remoteLogoutNotice;
+        if (current?.isOpen) return;
+
+        set({
+          remoteLogoutNotice: {
+            isOpen: true,
+            title: payload.title ?? "Esta sesión fue cerrada",
+            message:
+              payload.message ??
+              "Detectamos que esta sesión fue cerrada desde otro dispositivo o por un cambio de seguridad. Para continuar, vuelve a iniciar sesión. Si no esperabas este cierre, solicita acceso o revisa con una persona administradora.",
+            source: payload.source ?? "unknown",
+            detectedAt: new Date().toISOString(),
+          },
+        });
+      },
+
+      closeRemoteLogoutNotice: () => set({ remoteLogoutNotice: null }),
+
       // ── Update tokens (refresh silencioso) ───────────────────────────────────
       updateTokens: ({ access_token }) => {
         if (!access_token) return;
@@ -118,6 +139,7 @@ const useAuthStore = create(
           expiresAt:       expToIso(exp),
           isAuthenticated: true,
           lastAuthError:   null,
+          remoteLogoutNotice: null,
           refresh: {
             ...s.refresh,
             lastRefreshAt: now,

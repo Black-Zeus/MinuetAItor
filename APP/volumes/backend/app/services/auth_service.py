@@ -12,12 +12,31 @@ from db.redis import get_redis
 from models.user import User
 from repositories.auth_repository import get_user_by_credential, get_user_with_roles_permissions, get_user_full, get_user_by_id
 from repositories.session_repository import create_session, mark_logout, get_user_sessions, get_session_by_jti, get_active_sessions, revoke_all_sessions
-from schemas.auth import TokenResponse, UserSession, MeResponse, UserProfileData, ConnectionInfo, ValidateTokenResponse, ChangePasswordRequest,    ChangePasswordByAdminRequest, TokenResponse
+from schemas.auth import (
+    TokenResponse,
+    UserSession,
+    MeResponse,
+    UserProfileData,
+    ConnectionInfo,
+    ActiveSessionInfo,
+    ActiveSessionsResponse,
+    LogoutSessionRequest,
+    LogoutSessionResponse,
+    LogoutAllSessionsResponse,
+    ValidateTokenResponse,
+    ChangePasswordRequest,
+    ChangePasswordByAdminRequest,
+)
 from services.notification_service import (
     consume_password_reset_otp,
     consume_password_reset_token,
     enqueue_password_changed_email,
     enqueue_recover_password_email,
+)
+from services.session_events_service import (
+    get_session_redis_key,
+    publish_session_event,
+    session_exists,
 )
 from services.avatar_service import get_avatar_url_if_exists
 from utils.device import get_device_string
@@ -26,11 +45,8 @@ from utils.network import get_client_ip
 from jose import jwt as jose_jwt
 from repositories.audit_repository import write_audit
 
-_SESSION_PREFIX = "session"
-
-
-def _session_key(user_id: str, jti: str) -> str:
-    return f"{_SESSION_PREFIX}:{user_id}:{jti}"
+async def _is_session_online(user_id: str, jti: str) -> bool:
+    return await session_exists(user_id, jti)
 
 
 def _build_user_session(user: User) -> UserSession:
@@ -87,7 +103,7 @@ async def login(db: Session, credential: str, password: str, request: Request) -
 
     redis = get_redis()
     ttl = int(expires.total_seconds())
-    await redis.setex(_session_key(session.user_id, session.jti), ttl, token)
+    await redis.setex(get_session_redis_key(session.user_id, session.jti), ttl, token)
 
     # ── Persistir sesión ──────────────────────────────
     create_session(
@@ -113,8 +129,118 @@ async def login(db: Session, credential: str, password: str, request: Request) -
 
 async def logout(session: UserSession, db: Session) -> None:
     redis = get_redis()
-    await redis.delete(_session_key(session.user_id, session.jti))
+    await redis.delete(get_session_redis_key(session.user_id, session.jti))
     mark_logout(db, session.jti)
+
+
+async def list_active_sessions(session: UserSession, db: Session) -> ActiveSessionsResponse:
+    sessions = get_active_sessions(db, session.user_id)
+    response_sessions: list[ActiveSessionInfo] = []
+
+    for s in sessions:
+        response_sessions.append(
+            ActiveSessionInfo(
+                jti=s.jti,
+                ts=s.created_at.isoformat(),
+                device=s.device,
+                location=s.location,
+                ip_v4=s.ip_v4,
+                ip_v6=s.ip_v6,
+                is_online=await _is_session_online(session.user_id, s.jti),
+                is_current=(s.jti == session.jti),
+            )
+        )
+
+    return ActiveSessionsResponse(
+        sessions=response_sessions
+    )
+
+
+async def logout_session_by_jti(
+    session: UserSession,
+    payload: LogoutSessionRequest,
+    db: Session,
+) -> LogoutSessionResponse:
+    if payload.jti == session.jti:
+        raise BadRequestException("No puedes cerrar la sesión actual desde esta acción")
+
+    target_session = get_session_by_jti(db, payload.jti)
+    if not target_session or target_session.user_id != session.user_id:
+        raise BadRequestException("La sesión seleccionada no existe o no pertenece a este usuario")
+
+    await publish_session_event(
+        session.user_id,
+        "session_revoked",
+        target_jti=payload.jti,
+        actor_jti=session.jti,
+        reason="manual_remote_logout",
+        message="Tu sesión fue cerrada desde otro dispositivo. Vuelve a iniciar sesión para continuar.",
+        force_logout=True,
+        metadata={"scope": "single_session"},
+    )
+
+    redis = get_redis()
+    was_online = await _is_session_online(session.user_id, payload.jti)
+    await redis.delete(get_session_redis_key(session.user_id, payload.jti))
+
+    was_active = target_session.logged_out_at is None
+    if was_active:
+        mark_logout(db, payload.jti)
+
+    session_revoked = was_online or was_active
+
+    write_audit(
+        db,
+        actor_user_id=session.user_id,
+        action="LOGOUT_SESSION",
+        entity_type="user",
+        entity_id=session.user_id,
+        details={
+            "target_session_jti": payload.jti,
+            "session_revoked": session_revoked,
+        },
+    )
+
+    return LogoutSessionResponse(
+        message="La sesión seleccionada fue cerrada.",
+        jti=payload.jti,
+        session_revoked=session_revoked,
+    )
+
+
+async def logout_all_other_sessions(session: UserSession, db: Session) -> LogoutAllSessionsResponse:
+    sessions = [s for s in get_active_sessions(db, session.user_id) if s.jti != session.jti]
+    for s in sessions:
+        await publish_session_event(
+            session.user_id,
+            "session_revoked",
+            target_jti=s.jti,
+            actor_jti=session.jti,
+            reason="manual_bulk_logout",
+            message="Tu sesión fue cerrada desde otro dispositivo. Vuelve a iniciar sesión para continuar.",
+            force_logout=True,
+            metadata={"scope": "all_other_sessions"},
+        )
+
+    redis = get_redis()
+    for s in sessions:
+        await redis.delete(get_session_redis_key(session.user_id, s.jti))
+
+    revoked = revoke_all_sessions(db, session.user_id, exclude_jti=session.jti)
+
+    write_audit(
+        db,
+        actor_user_id=session.user_id,
+        action="LOGOUT_ALL_OTHER_SESSIONS",
+        entity_type="user",
+        entity_id=session.user_id,
+        details={"sessions_revoked": revoked},
+    )
+
+    return LogoutAllSessionsResponse(
+        message="Se cerraron todas las demás sesiones activas.",
+        sessions_revoked=revoked,
+    )
 
 
 async def get_current_user(token: str) -> UserSession:
@@ -125,9 +251,7 @@ async def get_current_user(token: str) -> UserSession:
     if not user_id or not jti:
         raise UnauthorizedException()
 
-    redis = get_redis()
-    exists = await redis.exists(_session_key(user_id, jti))
-    if not exists:
+    if not await session_exists(user_id, jti):
         raise UnauthorizedException("Sesión expirada o cerrada")
 
     return UserSession(
@@ -148,9 +272,7 @@ async def get_me(token: str, db: Session) -> MeResponse:
     if not user_id or not jti:
         raise UnauthorizedException()
 
-    redis = get_redis()
-    exists = await redis.exists(_session_key(user_id, jti))
-    if not exists:
+    if not await session_exists(user_id, jti):
         raise UnauthorizedException("Sesión expirada o cerrada")
 
     user = get_user_full(db, user_id)
@@ -173,12 +295,14 @@ async def get_me(token: str, db: Session) -> MeResponse:
     last_connections  = []
 
     for s in sessions:
+        is_online = await _is_session_online(user_id, s.jti)
         conn = ConnectionInfo(
             ts       = s.created_at.isoformat(),
             device   = s.device,
             location = s.location,
             ip_v4    = s.ip_v4,
             ip_v6    = s.ip_v6,
+            is_online = is_online,
         )
         if s.jti == jti:
             active_connection = conn
@@ -212,13 +336,12 @@ async def refresh_token(token: str, db: Session, request: Request) -> TokenRespo
     if not user_id or not jti:
         raise UnauthorizedException()
 
-    redis = get_redis()
-    exists = await redis.exists(_session_key(user_id, jti))
-    if not exists:
+    if not await session_exists(user_id, jti):
         raise UnauthorizedException("Sesión expirada o cerrada")
 
     # Baja el token viejo
-    await redis.delete(_session_key(user_id, jti))
+    redis = get_redis()
+    await redis.delete(get_session_redis_key(user_id, jti))
     mark_logout(db, jti)
 
     # Carga usuario fresco
@@ -243,7 +366,7 @@ async def refresh_token(token: str, db: Session, request: Request) -> TokenRespo
     )
 
     ttl = int(expires.total_seconds())
-    await redis.setex(_session_key(session.user_id, session.jti), ttl, new_token)
+    await redis.setex(get_session_redis_key(session.user_id, session.jti), ttl, new_token)
 
     create_session(
         db,
@@ -272,9 +395,7 @@ async def validate_token(token: str) -> ValidateTokenResponse:
         if not user_id or not jti:
             return ValidateTokenResponse(valid=False)
 
-        redis = get_redis()
-        exists = await redis.exists(_session_key(user_id, jti))
-        if not exists:
+        if not await session_exists(user_id, jti):
             return ValidateTokenResponse(valid=False)
 
         # Calcular segundos restantes
@@ -315,9 +436,20 @@ async def change_password(
         # Revoca todas excepto la sesión actual
         jtis = [s.jti for s in get_active_sessions(db, session.user_id)
                 if s.jti != session.jti]
+        for jti in jtis:
+            await publish_session_event(
+                session.user_id,
+                "session_revoked",
+                target_jti=jti,
+                actor_jti=session.jti,
+                reason="password_changed",
+                message="Tu sesión fue cerrada porque la contraseña de la cuenta cambió. Vuelve a iniciar sesión.",
+                force_logout=True,
+                metadata={"scope": "password_change_revoke_others"},
+            )
         redis = get_redis()
         for jti in jtis:
-            await redis.delete(_session_key(session.user_id, jti))
+            await redis.delete(get_session_redis_key(session.user_id, jti))
         revoke_all_sessions(db, session.user_id, exclude_jti=session.jti)
 
 
@@ -349,9 +481,20 @@ async def change_password_by_admin(
 
     # Revocar TODAS las sesiones del usuario afectado
     jtis = [s.jti for s in get_active_sessions(db, payload.user_id)]
+    for jti in jtis:
+        await publish_session_event(
+            payload.user_id,
+            "session_revoked",
+            target_jti=jti,
+            actor_jti=actor.jti,
+            reason="password_changed_by_admin",
+            message="Tu sesión fue cerrada porque una persona administradora actualizó la contraseña de la cuenta.",
+            force_logout=True,
+            metadata={"scope": "admin_password_change"},
+        )
     redis = get_redis()
     for jti in jtis:
-        await redis.delete(_session_key(payload.user_id, jti))
+        await redis.delete(get_session_redis_key(payload.user_id, jti))
     revoke_all_sessions(db, payload.user_id)
 
     # Auditoría
@@ -419,7 +562,18 @@ async def reset_password(
     )
 
     jtis = [s.jti for s in get_active_sessions(db, user_id)]
+    for jti in jtis:
+        await publish_session_event(
+            user_id,
+            "session_revoked",
+            target_jti=jti,
+            actor_jti=None,
+            reason="password_reset",
+            message="Tu sesión fue cerrada porque la contraseña de la cuenta fue restablecida.",
+            force_logout=True,
+            metadata={"scope": "password_reset"},
+        )
     redis = get_redis()
     for jti in jtis:
-        await redis.delete(_session_key(user_id, jti))
+        await redis.delete(get_session_redis_key(user_id, jti))
     revoke_all_sessions(db, user_id)

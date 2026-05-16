@@ -23,7 +23,10 @@ services:
     image: mariadb:11.4
     container_name: ${PROJECT_NAME}-mariadb
     labels:
-      - stack=${PROJECT_NAME}
+      stack: ${PROJECT_NAME}
+      env: ${ENV_NAME:-dev}
+      service.group: dependency
+      service.lifecycle: persistent
     environment:
       TZ: America/Santiago
       MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD}
@@ -51,7 +54,10 @@ services:
     image: redis:7-alpine
     container_name: ${PROJECT_NAME}-redis
     labels:
-      - stack=${PROJECT_NAME}
+      stack: ${PROJECT_NAME}
+      env: ${ENV_NAME:-dev}
+      service.group: dependency
+      service.lifecycle: persistent
     environment:
       TZ: America/Santiago
     command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
@@ -76,7 +82,10 @@ services:
     image: minio/minio:RELEASE.2025-09-07T16-13-09Z
     container_name: ${PROJECT_NAME}-minio
     labels:
-      - stack=${PROJECT_NAME}
+      stack: ${PROJECT_NAME}
+      env: ${ENV_NAME:-dev}
+      service.group: dependency
+      service.lifecycle: persistent
     environment:
       TZ: America/Santiago
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
@@ -102,7 +111,10 @@ services:
   frontend:
     container_name: ${PROJECT_NAME}-frontend
     labels:
-      - stack=${PROJECT_NAME}
+      stack: ${PROJECT_NAME}
+      env: ${ENV_NAME:-dev}
+      service.group: core
+      service.lifecycle: stateless
     build:
       context: .
       dockerfile: ./Data/dokerFile/dev_qa/Dockerfile.frontend
@@ -136,7 +148,10 @@ services:
   backend:
     container_name: ${PROJECT_NAME}-backend
     labels:
-      - stack=${PROJECT_NAME}
+      stack: ${PROJECT_NAME}
+      env: ${ENV_NAME:-dev}
+      service.group: core
+      service.lifecycle: stateless
     build:
       context: .
       dockerfile: ./Data/dokerFile/dev_qa/Dockerfile.backend
@@ -197,7 +212,10 @@ services:
   worker:
     container_name: ${PROJECT_NAME}-worker
     labels:
-      - stack=${PROJECT_NAME}
+      stack: ${PROJECT_NAME}
+      env: ${ENV_NAME:-dev}
+      service.group: core
+      service.lifecycle: stateless
     build:
       context: .
       dockerfile: ./Data/dokerFile/dev_qa/Dockerfile.worker
@@ -288,7 +306,10 @@ services:
   pdf-worker:
     container_name: ${PROJECT_NAME}-pdf-worker
     labels:
-      - stack=${PROJECT_NAME}
+      stack: ${PROJECT_NAME}
+      env: ${ENV_NAME:-dev}
+      service.group: core
+      service.lifecycle: stateless
     build:
       context: .
       dockerfile: ./Data/dokerFile/dev_qa/Dockerfile.pdf-worker
@@ -334,15 +355,20 @@ services:
       - "gotenberg"
       - "--chromium-disable-javascript=true"
     labels:
-      - "stack=${PROJECT_NAME}"
-      - "env=${ENV_NAME}"
+      stack: ${PROJECT_NAME}
+      env: ${ENV_NAME:-dev}
+      service.group: dependency
+      service.lifecycle: stateless
     networks:
       - internal
 
   scheduler:
     container_name: ${PROJECT_NAME}-scheduler
     labels:
-      - stack=${PROJECT_NAME}
+      stack: ${PROJECT_NAME}
+      env: ${ENV_NAME:-dev}
+      service.group: core
+      service.lifecycle: stateless
     build:
       context: .
       dockerfile: ./Data/dokerFile/dev_qa/Dockerfile.scheduler
@@ -370,7 +396,10 @@ services:
   nginx:
     container_name: ${PROJECT_NAME}-nginx
     labels:
-      - stack=${PROJECT_NAME}
+      stack: ${PROJECT_NAME}
+      env: ${ENV_NAME:-dev}
+      service.group: core
+      service.lifecycle: stateless
     build:
       context: .
       dockerfile: ./Data/dokerFile/dev_qa/Dockerfile.nginx
@@ -397,33 +426,15 @@ services:
     logging: *default-logging
     <<: *resources-small
 
-  phpmyadmin:
-    image: phpmyadmin:5-apache
-    container_name: ${PROJECT_NAME}-phpmyadmin
-    labels:
-      - stack=${PROJECT_NAME}
-    # profiles: ["tools"]     ← comentar o eliminar para dev
-    environment:
-      TZ: America/Santiago
-      PMA_HOST: mariadb
-      PMA_PORT: 3306
-      PMA_ARBITRARY: 1
-    ports:
-      - "${PHPMYADMIN_PORT:-8082}:80"
-    depends_on:
-      mariadb:
-        condition: service_healthy
-    networks:
-      - internal
-    restart: unless-stopped
-    logging: *default-logging
-    <<: *resources-small
-
   redisinsight:
     image: redis/redisinsight:latest
     container_name: ${PROJECT_NAME}-redisinsight
     labels:
-      - stack=${PROJECT_NAME}
+      stack: ${PROJECT_NAME}
+      env: ${ENV_NAME:-dev}
+      service.group: tools
+      service.lifecycle: persistent
+    profiles: ["tools"]
     ports:
       - "${REDISINSIGHT_PORT:-5540}:5540"
     volumes:
@@ -444,8 +455,11 @@ services:
     image: axllent/mailpit:v1.29
     container_name: ${PROJECT_NAME}-mailpit
     labels:
-      - stack=${PROJECT_NAME}
-    # profiles: ["tools"]     ← comentar o eliminar para dev
+      stack: ${PROJECT_NAME}
+      env: ${ENV_NAME:-dev}
+      service.group: tools
+      service.lifecycle: stateless
+    profiles: ["tools"]
     ports:
       - "${MAILPIT_UI_PORT:-8025}:8025"
       - "${MAILPIT_SMTP_PORT:-1025}:1025"

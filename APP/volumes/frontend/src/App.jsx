@@ -5,6 +5,8 @@ import { isDev, isQA } from "@/utils/environment";
 import { exposeViteEnvToWindow } from "./utils/exposeEnv";
 import ToasterManager from "./components/common/toast/ToasterManager";
 import SessionExpiryModal from "./components/SessionExpiryModal";
+import AuthSessionEventsBridge from "./components/AuthSessionEventsBridge";
+import RemoteSessionNoticeModal from "./components/RemoteSessionNoticeModal";
 
 // Solo exponer en desarrollo o QA, nunca en producción
 if (isDev() || isQA()) {
@@ -24,9 +26,11 @@ function App() {
 
   return (
     <>
+      <AuthSessionEventsBridge />
       <AppRouter />
       <ToasterManager />
       <SessionExpiryModal />
+      <RemoteSessionNoticeModal />
     </>
   );
 }

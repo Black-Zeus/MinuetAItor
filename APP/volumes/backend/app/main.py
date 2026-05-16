@@ -9,11 +9,14 @@ from fastapi.responses import HTMLResponse
 
 from core.config import settings
 from core.middleware import ResponseContractMiddleware, GeoBlockMiddleware, register_exception_handlers
+from db.schema_compat import ensure_projects_auto_send_columns
+from db.session import engine
 from db.redis import close_redis
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    ensure_projects_auto_send_columns(engine)
     from events.pdf_dispatch import register_listeners
     register_listeners()
     yield
