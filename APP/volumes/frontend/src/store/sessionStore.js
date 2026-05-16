@@ -6,7 +6,7 @@
  * {
  *   user: { user_id, username, full_name, description, job_title, email, is_active, last_login_at },
  *   authz: { roles, permissions },
- *   profile: { initials, color, department },
+ *   profile: { initials, color, department, avatarUrl },
  *   connections: {
  *     active: { ts, device, location, ip_v4, ip_v6 },
  *     last: [{ ts, device, location, ip_v4, ip_v6 }]
@@ -17,7 +17,7 @@
  * Responsabilidades:
  *  - Datos de usuario autenticado (de /auth/me)
  *  - Roles y permisos
- *  - Perfil básico e initials/color
+ *  - Perfil básico e initials/color/avatar
  *  - Conexiones activa e historial
  *
  * Reemplaza: userStore.js (eliminado)
@@ -59,6 +59,7 @@ const mapMeToSession = (meData, meta = {}) => {
       initials: meData.profile?.initials ?? null,
       color: meData.profile?.color ?? null,
       department: meData.profile?.department ?? null,
+      avatarUrl: meData.profile?.avatar_url ?? meData.profile?.avatarUrl ?? null,
     },
     connections: {
       active: meData.active_connection
@@ -93,7 +94,7 @@ const mapMeToSession = (meData, meta = {}) => {
 const initialSession = {
   user: null,  // { user_id, username, full_name, description, job_title, email, is_active, last_login_at }
   authz: { roles: [], permissions: [] },
-  profile: { initials: null, color: null, department: null },
+  profile: { initials: null, color: null, department: null, avatarUrl: null },
   connections: { active: null, last: [] },
   meta: { fetched_at: null, request_id: null, source: "auth/me", schema_version: 1 },
 };
@@ -180,7 +181,7 @@ const useSessionStore = create(
 
       // ── Getters computados ───────────────────────────────────────────────────
 
-      /** Devuelve datos para mostrar en UI (nombre, initials, color) */
+      /** Devuelve datos para mostrar en UI (nombre, initials, color, avatar) */
       getDisplayData: () => {
         const { user, profile } = get();
         if (!user) return null;
@@ -201,6 +202,7 @@ const useSessionStore = create(
           initials: profile.initials ?? defaultInitials,
           color: profile.color ?? null,
           department: profile.department ?? null,
+          avatarUrl: profile.avatarUrl ?? null,
           job_title: user.job_title ?? null,
           description: user.description ?? null,
           phone: user.phone ?? null,
@@ -240,7 +242,7 @@ const useSessionStore = create(
         ...current,
         user: persisted?.user ?? null,
         authz: persisted?.authz ?? { roles: [], permissions: [] },
-        profile: persisted?.profile ?? { initials: null, color: null, department: null },
+        profile: { initials: null, color: null, department: null, avatarUrl: null, ...(persisted?.profile ?? {}) },
         connections: persisted?.connections ?? { active: null, last: [] },
         meta: persisted?.meta ?? { fetched_at: null, request_id: null, source: "auth/me", schema_version: 1 },
       }),

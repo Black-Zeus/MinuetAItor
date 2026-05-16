@@ -23,6 +23,7 @@ const Layout = ({ children }) => {
 
   const sidebarUser = {
     initials: userDisplay?.initials  || '?',
+    avatar:   userDisplay?.avatarUrl || null,
     name:     userDisplay?.fullName  || userDisplay?.username || 'Usuario',
     role:     userDisplay?.position  || authz?.roles?.[0] || 'Sin rol',
     isAdmin:  authz?.roles?.includes('ADMIN') ?? false,

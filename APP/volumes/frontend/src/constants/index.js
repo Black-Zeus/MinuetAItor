@@ -24,6 +24,7 @@ export const API_ENDPOINTS = {
     LOGOUT: `${API_VERSION}/auth/logout`,
     REFRESH: `${API_VERSION}/auth/refresh`,
     ME: `${API_VERSION}/auth/me`,
+    ME_AVATAR: `${API_VERSION}/auth/me/avatar`,
     VALIDATE_TOKEN: `${API_VERSION}/auth/validate-token`,
     CHANGE_PASSWORD: `${API_VERSION}/auth/change-password`,
     CHANGE_PASSWORD_ADMIN: `${API_VERSION}/auth/change-password-by-admin`,

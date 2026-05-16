@@ -84,6 +84,35 @@ class AuthService {
     }
   }
 
+  async uploadMyAvatar(file) {
+    try {
+      if (!file) throw new Error("Archivo requerido");
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await api.post(API_ENDPOINTS.AUTH.ME_AVATAR, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      return unwrap(response.data);
+    } catch (error) {
+      const formattedError = getFormattedError(error);
+      if (shouldLog()) console.error("❌ Avatar upload failed:", formattedError);
+      throw formattedError;
+    }
+  }
+
+  async deleteMyAvatar() {
+    try {
+      const response = await api.delete(API_ENDPOINTS.AUTH.ME_AVATAR);
+      return unwrap(response.data);
+    } catch (error) {
+      const formattedError = getFormattedError(error);
+      if (shouldLog()) console.error("❌ Avatar delete failed:", formattedError);
+      throw formattedError;
+    }
+  }
+
   /**
    * Logout
    * POST /v1/auth/logout
@@ -308,6 +337,8 @@ const authService = new AuthService();
 // ==========================================
 export const login = (credentials) => authService.login(credentials);
 export const getMe = () => authService.getMe();
+export const uploadMyAvatar = (file) => authService.uploadMyAvatar(file);
+export const deleteMyAvatar = () => authService.deleteMyAvatar();
 export const logout = () => authService.logout();
 export const validateToken = () => authService.validateToken();
 
