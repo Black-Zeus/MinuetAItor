@@ -14,6 +14,7 @@ import UserProfileCustomization from "./UserProfileCustomization";
 import PageLoadingSpinner from "@/components/ui/modal/types/system/PageLoadingSpinner";
 import { ModalManager } from "@/components/ui/modal";
 import useSessionStore from "@store/sessionStore";
+import { deleteMyAvatar, uploadMyAvatar } from "@/services/authService";
 
 import { formatDateTimeTechnical } from "@/utils/formats"
 
@@ -27,6 +28,7 @@ const sessionToForm = (user, profile, connections) => ({
   fullName: user?.full_name ?? "",   // user.full_name   → campo "Nombre completo"
   position: user?.job_title ?? "",   // user.job_title   → campo "Cargo"
   department: profile?.department ?? "",  // profile.department → campo "Departamento"
+  avatar: profile?.avatarUrl ?? null,
   notes: user?.description ?? "",   // user.description → campo "Notas"
   phone: user?.phone ?? "",                          // no viene del backend aún — solo local
   area: user?.area ?? "",                          // no viene del backend aún — solo local
@@ -99,14 +101,46 @@ const UserProfile = () => {
     });
   };
 
-  const handleChangeAvatar = (e) => {
+  const handleChangeAvatar = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setFormData((prev) => ({ ...prev, avatar: URL.createObjectURL(file) }));
+    try {
+      const result = await uploadMyAvatar(file);
+      const avatarUrl = result?.avatar_url ?? result?.avatarUrl ?? null;
+      setFormData((prev) => ({ ...prev, avatar: avatarUrl }));
+      await useSessionStore.getState().loadFromApi(true);
+      ModalManager.success?.({
+        title: "Avatar actualizado",
+        message: "La imagen de perfil se guardo correctamente.",
+      });
+    } catch (error) {
+      usrProfLog.error("[UserProfile] avatar upload error", error);
+      ModalManager.error?.({
+        title: "No se pudo actualizar el avatar",
+        message: error?.message ?? "Intenta nuevamente con una imagen valida.",
+      });
+    } finally {
+      e.target.value = "";
+    }
   };
 
-  const handleRemoveAvatar = () =>
-    setFormData((prev) => ({ ...prev, avatar: null }));
+  const handleRemoveAvatar = async () => {
+    try {
+      await deleteMyAvatar();
+      setFormData((prev) => ({ ...prev, avatar: null }));
+      await useSessionStore.getState().loadFromApi(true);
+      ModalManager.success?.({
+        title: "Avatar eliminado",
+        message: "Se volveran a mostrar tus iniciales.",
+      });
+    } catch (error) {
+      usrProfLog.error("[UserProfile] avatar delete error", error);
+      ModalManager.error?.({
+        title: "No se pudo eliminar el avatar",
+        message: error?.message ?? "Intenta nuevamente.",
+      });
+    }
+  };
 
   if (isLoading) return <PageLoadingSpinner message="Cargando perfil..." />;
 

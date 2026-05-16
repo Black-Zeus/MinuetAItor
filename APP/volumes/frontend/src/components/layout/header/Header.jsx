@@ -56,6 +56,7 @@ const Header = () => {
         </div>
         <HeaderDivider />
         <HeaderUserMenu
+          avatar={userDisplay?.avatarUrl}
           initials={userInitials}
           name={userName}
           role={userRole}

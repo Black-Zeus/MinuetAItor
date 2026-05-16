@@ -3,7 +3,7 @@
  * Componente para el footer del sidebar con información de usuario - 100% Tailwind
  */
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 const SidebarFooter = ({ 
   isCollapsed = false,
@@ -14,6 +14,12 @@ const SidebarFooter = ({
   },
   onClick = () => {}
 }) => {
+  const [avatarFailed, setAvatarFailed] = useState(false);
+
+  useEffect(() => {
+    setAvatarFailed(false);
+  }, [user.avatar]);
+
   return (
     <div className="border-t border-white/10 p-4">
       <div 
@@ -25,9 +31,18 @@ const SidebarFooter = ({
         onClick={onClick}
         title={`${user.name} - ${user.role}`}
       >
-        {/* Avatar con iniciales */}
-        <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center font-semibold text-sm flex-shrink-0">
-          {user.initials || 'U'}
+        {/* Avatar */}
+        <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center font-semibold text-sm flex-shrink-0 overflow-hidden">
+          {user.avatar && !avatarFailed ? (
+            <img
+              src={user.avatar}
+              alt={user.name || 'Usuario'}
+              className="w-full h-full object-cover"
+              onError={() => setAvatarFailed(true)}
+            />
+          ) : (
+            user.initials || 'U'
+          )}
         </div>
         
         {/* Información de usuario - solo visible si no está colapsado */}

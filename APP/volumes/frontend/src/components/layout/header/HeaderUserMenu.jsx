@@ -22,7 +22,12 @@ const HeaderUserMenu = ({
   className = ''
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [avatarFailed, setAvatarFailed] = useState(false);
   const containerRef = useRef(null);
+
+  useEffect(() => {
+    setAvatarFailed(false);
+  }, [avatar]);
 
   // Cierra al hacer click fuera del componente completo
   useEffect(() => {
@@ -58,8 +63,8 @@ const HeaderUserMenu = ({
       >
         {/* Avatar */}
         <div className="w-9 h-9 rounded-lg bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center font-semibold text-sm text-primary-600 dark:text-primary-400 overflow-hidden">
-          {avatar
-            ? <img src={avatar} alt={name} className="w-full h-full object-cover" />
+          {avatar && !avatarFailed
+            ? <img src={avatar} alt={name} className="w-full h-full object-cover" onError={() => setAvatarFailed(true)} />
             : <span>{initials}</span>
           }
         </div>
