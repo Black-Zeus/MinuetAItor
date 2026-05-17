@@ -121,10 +121,31 @@ TEMPLATE_DEFINITIONS: dict[str, EmailTemplateDefinition] = {
         description="Solicita al owner revision de acceso confidencial.",
         default_subject="Solicitud de aprobacion confidencial",
     ),
+    "smtp_config_test": EmailTemplateDefinition(
+        template_id="smtp_config_test",
+        filename="smtp_config_test.html",
+        title="Prueba de configuracion SMTP",
+        description="Valida una configuracion SMTP con un correo HTML real.",
+        default_subject="Prueba SMTP · {{ APP_NAME }}",
+    ),
 }
 
 _env: Environment | None = None
 DEFAULT_LOGO_CID = "minuetaitor-logo"
+
+
+def resolve_default_logo_path() -> str:
+    candidates = [
+        os.environ.get("EMAIL_INLINE_LOGO_PATH"),
+        "/app/assets/images/chinchinAItor_64.jpg",
+        "/app/email_assets/minuetaitor-logo.jpg",
+    ]
+    for candidate in candidates:
+        if not candidate:
+            continue
+        if Path(candidate).exists():
+            return candidate
+    return "/app/assets/images/chinchinAItor_64.jpg"
 
 
 def _build_env() -> Environment:
@@ -152,7 +173,7 @@ def _default_context() -> dict[str, str]:
         or os.environ.get("ENV_NAME")
         or "dev"
     )
-    support_email = os.environ.get("SUPPORT_EMAIL") or os.environ.get("SMTP_FROM_EMAIL") or "soporte@minuetaitor.cl"
+    support_email = os.environ.get("SUPPORT_EMAIL") or "soporte@minuetaitor.cl"
     developer_email = os.environ.get("DEVELOPER_EMAIL") or support_email
     developer_name = os.environ.get("DEVELOPER_NAME") or app_name
     tz_name = os.environ.get("TZ") or "America/Santiago"
@@ -169,7 +190,7 @@ def _default_context() -> dict[str, str]:
 def _default_logo_asset() -> InlineAsset:
     return InlineAsset(
         cid=DEFAULT_LOGO_CID,
-        path=os.environ.get("EMAIL_INLINE_LOGO_PATH", "/app/email_assets/minuetaitor-logo.jpg"),
+        path=resolve_default_logo_path(),
         mime_type=os.environ.get("EMAIL_INLINE_LOGO_MIME_TYPE", "image/jpeg"),
     )
 

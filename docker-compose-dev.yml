@@ -248,17 +248,6 @@ services:
       LOG_MAX_BYTES:    ${LOG_MAX_BYTES:-10485760}  # 10 MB por archivo
       LOG_BACKUP_COUNT: ${LOG_BACKUP_COUNT:-5}      # 5 archivos → 50 MB historial
 
-      # ── SMTP / Email ──────────────────────────────────────────────────────────
-      SMTP_HOST:       ${SMTP_HOST:-mailpit}
-      SMTP_PORT:       ${SMTP_PORT:-1025}
-      SMTP_USER:       ${SMTP_USER:-}
-      SMTP_PASSWORD:   ${SMTP_PASSWORD:-}
-      SMTP_FROM_NAME:  ${SMTP_FROM_NAME:-MinuetAItor}
-      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-no-reply@minuetaitor.cl}
-      SMTP_USE_TLS:    ${SMTP_USE_TLS:-false}
-      SMTP_USE_SSL:    ${SMTP_USE_SSL:-false}
-      SMTP_TIMEOUT:    ${SMTP_TIMEOUT:-10}
-
       # ── Base de Datos (MariaDB) ───────────────────────────────────────────────
       MARIADB_HOST:     ${MARIADB_HOST:-mariadb}
       MARIADB_PORT:     ${MARIADB_PORT:-3306}

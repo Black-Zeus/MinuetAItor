@@ -6,9 +6,15 @@ import html
 import mimetypes
 import re
 import smtplib
+import threading
+import time
 from email.message import EmailMessage
 from pathlib import Path
 from typing import Any
+
+from sqlalchemy import create_engine, text
+from sqlalchemy.exc import OperationalError, ProgrammingError
+from sqlalchemy.orm import sessionmaker
 
 from core.config import settings
 from core.job import JobEnvelope
@@ -18,6 +24,12 @@ logger = get_logger("worker.handler.email")
 
 TAG_RE = re.compile(r"<[^>]+>")
 LINE_BREAK_TAGS = ("<br>", "<br/>", "<br />", "</p>", "</div>", "</li>", "</tr>")
+SMTP_CACHE_TTL_SECONDS = 30
+
+_SMTP_CACHE_LOCK = threading.Lock()
+_SMTP_CACHE_EXPIRES_AT = 0.0
+_SMTP_CACHE_DATA: dict[str, Any] | None = None
+_SessionLocal: sessionmaker | None = None
 
 
 async def handle_email_job(job: JobEnvelope) -> None:
@@ -75,9 +87,11 @@ def _send_email_sync(
     inline_assets: list[dict[str, Any]],
     attachments: list[dict[str, Any]],
 ) -> None:
+    smtp_config = _get_runtime_smtp_config()
+
     msg = EmailMessage()
     msg["Subject"] = subject
-    msg["From"] = f"{settings.SMTP_FROM_NAME} <{settings.SMTP_FROM_EMAIL}>"
+    msg["From"] = f'{smtp_config["from_name"]} <{smtp_config["from_email"]}>'
     msg["To"] = ", ".join(to)
     if cc:
         msg["Cc"] = ", ".join(cc)
@@ -99,29 +113,134 @@ def _send_email_sync(
         _attach_attachments(msg, attachments)
 
     recipients = to + cc + bcc
-    with _open_smtp_client() as server:
+    server = _open_smtp_client(smtp_config)
+    try:
         # Mailpit en dev no requiere autenticacion aunque dejemos un password
         # explicito para validadores de entorno.
-        if settings.SMTP_USER and settings.SMTP_PASSWORD and settings.SMTP_HOST.lower() != "mailpit":
-            server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+        if (
+            smtp_config.get("username")
+            and smtp_config.get("password")
+            and str(smtp_config["host"]).lower() != "mailpit"
+        ):
+            server.login(smtp_config["username"], smtp_config["password"])
         server.send_message(msg, to_addrs=recipients)
         logger.debug("Email enviado sincronamente | recipients=%s", recipients)
+    finally:
+        try:
+            server.quit()
+        except (smtplib.SMTPServerDisconnected, OSError):
+            try:
+                server.close()
+            except Exception:
+                pass
 
 
-def _open_smtp_client() -> smtplib.SMTP:
-    if settings.SMTP_USE_SSL:
+def _get_db_session() -> sessionmaker:
+    global _SessionLocal
+    if _SessionLocal is None:
+        engine = create_engine(settings.DATABASE_URL, pool_pre_ping=True)
+        _SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+    return _SessionLocal
+
+
+def _is_missing_smtp_table_error(exc: Exception) -> bool:
+    text = str(exc).lower()
+    return (
+        "smtp_configs" in text
+        and ("doesn't exist" in text or "does not exist" in text or "no such table" in text)
+    )
+
+
+def _load_active_smtp_config_from_db() -> dict[str, Any] | None:
+    SessionLocal = _get_db_session()
+    query = text(
+        """
+        SELECT
+          host,
+          port,
+          username,
+          password,
+          from_name,
+          from_email,
+          use_tls,
+          use_ssl,
+          timeout_seconds
+        FROM smtp_configs
+        WHERE deleted_at IS NULL
+          AND is_active = 1
+        ORDER BY updated_at DESC, created_at DESC
+        LIMIT 1
+        """
+    )
+
+    try:
+        with SessionLocal() as db:
+            row = db.execute(query).mappings().first()
+    except (OperationalError, ProgrammingError) as exc:
+        if _is_missing_smtp_table_error(exc):
+            raise RuntimeError(
+                "La tabla smtp_configs aún no está disponible. Aplica el esquema antes de enviar correos."
+            ) from exc
+        raise
+
+    if not row:
+        return None
+
+    return {
+        "host": row["host"],
+        "port": int(row["port"]),
+        "username": row["username"] or None,
+        "password": row["password"] or None,
+        "from_name": row["from_name"],
+        "from_email": row["from_email"],
+        "use_tls": bool(row["use_tls"]),
+        "use_ssl": bool(row["use_ssl"]),
+        "timeout_seconds": int(row["timeout_seconds"]),
+        "source": "db",
+    }
+
+
+def _get_runtime_smtp_config() -> dict[str, Any]:
+    global _SMTP_CACHE_DATA, _SMTP_CACHE_EXPIRES_AT
+
+    now = time.monotonic()
+    with _SMTP_CACHE_LOCK:
+        if _SMTP_CACHE_DATA is not None and now < _SMTP_CACHE_EXPIRES_AT:
+            return dict(_SMTP_CACHE_DATA)
+
+    config = _load_active_smtp_config_from_db()
+    if not config:
+        raise RuntimeError(
+            "No hay una configuración SMTP activa. Configúrala en Sistema >> Integraciones >> SMTP antes de enviar correos."
+        )
+
+    with _SMTP_CACHE_LOCK:
+        _SMTP_CACHE_DATA = dict(config)
+        _SMTP_CACHE_EXPIRES_AT = time.monotonic() + SMTP_CACHE_TTL_SECONDS
+
+    logger.debug(
+        "Configuracion SMTP resuelta | source=%s host=%s port=%s",
+        config.get("source"),
+        config.get("host"),
+        config.get("port"),
+    )
+    return dict(config)
+
+
+def _open_smtp_client(smtp_config: dict[str, Any]) -> smtplib.SMTP:
+    if smtp_config.get("use_ssl"):
         return smtplib.SMTP_SSL(
-            host=settings.SMTP_HOST,
-            port=settings.SMTP_PORT,
-            timeout=settings.SMTP_TIMEOUT,
+            host=smtp_config["host"],
+            port=smtp_config["port"],
+            timeout=smtp_config["timeout_seconds"],
         )
 
     client = smtplib.SMTP(
-        host=settings.SMTP_HOST,
-        port=settings.SMTP_PORT,
-        timeout=settings.SMTP_TIMEOUT,
+        host=smtp_config["host"],
+        port=smtp_config["port"],
+        timeout=smtp_config["timeout_seconds"],
     )
-    if settings.SMTP_USE_TLS:
+    if smtp_config.get("use_tls"):
         client.starttls()
     return client
 
