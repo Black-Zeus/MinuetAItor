@@ -611,6 +611,285 @@ check_stack_containers() {
     return 0
 }
 
+docker_container_exists() {
+    local container_name="$1"
+    docker ps -a --format '{{.Names}}' 2>/dev/null | grep -Fxq "$container_name"
+}
+
+docker_container_is_running() {
+    local container_name="$1"
+    docker ps --format '{{.Names}}' 2>/dev/null | grep -Fxq "$container_name"
+}
+
+get_container_image() {
+    local container_name="$1"
+    docker inspect --format '{{.Config.Image}}' "$container_name" 2>/dev/null
+}
+
+is_portainer_image() {
+    local image_name="$1"
+    [[ "$image_name" == *"portainer/portainer-ce"* || "$image_name" == *"portainer/portainer-ee"* ]]
+}
+
+named_portainer_container_is_valid() {
+    if ! docker_container_exists "$PORTAINER_NAME"; then
+        return 1
+    fi
+
+    is_portainer_image "$(get_container_image "$PORTAINER_NAME")"
+}
+
+warn_invalid_named_portainer_container() {
+    local image_name=""
+
+    if ! docker_container_exists "$PORTAINER_NAME"; then
+        return 1
+    fi
+
+    image_name="$(get_container_image "$PORTAINER_NAME")"
+    echo -e "${RED}❌ Existe un contenedor llamado ${PORTAINER_NAME}, pero su imagen es ${image_name:-desconocida} y no corresponde a Portainer.${NC}"
+    echo -e "${YELLOW}   └─ Renómbrelo o elimínelo manualmente antes de administrar Portainer desde este menú.${NC}"
+    return 0
+}
+
+get_container_host_port() {
+    local container_name="$1"
+    local container_port="${2:-$PORTAINER_CONTAINER_PORT}"
+    docker inspect --format "{{with index .HostConfig.PortBindings \"$container_port\"}}{{(index . 0).HostPort}}{{end}}" "$container_name" 2>/dev/null
+}
+
+get_running_container_using_host_port() {
+    local host_port="$1"
+    docker ps --filter "publish=$host_port" --format '{{.Names}}' 2>/dev/null | head -n 1
+}
+
+is_local_process_using_host_port() {
+    local host_port="$1"
+
+    if command -v ss >/dev/null 2>&1; then
+        ss -ltnH 2>/dev/null | awk '{print $4}' | grep -Eq "(^|:)$host_port$"
+        return $?
+    fi
+
+    if command -v lsof >/dev/null 2>&1; then
+        lsof -nP -iTCP:"$host_port" -sTCP:LISTEN >/dev/null 2>&1
+        return $?
+    fi
+
+    if command -v netstat >/dev/null 2>&1; then
+        netstat -ltn 2>/dev/null | awk '{print $4}' | grep -Eq "(^|:)$host_port$"
+        return $?
+    fi
+
+    return 1
+}
+
+is_host_port_occupied() {
+    local host_port="$1"
+    local ignore_container="${2:-}"
+    local container_using_port=""
+
+    container_using_port="$(get_running_container_using_host_port "$host_port")"
+    if [[ -n "$container_using_port" && "$container_using_port" != "$ignore_container" ]]; then
+        return 0
+    fi
+
+    if is_local_process_using_host_port "$host_port"; then
+        if [[ -n "$ignore_container" ]] && docker_container_is_running "$ignore_container"; then
+            local ignore_port=""
+            ignore_port="$(get_container_host_port "$ignore_container")"
+            if [[ "$ignore_port" == "$host_port" ]]; then
+                return 1
+            fi
+        fi
+        return 0
+    fi
+
+    return 1
+}
+
+describe_host_port_usage() {
+    local host_port="$1"
+    local ignore_container="${2:-}"
+    local container_using_port=""
+    local container_image=""
+
+    container_using_port="$(get_running_container_using_host_port "$host_port")"
+    if [[ -n "$container_using_port" && "$container_using_port" != "$ignore_container" ]]; then
+        container_image="$(get_container_image "$container_using_port")"
+        if is_portainer_image "$container_image"; then
+            echo "otro contenedor de Portainer (${container_using_port})"
+        else
+            echo "el contenedor ${container_using_port} (${container_image})"
+        fi
+        return 0
+    fi
+
+    if is_local_process_using_host_port "$host_port"; then
+        echo "otro proceso local"
+        return 0
+    fi
+
+    echo ""
+}
+
+find_available_host_port() {
+    local starting_port="${1:-$PORTAINER_DEFAULT_HOST_PORT}"
+    local max_attempts=200
+    local candidate_port="$starting_port"
+    local attempt=0
+
+    while (( attempt < max_attempts )); do
+        if ! is_host_port_occupied "$candidate_port"; then
+            echo "$candidate_port"
+            return 0
+        fi
+        ((candidate_port++))
+        ((attempt++))
+    done
+
+    return 1
+}
+
+prompt_portainer_host_port() {
+    local suggested_port="$1"
+    local ignore_container="${2:-}"
+    local selected_port=""
+    local port_usage=""
+
+    while true; do
+        read -p "$(echo -e ${CYAN}"Puerto para publicar Portainer [${suggested_port}]: "${NC})" selected_port
+        selected_port="${selected_port:-$suggested_port}"
+
+        if ! [[ "$selected_port" =~ ^[0-9]+$ ]] || (( selected_port < 1 || selected_port > 65535 )); then
+            echo -e "${RED}❌ Puerto inválido. Debe ser un número entre 1 y 65535.${NC}" >&2
+            continue
+        fi
+
+        if is_host_port_occupied "$selected_port" "$ignore_container"; then
+            port_usage="$(describe_host_port_usage "$selected_port" "$ignore_container")"
+            echo -e "${RED}❌ El puerto ${selected_port} ya está en uso por ${port_usage:-otro servicio}.${NC}" >&2
+            continue
+        fi
+
+        echo "$selected_port"
+        return 0
+    done
+}
+
+create_portainer_container() {
+    local host_port="$1"
+    docker volume create portainer_data >/dev/null 2>&1 || true
+    docker run -d \
+        --name "$PORTAINER_NAME" \
+        --restart unless-stopped \
+        -p "${host_port}:9000" \
+        -v /var/run/docker.sock:/var/run/docker.sock \
+        -v portainer_data:/data \
+        "$PORTAINER_IMAGE" >/dev/null 2>&1
+}
+
+recreate_portainer_container() {
+    local host_port="$1"
+
+    docker stop "$PORTAINER_NAME" >/dev/null 2>&1 || true
+    docker rm "$PORTAINER_NAME" >/dev/null 2>&1 || true
+
+    create_portainer_container "$host_port"
+}
+
+get_portainer_url() {
+    local host_port=""
+
+    if docker_container_exists "$PORTAINER_NAME"; then
+        host_port="$(get_container_host_port "$PORTAINER_NAME")"
+    fi
+
+    host_port="${host_port:-$PORTAINER_DEFAULT_HOST_PORT}"
+    echo "http://localhost:${host_port}"
+}
+
+ensure_portainer_host_port() {
+    local desired_port="${1:-$PORTAINER_DEFAULT_HOST_PORT}"
+    local ignore_container="${2:-}"
+    local port_usage=""
+    local suggested_port=""
+
+    if ! is_host_port_occupied "$desired_port" "$ignore_container"; then
+        echo "$desired_port"
+        return 0
+    fi
+
+    port_usage="$(describe_host_port_usage "$desired_port" "$ignore_container")"
+    suggested_port="$(find_available_host_port $((desired_port + 1)))"
+
+    echo -e "${YELLOW}⚠️  El puerto ${desired_port} ya está en uso por ${port_usage:-otro servicio}.${NC}" >&2
+    if [[ -n "$suggested_port" ]]; then
+        echo -e "${BLUE}💡 Sugerencia: usar el puerto ${suggested_port}.${NC}" >&2
+        prompt_portainer_host_port "$suggested_port" "$ignore_container"
+        return 0
+    fi
+
+    echo -e "${RED}❌ No se encontró un puerto disponible cercano para Portainer.${NC}" >&2
+    return 1
+}
+
+start_portainer() {
+    local current_port=""
+    local resolved_port=""
+    local port_usage=""
+
+    if docker_container_exists "$PORTAINER_NAME"; then
+        if ! named_portainer_container_is_valid; then
+            warn_invalid_named_portainer_container
+            return 1
+        fi
+
+        current_port="$(get_container_host_port "$PORTAINER_NAME")"
+        current_port="${current_port:-$PORTAINER_DEFAULT_HOST_PORT}"
+
+        if docker_container_is_running "$PORTAINER_NAME"; then
+            echo -e "${GREEN}✅ Portainer ya está en ejecución en $(get_portainer_url)${NC}"
+            return 0
+        fi
+
+        if is_host_port_occupied "$current_port" "$PORTAINER_NAME"; then
+            port_usage="$(describe_host_port_usage "$current_port" "$PORTAINER_NAME")"
+            echo -e "${YELLOW}⚠️  El contenedor ${PORTAINER_NAME} existe, pero no puede iniciar porque su puerto ${current_port} está ocupado por ${port_usage:-otro servicio}.${NC}"
+            resolved_port="$(ensure_portainer_host_port "$current_port" "$PORTAINER_NAME")" || return 1
+
+            if confirm_action "¿Recrear Portainer para usar el puerto ${resolved_port}?" "si"; then
+                if recreate_portainer_container "$resolved_port"; then
+                    echo -e "${GREEN}✅ Portainer recreado e iniciado en http://localhost:${resolved_port}${NC}"
+                    return 0
+                fi
+                echo -e "${RED}❌ Error al recrear Portainer${NC}"
+                return 1
+            fi
+
+            echo -e "${YELLOW}⚠️  Operación cancelada. Portainer no fue recreado.${NC}"
+            return 1
+        fi
+
+        if docker start "$PORTAINER_NAME" >/dev/null 2>&1; then
+            echo -e "${GREEN}✅ Portainer iniciado en $(get_portainer_url)${NC}"
+            return 0
+        fi
+
+        echo -e "${RED}❌ Error al iniciar ${PORTAINER_NAME}. Revise los logs para más detalle.${NC}"
+        return 1
+    fi
+
+    resolved_port="$(ensure_portainer_host_port "$PORTAINER_DEFAULT_HOST_PORT")" || return 1
+    if create_portainer_container "$resolved_port"; then
+        echo -e "${GREEN}✅ Portainer iniciado en http://localhost:${resolved_port}${NC}"
+        return 0
+    fi
+
+    echo -e "${RED}❌ Error al iniciar Portainer${NC}"
+    return 1
+}
+
 # ==================================================
 # FUNCIONES REFACTORIZADAS (Punto 2)
 # ==================================================
@@ -2192,64 +2471,85 @@ menu_portainer() {
     
     case "$choice" in
         1) 
-            # Versión simplificada de portainer_start
-            if ! docker ps -a --format '{{.Names}}' | grep -qx "$PORTAINER_NAME"; then
-                docker run -d \
-                    --name $PORTAINER_NAME \
-                    --restart unless-stopped \
-                    -p 9000:9000 \
-                    -v /var/run/docker.sock:/var/run/docker.sock \
-                    -v portainer_data:/data \
-                    $PORTAINER_IMAGE >/dev/null 2>&1 && \
-                    echo -e "${GREEN}✅ Portainer iniciado en http://localhost:9000${NC}" || \
-                    echo -e "${RED}❌ Error al iniciar Portainer${NC}"
-            else
-                docker start "$PORTAINER_NAME" >/dev/null 2>&1 && \
-                    echo -e "${GREEN}✅ Portainer iniciado${NC}" || \
-                    echo -e "${RED}❌ Error al iniciar${NC}"
-            fi
+            start_portainer
             pause
             menu_portainer 
             ;;
         2) 
-            docker stop "$PORTAINER_NAME" >/dev/null 2>&1 && \
-                echo -e "${GREEN}✅ Portainer detenido${NC}" || \
-                echo -e "${RED}❌ Error al detener${NC}"
+            if docker_container_exists "$PORTAINER_NAME"; then
+                if named_portainer_container_is_valid; then
+                    docker stop "$PORTAINER_NAME" >/dev/null 2>&1 && \
+                        echo -e "${GREEN}✅ Portainer detenido${NC}" || \
+                        echo -e "${RED}❌ Error al detener${NC}"
+                else
+                    warn_invalid_named_portainer_container
+                fi
+            else
+                echo -e "${YELLOW}⚠️  No existe un contenedor llamado ${PORTAINER_NAME}.${NC}"
+            fi
             pause
             menu_portainer 
             ;;
         3) 
-            docker restart "$PORTAINER_NAME" >/dev/null 2>&1 && \
-                echo -e "${GREEN}✅ Portainer reiniciado${NC}" || \
-                echo -e "${RED}❌ Error al reiniciar${NC}"
+            if docker_container_exists "$PORTAINER_NAME"; then
+                if ! named_portainer_container_is_valid; then
+                    warn_invalid_named_portainer_container
+                elif docker_container_is_running "$PORTAINER_NAME"; then
+                    docker restart "$PORTAINER_NAME" >/dev/null 2>&1 && \
+                        echo -e "${GREEN}✅ Portainer reiniciado en $(get_portainer_url)${NC}" || \
+                        echo -e "${RED}❌ Error al reiniciar${NC}"
+                else
+                    start_portainer
+                fi
+            else
+                echo -e "${YELLOW}⚠️  No existe un contenedor llamado ${PORTAINER_NAME}. Se intentará crearlo.${NC}"
+                start_portainer
+            fi
             pause
             menu_portainer 
             ;;
         4) 
-            xdg-open "http://localhost:9000" 2>/dev/null || \
-                echo -e "${YELLOW}⚠️  Abra http://localhost:9000 manualmente${NC}"
+            if docker_container_exists "$PORTAINER_NAME"; then
+                if named_portainer_container_is_valid; then
+                    xdg-open "$(get_portainer_url)" 2>/dev/null || \
+                        echo -e "${YELLOW}⚠️  Abra $(get_portainer_url) manualmente${NC}"
+                else
+                    warn_invalid_named_portainer_container
+                fi
+            else
+                echo -e "${YELLOW}⚠️  No existe un contenedor llamado ${PORTAINER_NAME}.${NC}"
+            fi
             pause
             menu_portainer 
             ;;
         5) 
-            docker logs "$PORTAINER_NAME" --tail 50
+            if docker_container_exists "$PORTAINER_NAME"; then
+                if named_portainer_container_is_valid; then
+                    docker logs "$PORTAINER_NAME" --tail 50
+                else
+                    warn_invalid_named_portainer_container
+                fi
+            else
+                echo -e "${YELLOW}⚠️  No existe un contenedor llamado ${PORTAINER_NAME}.${NC}"
+            fi
             pause
             menu_portainer 
             ;;
         6) 
             if confirm_action "¿Recrear contenedor Portainer?" "no"; then
-                docker stop "$PORTAINER_NAME" >/dev/null 2>&1
-                docker rm "$PORTAINER_NAME" >/dev/null 2>&1
-                docker volume create portainer_data >/dev/null 2>&1 || true
-                docker run -d \
-                    --name $PORTAINER_NAME \
-                    --restart unless-stopped \
-                    -p 9000:9000 \
-                    -v /var/run/docker.sock:/var/run/docker.sock \
-                    -v portainer_data:/data \
-                    $PORTAINER_IMAGE && \
-                        echo -e "${GREEN}✅ Portainer iniciado en http://localhost:9000${NC}" || \
-                        echo -e "${RED}❌ Error al iniciar Portainer${NC}"
+                if docker_container_exists "$PORTAINER_NAME" && ! named_portainer_container_is_valid; then
+                    warn_invalid_named_portainer_container
+                else
+                    local target_port=""
+                    target_port="$(ensure_portainer_host_port "$PORTAINER_DEFAULT_HOST_PORT" "$PORTAINER_NAME")"
+                    if [[ -n "$target_port" ]]; then
+                        if recreate_portainer_container "$target_port"; then
+                            echo -e "${GREEN}✅ Portainer recreado e iniciado en http://localhost:${target_port}${NC}"
+                        else
+                            echo -e "${RED}❌ Error al recrear Portainer${NC}"
+                        fi
+                    fi
+                fi
             fi
             pause
             menu_portainer 
@@ -2306,6 +2606,8 @@ main() {
     # ── AGREGADO: Portainer ──────────────────
     PORTAINER_NAME="portainer"
     PORTAINER_IMAGE="portainer/portainer-ce:latest"
+    PORTAINER_DEFAULT_HOST_PORT="9000"
+    PORTAINER_CONTAINER_PORT="9000/tcp"
     # ─────────────────────────────────────────
 
     # Definir archivo compose inicial
