@@ -1,8 +1,4 @@
-/* 00_preamble.sql */
-SET NAMES utf8mb4;
-SET FOREIGN_KEY_CHECKS = 0;
-
-/* 30_triggers.sql */
+/* 20260517_1840_triggers.sql */
 
 DELIMITER $$
 

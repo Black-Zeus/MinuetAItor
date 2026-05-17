@@ -1,4 +1,5 @@
-/* 10_schema_tables_core.sql */
+/* 20260517_1810_schema_core.sql */
+SET NAMES utf8mb4;
 
 -- ----------------------------------------------------------------------------
 -- 1) Users (base) - primero para permitir FKs posteriores
@@ -1003,11 +1004,9 @@ CREATE TABLE user_sessions (
   PRIMARY KEY (id),
   UNIQUE KEY uq_us_jti (jti),
   KEY idx_us_user (user_id),
-  KEY idx_us_created_at (created_at)
+  KEY idx_us_created_at (created_at),
+  CONSTRAINT fk_us_user FOREIGN KEY (user_id) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-ALTER TABLE user_sessions
-  ADD CONSTRAINT fk_us_user FOREIGN KEY (user_id) REFERENCES users(id);
 
 -- ----------------------------------------------------------------------------
 -- 9) Acceso visitante a minutas + observaciones por versión

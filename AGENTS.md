@@ -86,17 +86,15 @@ Reglas:
 - No hay framework de migraciones visible.
 - El estado inicial depende de scripts SQL manuales en `APP/data/settings/mariadb/init`.
 - Orden observado:
-  - `00_preamble.sql`
-  - `10_schema_tables_core.sql`
-  - `15_schema_alter_tables_core.sql`
-  - `20_schema_alter_indexes.sql`
-  - `30_triggers.sql`
-  - `40_seeds_minimal.sql`
-  - `50_seeds_minimal.sql`
-  - `99_postamble.sql`
+  - `20260517_1810_schema_core.sql`
+  - `20260517_1820_schema_extensions.sql`
+  - `20260517_1830_schema_indexes.sql`
+  - `20260517_1840_triggers.sql`
+  - `20260517_1850_seed_catalogs_minimal.sql`
+  - `20260517_1855_seed_operational_minimal.sql`
 
 Reglas:
-- Mantener orden numerico.
+- Mantener orden léxico según la convención `YYYYMMDD_HHMM_finalidad.sql` con `HHMM` en formato de 24 horas.
 - Si agregas campos o tablas, reflejar el cambio en SQL, modelos, schemas y servicios.
 - Evitar romper compatibilidad con seeds existentes salvo que el cambio lo requiera y quede justificado.
 

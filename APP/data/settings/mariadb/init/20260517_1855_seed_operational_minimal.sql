@@ -1,4 +1,4 @@
-/* 50_seeds_minimal.sql
+/* 20260517_1855_seed_operational_minimal.sql
    ============================================================================
    Propósito  : Datos transaccionales MÍNIMOS para operar
                 - Usuario administrador (con hash y UUID proporcionados)
@@ -8,7 +8,7 @@
    Contexto   : Datos necesarios para que la aplicación tenga usuarios,
                 clientes y proyectos con los cuales operar en desarrollo.
    Motor      : MySQL / MariaDB (InnoDB, utf8mb4)
-   Dependencias: Requiere 40_seeds_minimal.sql ejecutado previamente
+   Dependencias: Requiere 20260517_1850_seed_catalogs_minimal.sql ejecutado previamente
    ============================================================================
    Nota: 
      - UUID Admin: c168b91d-e16f-468c-afd1-547efd2c486b
