@@ -22,6 +22,7 @@ from models.record_statuses import RecordStatus
 from models.version_statuses import VersionStatus
 from models.dashboard_widgets import DashboardWidget
 from models.ai_profile_categories import AiProfileCategory
+from models.ai_provider_configs import AiProviderConfig
 from models.smtp_configs import SmtpConfig
 
 # ── Entidades de negocio ──────────────────────────────────────────────────────
@@ -70,6 +71,7 @@ __all__ = [
     "TagCategory", "ArtifactType", "ArtifactState",
     "RecordType", "RecordStatus", "VersionStatus",
     "DashboardWidget", "AiProfileCategory",
+    "AiProviderConfig",
     "SmtpConfig",
     # Negocio
     "Client", "Project", "Object", "AiProfile", "AuditLog",

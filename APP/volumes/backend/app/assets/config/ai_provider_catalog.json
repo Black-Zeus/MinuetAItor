@@ -1,0 +1,79 @@
+[
+  {
+    "id": "openai",
+    "label": "OpenAI / ChatGPT",
+    "base_url": "https://api.openai.com/v1",
+    "validation_endpoint": "/models",
+    "models_endpoint": "/models",
+    "auth_type": "api_key",
+    "provider_family": "openai_compatible",
+    "models_response_format": "openai",
+    "is_commercial": true
+  },
+  {
+    "id": "anthropic",
+    "label": "Anthropic / Claude",
+    "base_url": "https://api.anthropic.com/v1",
+    "validation_endpoint": "/models",
+    "models_endpoint": "/models",
+    "auth_type": "api_key",
+    "provider_family": "anthropic",
+    "models_response_format": "anthropic",
+    "is_commercial": true
+  },
+  {
+    "id": "deepseek",
+    "label": "DeepSeek",
+    "base_url": "https://api.deepseek.com",
+    "validation_endpoint": "/models",
+    "models_endpoint": "/models",
+    "auth_type": "api_key",
+    "provider_family": "openai_compatible",
+    "models_response_format": "openai",
+    "is_commercial": true
+  },
+  {
+    "id": "perplexity",
+    "label": "Perplexity",
+    "base_url": "https://api.perplexity.ai/v1",
+    "validation_endpoint": "/models",
+    "models_endpoint": "/models",
+    "auth_type": "api_key",
+    "provider_family": "openai_compatible",
+    "models_response_format": "openai",
+    "is_commercial": true
+  },
+  {
+    "id": "ollama_local",
+    "label": "Ollama local",
+    "base_url": "http://localhost:11434",
+    "validation_endpoint": "/api/tags",
+    "models_endpoint": "/api/tags",
+    "auth_type": "none",
+    "provider_family": "ollama",
+    "models_response_format": "ollama",
+    "is_commercial": false
+  },
+  {
+    "id": "ollama_remote",
+    "label": "Ollama remoto",
+    "base_url": "http://host.docker.internal:11434",
+    "validation_endpoint": "/api/tags",
+    "models_endpoint": "/api/tags",
+    "auth_type": "none",
+    "provider_family": "ollama",
+    "models_response_format": "ollama",
+    "is_commercial": false
+  },
+  {
+    "id": "custom",
+    "label": "Custom",
+    "base_url": "",
+    "validation_endpoint": "",
+    "models_endpoint": "",
+    "auth_type": "none",
+    "provider_family": "generic",
+    "models_response_format": "generic",
+    "is_commercial": false
+  }
+]

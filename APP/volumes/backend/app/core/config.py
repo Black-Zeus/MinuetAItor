@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     openai_seed: int = 42
     openai_system_prompt: str = "system_prompt_v08.txt"
     prompt_path_base: str = "/app/assets/prompts"
+    ai_provider_catalog_path: str = "/app/assets/config/ai_provider_catalog.json"
 
     # OpenAI — capacidades por modelo
     openai_models_with_file_support: list[str] = [
