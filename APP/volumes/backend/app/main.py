@@ -65,6 +65,11 @@ app.include_router(ai_profile_categories_router, prefix="/v1")
 from routers.v1.ai_profiles import router as ai_profiles_router
 app.include_router(ai_profiles_router, prefix="/v1")
 
+# ── AI Provider Configs ───────────────────────────────────────────────────────
+# [ACTIVO] TODO: [RBAC] Restringir mutaciones a rol admin
+from routers.v1.ai_provider_configs import router as ai_provider_configs_router
+app.include_router(ai_provider_configs_router, prefix="/v1")
+
 # ── AI Tag Conversions ────────────────────────────────────────────────────────
 # [ACTIVO]
 from routers.v1.ai_tag_conversions import router as ai_tag_conversions_router

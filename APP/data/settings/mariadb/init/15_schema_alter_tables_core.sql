@@ -167,6 +167,59 @@ CREATE TABLE IF NOT EXISTS smtp_configs (
   CONSTRAINT fk_smtp_configs_deleted_by FOREIGN KEY (deleted_by) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- ----------------------------------------------------------------------------
+-- Configuraciones AI administrables
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS ai_provider_configs (
+  id                    CHAR(36) PRIMARY KEY,
+  name                  VARCHAR(120) NOT NULL,
+  provider_type         VARCHAR(40) NOT NULL,
+  base_url              VARCHAR(255) NOT NULL,
+  validation_endpoint   VARCHAR(255) NULL,
+  models_endpoint       VARCHAR(255) NULL,
+  model_name            VARCHAR(180) NULL,
+  auth_type             VARCHAR(40) NOT NULL DEFAULT 'none',
+  token_secret          TEXT NULL,
+  username              VARCHAR(255) NULL,
+  password_secret       TEXT NULL,
+  custom_headers_json   TEXT NULL,
+  allow_model_discovery TINYINT(1) NOT NULL DEFAULT 1,
+  is_active             TINYINT(1) NOT NULL DEFAULT 0,
+  validation_status     VARCHAR(40) NOT NULL DEFAULT 'unvalidated',
+  last_validated_at     DATETIME NULL,
+  last_validated_by     CHAR(36) NULL,
+  last_error            TEXT NULL,
+  timeout_seconds       INT NOT NULL DEFAULT 15,
+
+  created_at            DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_by            CHAR(36) NULL,
+  updated_at            DATETIME NULL ON UPDATE CURRENT_TIMESTAMP,
+  updated_by            CHAR(36) NULL,
+
+  deleted_at            DATETIME NULL,
+  deleted_by            CHAR(36) NULL,
+
+  UNIQUE KEY uq_ai_provider_configs_name (name),
+  KEY idx_ai_provider_configs_active (is_active),
+  KEY idx_ai_provider_configs_provider_type (provider_type),
+  KEY idx_ai_provider_configs_validation_status (validation_status),
+  KEY idx_ai_provider_configs_deleted_at (deleted_at),
+
+  CONSTRAINT fk_ai_provider_configs_created_by FOREIGN KEY (created_by) REFERENCES users(id),
+  CONSTRAINT fk_ai_provider_configs_last_validated_by FOREIGN KEY (last_validated_by) REFERENCES users(id),
+  CONSTRAINT fk_ai_provider_configs_updated_by FOREIGN KEY (updated_by) REFERENCES users(id),
+  CONSTRAINT fk_ai_provider_configs_deleted_by FOREIGN KEY (deleted_by) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+ALTER TABLE ai_provider_configs
+  DROP COLUMN IF EXISTS provider_name;
+
+ALTER TABLE ai_provider_configs
+  DROP COLUMN IF EXISTS notes;
+
+ALTER TABLE ai_provider_configs
+  MODIFY COLUMN allow_model_discovery TINYINT(1) NOT NULL DEFAULT 1;
+
 SET @fk_rvo_resolved_by_exists := (
   SELECT COUNT(*)
   FROM information_schema.TABLE_CONSTRAINTS
