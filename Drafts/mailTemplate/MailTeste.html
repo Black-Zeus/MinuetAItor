@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="x-apple-disable-message-reformatting" />
+  <meta name="format-detection" content="telephone=no,address=no,email=no,date=no,url=no" />
+  <title>Prueba SMTP · MinuetAItor</title>
+</head>
+<body style="margin:0;padding:0;background:#060b18;color:#e7eefc;">
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">
+    Tu configuracion SMTP respondio bien y MinuetAItor ya dejo una huella en tu bandeja.
+  </div>
+
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#060b18;margin:0;padding:0;">
+    <tr>
+      <td align="center" style="padding:28px 12px;">
+        <table role="presentation" width="640" cellspacing="0" cellpadding="0" border="0" style="width:640px;max-width:640px;border-collapse:separate;border-spacing:0;">
+          <tr>
+            <td style="background:linear-gradient(180deg,#0b1735 0%,#081127 100%);border:1px solid rgba(255,255,255,0.08);border-bottom:none;border-radius:18px 18px 0 0;padding:18px 20px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td valign="middle" style="width:56px;padding-right:14px;">
+                    <img src="cid:minuetaitor-logo" width="48" height="48" alt="MinuetAItor" style="display:block;border:0;border-radius:12px;" />
+                  </td>
+                  <td valign="middle">
+                    <div style="font-size:18px;line-height:22px;font-weight:700;color:#f1f6ff;">
+                      MinuetAItor
+                    </div>
+                    <div style="font-size:12px;line-height:16px;color:#a7b7d8;margin-top:4px;">
+                      Correo operativo · Integraciones · Trazabilidad
+                    </div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="background:#07122a;border:1px solid rgba(255,255,255,0.08);border-top:none;border-bottom:none;padding:24px 20px 10px 20px;">
+              <div style="font-size:22px;line-height:28px;font-weight:800;color:#f1f6ff;letter-spacing:-0.02em;">
+                Todo bien por aca. La configuracion SMTP respondio.
+              </div>
+
+              <div style="font-size:14px;line-height:22px;color:#c9d7f2;margin-top:12px;">
+                Este correo salio desde <b style="color:#f1f6ff;">MinuetAItor</b> para validar la conexion,
+                la autenticacion cuando aplica y la entrega del mensaje.
+              </div>
+
+              <div style="font-size:14px;line-height:22px;color:#c9d7f2;margin-top:10px;">
+                Si lo estas viendo en tu bandeja o dentro de MailPit, ya tienes la prueba clave:
+                la configuracion <b style="color:#f1f6ff;">{{configuracion_nombre}}</b> logro enviar un HTML real.
+              </div>
+
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:16px;">
+                <tr>
+                  <td style="background:rgba(9,22,52,0.9);border:1px solid rgba(255,255,255,0.12);border-radius:16px;padding:18px 16px;">
+                    <div style="font-size:12px;line-height:16px;color:#9fb2d6;margin-bottom:10px;">
+                      DETALLE DE LA PRUEBA
+                    </div>
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                      <tr>
+                        <td style="font-size:12px;line-height:18px;color:#9fb2d6;width:165px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.08);">Configuracion</td>
+                        <td style="font-size:12px;line-height:18px;color:#f1f6ff;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.08);font-weight:700;">{{configuracion_nombre}}</td>
+                      </tr>
+                      <tr>
+                        <td style="font-size:12px;line-height:18px;color:#9fb2d6;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.08);">Ruta SMTP</td>
+                        <td style="font-size:12px;line-height:18px;color:#c9d7f2;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.08);">{{host}}:{{port}}</td>
+                      </tr>
+                      <tr>
+                        <td style="font-size:12px;line-height:18px;color:#9fb2d6;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.08);">Seguridad</td>
+                        <td style="font-size:12px;line-height:18px;color:#c9d7f2;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.08);">{{seguridad}}</td>
+                      </tr>
+                      <tr>
+                        <td style="font-size:12px;line-height:18px;color:#9fb2d6;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.08);">Remitente</td>
+                        <td style="font-size:12px;line-height:18px;color:#c9d7f2;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.08);">{{remitente_nombre}} &lt;{{remitente_email}}&gt;</td>
+                      </tr>
+                      <tr>
+                        <td style="font-size:12px;line-height:18px;color:#9fb2d6;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.08);">Destino de prueba</td>
+                        <td style="font-size:12px;line-height:18px;color:#c9d7f2;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.08);">{{destino_prueba}}</td>
+                      </tr>
+                      <tr>
+                        <td style="font-size:12px;line-height:18px;color:#9fb2d6;padding:6px 0;">Fecha</td>
+                        <td style="font-size:12px;line-height:18px;color:#c9d7f2;padding:6px 0;">{{fecha_generacion}}</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <div style="margin-top:14px;padding:14px 14px;border:1px solid rgba(52,211,153,0.22);border-radius:14px;background:rgba(16,185,129,0.10);">
+                <div style="font-size:13px;line-height:18px;color:#d1fae5;font-weight:700;">
+                  Señal de exito
+                </div>
+                <div style="font-size:12px;line-height:18px;color:#b7f7da;margin-top:6px;">
+                  Si recibiste este correo, ya puedes guardar la configuracion y dejarla lista para operar.
+                  Si estabas probando con MailPit, verlo alli tambien cuenta como validacion correcta.
+                </div>
+              </div>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="background:#07122a;border:1px solid rgba(255,255,255,0.08);border-top:none;border-radius:0 0 18px 18px;padding:16px 20px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td style="font-size:12px;line-height:18px;color:#8fa6cc;">
+                    Generado automaticamente por MinuetAItor. No necesitas responder este mensaje.
+                  </td>
+                  <td align="right" style="font-size:12px;line-height:18px;color:#8fa6cc;">
+                    Integraciones · Verificacion · Operacion real
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
