@@ -1,7 +1,16 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
+import ActionButton from "@/components/ui/button/ActionButton";
 import Icon from "@/components/ui/icon/iconManager";
+import ModalManager from "@/components/ui/modal";
+import { toastError, toastSuccess } from "@/components/common/toast/toastHelpers";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
+import SmtpConfigModal, {
+  SMTP_MODAL_MODES,
+  SMTP_TEST_IDLE_MESSAGE,
+  SmtpTestDialogPanel,
+} from "@/pages/system/SmtpConfigModal";
+import smtpConfigService from "@/services/smtpConfigService";
 
 const TXT_TITLE = "text-gray-900 dark:text-white";
 const TXT_BODY = "text-gray-600 dark:text-gray-300";
@@ -12,7 +21,7 @@ const TABS = [
     id: "summary",
     label: "Resumen",
     icon: "FaGaugeHigh",
-    description: "Estado general y procesos",
+    description: "Vista general del módulo",
   },
   {
     id: "integrations",
@@ -24,273 +33,78 @@ const TABS = [
     id: "maintenance",
     label: "Mantenimiento",
     icon: "FaGears",
-    description: "Tareas automaticas y scheduler",
+    description: "Próxima etapa",
   },
   {
     id: "backups",
     label: "Respaldos",
     icon: "FaDatabase",
-    description: "Politicas e historial de backup",
+    description: "Próxima etapa",
   },
 ];
 
-const summaryStats = {
-  servicios: 3,
-  workers: 2,
-  colas: 4,
-  integraciones: 2,
+const formatDateTime = (value) => {
+  if (!value) return "—";
+  try {
+    return new Intl.DateTimeFormat("es-CL", {
+      dateStyle: "short",
+      timeStyle: "short",
+    }).format(new Date(value));
+  } catch {
+    return value;
+  }
 };
 
-const summaryCards = [
-  {
-    title: "Backend API",
-    icon: "FaServer",
-    status: "Operativo",
-    color: "green",
-    description: "Referencia para exponer salud del backend y disponibilidad de endpoints base.",
-    items: [
-      { label: "Health check", value: "OK", tone: "green" },
-      { label: "Ready check", value: "OK", tone: "green" },
-      { label: "Tiempo de respuesta", value: "184 ms", tone: "primary" },
-      { label: "Ultimo evento", value: "2026-03-13 09:42", tone: "gray" },
-    ],
-  },
-  {
-    title: "Workers y colas",
-    icon: "FaGears",
-    status: "Estable",
-    color: "primary",
-    description: "Espacio para mostrar workers activos, jobs pendientes y reintentos.",
-    items: [
-      { label: "Worker negocio/IA", value: "Activo", tone: "green" },
-      { label: "PDF worker", value: "Activo", tone: "green" },
-      { label: "Jobs en cola", value: "12", tone: "primary" },
-      { label: "Reintentos", value: "1", tone: "purple" },
-    ],
-  },
-  {
-    title: "Versionado",
-    icon: "FaBolt",
-    status: "Placeholder",
-    color: "gray",
-    description: "Aqui luego puedes publicar version visible, build activo o fecha de despliegue.",
-    items: [
-      { label: "Version app", value: "v0.9.4", tone: "gray" },
-      { label: "Release actual", value: "2026.03-RC1", tone: "primary" },
-      { label: "Ultima actualizacion", value: "2026-03-12 18:10", tone: "gray" },
-      { label: "Canal", value: "Interno", tone: "purple" },
-    ],
-  },
-];
-
-const integrationCards = [
-  {
-    title: "SMTP",
-    icon: "FaEnvelope",
-    color: "primary",
-    description: "Configuracion operativa para correo transaccional y notificaciones salientes.",
-    fields: [
-      { label: "Host", value: "smtp.tu-dominio.com" },
-      { label: "Puerto", value: "587" },
-      { label: "Remitente", value: "notificaciones@tu-dominio.com" },
-      { label: "Seguridad", value: "TLS habilitado" },
-      { label: "Usuario", value: "mailer.service" },
-      { label: "Timeout", value: "15 s" },
-    ],
-    note: "Luego puedes agregar prueba de envio y validacion de credenciales.",
-    status: [
-      { label: "Conexion", value: "Verificada hace 8 min", tone: "green" },
-      { label: "Ultimo envio", value: "2026-03-13 09:37", tone: "primary" },
-      { label: "Errores 24h", value: "0", tone: "gray" },
-    ],
-  },
-  {
-    title: "IA",
-    icon: "FaBrain",
-    color: "purple",
-    description: "Configuracion visible para proveedor, modelo y token de integracion.",
-    fields: [
-      { label: "Proveedor", value: "OpenAI" },
-      { label: "Modelo", value: "gpt-4o" },
-      { label: "Token", value: "sk-...oculto...9K2" },
-      { label: "Prompt", value: "system_prompt_v08.txt" },
-      { label: "Temperatura", value: "0.0" },
-      { label: "Max tokens", value: "16000" },
-    ],
-    note: "Tambien puede incluir una prueba controlada de conexion.",
-    status: [
-      { label: "Conexion", value: "Disponible", tone: "green" },
-      { label: "Ultima prueba", value: "2026-03-13 09:30", tone: "primary" },
-      { label: "Consumo estimado", value: "128 req/dia", tone: "purple" },
-    ],
-  },
-];
-
-const queueRows = [
-  { name: "queue:minutes", pending: 6, processing: 1, failed: 0, updatedAt: "09:42" },
-  { name: "queue:pdf", pending: 3, processing: 1, failed: 0, updatedAt: "09:41" },
-  { name: "queue:mail", pending: 2, processing: 0, failed: 0, updatedAt: "09:39" },
-  { name: "queue:maintenance", pending: 1, processing: 0, failed: 1, updatedAt: "09:18" },
-];
-
-const recentEvents = [
-  { time: "09:42", title: "Backend health check", detail: "Respuesta OK en 184 ms", tone: "green" },
-  { time: "09:39", title: "Correo SMTP de prueba", detail: "Enviado correctamente a admin@demo.cl", tone: "primary" },
-  { time: "09:30", title: "Prueba de IA", detail: "Conexion con OpenAI validada", tone: "purple" },
-  { time: "09:18", title: "Cola maintenance", detail: "1 job fallo y quedo marcado para revision", tone: "gray" },
-];
-
-const maintenanceTasks = [
-  {
-    name: "Limpieza de temporales",
-    enabled: true,
-    frequency: "Cada 6 horas",
-    lastRun: "2026-03-13 06:00",
-    nextRun: "2026-03-13 12:00",
-    result: "OK",
-    detail: "Elimina archivos temporales de procesamiento y previsualizacion.",
-  },
-  {
-    name: "Expiracion de tokens OTP",
-    enabled: true,
-    frequency: "Cada 15 min",
-    lastRun: "2026-03-13 09:30",
-    nextRun: "2026-03-13 09:45",
-    result: "OK",
-    detail: "Revoca tokens vencidos de acceso publico y reseteo de contrasena.",
-  },
-  {
-    name: "Reintento de jobs fallidos",
-    enabled: false,
-    frequency: "Manual",
-    lastRun: "2026-03-12 18:10",
-    nextRun: "-",
-    result: "Desactivado",
-    detail: "Reevalua jobs que quedaron en error recuperable.",
-  },
-  {
-    name: "Limpieza de sesiones vencidas",
-    enabled: true,
-    frequency: "Diario 02:00",
-    lastRun: "2026-03-13 02:00",
-    nextRun: "2026-03-14 02:00",
-    result: "OK",
-    detail: "Elimina sesiones expiradas y reduce ruido operativo.",
-  },
-];
-
-const backupPolicies = [
-  { label: "Frecuencia", value: "Diaria" },
-  { label: "Hora programada", value: "03:30" },
-  { label: "Retencion", value: "15 dias" },
-  { label: "Destino", value: "Bucket interno backups/minuet" },
-  { label: "Compresion", value: "Habilitada" },
-  { label: "Cifrado", value: "AES-256" },
-];
-
-const backupHistory = [
-  { date: "2026-03-13 03:30", type: "Programado", size: "1.2 GB", duration: "04m 18s", status: "Exitoso" },
-  { date: "2026-03-12 03:30", type: "Programado", size: "1.2 GB", duration: "04m 09s", status: "Exitoso" },
-  { date: "2026-03-11 15:12", type: "Manual", size: "1.1 GB", duration: "05m 02s", status: "Exitoso" },
-  { date: "2026-03-10 03:30", type: "Programado", size: "1.1 GB", duration: "02m 11s", status: "Con advertencias" },
-];
-
-const colorClasses = {
-  primary: "bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400",
-  green: "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400",
-  gray: "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400",
-  purple: "bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400",
+const statusClasses = {
+  active: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+  inactive: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
+  info: "bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300",
 };
 
 const Header = () => (
-  <div className="flex items-center justify-between">
+  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
     <div>
-      <h1 className={`text-3xl font-bold ${TXT_TITLE} flex items-center gap-3 transition-theme`}>
-        <Icon name="FaGears" className="text-primary-600 dark:text-primary-400 w-8 h-8" />
+      <h1 className={`flex items-center gap-3 text-3xl font-bold ${TXT_TITLE}`}>
+        <Icon name="FaGears" className="h-8 w-8 text-primary-600 dark:text-primary-400" />
         Sistema
       </h1>
-      <p className={`${TXT_BODY} mt-2 transition-theme`}>
-        Placeholder del módulo para evaluar su diagramación dentro del lenguaje visual actual.
+      <p className={`mt-2 max-w-3xl text-sm ${TXT_BODY}`}>
+        Administra integraciones globales con configuraciones persistidas, activación controlada y validación previa al guardado.
       </p>
     </div>
 
-    <div className="hidden md:flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm transition-theme">
-      <Icon name="FaClockRotateLeft" className="text-primary-500 dark:text-primary-400 w-4 h-4" />
-      <span className={`text-sm ${TXT_META} transition-theme`}>Sin datos en vivo</span>
+    <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+      <p className={`text-xs font-semibold uppercase tracking-wide ${TXT_META}`}>Foco actual</p>
+      <p className={`mt-1 text-sm font-medium ${TXT_TITLE}`}>SMTP administrable con prueba obligatoria</p>
     </div>
-  </div>
-);
-
-const StatsCard = ({ icon, label, value, color }) => (
-  <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 transition-theme">
-    <div className="flex items-center justify-between">
-      <div>
-        <p className={`text-sm ${TXT_META}`}>{label}</p>
-        <p className={`text-2xl font-bold ${TXT_TITLE} mt-1 transition-theme`}>{value}</p>
-      </div>
-      <div className={`p-3 rounded-lg ${colorClasses[color] ?? colorClasses.gray}`}>
-        <Icon name={icon} className="w-5 h-5" />
-      </div>
-    </div>
-  </div>
-);
-
-const Stats = () => (
-  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-    <StatsCard icon="FaServer" label="Servicios visibles" value={summaryStats.servicios} color="green" />
-    <StatsCard icon="FaGears" label="Workers" value={summaryStats.workers} color="primary" />
-    <StatsCard icon="FaListCheck" label="Colas monitoreadas" value={summaryStats.colas} color="purple" />
-    <StatsCard icon="FaCloud" label="Integraciones" value={summaryStats.integraciones} color="gray" />
   </div>
 );
 
 const TabNav = ({ activeTab, onTabChange }) => (
-  <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm transition-theme overflow-hidden">
-    <div className="flex items-stretch">
-      {TABS.map((tab, idx) => {
+  <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+    <div className="grid grid-cols-1 md:grid-cols-4">
+      {TABS.map((tab) => {
         const isActive = activeTab === tab.id;
-        const isFirst = idx === 0;
-        const isLast = idx === TABS.length - 1;
-
         return (
           <button
             key={tab.id}
             type="button"
             onClick={() => onTabChange(tab.id)}
             className={[
-              "flex-1 flex items-center gap-2.5 px-4 py-4 transition-all",
-              isFirst ? "rounded-l-xl" : "",
-              isLast ? "rounded-r-xl" : "",
-              idx > 0 ? "border-l border-gray-200 dark:border-gray-700" : "",
+              "border-b border-r border-gray-200 px-5 py-4 text-left transition-colors last:border-r-0 md:last:border-r-0 dark:border-gray-700",
               isActive
-                ? "bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300"
-                : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-700 dark:hover:text-gray-200",
+                ? "bg-primary-50 dark:bg-primary-900/20"
+                : "bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700/40",
             ].join(" ")}
           >
-            <span
-              className={[
-                "w-0.5 h-7 rounded-full shrink-0 transition-all",
-                isActive ? "bg-primary-500 dark:bg-primary-400" : "bg-transparent",
-              ].join(" ")}
-            />
-
-            <Icon
-              name={tab.icon}
-              className={[
-                "w-4 h-4 shrink-0",
-                isActive
-                  ? "text-primary-600 dark:text-primary-400"
-                  : "text-gray-400 dark:text-gray-500",
-              ].join(" ")}
-            />
-
-            <div className="text-left min-w-0">
-              <p className={`text-sm font-semibold leading-tight ${isActive ? "text-primary-700 dark:text-primary-300" : ""}`}>
-                {tab.label}
-              </p>
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 truncate">
-                {tab.description}
-              </p>
+            <div className="flex items-center gap-3">
+              <div className={`rounded-xl p-2 ${isActive ? statusClasses.info : statusClasses.inactive}`}>
+                <Icon name={tab.icon} className="h-4 w-4" />
+              </div>
+              <div className="min-w-0">
+                <p className={`text-sm font-semibold ${TXT_TITLE}`}>{tab.label}</p>
+                <p className={`mt-1 text-xs ${TXT_META}`}>{tab.description}</p>
+              </div>
             </div>
           </button>
         );
@@ -299,403 +113,463 @@ const TabNav = ({ activeTab, onTabChange }) => (
   </div>
 );
 
-const SectionCard = ({ title, icon, description, children, footer }) => (
-  <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6 transition-theme">
-    <div className="flex items-start gap-3">
-      <div className="w-10 h-10 rounded-lg bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 flex items-center justify-center shrink-0">
-        <Icon name={icon} className="w-4 h-4" />
+const SectionCard = ({ title, icon, description, actions = null, children }) => (
+  <div className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+    <div className="flex flex-col gap-4 border-b border-gray-100 px-6 py-5 dark:border-gray-700 lg:flex-row lg:items-start lg:justify-between">
+      <div>
+        <h2 className={`flex items-center gap-3 text-lg font-semibold ${TXT_TITLE}`}>
+          <Icon name={icon} className="h-5 w-5 text-primary-600 dark:text-primary-400" />
+          {title}
+        </h2>
+        {description ? <p className={`mt-2 text-sm ${TXT_BODY}`}>{description}</p> : null}
       </div>
-      <div className="min-w-0">
-        <h2 className={`text-lg font-bold ${TXT_TITLE} transition-theme`}>{title}</h2>
-        <p className={`text-sm ${TXT_BODY} mt-1 transition-theme`}>{description}</p>
-      </div>
+      {actions}
     </div>
-
-    <div className="mt-5">
-      {children}
-    </div>
-
-    {footer ? (
-      <div className="mt-5 pt-4 border-t border-gray-100 dark:border-gray-700/60">
-        <p className={`text-xs ${TXT_META} transition-theme`}>{footer}</p>
-      </div>
-    ) : null}
+    <div className="p-6">{children}</div>
   </div>
 );
 
-const StatusPill = ({ tone = "gray", children }) => (
-  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${colorClasses[tone] ?? colorClasses.gray}`}>
+const StatusBadge = ({ tone, children }) => (
+  <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${statusClasses[tone] ?? statusClasses.inactive}`}>
     {children}
   </span>
 );
 
-const ToggleMock = ({ enabled }) => (
-  <button
-    type="button"
-    className={[
-      "relative inline-flex h-6 w-11 rounded-full transition-colors",
-      enabled ? "bg-primary-500 dark:bg-primary-600" : "bg-gray-300 dark:bg-gray-600",
-    ].join(" ")}
-  >
-    <span
-      className={[
-        "inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform mt-0.5",
-        enabled ? "translate-x-5" : "translate-x-0.5",
-      ].join(" ")}
-    />
-  </button>
+const SendSmtpTestModal = ({ config, onClose, onSent }) => {
+  const [email, setEmail] = useState(String(config?.fromEmail || "").trim());
+  const [isSending, setIsSending] = useState(false);
+  const [status, setStatus] = useState("idle");
+  const [message, setMessage] = useState(SMTP_TEST_IDLE_MESSAGE);
+
+  const handleSend = async () => {
+    if (!String(email || "").trim()) {
+      setStatus("error");
+      setMessage("Indica un correo destino para enviar la prueba.");
+      toastError("Correo requerido", "Indica un correo destino para enviar la prueba.");
+      return;
+    }
+
+    setIsSending(true);
+    setStatus("loading");
+    setMessage("Probando conexión, autenticación y entrega del correo HTML...");
+    try {
+      await smtpConfigService.test({
+        config_id: config.id,
+        test_email: String(email).trim(),
+      });
+      const successMessage = `Se envió una prueba a ${String(email).trim()}.`;
+      setStatus("success");
+      setMessage(successMessage);
+      toastSuccess("Prueba SMTP enviada", successMessage);
+      onSent?.();
+    } catch (error) {
+      const errorMessage = error?.message ?? "La prueba SMTP no pudo completarse.";
+      setStatus("error");
+      setMessage(errorMessage);
+      toastError("No se pudo enviar la prueba", errorMessage);
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  return (
+    <div className="flex w-full justify-center px-4">
+      <SmtpTestDialogPanel
+        email={email}
+        onEmailChange={setEmail}
+        onClose={onClose}
+        onRunTest={handleSend}
+        isTesting={isSending}
+        status={status}
+        message={message}
+        title="Enviar prueba SMTP"
+        description={`Envía una prueba rápida usando ${config?.name}.`}
+        submitLabel="Enviar prueba"
+        submittingLabel="Validando SMTP..."
+      />
+    </div>
+  );
+};
+
+const PlaceholderPanel = ({ title, description }) => (
+  <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center shadow-sm dark:border-gray-700 dark:bg-gray-800">
+    <Icon name="FaGears" className="mx-auto h-8 w-8 text-primary-500 dark:text-primary-400" />
+    <h2 className={`mt-4 text-lg font-semibold ${TXT_TITLE}`}>{title}</h2>
+    <p className={`mx-auto mt-2 max-w-2xl text-sm ${TXT_BODY}`}>{description}</p>
+  </div>
 );
 
-const SummaryPanel = () => (
-  <div className="space-y-4">
-    <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-      {summaryCards.map((item) => (
-        <SectionCard
-          key={item.title}
-          title={item.title}
-          icon={item.icon}
-          description={item.description}
-          footer={`Estado actual: ${item.status}`}
-        >
-          <div className="space-y-3">
-            {item.items.map((row) => (
-              <div
-                key={`${item.title}-${row.label}`}
-                className="flex items-center justify-between gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-900/30 border border-gray-100 dark:border-gray-700/50 transition-theme"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className={`p-2 rounded-lg ${colorClasses[item.color] ?? colorClasses.gray}`}>
-                    <Icon name="FaCheckCircle" className="w-3.5 h-3.5" />
-                  </div>
-                  <span className={`text-sm ${TXT_TITLE} transition-theme`}>{row.label}</span>
-                </div>
-                <StatusPill tone={row.tone}>{row.value}</StatusPill>
-              </div>
-            ))}
+const SummaryPanel = ({ smtpItems }) => {
+  const activeCount = smtpItems.filter((item) => item.isActive).length;
+  const inactiveCount = smtpItems.length - activeCount;
+
+  const cards = [
+    { label: "Configuraciones SMTP", value: smtpItems.length, icon: "FaEnvelope", tone: "info" },
+    { label: "Activas", value: activeCount, icon: "FaCheckCircle", tone: "active" },
+    { label: "Inactivas", value: inactiveCount, icon: "FaPauseCircle", tone: "inactive" },
+  ];
+
+  return (
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      {cards.map((card) => (
+        <div key={card.label} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className={`text-sm ${TXT_META}`}>{card.label}</p>
+              <p className={`mt-2 text-3xl font-bold ${TXT_TITLE}`}>{card.value}</p>
+            </div>
+            <div className={`rounded-2xl p-3 ${statusClasses[card.tone]}`}>
+              <Icon name={card.icon} className="h-5 w-5" />
+            </div>
           </div>
-        </SectionCard>
+        </div>
       ))}
     </div>
+  );
+};
 
-    <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-      <SectionCard
-        title="Detalle de colas"
-        icon="FaListCheck"
-        description="Ejemplo de formato para ver backlog, procesamiento y fallos recientes."
-        footer="Este bloque puede alimentarse desde Redis o desde un endpoint agregado del backend."
-      >
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-200 dark:border-gray-700">
-                <th className={`text-left py-2 pr-3 ${TXT_META}`}>Cola</th>
-                <th className={`text-left py-2 pr-3 ${TXT_META}`}>Pendientes</th>
-                <th className={`text-left py-2 pr-3 ${TXT_META}`}>Procesando</th>
-                <th className={`text-left py-2 pr-3 ${TXT_META}`}>Fallidos</th>
-                <th className={`text-left py-2 ${TXT_META}`}>Actualizado</th>
-              </tr>
-            </thead>
-            <tbody>
-              {queueRows.map((row) => (
-                <tr key={row.name} className="border-b border-gray-100 dark:border-gray-700/50">
-                  <td className={`py-3 pr-3 font-medium ${TXT_TITLE}`}>{row.name}</td>
-                  <td className={`py-3 pr-3 ${TXT_BODY}`}>{row.pending}</td>
-                  <td className={`py-3 pr-3 ${TXT_BODY}`}>{row.processing}</td>
-                  <td className="py-3 pr-3">
-                    <StatusPill tone={row.failed > 0 ? "purple" : "green"}>{row.failed}</StatusPill>
-                  </td>
-                  <td className={`py-3 ${TXT_META}`}>{row.updatedAt}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </SectionCard>
+const SmtpTable = ({ items, isLoading, onEdit, onActivate, onSend, onDelete }) => {
+  if (isLoading) {
+    return <p className={`text-sm ${TXT_BODY}`}>Cargando configuraciones SMTP...</p>;
+  }
 
-      <SectionCard
-        title="Eventos recientes"
-        icon="FaClockRotateLeft"
-        description="Ejemplo de timeline corto con señales operativas que un administrador puede revisar rapido."
-        footer="No reemplaza auditoria formal; es solo resumen operativo del modulo."
-      >
-        <div className="space-y-3">
-          {recentEvents.map((event) => (
-            <div
-              key={`${event.time}-${event.title}`}
-              className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-900/30 border border-gray-100 dark:border-gray-700/50 transition-theme"
+  if (!items.length) {
+    return (
+      <div className="rounded-2xl border border-dashed border-gray-300 px-5 py-8 text-center dark:border-gray-700">
+        <p className={`text-sm ${TXT_BODY}`}>No hay configuraciones SMTP registradas.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-gray-200 dark:border-gray-700">
+            <th className={`py-3 pr-4 text-left font-semibold ${TXT_META}`}>Nombre</th>
+            <th className={`py-3 pr-4 text-left font-semibold ${TXT_META}`}>Estado</th>
+            <th className={`py-3 pr-4 text-left font-semibold ${TXT_META}`}>Host</th>
+            <th className={`py-3 text-right font-semibold ${TXT_META}`}>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((item) => (
+            <tr
+              key={item.id}
+              className={[
+                "border-b border-gray-100 align-top dark:border-gray-700/60",
+                item.isActive ? "bg-green-50/60 dark:bg-green-950/10" : "",
+              ].join(" ")}
             >
-              <div className="pt-0.5">
-                <StatusPill tone={event.tone}>{event.time}</StatusPill>
-              </div>
-              <div className="min-w-0">
-                <p className={`text-sm font-semibold ${TXT_TITLE} transition-theme`}>{event.title}</p>
-                <p className={`text-sm ${TXT_BODY} mt-1 transition-theme`}>{event.detail}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </SectionCard>
-    </div>
-  </div>
-);
-
-const IntegrationPanel = () => (
-  <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-    {integrationCards.map((item) => (
-      <SectionCard
-        key={item.title}
-        title={item.title}
-        icon={item.icon}
-        description={item.description}
-        footer={item.note}
-      >
-        <div className="space-y-4">
-          <div className="flex flex-wrap gap-2">
-            {item.status.map((badge) => (
-              <StatusPill key={`${item.title}-${badge.label}`} tone={badge.tone}>
-                {badge.label}: {badge.value}
-              </StatusPill>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {item.fields.map((field) => (
-              <div
-                key={`${item.title}-${field.label}`}
-                className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30 p-4 transition-theme"
-              >
-                <p className={`text-xs font-medium uppercase tracking-wide ${TXT_META} transition-theme`}>
-                  {field.label}
-                </p>
-                <p className={`text-sm font-semibold ${TXT_TITLE} mt-2 break-all transition-theme`}>
-                  {field.value}
-                </p>
-              </div>
-            ))}
-          </div>
-
-          <div className="rounded-lg border border-dashed border-gray-300 dark:border-gray-600 p-4 transition-theme">
-            <p className={`text-xs font-medium uppercase tracking-wide ${TXT_META} transition-theme`}>
-              Acciones sugeridas
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <button
-                type="button"
-                className="px-3 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium transition-theme"
-              >
-                Probar conexion
-              </button>
-              <button
-                type="button"
-                className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-theme"
-              >
-                Editar configuracion
-              </button>
-            </div>
-          </div>
-        </div>
-      </SectionCard>
-    ))}
-  </div>
-);
-
-const MaintenancePanel = () => (
-  <div className="space-y-4">
-    <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-      <StatsCard icon="FaGears" label="Tareas registradas" value={maintenanceTasks.length} color="primary" />
-      <StatsCard icon="FaCheckCircle" label="Activas" value={maintenanceTasks.filter((t) => t.enabled).length} color="green" />
-      <StatsCard icon="FaPauseCircle" label="Desactivadas" value={maintenanceTasks.filter((t) => !t.enabled).length} color="gray" />
-    </div>
-
-    <SectionCard
-      title="Tareas de mantenimiento"
-      icon="FaGears"
-      description="Mockup de tareas automaticas que podrian activarse, desactivarse o ejecutarse manualmente."
-      footer="Este bloque te permite visualizar el valor operativo real del modulo."
-    >
-      <div className="space-y-3">
-        {maintenanceTasks.map((task) => (
-          <div
-            key={task.name}
-            className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30 p-4 transition-theme"
-          >
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className={`text-sm font-semibold ${TXT_TITLE} transition-theme`}>{task.name}</p>
-                  <StatusPill tone={task.enabled ? "green" : "gray"}>{task.result}</StatusPill>
+              <td className="py-4 pr-4">
+                <p className={`font-semibold ${TXT_TITLE}`}>{item.name}</p>
+                <p className={`mt-1 text-xs ${TXT_META}`}>{item.fromEmail}</p>
+              </td>
+              <td className="py-4 pr-4">
+                <StatusBadge tone={item.isActive ? "active" : "inactive"}>
+                  {item.isActive ? "Activa" : "Inactiva"}
+                </StatusBadge>
+              </td>
+              <td className="py-4 pr-4">
+                <p className={`font-medium ${TXT_TITLE}`}>{item.host}</p>
+                <p className={`mt-1 text-xs ${TXT_META}`}>Puerto {item.port}</p>
+              </td>
+              <td className="py-4 text-right">
+                <div className="ml-auto grid w-[224px] grid-cols-4 gap-2">
+                  <ActionButton
+                    variant="soft"
+                    size="xs"
+                    icon={<Icon name="paperPlane" />}
+                    tooltip="Enviar prueba SMTP"
+                    onClick={() => onSend(item)}
+                    className="w-full hover:scale-100 active:scale-100"
+                  />
+                  <ActionButton
+                    variant="soft"
+                    size="xs"
+                    icon={<Icon name="FaEdit" />}
+                    tooltip="Editar configuración"
+                    onClick={() => onEdit(item.id)}
+                    className="w-full hover:scale-100 active:scale-100"
+                  />
+                  <ActionButton
+                    variant="soft"
+                    size="xs"
+                    icon={
+                      <Icon
+                        name={item.isActive ? "toggleOn" : "powerOff"}
+                        className={item.isActive ? "text-green-500" : "text-gray-400 dark:text-gray-500"}
+                      />
+                    }
+                    tooltip={item.isActive ? "SMTP activo" : "Activar SMTP"}
+                    onClick={() => onActivate(item)}
+                    className="w-full hover:scale-100 active:scale-100"
+                  />
+                  <ActionButton
+                    variant="soft"
+                    size="xs"
+                    icon={<Icon name="FaTrash" />}
+                    tooltip="Eliminar configuración"
+                    onClick={() => onDelete(item)}
+                    className="w-full hover:scale-100 active:scale-100"
+                  />
                 </div>
-                <p className={`text-sm ${TXT_BODY} mt-1 transition-theme`}>{task.detail}</p>
-              </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+};
 
-              <div className="flex items-center gap-3">
-                <span className={`text-xs ${TXT_META} transition-theme`}>Activa</span>
-                <ToggleMock enabled={task.enabled} />
-              </div>
-            </div>
+const AIPlaceholderCard = () => (
+  <SectionCard
+    title="AI"
+    icon="FaBrain"
+    description="La columna de inteligencia artificial se mantiene visible, pero por ahora continúa ligada a variables de entorno."
+  >
+    <div className="space-y-4">
+      <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-5 py-6 dark:border-gray-700 dark:bg-slate-900/60">
+        <p className={`text-sm font-medium ${TXT_TITLE}`}>Siguiente etapa recomendada</p>
+        <p className={`mt-2 text-sm ${TXT_BODY}`}>
+          Replicar el mismo patrón de SMTP: lista de configuraciones, una activa, edición por modal, prueba controlada y cambio de consumo desde variables de entorno a fuente persistida.
+        </p>
+      </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-4">
-              <div>
-                <p className={`text-xs uppercase tracking-wide ${TXT_META}`}>Frecuencia</p>
-                <p className={`text-sm font-medium ${TXT_TITLE} mt-1`}>{task.frequency}</p>
-              </div>
-              <div>
-                <p className={`text-xs uppercase tracking-wide ${TXT_META}`}>Ultima ejecucion</p>
-                <p className={`text-sm font-medium ${TXT_TITLE} mt-1`}>{task.lastRun}</p>
-              </div>
-              <div>
-                <p className={`text-xs uppercase tracking-wide ${TXT_META}`}>Proxima ejecucion</p>
-                <p className={`text-sm font-medium ${TXT_TITLE} mt-1`}>{task.nextRun}</p>
-              </div>
-              <div className="flex items-end gap-2">
-                <button
-                  type="button"
-                  className="px-3 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium transition-theme"
-                >
-                  Ejecutar ahora
-                </button>
-                <button
-                  type="button"
-                  className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-theme"
-                >
-                  Ver detalle
-                </button>
-              </div>
-            </div>
+      <div className="grid grid-cols-1 gap-3">
+        {[
+          ["Estado actual", "Pendiente de migración"],
+          ["Fuente vigente", "Variables de entorno"],
+          ["Objetivo", "Multiples perfiles con una activa"],
+        ].map(([label, value]) => (
+          <div key={label} className="rounded-xl border border-gray-200 bg-white px-4 py-3 dark:border-gray-700 dark:bg-slate-900/60">
+            <p className={`text-xs font-semibold uppercase tracking-wide ${TXT_META}`}>{label}</p>
+            <p className={`mt-1 text-sm font-medium ${TXT_TITLE}`}>{value}</p>
           </div>
         ))}
       </div>
-    </SectionCard>
-  </div>
-);
-
-const BackupsPanel = () => (
-  <div className="space-y-4">
-    <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-      <StatsCard icon="FaDatabase" label="Politica activa" value="1" color="primary" />
-      <StatsCard icon="FaCheckCircle" label="Ultimo backup" value="Exitoso" color="green" />
-      <StatsCard icon="FaClockRotateLeft" label="Retencion actual" value="15 dias" color="gray" />
     </div>
-
-    <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-      <SectionCard
-        title="Politica de respaldo"
-        icon="FaDatabase"
-        description="Mockup de parametros globales para respaldos programados."
-        footer="Estos controles podrian guardarse en base de datos o en configuracion administrable."
-      >
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {backupPolicies.map((item) => (
-            <div
-              key={item.label}
-              className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30 p-4 transition-theme"
-            >
-              <p className={`text-xs font-medium uppercase tracking-wide ${TXT_META} transition-theme`}>
-                {item.label}
-              </p>
-              <p className={`text-sm font-semibold ${TXT_TITLE} mt-2 transition-theme`}>
-                {item.value}
-              </p>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          <button
-            type="button"
-            className="px-3 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium transition-theme"
-          >
-            Ejecutar respaldo ahora
-          </button>
-          <button
-            type="button"
-            className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-theme"
-          >
-            Editar politica
-          </button>
-        </div>
-      </SectionCard>
-
-      <SectionCard
-        title="Historial reciente"
-        icon="FaClockRotateLeft"
-        description="Ejemplo de historial para validar si el formato aporta valor operativo."
-        footer="Idealmente incluiria descarga de logs o detalle de errores."
-      >
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-200 dark:border-gray-700">
-                <th className={`text-left py-2 pr-3 ${TXT_META}`}>Fecha</th>
-                <th className={`text-left py-2 pr-3 ${TXT_META}`}>Tipo</th>
-                <th className={`text-left py-2 pr-3 ${TXT_META}`}>Tamano</th>
-                <th className={`text-left py-2 pr-3 ${TXT_META}`}>Duracion</th>
-                <th className={`text-left py-2 ${TXT_META}`}>Estado</th>
-              </tr>
-            </thead>
-            <tbody>
-              {backupHistory.map((row) => (
-                <tr key={`${row.date}-${row.type}`} className="border-b border-gray-100 dark:border-gray-700/50">
-                  <td className={`py-3 pr-3 font-medium ${TXT_TITLE}`}>{row.date}</td>
-                  <td className={`py-3 pr-3 ${TXT_BODY}`}>{row.type}</td>
-                  <td className={`py-3 pr-3 ${TXT_BODY}`}>{row.size}</td>
-                  <td className={`py-3 pr-3 ${TXT_BODY}`}>{row.duration}</td>
-                  <td className="py-3">
-                    <StatusPill tone={row.status === "Exitoso" ? "green" : "purple"}>{row.status}</StatusPill>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </SectionCard>
-    </div>
-  </div>
-);
-
-const ContextNote = ({ text }) => (
-  <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-4 transition-theme">
-    <p className={`text-sm ${TXT_BODY} transition-theme`}>{text}</p>
-  </div>
+  </SectionCard>
 );
 
 const SystemSettings = () => {
-  const [activeTab, setActiveTab] = useState("summary");
+  const [activeTab, setActiveTab] = useState("integrations");
+  const [smtpItems, setSmtpItems] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const hasLoadedSmtpRef = useRef(false);
 
-  useDocumentTitle("Configuracion del Sistema");
+  useDocumentTitle("Configuración del Sistema");
+
+  const loadSmtpConfigs = async () => {
+    setIsLoading(true);
+    try {
+      const result = await smtpConfigService.list({ limit: 100 });
+      setSmtpItems(Array.isArray(result?.items) ? result.items : []);
+    } catch (error) {
+      setSmtpItems([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (hasLoadedSmtpRef.current) return;
+    hasLoadedSmtpRef.current = true;
+    loadSmtpConfigs();
+  }, []);
+
+  const openCreateModal = () => {
+    ModalManager.show({
+      type: "custom",
+      title: "Nueva configuración SMTP",
+      size: "clientWide",
+      showHeader: false,
+      showFooter: false,
+      content: (
+        <SmtpConfigModal
+          mode={SMTP_MODAL_MODES.CREATE}
+          config={null}
+          onSubmit={async (payload) => {
+            const created = await smtpConfigService.create(payload);
+            toastSuccess("Configuración SMTP creada", `Se guardó "${created?.name ?? "la configuración"}".`);
+            ModalManager.closeAll();
+            await loadSmtpConfigs();
+          }}
+          onClose={() => ModalManager.closeAll()}
+        />
+      ),
+    });
+  };
+
+  const openEditModal = async (id) => {
+    try {
+      const detail = await smtpConfigService.getById(id);
+      ModalManager.show({
+        type: "custom",
+        title: "Editar configuración SMTP",
+        size: "clientWide",
+        showHeader: false,
+        showFooter: false,
+        content: (
+          <SmtpConfigModal
+            mode={SMTP_MODAL_MODES.EDIT}
+            config={detail}
+            onSubmit={async (payload) => {
+              const updated = await smtpConfigService.update(id, payload);
+              toastSuccess("Configuración SMTP actualizada", `Se actualizó "${updated?.name ?? "la configuración"}".`);
+              ModalManager.closeAll();
+              await loadSmtpConfigs();
+            }}
+            onDelete={async () => {
+              const confirmed = await ModalManager.confirm({
+                title: "Confirmar eliminación SMTP",
+                message: `¿Deseas eliminar la configuración "${detail?.name ?? "seleccionada"}"? Esta acción la quitará de la lista.`,
+                confirmText: "Eliminar",
+                cancelText: "Cancelar",
+              });
+
+              if (!confirmed) return;
+
+              await smtpConfigService.remove(id);
+              toastSuccess("Configuración SMTP eliminada", `Se eliminó "${detail?.name ?? "la configuración"}".`);
+              ModalManager.closeAll();
+              await loadSmtpConfigs();
+            }}
+            onClose={() => ModalManager.closeAll()}
+          />
+        ),
+      });
+    } catch (error) {
+      toastError("No se pudo abrir SMTP", error?.message ?? "No fue posible cargar el detalle para edición.");
+    }
+  };
+
+  const handleActivate = async (item) => {
+    if (item?.isActive) {
+      if (smtpItems.length <= 1) {
+        ModalManager.warning({
+          title: "No se puede desactivar SMTP",
+          message:
+            "Esta es la única configuración SMTP disponible. Puedes eliminarla si ya no la necesitas, pero no puedes dejarla inactiva desde aquí.",
+        });
+        return;
+      }
+
+      ModalManager.info({
+        title: "SMTP ya activa",
+        message: "Esta configuración ya está en uso. Si quieres cambiar la vigente, activa otra configuración de la lista.",
+      });
+      return;
+    }
+
+    const confirmed = await ModalManager.confirm({
+      title: "Confirmar activación SMTP",
+      message: `¿Deseas dejar activa la configuración "${item?.name ?? "seleccionada"}"? La configuración SMTP activa actual dejará de estar vigente.`,
+      confirmText: "Activar",
+      cancelText: "Cancelar",
+    });
+
+    if (!confirmed) return;
+
+    try {
+      const updated = await smtpConfigService.activate(item.id);
+      toastSuccess("Configuración activa actualizada", `"${updated?.name ?? "La configuración"}" quedó en uso.`);
+      await loadSmtpConfigs();
+    } catch (error) {
+      toastError("No se pudo activar SMTP", error?.message ?? "La activación no pudo completarse.");
+    }
+  };
+
+  const openSendTestModal = (item) => {
+    ModalManager.show({
+      type: "custom",
+      title: "Enviar prueba SMTP",
+      size: "clientWide",
+      showHeader: false,
+      showFooter: false,
+      content: (
+        <SendSmtpTestModal
+          config={item}
+          onClose={() => ModalManager.closeAll()}
+          onSent={() => loadSmtpConfigs()}
+        />
+      ),
+    });
+  };
+
+  const handleDelete = async (item) => {
+    const confirmed = await ModalManager.confirm({
+      title: "Confirmar eliminación SMTP",
+      message: `¿Deseas eliminar la configuración "${item?.name ?? "seleccionada"}"? Esta acción la quitará de la lista.`,
+      confirmText: "Eliminar",
+      cancelText: "Cancelar",
+    });
+
+    if (!confirmed) return;
+
+    try {
+      await smtpConfigService.remove(item.id);
+      toastSuccess("Configuración SMTP eliminada", `Se eliminó "${item?.name ?? "la configuración"}".`);
+      await loadSmtpConfigs();
+    } catch (error) {
+      toastError("No se pudo eliminar SMTP", error?.message ?? "La eliminación no pudo completarse.");
+    }
+  };
 
   return (
     <div className="space-y-6">
       <Header />
-      <Stats />
       <TabNav activeTab={activeTab} onTabChange={setActiveTab} />
 
-      {activeTab === "summary" && (
-        <>
-          <ContextNote text="Esta pestaña quedaría enfocada en un resumen operativo de alto nivel: salud general, workers, colas y señales básicas de funcionamiento." />
-          <SummaryPanel />
-        </>
-      )}
+      {activeTab === "summary" && <SummaryPanel smtpItems={smtpItems} />}
 
       {activeTab === "integrations" && (
-        <>
-          <ContextNote text="Esta pestaña está reservada para configuraciones globales que sí podrían cambiar con más frecuencia, como SMTP e IA, sin mezclar infraestructura estable." />
-          <IntegrationPanel />
-        </>
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+          <div className="space-y-6">
+            <SectionCard
+              title="SMTP"
+              icon="FaEnvelope"
+              description="Múltiples configuraciones persistidas, una sola activa, edición por modal y prueba obligatoria antes del guardado."
+              actions={
+                <ActionButton
+                  label="Nueva configuración"
+                  onClick={openCreateModal}
+                  variant="primary"
+                  size="sm"
+                  icon={<Icon name="FaPlus" />}
+                />
+              }
+            >
+              <SmtpTable
+                items={smtpItems}
+                isLoading={isLoading}
+                onEdit={openEditModal}
+                onActivate={handleActivate}
+                onSend={openSendTestModal}
+                onDelete={handleDelete}
+              />
+            </SectionCard>
+          </div>
+
+          <div className="space-y-6">
+            <AIPlaceholderCard />
+          </div>
+        </div>
       )}
 
       {activeTab === "maintenance" && (
-        <>
-          <ContextNote text="Esta pestaña ejemplifica el valor operativo del modulo: visualizar tareas automaticas, entender que hace la cola de mantenimiento y decidir si ciertas rutinas deben ejecutarse, pausarse o revisarse." />
-          <MaintenancePanel />
-        </>
+        <PlaceholderPanel
+          title="Mantenimiento"
+          description="Aquí podemos continuar después con jobs programados, observabilidad de colas y acciones operativas del scheduler sin mezclarlo con el avance de SMTP."
+        />
       )}
 
       {activeTab === "backups" && (
-        <>
-          <ContextNote text="Esta pestaña ilustra como un administrador podria configurar politicas de respaldo, disparar ejecuciones manuales y revisar el historial reciente sin salir del sistema." />
-          <BackupsPanel />
-        </>
+        <PlaceholderPanel
+          title="Respaldos"
+          description="Esta pestaña queda reservada para políticas de backup e historial. No la estoy tocando en esta iteración para mantener el cambio pequeño y coherente."
+        />
       )}
     </div>
   );
