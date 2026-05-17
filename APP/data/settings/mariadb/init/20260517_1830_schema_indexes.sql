@@ -1,4 +1,4 @@
-/* 20_schema_alter_indexes.sql */
+/* 20260517_1830_schema_indexes.sql */
 
 -- ----------------------------------------------------------------------------
 -- 1) Agregar columnas ID para MIME/EXT en objects + FKs + índices

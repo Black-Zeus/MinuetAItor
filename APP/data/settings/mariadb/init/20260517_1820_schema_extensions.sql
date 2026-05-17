@@ -1,4 +1,4 @@
-/* 15_schema_alter_tables_core.sql */
+/* 20260517_1820_schema_extensions.sql */
 
 -- ----------------------------------------------------------------------------
 -- Catálogo maestro de participantes reutilizable entre minutas/versiones
@@ -116,19 +116,6 @@ PREPARE stmt FROM @sql;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
-ALTER TABLE record_version_observations
-  MODIFY COLUMN status ENUM('new','inserted','approved','rejected') NOT NULL DEFAULT 'new';
-
-ALTER TABLE record_version_observations
-  ADD COLUMN IF NOT EXISTS resolution_type ENUM('none','direct_insert','manual_update') NOT NULL DEFAULT 'none' AFTER status,
-  ADD COLUMN IF NOT EXISTS editor_comment TEXT NULL AFTER resolution_type,
-  ADD COLUMN IF NOT EXISTS resolved_by CHAR(36) NULL AFTER editor_comment,
-  ADD COLUMN IF NOT EXISTS applied_in_version_id CHAR(36) NULL AFTER resolved_at;
-
-ALTER TABLE projects
-  ADD COLUMN IF NOT EXISTS auto_send_on_preview TINYINT(1) NOT NULL DEFAULT 0 AFTER is_active,
-  ADD COLUMN IF NOT EXISTS auto_send_on_completed TINYINT(1) NOT NULL DEFAULT 0 AFTER auto_send_on_preview;
-
 -- ----------------------------------------------------------------------------
 -- Configuraciones SMTP administrables
 -- ----------------------------------------------------------------------------
@@ -210,46 +197,3 @@ CREATE TABLE IF NOT EXISTS ai_provider_configs (
   CONSTRAINT fk_ai_provider_configs_updated_by FOREIGN KEY (updated_by) REFERENCES users(id),
   CONSTRAINT fk_ai_provider_configs_deleted_by FOREIGN KEY (deleted_by) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-ALTER TABLE ai_provider_configs
-  DROP COLUMN IF EXISTS provider_name;
-
-ALTER TABLE ai_provider_configs
-  DROP COLUMN IF EXISTS notes;
-
-ALTER TABLE ai_provider_configs
-  MODIFY COLUMN allow_model_discovery TINYINT(1) NOT NULL DEFAULT 1;
-
-SET @fk_rvo_resolved_by_exists := (
-  SELECT COUNT(*)
-  FROM information_schema.TABLE_CONSTRAINTS
-  WHERE CONSTRAINT_SCHEMA = DATABASE()
-    AND TABLE_NAME = 'record_version_observations'
-    AND CONSTRAINT_NAME = 'fk_rvo_resolved_by'
-    AND CONSTRAINT_TYPE = 'FOREIGN KEY'
-);
-SET @sql := IF(
-  @fk_rvo_resolved_by_exists = 0,
-  'ALTER TABLE record_version_observations ADD CONSTRAINT fk_rvo_resolved_by FOREIGN KEY (resolved_by) REFERENCES users(id)',
-  'SELECT 1'
-);
-PREPARE stmt FROM @sql;
-EXECUTE stmt;
-DEALLOCATE PREPARE stmt;
-
-SET @fk_rvo_applied_version_exists := (
-  SELECT COUNT(*)
-  FROM information_schema.TABLE_CONSTRAINTS
-  WHERE CONSTRAINT_SCHEMA = DATABASE()
-    AND TABLE_NAME = 'record_version_observations'
-    AND CONSTRAINT_NAME = 'fk_rvo_applied_version'
-    AND CONSTRAINT_TYPE = 'FOREIGN KEY'
-);
-SET @sql := IF(
-  @fk_rvo_applied_version_exists = 0,
-  'ALTER TABLE record_version_observations ADD CONSTRAINT fk_rvo_applied_version FOREIGN KEY (applied_in_version_id) REFERENCES record_versions(id)',
-  'SELECT 1'
-);
-PREPARE stmt FROM @sql;
-EXECUTE stmt;
-DEALLOCATE PREPARE stmt;

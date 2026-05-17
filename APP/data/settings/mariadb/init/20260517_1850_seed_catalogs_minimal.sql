@@ -1,11 +1,12 @@
-/* 40_seeds_minimal.sql
+/* 20260517_1850_seed_catalogs_minimal.sql
    ============================================================================
    Propósito  : Seed mínimo del SISTEMA (FIRST-RUN ONLY) - Datos de configuración
                 y catálogos necesarios para que la aplicación funcione.
    Contexto   : Este archivo contiene los datos base del dominio que la aplicación
                 necesita para operar (catálogos, tipos, perfiles de IA, roles).
    Motor      : MySQL / MariaDB (InnoDB, utf8mb4)
-   Dependencias: Ejecutar después de 10_schema_tables_core.sql
+   Dependencias: Ejecutar después de 20260517_1810_schema_core.sql
+                 y 20260517_1820_schema_extensions.sql
    ============================================================================
    Reglas:
    - Catálogos: un único INSERT por tabla (single source of truth)
