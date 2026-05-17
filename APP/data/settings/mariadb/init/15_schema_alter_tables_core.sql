@@ -129,6 +129,44 @@ ALTER TABLE projects
   ADD COLUMN IF NOT EXISTS auto_send_on_preview TINYINT(1) NOT NULL DEFAULT 0 AFTER is_active,
   ADD COLUMN IF NOT EXISTS auto_send_on_completed TINYINT(1) NOT NULL DEFAULT 0 AFTER auto_send_on_preview;
 
+-- ----------------------------------------------------------------------------
+-- Configuraciones SMTP administrables
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS smtp_configs (
+  id               CHAR(36) PRIMARY KEY,
+  name             VARCHAR(120) NOT NULL,
+  host             VARCHAR(255) NOT NULL,
+  port             INT NOT NULL DEFAULT 587,
+  username         VARCHAR(255) NULL,
+  password         VARCHAR(255) NULL,
+  from_name        VARCHAR(180) NOT NULL,
+  from_email       VARCHAR(254) NOT NULL,
+  use_tls          TINYINT(1) NOT NULL DEFAULT 0,
+  use_ssl          TINYINT(1) NOT NULL DEFAULT 0,
+  timeout_seconds  INT NOT NULL DEFAULT 10,
+  is_active        TINYINT(1) NOT NULL DEFAULT 0,
+  last_tested_at   DATETIME NULL,
+  last_tested_by   CHAR(36) NULL,
+
+  created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_by       CHAR(36) NULL,
+  updated_at       DATETIME NULL ON UPDATE CURRENT_TIMESTAMP,
+  updated_by       CHAR(36) NULL,
+
+  deleted_at       DATETIME NULL,
+  deleted_by       CHAR(36) NULL,
+
+  UNIQUE KEY uq_smtp_configs_name (name),
+  KEY idx_smtp_configs_active (is_active),
+  KEY idx_smtp_configs_deleted_at (deleted_at),
+  KEY idx_smtp_configs_host (host),
+
+  CONSTRAINT fk_smtp_configs_created_by FOREIGN KEY (created_by) REFERENCES users(id),
+  CONSTRAINT fk_smtp_configs_last_tested_by FOREIGN KEY (last_tested_by) REFERENCES users(id),
+  CONSTRAINT fk_smtp_configs_updated_by FOREIGN KEY (updated_by) REFERENCES users(id),
+  CONSTRAINT fk_smtp_configs_deleted_by FOREIGN KEY (deleted_by) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 SET @fk_rvo_resolved_by_exists := (
   SELECT COUNT(*)
   FROM information_schema.TABLE_CONSTRAINTS

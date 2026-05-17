@@ -31,19 +31,9 @@ class WorkerConfig:
     TRACE_BASE_DIR:  str  = os.environ.get("TRACE_BASE_DIR",  "/app/assets/temp")
     PROMPT_PATH_BASE: str = os.environ.get("PROMPT_PATH_BASE", "/app/assets/prompts")
 
-    # ── SMTP ──────────────────────────────────────────────────────────────────
-    SMTP_HOST:       str  = os.environ.get("SMTP_HOST",       "mailpit")
-    SMTP_PORT:       int  = int(os.environ.get("SMTP_PORT",   "1025"))
-    SMTP_USER:       str  = os.environ.get("SMTP_USER",       "")
-    SMTP_PASSWORD:   str  = os.environ.get("SMTP_PASSWORD",   "")
-    SMTP_FROM_NAME:  str  = os.environ.get("SMTP_FROM_NAME",  "MinuetAItor")
-    SMTP_FROM_EMAIL: str  = os.environ.get("SMTP_FROM_EMAIL", "no-reply@minuetaitor.cl")
-    SMTP_USE_TLS:    bool = os.environ.get("SMTP_USE_TLS",    "false").lower() == "true"
-    SMTP_USE_SSL:    bool = os.environ.get("SMTP_USE_SSL",    "false").lower() == "true"
-    SMTP_TIMEOUT:    int  = int(os.environ.get("SMTP_TIMEOUT", "10"))
     EMAIL_INLINE_LOGO_PATH: str = os.environ.get(
         "EMAIL_INLINE_LOGO_PATH",
-        "/app/email_assets/minuetaitor-logo.jpg",
+        "/app/assets/images/chinchinAItor_64.jpg",
     )
 
     # ── MariaDB ───────────────────────────────────────────────────────────────
