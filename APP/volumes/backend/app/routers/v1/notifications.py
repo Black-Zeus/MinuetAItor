@@ -15,6 +15,8 @@ from schemas.notifications import (
     NotificationListResponse,
     NotificationMarkAllReadResponse,
     NotificationMarkReadResponse,
+    NotificationPreferencesResponse,
+    NotificationPreferencesUpdateRequest,
     NotificationTagsResponse,
     NotificationUnreadCountResponse,
 )
@@ -32,6 +34,10 @@ from services.notification_center_service import (
     list_notifications,
     mark_all_notifications_as_read,
     mark_notification_as_read,
+)
+from services.notification_preferences_service import (
+    get_user_notification_preferences,
+    update_user_notification_preferences,
 )
 
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
@@ -114,6 +120,40 @@ async def notifications_events_endpoint(
         stream_user_notifications(session),
         media_type="text/event-stream",
         headers=notification_sse_headers(),
+    )
+
+
+@router.get(
+    "/preferences",
+    response_model=NotificationPreferencesResponse,
+    status_code=status.HTTP_200_OK,
+)
+def notification_preferences_endpoint(
+    db: Session = Depends(get_db),
+    session: UserSession = Depends(current_user_dep),
+):
+    return get_user_notification_preferences(db, session)
+
+
+@router.put(
+    "/preferences",
+    response_model=NotificationPreferencesResponse,
+    status_code=status.HTTP_200_OK,
+)
+def update_notification_preferences_endpoint(
+    payload: NotificationPreferencesUpdateRequest,
+    db: Session = Depends(get_db),
+    session: UserSession = Depends(current_user_dep),
+):
+    normalized_items = [
+        {"key": item.key, "is_enabled": item.is_enabled}
+        for item in payload.items
+    ]
+    return update_user_notification_preferences(
+        db,
+        session,
+        global_enabled=payload.global_enabled,
+        items=normalized_items,
     )
 
 

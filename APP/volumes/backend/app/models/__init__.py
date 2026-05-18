@@ -4,6 +4,7 @@
 # ── Core / Auth ───────────────────────────────────────────────────────────────
 from models.user import User
 from models.user_profiles import UserProfile
+from models.user_notification_preferences import UserNotificationPreference
 from models.roles import Role
 from models.permissions import Permission
 from models.user_roles import UserRole
@@ -68,7 +69,7 @@ from models.user_dashboard_widgets import UserDashboardWidget        # ← verif
 
 __all__ = [
     # Auth
-    "User", "UserProfile", "Role", "Permission", "UserRole", "RolePermission",
+    "User", "UserProfile", "UserNotificationPreference", "Role", "Permission", "UserRole", "RolePermission",
     # Catálogos
     "Bucket", "FileExtension", "MimeType", "MimeTypeExtension",
     "TagCategory", "ArtifactType", "ArtifactState",

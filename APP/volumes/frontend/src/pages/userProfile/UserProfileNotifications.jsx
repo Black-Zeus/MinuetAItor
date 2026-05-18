@@ -1,33 +1,162 @@
 /**
  * UserProfileNotifications.jsx
- * Tab de Notificaciones: preferencias de alertas y avisos del sistema.
- * Usa notificationsEnabled de baseSiteStore para el toggle global.
+ * Tab de Notificaciones: preferencias reales vinculadas al centro interno.
  */
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Icon from "@/components/ui/icon/iconManager";
 import ActionButton from "@/components/ui/button/ActionButton";
 import { ModalManager } from "@/components/ui/modal";
-import useBaseSiteStore from "@store/baseSiteStore";
+import notificationsService from "@/services/notificationsService";
 
 const TXT_TITLE = "text-gray-900 dark:text-white";
-const TXT_BODY  = "text-gray-600 dark:text-gray-300";
-const TXT_META  = "text-gray-500 dark:text-gray-400";
+const TXT_BODY = "text-gray-600 dark:text-gray-300";
+const TXT_META = "text-gray-500 dark:text-gray-400";
 
-// ─── Toggle row subcomponent ──────────────────────────────────────────────────
-const ToggleRow = ({ icon, iconColor, label, description, value, onChange, disabled = false }) => (
-  <div className={`flex items-center justify-between gap-4 py-4 transition-theme ${disabled ? "opacity-50" : ""}`}>
-    <div className="flex items-start gap-3 min-w-0">
-      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${iconColor}`}>
-        <Icon name={icon} className="w-4 h-4" />
+const EMPTY_PREFERENCES = {
+  globalEnabled: true,
+  sections: [],
+  totalItems: 0,
+};
+
+const SECTION_ICON_MAP = {
+  minutes: "FaClipboardCheck",
+  access: "FaFolderOpen",
+  account: "FaUser",
+  security: "FaGear",
+  system: "FaDesktop",
+};
+
+const SECTION_THEME_MAP = {
+  minutes: {
+    icon: "bg-[#4F7CFF] text-white",
+    badge: "border-[#4F7CFF]/20 bg-[#4F7CFF]/10 text-[#4F7CFF] dark:border-[#4F7CFF]/30 dark:bg-[#4F7CFF]/15 dark:text-[#9DB7FF]",
+    accent: "bg-[#4F7CFF]",
+  },
+  access: {
+    icon: "bg-[#7C4DFF] text-white",
+    badge: "border-[#7C4DFF]/20 bg-[#7C4DFF]/10 text-[#7C4DFF] dark:border-[#7C4DFF]/30 dark:bg-[#7C4DFF]/15 dark:text-[#BEA8FF]",
+    accent: "bg-[#7C4DFF]",
+  },
+  account: {
+    icon: "bg-[#F59E0B] text-white",
+    badge: "border-[#F59E0B]/20 bg-[#F59E0B]/10 text-[#C27C05] dark:border-[#F59E0B]/30 dark:bg-[#F59E0B]/15 dark:text-[#F8C766]",
+    accent: "bg-[#F59E0B]",
+  },
+  security: {
+    icon: "bg-[#64748B] text-white",
+    badge: "border-[#64748B]/20 bg-[#64748B]/10 text-[#64748B] dark:border-[#64748B]/30 dark:bg-[#64748B]/15 dark:text-[#AAB4C4]",
+    accent: "bg-[#64748B]",
+  },
+  system: {
+    icon: "bg-[#5CC8B2] text-white",
+    badge: "border-[#5CC8B2]/20 bg-[#5CC8B2]/10 text-[#2D9B86] dark:border-[#5CC8B2]/30 dark:bg-[#5CC8B2]/15 dark:text-[#98E0D3]",
+    accent: "bg-[#5CC8B2]",
+  },
+  default: {
+    icon: "bg-primary-600 text-white dark:bg-primary-500",
+    badge: "border-primary-200/20 bg-primary-500/10 text-primary-700 dark:border-primary-400/20 dark:bg-primary-500/15 dark:text-primary-200",
+    accent: "bg-primary-500",
+  },
+};
+
+const ITEM_ICON_MAP = {
+  "minute.activity": {
+    name: "FaClipboardCheck",
+    color: "bg-[#4F7CFF]/12 text-[#4F7CFF] dark:bg-[#4F7CFF]/15 dark:text-[#9DB7FF]",
+  },
+  "access.management": {
+    name: "FaFolderOpen",
+    color: "bg-[#7C4DFF]/12 text-[#7C4DFF] dark:bg-[#7C4DFF]/15 dark:text-[#BEA8FF]",
+  },
+  "account.roles": {
+    name: "FaUser",
+    color: "bg-[#F59E0B]/12 text-[#C27C05] dark:bg-[#F59E0B]/15 dark:text-[#F8C766]",
+  },
+  "security.credentials": {
+    name: "FaGear",
+    color: "bg-[#64748B]/12 text-[#64748B] dark:bg-[#64748B]/15 dark:text-[#AAB4C4]",
+  },
+  "system.operational": {
+    name: "FaDesktop",
+    color: "bg-[#5CC8B2]/12 text-[#2D9B86] dark:bg-[#5CC8B2]/15 dark:text-[#98E0D3]",
+  },
+};
+
+const clonePreferences = (value) => JSON.parse(JSON.stringify(value || EMPTY_PREFERENCES));
+
+const replaceItemInSections = (sections = [], targetKey, nextValue) =>
+  sections.map((section) => ({
+    ...section,
+    items: Array.isArray(section.items)
+      ? section.items.map((item) => (
+          item.key === targetKey
+            ? { ...item, isEnabled: nextValue, receivesNotifications: nextValue }
+            : item
+        ))
+      : [],
+  }));
+
+const flattenEditableItems = (sections = []) =>
+  sections.flatMap((section) =>
+    (Array.isArray(section.items) ? section.items : [])
+      .filter((item) => item?.key && item?.isEditable)
+      .map((item) => ({
+        key: item.key,
+        isEnabled: Boolean(item.isEnabled),
+      }))
+  );
+
+const ToggleRow = ({
+  icon,
+  iconColor,
+  label,
+  description,
+  value,
+  onChange,
+  disabled = false,
+  statusLabel = null,
+  statusTone = "neutral",
+}) => (
+  <div
+    className={[
+      "flex items-center justify-between gap-4 py-4 transition-theme",
+      disabled
+        ? "opacity-65"
+        : "",
+    ].join(" ")}
+  >
+    <div className="flex min-w-0 items-center gap-3">
+      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${iconColor}`}>
+        <Icon name={icon} className="h-4.5 w-4.5" />
       </div>
       <div className="min-w-0">
-        <p className={`text-sm font-semibold ${TXT_TITLE} transition-theme`}>{label}</p>
-        <p className={`text-xs ${TXT_META} mt-0.5 transition-theme`}>{description}</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className={`text-sm font-semibold ${TXT_TITLE} transition-theme`}>{label}</p>
+        </div>
+        <p className={`mt-0.5 text-xs ${TXT_META} transition-theme`}>{description}</p>
+        {statusLabel ? (
+          <div className="mt-2 flex items-center gap-2">
+            <span
+              className={[
+                "inline-flex h-2.5 w-2.5 rounded-full",
+                statusTone === "success"
+                  ? "bg-emerald-500"
+                  : statusTone === "warning"
+                    ? "bg-amber-500"
+                    : statusTone === "danger"
+                      ? "bg-rose-500"
+                      : "bg-slate-400 dark:bg-slate-500",
+              ].join(" ")}
+            />
+            <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400">
+              {statusLabel}
+            </span>
+          </div>
+        ) : null}
       </div>
     </div>
 
-    {/* Toggle switch */}
     <button
       type="button"
       role="switch"
@@ -35,10 +164,10 @@ const ToggleRow = ({ icon, iconColor, label, description, value, onChange, disab
       disabled={disabled}
       onClick={() => !disabled && onChange(!value)}
       className={[
-        "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent",
+        "relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent",
         "transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500/40",
         value ? "bg-primary-500 dark:bg-primary-600" : "bg-gray-200 dark:bg-gray-700",
-        disabled ? "cursor-not-allowed" : "",
+        disabled ? "cursor-not-allowed" : "cursor-pointer",
       ].join(" ")}
     >
       <span
@@ -52,77 +181,145 @@ const ToggleRow = ({ icon, iconColor, label, description, value, onChange, disab
   </div>
 );
 
-// ─── Section card ─────────────────────────────────────────────────────────────
-const NotifCard = ({ title, titleIcon, children }) => (
-  <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6 transition-theme">
-    <h3 className={`text-base font-bold ${TXT_TITLE} flex items-center gap-2 mb-1 transition-theme`}>
-      <Icon name={titleIcon} className="text-primary-500 dark:text-primary-400 w-4 h-4" />
-      {title}
-    </h3>
-    <div className="divide-y divide-gray-100 dark:divide-gray-700/60">
-      {children}
+const NotifCard = ({
+  title,
+  titleIcon,
+  description,
+  children,
+  sectionKey = "default",
+}) => {
+  const theme = SECTION_THEME_MAP[sectionKey] || SECTION_THEME_MAP.default;
+
+  return (
+    <div className="relative flex h-full flex-col overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg dark:border-gray-700 dark:bg-gray-800">
+      <div className={`h-1.5 w-full ${theme.accent}`} />
+      <div className="relative px-6 py-5">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <h3 className={`mb-1 text-lg font-bold ${TXT_TITLE} transition-theme`}>
+              {title}
+            </h3>
+            {description ? (
+              <p className={`max-w-[34ch] text-sm leading-6 ${TXT_BODY} transition-theme`}>{description}</p>
+            ) : null}
+          </div>
+          <div className={`mt-1 mr-1 flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl shadow-sm ${theme.icon}`}>
+            <Icon name={titleIcon} className="h-6 w-6" />
+          </div>
+        </div>
+      </div>
+
+      <div className="mx-6 h-px bg-gray-200 dark:bg-gray-700" />
+
+      <div className="flex-1 divide-y divide-gray-100 px-6 py-2 dark:divide-gray-700/60">
+        {children}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
-// ─── Main component ───────────────────────────────────────────────────────────
 const UserProfileNotifications = () => {
-  // Toggle global desde baseSiteStore (ya persiste en localStorage)
-  const { notificationsEnabled, setNotificationsEnabled } = useBaseSiteStore();
+  const [preferences, setPreferences] = useState(EMPTY_PREFERENCES);
+  const [initialPreferences, setInitialPreferences] = useState(EMPTY_PREFERENCES);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
 
-  // Preferencias granulares (TODO: persistir en backend)
-  const [prefs, setPrefs] = useState({
-    // Actividad de minutas
-    minutaCreada:      true,
-    minutaAprobada:    true,
-    minutaRechazada:   true,
-    minutaPendiente:   false,
+  useEffect(() => {
+    let mounted = true;
 
-    // Actividad de proyectos / clientes
-    proyectoActualizado: true,
-    clienteAsignado:     false,
+    const loadPreferences = async () => {
+      setIsLoading(true);
+      try {
+        const result = await notificationsService.getPreferences();
+        if (!mounted) return;
+        setPreferences(result);
+        setInitialPreferences(clonePreferences(result));
+      } catch (error) {
+        if (!mounted) return;
+        ModalManager.error?.({
+          title: "No se pudieron cargar las notificaciones",
+          message: error?.message ?? "Intenta nuevamente en unos minutos.",
+        });
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
+    };
 
-    // Sistema
-    sesionNueva:       true,
-    reporteSemanal:    false,
-  });
+    loadPreferences();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
-  const toggle = (key) =>
-    setPrefs((prev) => ({ ...prev, [key]: !prev[key] }));
+  const notificationsEnabled = Boolean(preferences.globalEnabled);
+  const hasChanges = JSON.stringify(preferences) !== JSON.stringify(initialPreferences);
 
-  const disabled = !notificationsEnabled;
+  const handleGlobalToggle = (nextValue) => {
+    setPreferences((prev) => ({ ...prev, globalEnabled: nextValue }));
+  };
 
-  const handleSave = () => {
-    // TODO: llamar servicio real
-    ModalManager.success?.({
-      title: "Preferencias guardadas",
-      message: "Tus preferencias de notificaciones se actualizaron correctamente.",
-    });
+  const handleItemToggle = (key, nextValue) => {
+    setPreferences((prev) => ({
+      ...prev,
+      sections: replaceItemInSections(prev.sections, key, nextValue),
+    }));
+  };
+
+  const handleSave = async () => {
+    if (!hasChanges) return;
+    setIsSaving(true);
+    try {
+      const result = await notificationsService.updatePreferences({
+        globalEnabled: preferences.globalEnabled,
+        items: flattenEditableItems(preferences.sections),
+      });
+      setPreferences(result);
+      setInitialPreferences(clonePreferences(result));
+      ModalManager.success?.({
+        title: "Preferencias guardadas",
+        message: "Tus preferencias de notificaciones se actualizaron correctamente.",
+      });
+    } catch (error) {
+      ModalManager.error?.({
+        title: "No se pudieron guardar las preferencias",
+        message: error?.message ?? "Intenta nuevamente.",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleReset = () => {
-    setPrefs({
-      minutaCreada: true, minutaAprobada: true, minutaRechazada: true, minutaPendiente: false,
-      proyectoActualizado: true, clienteAsignado: false,
-      sesionNueva: true, reporteSemanal: false,
-    });
+    setPreferences(clonePreferences(initialPreferences));
   };
+
+  if (isLoading) {
+    return (
+      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm transition-theme dark:border-gray-700 dark:bg-gray-800">
+        <div className="flex items-center gap-3">
+          <Icon name="spinner" className="h-5 w-5 animate-spin text-primary-500" />
+          <div>
+            <p className={`text-sm font-semibold ${TXT_TITLE}`}>Cargando preferencias</p>
+            <p className={`text-xs ${TXT_META}`}>Estamos consultando tu suscripción real al centro de notificaciones.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-
-      {/* Toggle global — conectado a baseSiteStore */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6 transition-theme">
+      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm transition-theme dark:border-gray-700 dark:bg-gray-800">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h2 className={`text-lg font-bold ${TXT_TITLE} flex items-center gap-2 transition-theme`}>
-              <Icon name="FaBell" className="text-primary-500 dark:text-primary-400 w-4 h-4" />
+            <h2 className={`flex items-center gap-2 text-lg font-bold ${TXT_TITLE} transition-theme`}>
+              <Icon name="FaBell" className="h-4 w-4 text-primary-500 dark:text-primary-400" />
               Notificaciones del sistema
             </h2>
-            <p className={`text-sm ${TXT_BODY} mt-0.5 transition-theme`}>
+            <p className={`mt-0.5 text-sm ${TXT_BODY} transition-theme`}>
               {notificationsEnabled
-                ? "Las notificaciones están activadas. Puedes configurar cuáles recibir abajo."
-                : "Las notificaciones están desactivadas. Actívalas para configurar preferencias."}
+                ? "Tus preferencias opcionales están activas. Debajo puedes decidir qué categorías quieres seguir recibiendo."
+                : "Tus notificaciones opcionales están pausadas. Las alertas obligatorias para administradores seguirán llegando igualmente."}
             </p>
           </div>
 
@@ -130,11 +327,13 @@ const UserProfileNotifications = () => {
             type="button"
             role="switch"
             aria-checked={notificationsEnabled}
-            onClick={() => setNotificationsEnabled(!notificationsEnabled)}
+            disabled={isSaving}
+            onClick={() => handleGlobalToggle(!notificationsEnabled)}
             className={[
-              "relative inline-flex h-7 w-14 shrink-0 cursor-pointer rounded-full border-2 border-transparent",
+              "relative inline-flex h-7 w-14 shrink-0 rounded-full border-2 border-transparent",
               "transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500/40",
               notificationsEnabled ? "bg-primary-500 dark:bg-primary-600" : "bg-gray-200 dark:bg-gray-700",
+              isSaving ? "cursor-not-allowed opacity-70" : "cursor-pointer",
             ].join(" ")}
           >
             <span
@@ -148,67 +347,74 @@ const UserProfileNotifications = () => {
         </div>
       </div>
 
-      {/* Minutas */}
-      <NotifCard title="Minutas" titleIcon="FaClipboardCheck">
-        <ToggleRow
-          icon="FaFileAlt" iconColor="bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
-          label="Minuta creada"
-          description="Cuando se registra una nueva minuta en tus proyectos."
-          value={prefs.minutaCreada} onChange={() => toggle("minutaCreada")} disabled={disabled}
-        />
-        <ToggleRow
-          icon="checkCircle" iconColor="bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400"
-          label="Minuta aprobada"
-          description="Cuando una minuta es aprobada por un responsable."
-          value={prefs.minutaAprobada} onChange={() => toggle("minutaAprobada")} disabled={disabled}
-        />
-        <ToggleRow
-          icon="xCircle" iconColor="bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400"
-          label="Minuta rechazada"
-          description="Cuando una minuta es rechazada o devuelta para revisión."
-          value={prefs.minutaRechazada} onChange={() => toggle("minutaRechazada")} disabled={disabled}
-        />
-        <ToggleRow
-          icon="clock" iconColor="bg-yellow-100 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-400"
-          label="Minutas pendientes"
-          description="Recordatorio diario de minutas que aún requieren acción."
-          value={prefs.minutaPendiente} onChange={() => toggle("minutaPendiente")} disabled={disabled}
-        />
-      </NotifCard>
+      {preferences.totalItems > 0 ? (
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+          {preferences.sections.map((section) => (
+            <NotifCard
+              key={section.key}
+              title={section.title}
+              titleIcon={SECTION_ICON_MAP[section.key] || "FaBell"}
+              sectionKey={section.key}
+              description={section.description}
+            >
+              {section.items.map((item) => {
+                const iconConfig = ITEM_ICON_MAP[item.key] || {
+                  name: "FaBell",
+                  color: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300",
+                };
+                const theme = SECTION_THEME_MAP[section.key] || SECTION_THEME_MAP.default;
+                const isDisabled = isSaving || !notificationsEnabled || !item.isEditable;
+                const isPausedByGlobalToggle = !notificationsEnabled && item.isEditable && !item.isMandatory;
+                const receivesNotifications = item.isMandatory
+                  ? true
+                  : item.isEditable
+                    ? (notificationsEnabled && item.isEnabled)
+                    : item.receivesNotifications;
+                const statusLabel = item.isMandatory
+                  ? "Obligatoria"
+                  : item.disabledReason
+                    ? "Restringida"
+                    : receivesNotifications
+                      ? "Activa"
+                      : "Pausada";
+                const statusTone = item.isMandatory
+                  ? "success"
+                  : item.disabledReason
+                    ? "neutral"
+                    : receivesNotifications
+                      ? "success"
+                      : "warning";
 
-      {/* Proyectos y clientes */}
-      <NotifCard title="Proyectos y clientes" titleIcon="FaFolderOpen">
-        <ToggleRow
-          icon="FaFolderOpen" iconColor="bg-purple-100 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400"
-          label="Proyecto actualizado"
-          description="Cambios de estado, nuevos miembros o modificaciones en proyectos asignados."
-          value={prefs.proyectoActualizado} onChange={() => toggle("proyectoActualizado")} disabled={disabled}
-        />
-        <ToggleRow
-          icon="FaUser" iconColor="bg-orange-100 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400"
-          label="Cliente asignado"
-          description="Cuando se te asigna un cliente nuevo o confidencial."
-          value={prefs.clienteAsignado} onChange={() => toggle("clienteAsignado")} disabled={disabled}
-        />
-      </NotifCard>
+                return (
+                  <ToggleRow
+                    key={item.key}
+                    icon={iconConfig.name}
+                    iconColor={iconConfig.color}
+                    label={item.title}
+                    description={
+                      isPausedByGlobalToggle
+                        ? "Pausada por la preferencia general. Vuelve a activar las notificaciones para retomarla."
+                        : item.disabledReason || item.description
+                    }
+                    value={item.isEnabled}
+                    onChange={(nextValue) => handleItemToggle(item.key, nextValue)}
+                    disabled={isDisabled}
+                    statusLabel={statusLabel}
+                    statusTone={statusTone}
+                  />
+                );
+              })}
+            </NotifCard>
+          ))}
+        </div>
+      ) : null}
 
-      {/* Sistema */}
-      <NotifCard title="Sistema y seguridad" titleIcon="FaGear">
-        <ToggleRow
-          icon="FaDesktop" iconColor="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
-          label="Nueva sesión iniciada"
-          description="Alerta cuando se detecta un acceso desde un dispositivo nuevo."
-          value={prefs.sesionNueva} onChange={() => toggle("sesionNueva")} disabled={disabled}
-        />
-        <ToggleRow
-          icon="FaChartLine" iconColor="bg-teal-100 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400"
-          label="Reporte semanal"
-          description="Resumen de actividad de tus proyectos y minutas cada lunes."
-          value={prefs.reporteSemanal} onChange={() => toggle("reporteSemanal")} disabled={disabled}
-        />
-      </NotifCard>
+      {preferences.totalItems === 0 ? (
+        <div className="rounded-xl border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-500 transition-theme dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
+          No hay categorías configurables disponibles para tu cuenta.
+        </div>
+      ) : null}
 
-      {/* Footer de acciones */}
       <div className="flex justify-end gap-3 pt-2">
         <ActionButton
           label="Restablecer"
@@ -216,16 +422,17 @@ const UserProfileNotifications = () => {
           size="sm"
           icon={<Icon name="FaEraser" />}
           onClick={handleReset}
+          disabled={isSaving}
         />
         <ActionButton
-          label="Guardar preferencias"
+          label={isSaving ? "Guardando..." : "Guardar preferencias"}
           variant="primary"
           size="sm"
-          icon={<Icon name="check" />}
+          icon={<Icon name={isSaving ? "spinner" : "check"} className={isSaving ? "animate-spin" : ""} />}
           onClick={handleSave}
+          disabled={isSaving || !hasChanges}
         />
       </div>
-
     </div>
   );
 };

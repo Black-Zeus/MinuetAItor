@@ -15,6 +15,10 @@ from models.roles import Role
 from models.user_roles import UserRole
 from schemas.auth import UserSession
 from services.notification_center_events_service import publish_notification_event
+from services.notification_preferences_service import (
+    apply_notification_preferences_filter,
+    expand_always_included_recipients,
+)
 
 
 def _utcnow() -> datetime:
@@ -436,6 +440,21 @@ async def create_in_app_notification(
 ) -> dict:
     resolved_user_ids = _dedupe_user_ids(
         list(recipient_user_ids or []) + _resolve_role_recipient_ids(db, role_codes)
+    )
+    resolved_user_ids = _dedupe_user_ids(
+        expand_always_included_recipients(
+            db,
+            user_ids=resolved_user_ids,
+            notification_type=notification_type,
+            resolve_role_recipient_ids=_resolve_role_recipient_ids,
+        )
+    )
+    resolved_user_ids = _dedupe_user_ids(
+        apply_notification_preferences_filter(
+            db,
+            user_ids=resolved_user_ids,
+            notification_type=notification_type,
+        )
     )
 
     if not resolved_user_ids:
