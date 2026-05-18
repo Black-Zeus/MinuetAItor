@@ -776,7 +776,36 @@ def get_ai_provider_config(db: Session, config_id: str) -> dict[str, Any]:
 
 
 def list_ai_provider_catalog() -> list[dict[str, Any]]:
-    return [AIProviderCatalogEntryResponse.model_validate(item).model_dump(by_alias=True) for item in get_ai_provider_catalog()]
+    try:
+        catalog_items = get_ai_provider_catalog()
+    except Exception:
+        return []
+
+    normalized_items: list[dict[str, Any]] = []
+    for item in catalog_items:
+        if not isinstance(item, dict):
+            continue
+        try:
+            normalized_entry = AIProviderCatalogEntryResponse.model_validate(
+                {
+                    "id": str(item.get("id") or "").strip(),
+                    "label": str(item.get("label") or item.get("id") or "").strip(),
+                    "base_url": str(item.get("base_url") or "").strip(),
+                    "validation_endpoint": str(item.get("validation_endpoint") or "").strip(),
+                    "models_endpoint": str(item.get("models_endpoint") or "").strip(),
+                    "auth_type": str(item.get("auth_type") or "none").strip() or "none",
+                    "provider_family": str(item.get("provider_family") or item.get("id") or "generic").strip() or "generic",
+                    "models_response_format": str(
+                        item.get("models_response_format") or item.get("provider_family") or item.get("id") or "generic"
+                    ).strip() or "generic",
+                    "is_commercial": bool(item.get("is_commercial")),
+                }
+            )
+            normalized_items.append(normalized_entry.model_dump())
+        except Exception:
+            continue
+
+    return normalized_items
 
 
 def list_ai_provider_configs(db: Session, filters: AIProviderConfigFilterRequest) -> dict[str, Any]:

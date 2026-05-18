@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import asyncio
 import traceback
+from datetime import datetime, timezone
 
 
 from pathlib import Path
@@ -33,6 +34,11 @@ from core import registry
 from queues import register_all, QUEUE_PRIORITY
 
 logger = get_logger("worker.main")
+QUEUE_ACTIVITY_HASH = "system:queue:last_activity"
+
+
+def _utcnow_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 # ── Procesamiento de un job ───────────────────────────────────────────────────
@@ -130,6 +136,8 @@ async def main_loop() -> None:
                     queue_key, parse_err, raw,
                 )
                 continue
+
+            await redis.hset(QUEUE_ACTIVITY_HASH, queue_key, _utcnow_iso())
 
             # Lanzar como Task independiente para no bloquear el BLPOP
             task = asyncio.create_task(

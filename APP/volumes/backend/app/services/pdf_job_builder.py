@@ -114,6 +114,13 @@ def build_pdf_job(record: Any, trigger_config: Dict[str, Any]) -> Dict[str, Any]
             "status_on_success":    trigger_config.get("status_on_success"),
             "status_on_fail":       "pdf_error",
         },
+        "notification": _build_pdf_notification_payload(
+            record=record,
+            trigger_config=trigger_config,
+            record_id=record_id,
+            version_id=version_id,
+            output_key=output_key,
+        ),
     }
 
     envelope = {
@@ -434,6 +441,13 @@ def build_pdf_job_from_draft(
             "status_on_success":    trigger_config.get("status_on_success"),
             "status_on_fail":       "pdf_error",
         },
+        "notification": _build_pdf_notification_payload(
+            record=record,
+            trigger_config=trigger_config,
+            record_id=record_id,
+            version_id=version_id,
+            output_key=output_key,
+        ),
     }
 
     return {
@@ -443,6 +457,75 @@ def build_pdf_job_from_draft(
         "attempt": 1,
         "payload": payload,
     }
+
+
+def _build_pdf_notification_payload(
+    *,
+    record: Any,
+    trigger_config: Dict[str, Any],
+    record_id: str,
+    version_id: str,
+    output_key: str,
+) -> Dict[str, Any]:
+    recipient_user_ids = _dedupe_user_ids(
+        [
+            getattr(record, "prepared_by_user_id", None),
+            getattr(record, "created_by", None),
+            getattr(record, "updated_by", None),
+        ]
+    )
+    actor_user_id = str(
+        getattr(record, "updated_by", None)
+        or getattr(record, "prepared_by_user_id", None)
+        or getattr(record, "created_by", None)
+        or ""
+    ).strip() or None
+    is_published = str(trigger_config.get("minio_bucket")) == "minuetaitor-published"
+
+    if is_published:
+        notification_type = "minute.publication.pdf_ready"
+        title = "PDF final disponible"
+        message = f'El PDF final de "{getattr(record, "title", "la minuta")}" quedó disponible.'
+        tags = ["minute", "pdf", "publication", "minute.publication.pdf_ready"]
+        action_url = f"/minutes/view/{record_id}"
+    else:
+        notification_type = "minute.conversion.completed"
+        title = "PDF de borrador disponible"
+        message = f'Se generó el PDF de borrador de "{getattr(record, "title", "la minuta")}".'
+        tags = ["minute", "pdf", "draft", "minute.conversion.completed"]
+        action_url = f"/minutes/process/{record_id}"
+
+    return {
+        "notificationType": notification_type,
+        "title": title,
+        "message": message,
+        "level": "success",
+        "tags": tags,
+        "recipientUserIds": recipient_user_ids,
+        "scopeType": "record",
+        "scopeId": record_id,
+        "actionUrl": action_url,
+        "actorUserId": actor_user_id,
+        "metadata": {
+            "recordId": record_id,
+            "versionId": version_id,
+            "bucket": trigger_config.get("minio_bucket"),
+            "outputKey": output_key,
+            "trigger": trigger_config.get("trigger"),
+        },
+    }
+
+
+def _dedupe_user_ids(values: List[Any]) -> List[str]:
+    seen: set[str] = set()
+    clean: List[str] = []
+    for value in values:
+        item = str(value or "").strip()
+        if not item or item in seen:
+            continue
+        seen.add(item)
+        clean.append(item)
+    return clean
 
 
 # ---------------------------------------------------------------------------

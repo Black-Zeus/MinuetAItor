@@ -24,6 +24,9 @@ El frontend corre dentro del contenedor `frontend` con Vite. No asumir Node, npm
 - Evitar mover archivos entre dominios salvo necesidad real.
 - En componentes complejos, priorizar claridad por sobre micro-optimizacion.
 - Seguir el contrato real del backend; no parchear en UI incoherencias que deben resolverse en API salvo que el requerimiento sea explicitamente visual.
+- En modales `custom` abiertos mediante `ModalManager`, asumir que el contenedor padre ya aporta marco visual base.
+  - Evitar agregar una segunda tarjeta completa con `border`, `rounded`, `shadow` y fondo propio salvo que el diseño realmente requiera capas anidadas.
+  - Si el contenido necesita secciones internas, usar divisores, paneles locales o bloques suaves antes que envolver todo el modal en otro contenedor visual completo.
 
 ## Integracion con backend
 - Los cambios de contrato deben coordinarse con `APP/volumes/backend/app`.

@@ -12,6 +12,11 @@ Aqui vive el bootstrap SQL y la evolucion manual del esquema MariaDB/MySQL. No h
 - `20260517_1840_triggers.sql`
 - `20260517_1850_seed_catalogs_minimal.sql`
 - `20260517_1855_seed_operational_minimal.sql`
+- `20260517_1910_schema_system_maintenance_settings.sql`
+- `20260517_1920_alter_system_maintenance_settings_queue_thresholds.sql`
+- `20260517_1930_schema_notifications.sql`
+- `20260517_1940_alter_notification_recipients_visibility.sql`
+- `20260517_1950_alter_system_maintenance_queue_monitoring.sql`
 
 ## Reglas de cambio
 - Mantener el orden lexico de ejecucion definido por la convención `YYYYMMDD_HHMM_finalidad.sql`.

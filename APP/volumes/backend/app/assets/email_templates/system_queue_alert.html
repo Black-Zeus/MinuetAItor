@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="x-apple-disable-message-reformatting" />
+    <meta name="format-detection" content="telephone=no,address=no,email=no,date=no,url=no" />
+    <title>Alerta operativa · {{ QUEUE_LABEL }}</title>
+</head>
+
+<body style="margin:0;padding:0;background:#060b18;color:#e7eefc;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"
+        style="background:#060b18;margin:0;padding:0;">
+        <tr>
+            <td align="center" style="padding:28px 12px;">
+                <table role="presentation" width="640" cellspacing="0" cellpadding="0" border="0"
+                    style="width:640px;max-width:640px;border-collapse:separate;border-spacing:0;">
+                    <tr>
+                        <td
+                            style="background:linear-gradient(180deg,#33110b 0%,#241008 100%);border:1px solid rgba(255,255,255,0.08);border-bottom:none;border-radius:18px 18px 0 0;padding:18px 20px;">
+                            <div style="font-size:18px;line-height:22px;font-weight:700;color:#fdf4e7;">
+                                {{ APP_NAME }}
+                            </div>
+                            <div style="margin-top:6px;font-size:12px;line-height:18px;color:#f5c59c;">
+                                Observabilidad técnica · Alerta de colas
+                            </div>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td
+                            style="background:#07122a;border:1px solid rgba(255,255,255,0.08);border-top:none;border-bottom:none;padding:24px 20px 10px 20px;">
+                            <div
+                                style="font-size:22px;line-height:28px;font-weight:800;color:#f1f6ff;letter-spacing:-0.02em;">
+                                La cola {{ QUEUE_LABEL }} superó su umbral de advertencia.
+                            </div>
+
+                            <div style="font-size:14px;line-height:22px;color:#c9d7f2;margin-top:12px;">
+                                Se detectó una acumulación superior al umbral configurado para esta cola. Conviene revisar su carga,
+                                el worker consumidor y el origen de los jobs encolados.
+                            </div>
+
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"
+                                style="margin-top:16px;">
+                                <tr>
+                                    <td
+                                        style="background:rgba(9,22,52,0.9);border:1px solid rgba(255,255,255,0.12);border-radius:16px;padding:18px 16px;">
+                                        <div style="font-size:12px;line-height:16px;color:#9fb2d6;margin-bottom:10px;">
+                                            DETALLE DE LA ALERTA
+                                        </div>
+                                        <table role="presentation" width="100%" cellspacing="0" cellpadding="0"
+                                            border="0">
+                                            <tr>
+                                                <td
+                                                    style="font-size:12px;line-height:18px;color:#9fb2d6;width:180px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.08);">
+                                                    Cola</td>
+                                                <td
+                                                    style="font-size:12px;line-height:18px;color:#f1f6ff;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.08);font-weight:700;">
+                                                    {{ QUEUE_LABEL }} ({{ QUEUE_NAME }})</td>
+                                            </tr>
+                                            <tr>
+                                                <td
+                                                    style="font-size:12px;line-height:18px;color:#9fb2d6;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.08);">
+                                                    Jobs observados</td>
+                                                <td
+                                                    style="font-size:12px;line-height:18px;color:#c9d7f2;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.08);">
+                                                    {{ CURRENT_SIZE }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td
+                                                    style="font-size:12px;line-height:18px;color:#9fb2d6;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.08);">
+                                                    Umbral configurado</td>
+                                                <td
+                                                    style="font-size:12px;line-height:18px;color:#c9d7f2;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.08);">
+                                                    {{ WARNING_THRESHOLD }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td
+                                                    style="font-size:12px;line-height:18px;color:#9fb2d6;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.08);">
+                                                    Consumer esperado</td>
+                                                <td
+                                                    style="font-size:12px;line-height:18px;color:#c9d7f2;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.08);">
+                                                    {{ QUEUE_CONSUMER }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td
+                                                    style="font-size:12px;line-height:18px;color:#9fb2d6;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.08);">
+                                                    Prioridad</td>
+                                                <td
+                                                    style="font-size:12px;line-height:18px;color:#c9d7f2;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.08);">
+                                                    {{ QUEUE_PRIORITY }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td
+                                                    style="font-size:12px;line-height:18px;color:#9fb2d6;padding:6px 0;">
+                                                    Detectado a las</td>
+                                                <td
+                                                    style="font-size:12px;line-height:18px;color:#c9d7f2;padding:6px 0;">
+                                                    {{ DETECTED_AT }}</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <div
+                                style="margin-top:14px;padding:14px 14px;border:1px solid rgba(251,191,36,0.25);border-radius:14px;background:rgba(245,158,11,0.10);">
+                                <div style="font-size:13px;line-height:18px;color:#fde68a;font-weight:700;">
+                                    Recomendación
+                                </div>
+                                <div style="font-size:12px;line-height:18px;color:#fde7b3;margin-top:6px;">
+                                    Revisa la pestaña de colas y confirma si la acumulación es esperada o si requiere intervención operativa.
+                                </div>
+                            </div>
+
+                            <div style="margin-top:20px;">
+                                <a href="{{ SYSTEM_MODULE_URL }}"
+                                    style="display:inline-block;background:#4d66b3;color:#ffffff;text-decoration:none;font-weight:700;padding:12px 18px;border-radius:14px;">
+                                    Abrir módulo de Sistema
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td
+                            style="background:#07122a;border:1px solid rgba(255,255,255,0.08);border-top:none;border-radius:0 0 18px 18px;padding:16px 20px;">
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                                <tr>
+                                    <td style="font-size:12px;line-height:18px;color:#8fa6cc;">
+                                        Generado automáticamente por {{ APP_NAME }}.<br />Este aviso se dispara sólo al cruzar el umbral.
+                                    </td>
+                                    <td align="right" style="font-size:12px;line-height:18px;color:#8fa6cc;">
+                                        Sistema · Colas · Observabilidad
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+
+</html>

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import traceback
+from datetime import datetime, timezone
 
 from core.config         import settings
 from core.job            import JobEnvelope
@@ -18,6 +19,11 @@ from core.redis_client   import close_redis, get_redis
 from handlers.minute_pdf import handle_minute_pdf
 
 logger = get_logger("pdf-worker.main")
+QUEUE_ACTIVITY_HASH = "system:queue:last_activity"
+
+
+def _utcnow_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 QUEUE_PRIORITY = ["queue:pdf"]
 
@@ -90,6 +96,8 @@ async def main_loop() -> None:
             except Exception as e:
                 logger.error("Job inválido descartado | queue=%s error=%s", queue_key, e)
                 continue
+
+            await redis.hset(QUEUE_ACTIVITY_HASH, queue_key, _utcnow_iso())
 
             task = asyncio.create_task(_execute_job(job, sem), name=f"job-{job.job_id}")
             active_tasks.add(task)

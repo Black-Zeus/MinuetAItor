@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 # ── Constantes ────────────────────────────────────────────────────────────────
 COMMIT_PATH = "/internal/v1/minutes/commit"
+NOTIFICATIONS_INGEST_PATH = "/internal/v1/notifications/ingest"
 
 
 class BackendClientError(Exception):
@@ -134,3 +135,17 @@ def commit_tx2(
         result.get("version_id", "?"),
     )
     return result
+
+
+def ingest_notification(body: dict[str, Any]) -> dict:
+    """
+    Envía una notificación in-app ya resuelta al backend interno.
+    Útil para eventos que nacen al final de jobs asíncronos del worker.
+    """
+    logger.info(
+        "Enviando notificación interna | type=%s recipients=%s roles=%s",
+        body.get("notificationType") or body.get("notification_type"),
+        body.get("recipientUserIds") or body.get("recipient_user_ids"),
+        body.get("roleCodes") or body.get("role_codes"),
+    )
+    return _do_request(NOTIFICATIONS_INGEST_PATH, body)

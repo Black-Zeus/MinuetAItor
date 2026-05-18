@@ -12,6 +12,7 @@ import AiProviderConfigModal, {
 import SmtpConfigModal, { SMTP_MODAL_MODES } from "@/pages/system/SmtpConfigModal";
 import { BackupsPanel } from "@/pages/system/SystemSettingsBackupsPanel";
 import { MaintenancePanel } from "@/pages/system/SystemSettingsMaintenancePanel";
+import { QueuesPanel } from "@/pages/system/SystemSettingsQueuesPanel";
 import {
   AIProviderTable,
   SendSmtpTestModal,
@@ -462,6 +463,8 @@ const SystemSettings = () => {
       )}
 
       {activeTab === "maintenance" && <MaintenancePanel />}
+
+      {activeTab === "queues" && <QueuesPanel />}
 
       {activeTab === "backups" && <BackupsPanel />}
     </div>

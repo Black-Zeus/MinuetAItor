@@ -23,7 +23,10 @@ from models.version_statuses import VersionStatus
 from models.dashboard_widgets import DashboardWidget
 from models.ai_profile_categories import AiProfileCategory
 from models.ai_provider_configs import AiProviderConfig
+from models.notifications import Notification
+from models.notification_recipients import NotificationRecipient
 from models.smtp_configs import SmtpConfig
+from models.system_maintenance_setting import SystemMaintenanceSetting
 
 # ── Entidades de negocio ──────────────────────────────────────────────────────
 from models.clients import Client
@@ -72,7 +75,9 @@ __all__ = [
     "RecordType", "RecordStatus", "VersionStatus",
     "DashboardWidget", "AiProfileCategory",
     "AiProviderConfig",
+    "Notification", "NotificationRecipient",
     "SmtpConfig",
+    "SystemMaintenanceSetting",
     # Negocio
     "Client", "Project", "Object", "AiProfile", "AuditLog",
     "Participant", "ParticipantEmail",

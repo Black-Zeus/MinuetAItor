@@ -49,6 +49,7 @@ from services.minutes import queue as minute_queue
 from services.minutes import query as minute_query
 from services.minutes import sanitizers as minute_sanitizers
 from services.minutes import storage as minute_storage
+from services.notification_center_service import create_in_app_notification
 from services.minutes.attachments import (
     get_minute_attachment_blob as get_minute_attachment_blob_use_case,
     list_minute_input_attachments as list_minute_input_attachments_use_case,
@@ -1008,12 +1009,59 @@ async def transition_minute(
             body_note=review_email.body_note if review_email else None,
             selected_participant_ids=review_email.selected_participant_ids if review_email else None,
             attach_pdf=review_email.attach_pdf if review_email else True,
+            actor_user_id=actor_user_id,
         )
         auto_email_queued = True
     elif current_status_code == RECORD_STATUS_PREVIEW and target_status == RECORD_STATUS_COMPLETED and auto_send_on_completed:
         actor_user = db.query(User).filter(User.id == actor_user_id, User.deleted_at.is_(None)).first()
         await enqueue_minute_officialized_email(db, record_id, actor_user=actor_user)
         auto_email_queued = True
+
+    try:
+        action_url = (
+            f"/minutes/process/{record_id}"
+            if target_status in {RECORD_STATUS_READY, RECORD_STATUS_PENDING, RECORD_STATUS_PREVIEW}
+            else f"/minutes/view/{record_id}"
+        )
+        if target_status == RECORD_STATUS_COMPLETED:
+            notification_type = "minute.publication.completed"
+            title = "Minuta publicada"
+            message = f'La minuta "{record.title}" quedó publicada como versión final.'
+            tags = ["minute", "publication", "completed", "minute.publication.completed"]
+        elif target_status == RECORD_STATUS_PREVIEW:
+            notification_type = "minute.status.preview"
+            title = "Minuta enviada a revisión"
+            message = f'La minuta "{record.title}" cambió a estado de revisión.'
+            tags = ["minute", "status", "preview", "minute.status.preview"]
+        else:
+            notification_type = "minute.status.changed"
+            title = "Estado de minuta actualizado"
+            message = (
+                f'La minuta "{record.title}" cambió de "{current_status_code}" a "{target_status}".'
+            )
+            tags = ["minute", "status", target_status, "minute.status.changed"]
+
+        await create_in_app_notification(
+            db,
+            notification_type=notification_type,
+            title=title,
+            message=message,
+            level="success" if target_status == RECORD_STATUS_COMPLETED else "info",
+            tags=tags,
+            recipient_user_ids=[actor_user_id],
+            scope_type="record",
+            scope_id=record_id,
+            action_url=action_url,
+            actor_user_id=actor_user_id,
+            metadata={
+                "recordId": record_id,
+                "fromStatus": current_status_code,
+                "toStatus": target_status,
+                "autoEmailQueued": auto_email_queued,
+            },
+        )
+    except Exception as notify_exc:
+        logger.warning("[minutes] No se pudo crear notificación de transición | record=%s err=%s", record_id, notify_exc)
 
     return MinuteTransitionResponse(
         record_id   = record_id,
@@ -1087,6 +1135,7 @@ async def send_minute_email(
         selected_participant_ids=review_email.selected_participant_ids,
         attach_pdf=review_email.attach_pdf,
         published_pdf=current_status_code == RECORD_STATUS_COMPLETED,
+        actor_user_id=actor_user_id,
     )
 
     logger.info("[minutes] Envío manual email | record=%s status=%s actor=%s", record_id, current_status_code, actor_user_id)

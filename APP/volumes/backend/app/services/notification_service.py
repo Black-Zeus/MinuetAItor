@@ -367,6 +367,7 @@ async def _safe_queue_template(
     context: dict[str, Any],
     subject: str | None = None,
     attachments: list[dict[str, Any]] | None = None,
+    notification_context: dict[str, Any] | None = None,
 ) -> bool:
     recipients = _clean_list(to)
     if not recipients:
@@ -381,6 +382,7 @@ async def _safe_queue_template(
             template_context=context,
             subject=subject,
             attachments=attachments,
+            notification_context=notification_context,
         )
         return True
     except Exception as exc:
@@ -671,6 +673,23 @@ async def enqueue_ai_processed_ready_email(
         to=recipients,
         template_id="ai_processed_ready_for_manual_review",
         context=context,
+        notification_context={
+            "notificationType": "email.sent",
+            "title": "Correo enviado",
+            "message": f'Se envió el aviso de acta procesada para "{record.title}".',
+            "level": "success",
+            "tags": ["email", "minute", "sent", "minute.analysis.email.sent"],
+            "recipientUserIds": [str(getattr(actor_user, "id", "") or record.prepared_by_user_id)],
+            "scopeType": "record",
+            "scopeId": record.id,
+            "actionUrl": f"/minutes/process/{record.id}",
+            "actorUserId": str(getattr(actor_user, "id", "") or record.prepared_by_user_id),
+            "metadata": {
+                "recordId": record.id,
+                "emailTemplateId": "ai_processed_ready_for_manual_review",
+                "recipientEmails": recipients,
+            },
+        },
     )
 
 
@@ -684,6 +703,7 @@ async def enqueue_minute_review_email(
     selected_participant_ids: list[str] | None = None,
     attach_pdf: bool = True,
     published_pdf: bool = False,
+    actor_user_id: str | None = None,
 ) -> bool:
     record = _record_with_relations(db, record_id)
     if not record:
@@ -733,6 +753,35 @@ async def enqueue_minute_review_email(
         context=context,
         subject=subject,
         attachments=[attachment] if attachment else None,
+        notification_context={
+            "notificationType": "email.sent",
+            "title": "Correo enviado",
+            "message": (
+                f'Se envió la minuta "{record.title}" a revisión.'
+                if not published_pdf
+                else f'Se envió la minuta "{record.title}" a sus destinatarios.'
+            ),
+            "level": "success",
+            "tags": [
+                "email",
+                "minute",
+                "sent",
+                "minute.review.email.sent" if not published_pdf else "minute.publication.email.sent",
+            ],
+            "recipientUserIds": [str(actor_user_id or record.updated_by or record.prepared_by_user_id)],
+            "scopeType": "record",
+            "scopeId": record.id,
+            "actionUrl": _minute_url(record.id) if published_pdf else _minute_edit_url(record.id),
+            "actorUserId": str(actor_user_id or record.updated_by or record.prepared_by_user_id),
+            "metadata": {
+                "recordId": record.id,
+                "emailTemplateId": "sendMinute",
+                "publishedPdf": bool(published_pdf),
+                "attachPdf": bool(attach_pdf),
+                "recipientEmails": recipients,
+                "ccEmails": cc_recipients,
+            },
+        },
     )
 
 
@@ -767,6 +816,23 @@ async def enqueue_minute_officialized_email(db: Session, record_id: str, *, acto
         to=recipients,
         template_id="minute_officialized_approved",
         context=context,
+        notification_context={
+            "notificationType": "email.sent",
+            "title": "Correo enviado",
+            "message": f'Se envió la minuta oficializada "{record.title}".',
+            "level": "success",
+            "tags": ["email", "minute", "sent", "minute.officialized.email.sent"],
+            "recipientUserIds": [str(getattr(actor_user, "id", "") or record.updated_by or record.prepared_by_user_id)],
+            "scopeType": "record",
+            "scopeId": record.id,
+            "actionUrl": _minute_url(record.id),
+            "actorUserId": str(getattr(actor_user, "id", "") or record.updated_by or record.prepared_by_user_id),
+            "metadata": {
+                "recordId": record.id,
+                "emailTemplateId": "minute_officialized_approved",
+                "recipientEmails": recipients,
+            },
+        },
     )
 
 

@@ -33,6 +33,7 @@ from services.notification_service import (
     enqueue_password_changed_email,
     enqueue_recover_password_email,
 )
+from services.notification_center_service import create_in_app_notification
 from services.session_events_service import (
     get_session_redis_key,
     publish_session_event,
@@ -431,6 +432,23 @@ async def change_password(
         change_reason="Cambio realizado desde sesion autenticada",
         request_origin="auth.change-password",
     )
+    await create_in_app_notification(
+        db,
+        notification_type="auth.password.changed",
+        title="Contraseña actualizada",
+        message="Tu contraseña se actualizó correctamente desde una sesión autenticada.",
+        level="success",
+        tags=["auth", "security", "password", "auth.password.changed"],
+        recipient_user_ids=[user.id],
+        scope_type="user",
+        scope_id=user.id,
+        action_url="/settings/userProfile",
+        actor_user_id=session.user_id,
+        metadata={
+            "event": "self_password_change",
+            "revokeSessions": bool(payload.revoke_sessions),
+        },
+    )
 
     if payload.revoke_sessions:
         # Revoca todas excepto la sesión actual
@@ -477,6 +495,23 @@ async def change_password_by_admin(
         actor_label="un administrador",
         change_reason="Cambio forzado por administrador",
         request_origin="auth.change-password-by-admin",
+    )
+    await create_in_app_notification(
+        db,
+        notification_type="auth.password.changed_by_admin",
+        title="Contraseña restablecida por administración",
+        message="Una persona administradora actualizó la contraseña de tu cuenta.",
+        level="warning",
+        tags=["auth", "security", "password", "auth.password.changed_by_admin"],
+        recipient_user_ids=[target.id],
+        scope_type="user",
+        scope_id=target.id,
+        action_url="/settings/userProfile",
+        actor_user_id=actor.user_id,
+        metadata={
+            "event": "admin_password_change",
+            "reason": payload.reason,
+        },
     )
 
     # Revocar TODAS las sesiones del usuario afectado
@@ -559,6 +594,24 @@ async def reset_password(
         actor_label="el flujo de recuperacion de cuenta",
         change_reason="Restablecimiento mediante credencial de recuperacion",
         request_origin="auth.reset-password",
+    )
+    await create_in_app_notification(
+        db,
+        notification_type="auth.password.reset",
+        title="Contraseña restablecida",
+        message="La contraseña de tu cuenta fue restablecida mediante recuperación.",
+        level="warning",
+        tags=["auth", "security", "password", "auth.password.reset"],
+        recipient_user_ids=[user.id],
+        scope_type="user",
+        scope_id=user.id,
+        action_url="/login",
+        actor_user_id=user.id,
+        metadata={
+            "event": "password_reset",
+            "usedToken": bool(token and token.strip()),
+            "usedOtp": bool(otp_code and otp_code.strip()),
+        },
     )
 
     jtis = [s.jti for s in get_active_sessions(db, user_id)]

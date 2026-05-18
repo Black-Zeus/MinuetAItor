@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import HeaderContainer    from './HeaderContainer';
 import HeaderBreadcrumb   from './HeaderBreadcrumb';
 import HeaderSearch       from './HeaderSearch';
+import HeaderNotificationsBell from './HeaderNotificationsBell';
 import HeaderThemeToggle  from './HeaderThemeToggle';
 import HeaderDivider      from './HeaderDivider';
 import HeaderUserMenu     from './HeaderUserMenu';
@@ -53,6 +54,7 @@ const Header = () => {
         />
         <div className="flex items-center space-x-2">
           <HeaderThemeToggle onClick={toggleTheme} currentTheme={theme} />
+          <HeaderNotificationsBell />
         </div>
         <HeaderDivider />
         <HeaderUserMenu

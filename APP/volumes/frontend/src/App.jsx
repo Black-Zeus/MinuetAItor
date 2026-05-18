@@ -6,7 +6,9 @@ import { exposeViteEnvToWindow } from "./utils/exposeEnv";
 import ToasterManager from "./components/common/toast/ToasterManager";
 import SessionExpiryModal from "./components/SessionExpiryModal";
 import AuthSessionEventsBridge from "./components/AuthSessionEventsBridge";
+import NotificationsEventsBridge from "./components/NotificationsEventsBridge";
 import RemoteSessionNoticeModal from "./components/RemoteSessionNoticeModal";
+import SystemMaintenanceEventsBridge from "./components/SystemMaintenanceEventsBridge";
 
 // Solo exponer en desarrollo o QA, nunca en producción
 if (isDev() || isQA()) {
@@ -27,6 +29,8 @@ function App() {
   return (
     <>
       <AuthSessionEventsBridge />
+      <NotificationsEventsBridge />
+      <SystemMaintenanceEventsBridge />
       <AppRouter />
       <ToasterManager />
       <SessionExpiryModal />

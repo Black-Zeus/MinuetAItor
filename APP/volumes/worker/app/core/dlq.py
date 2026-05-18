@@ -34,6 +34,7 @@ from core.logging_config import get_logger
 logger = get_logger("worker.dlq")
 
 DLQ_KEY = "queue:dlq"
+QUEUE_ACTIVITY_HASH = "system:queue:last_activity"
 # Máximo de mensajes que guardamos en DLQ (FIFO, los más viejos se eliminan)
 DLQ_MAX_SIZE = int(1000)
 
@@ -47,18 +48,20 @@ async def send_to_dlq(
     Manda un job a la Dead Letter Queue con contexto del error.
     Usa RPUSH + LTRIM para mantener tamaño máximo.
     """
+    failed_at = datetime.now(timezone.utc).isoformat()
     record = {
         "job_id":    job.job_id,
         "type":      job.type,
         "queue":     job.queue,
         "attempt":   job.attempt,
         "payload":   job.payload,
-        "failed_at": datetime.now(timezone.utc).isoformat(),
+        "failed_at": failed_at,
         "error":     error[:2000],  # truncar tracebacks muy largos
     }
 
     await redis.rpush(DLQ_KEY, json.dumps(record))
     await redis.ltrim(DLQ_KEY, -DLQ_MAX_SIZE, -1)  # conserva solo los últimos N
+    await redis.hset(QUEUE_ACTIVITY_HASH, DLQ_KEY, failed_at)
 
     logger.error(
         "Job enviado a DLQ | job_id=%s type=%s queue=%s attempt=%d",

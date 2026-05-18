@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 from datetime import datetime, timezone
 from typing import AsyncGenerator
 
@@ -14,7 +15,6 @@ logger = logging.getLogger(__name__)
 SESSION_PREFIX = "session"
 SESSION_EVENTS_PREFIX = "events:auth:sessions"
 AUTH_SSE_KEEPALIVE_SEC = 15
-AUTH_SSE_MAX_WAIT_SEC = 3600
 AUTH_SSE_VALIDATE_SEC = 5
 
 
@@ -77,18 +77,18 @@ async def stream_session_events(session: UserSession) -> AsyncGenerator[str, Non
     logger.info("[auth-sse] Suscrito | user=%s jti=%s", session.user_id, session.jti)
 
     try:
-        elapsed = 0.0
-        last_ping = 0.0
-        last_validation = 0.0
+        last_ping_at = time.monotonic()
+        last_validation_at = last_ping_at
 
-        while elapsed < AUTH_SSE_MAX_WAIT_SEC:
-            if elapsed - last_ping >= AUTH_SSE_KEEPALIVE_SEC:
+        while True:
+            now = time.monotonic()
+            if now - last_ping_at >= AUTH_SSE_KEEPALIVE_SEC:
                 yield _auth_sse_event("keepalive", {})
-                last_ping = elapsed
+                last_ping_at = now
 
-            if elapsed - last_validation >= AUTH_SSE_VALIDATE_SEC:
+            if now - last_validation_at >= AUTH_SSE_VALIDATE_SEC:
                 exists = await session_exists(session.user_id, session.jti)
-                last_validation = elapsed
+                last_validation_at = now
                 if not exists:
                     yield _auth_sse_event("session_revoked", {
                         "event": "session_revoked",
@@ -106,24 +106,20 @@ async def stream_session_events(session: UserSession) -> AsyncGenerator[str, Non
                     timeout=2.0,
                 )
             except asyncio.TimeoutError:
-                elapsed += 1.0
                 continue
 
             if not msg or msg["type"] != "message":
-                elapsed += 0.1
                 await asyncio.sleep(0.1)
                 continue
 
             try:
                 event_data = json.loads(msg["data"])
             except (json.JSONDecodeError, TypeError):
-                elapsed += 0.1
                 await asyncio.sleep(0.1)
                 continue
 
             target_jti = event_data.get("target_jti")
             if target_jti and target_jti != session.jti:
-                elapsed += 0.1
                 await asyncio.sleep(0.1)
                 continue
 
@@ -139,7 +135,6 @@ async def stream_session_events(session: UserSession) -> AsyncGenerator[str, Non
             if event_data.get("force_logout"):
                 break
 
-            elapsed += 0.1
             await asyncio.sleep(0.1)
     finally:
         try:

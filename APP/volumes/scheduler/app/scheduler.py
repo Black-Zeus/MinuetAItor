@@ -46,10 +46,18 @@ def _post_internal(path: str, body: dict | None = None) -> dict:
         return json.loads(resp.read().decode("utf-8"))
 
 
+def _unwrap_contract(result: dict | None) -> dict:
+    if not isinstance(result, dict):
+        return {}
+    if isinstance(result.get("result"), dict):
+        return result["result"]
+    return result
+
+
 def job_pending_publication_reminders():
     """Dispara recordatorios de minutas pendientes desde el backend."""
     try:
-        result = _post_internal("/internal/v1/notifications/reminders/pending-publication")
+        result = _unwrap_contract(_post_internal("/internal/v1/notifications/reminders/pending-publication"))
         logger.info("Reminder batch OK | sent=%s", result.get("sent", 0))
     except urllib.error.HTTPError as exc:
         body = exc.read().decode("utf-8", errors="replace")
@@ -66,11 +74,21 @@ def job_db_backup():
     })
 
 
-def job_cleanup_sessions():
-    """Encola limpieza de sesiones expiradas."""
-    enqueue("queue:maintenance", {
-        "type": "cleanup_sessions",
-    })
+def job_maintenance_tick():
+    """Delegación de mantenimiento dinámico según configuración persistida."""
+    try:
+        result = _unwrap_contract(_post_internal("/internal/v1/maintenance/tick"))
+        logger.info(
+            "Maintenance tick OK | slot=%s | enqueued=%s | queue_alerts=%s",
+            result.get("currentSlot") or result.get("current_slot"),
+            ",".join(item.get("action", "?") for item in result.get("enqueued", [])) or "-",
+            len(result.get("queueAlerts", []) or result.get("queue_alerts", []) or []),
+        )
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        logger.error("Maintenance tick HTTP error | status=%s body=%s", exc.code, body[:300])
+    except Exception as exc:
+        logger.error("Maintenance tick failed | err=%s", exc)
 
 
 # ── Configuración del scheduler ───────────────────────────────────────────────
@@ -94,12 +112,12 @@ def main():
         name="Respaldo base de datos",
     )
 
-    # Limpieza sesiones — cada hora
+    # Tick de mantenimiento dinámico — cada minuto
     scheduler.add_job(
-        job_cleanup_sessions,
-        CronTrigger(minute=0),
-        id="cleanup_sessions",
-        name="Limpieza sesiones expiradas",
+        job_maintenance_tick,
+        CronTrigger(),
+        id="maintenance_tick",
+        name="Tick mantenimiento dinámico",
     )
 
     logger.info("Scheduler iniciado | jobs=%d", len(scheduler.get_jobs()))   
