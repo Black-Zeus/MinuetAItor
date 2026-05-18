@@ -9,8 +9,7 @@ import { FaSun, FaMoon, FaEye, FaEyeSlash, FaCircleExclamation } from 'react-ico
 import useAuthStore from '@store/authStore';
 import useBaseSiteStore from '@store/baseSiteStore';
 import { login as apiLogin } from '@/services/authService';
-
-const APP_VERSION = '1.0.0';
+import { APP_VERSION } from '@/utils/environment';
 
 const LoginPage = () => {
     const navigate = useNavigate();
@@ -326,13 +325,15 @@ const LoginPage = () => {
 
                 </div>
 
-                <span className="
-                    absolute right-2 -bottom-7
-                    text-[0.8rem] text-slate-500
-                    pointer-events-none select-none
-                ">
-                    v{APP_VERSION}
-                </span>
+                {APP_VERSION && (
+                    <span className="
+                        absolute right-2 -bottom-7
+                        text-[0.8rem] text-slate-500
+                        pointer-events-none select-none
+                    ">
+                        v{APP_VERSION}
+                    </span>
+                )}
 
             </div>
         </div>

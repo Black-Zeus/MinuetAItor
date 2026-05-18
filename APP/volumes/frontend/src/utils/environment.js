@@ -26,7 +26,7 @@ const _env = {
 
   // ----- App info -----
   APP_NAME:    import.meta.env.VITE_FRONTEND_NAME    || '-',
-  APP_VERSION: import.meta.env.VITE_FRONTEND_VERSION || '-',
+  APP_VERSION: import.meta.env.VITE_FRONTEND_VERSION,
   APP_ENV:     import.meta.env.VITE_FRONTEND_ENV     || '-',
 
   // ----- Red -----
@@ -172,7 +172,6 @@ export const validateEnvironment = () => {
   // ----- Warnings: variables con sentinel '-' -----
   const sentinels = {
     APP_NAME:          'VITE_FRONTEND_NAME',
-    APP_VERSION:       'VITE_FRONTEND_VERSION',
     APP_ENV:           'VITE_FRONTEND_ENV',
     LOG_LEVELS:        'VITE_LOG_LEVELS',
     LOG_SCOPES:        'VITE_LOG_SCOPES',
@@ -186,6 +185,9 @@ export const validateEnvironment = () => {
   for (const [key, envVar] of Object.entries(sentinels)) {
     if (_env[key] === '-') warnings.push(`${envVar} no está definida (usando sentinel "-")`);
   }
+
+  if (!_env.APP_VERSION)
+    warnings.push('VITE_FRONTEND_VERSION no está definida');
 
   // ----- Salida por consola (EXCEPCIÓN: circular con logger) -----
   if (errors.length) {
