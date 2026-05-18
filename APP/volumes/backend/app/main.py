@@ -139,6 +139,11 @@ app.include_router(mime_types_router, prefix="/v1")
 from routers.v1.objects import router as objects_router
 app.include_router(objects_router, prefix="/v1")
 
+# ── Notifications ─────────────────────────────────────────────────────────────
+# [ACTIVO]
+from routers.v1.notifications import router as notifications_router
+app.include_router(notifications_router, prefix="/v1")
+
 # ── Permissions ───────────────────────────────────────────────────────────────
 # [DESACTIVADO] Los permisos son configuración del sistema gestionada por seeds/migraciones.
 # No deben ser modificables desde la API pública.
@@ -301,6 +306,16 @@ app.include_router(sendmail_router, prefix="/v1")
 from routers.v1.smtp_configs import router as smtp_configs_router
 app.include_router(smtp_configs_router, prefix="/v1")
 
+# ── System Maintenance ────────────────────────────────────────────────────────
+# [ACTIVO] Configuración administrativa del submódulo de mantenimiento
+from routers.v1.system_maintenance import router as system_maintenance_router
+app.include_router(system_maintenance_router, prefix="/v1")
+
+# ── System Queues ─────────────────────────────────────────────────────────────
+# [ACTIVO] Snapshot administrativo de colas Redis y su carga operativa
+from routers.v1.system_queues import router as system_queues_router
+app.include_router(system_queues_router, prefix="/v1")
+
 # Añadir en main.py junto a los otros routers:
 from routers.v1.minutes import router as minutes_router
 app.include_router(minutes_router, prefix="/v1")
@@ -314,6 +329,8 @@ app.include_router(minute_views_router, prefix="/v1")
 # [ACTIVO] Solo accesible dentro de la red Docker interna — nunca expuesto por nginx
 from routers.internal.minutes import router as internal_minutes_router
 app.include_router(internal_minutes_router)
+from routers.internal.maintenance import router as internal_maintenance_router
+app.include_router(internal_maintenance_router)
 from routers.internal.notifications import router as internal_notifications_router
 app.include_router(internal_notifications_router)
 

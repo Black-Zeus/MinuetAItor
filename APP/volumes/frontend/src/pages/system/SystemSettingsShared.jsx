@@ -24,13 +24,19 @@ export const TABS = [
     id: "maintenance",
     label: "Mantenimiento",
     icon: "FaGears",
-    description: "Rutinas, colas y observabilidad",
+    description: "Rutinas y limpieza operativa",
   },
   {
     id: "backups",
     label: "Respaldos",
     icon: "FaDatabase",
     description: "Políticas y conservación",
+  },
+  {
+    id: "queues",
+    label: "Colas",
+    icon: "FaServer",
+    description: "Redis y estado operativo",
   },
 ];
 
@@ -106,6 +112,12 @@ export const INITIAL_MAINTENANCE_DRAFT = {
   tempCleanupMaxAgeDays: 7,
   monitorMaintenanceQueueEnabled: true,
   maintenanceQueueWarningThreshold: 25,
+  monitorMinutesQueueEnabled: true,
+  minutesQueueWarningThreshold: 5,
+  monitorEmailQueueEnabled: true,
+  emailQueueWarningThreshold: 20,
+  monitorPdfQueueEnabled: true,
+  pdfQueueWarningThreshold: 10,
   monitorDlqEnabled: true,
   dlqWarningThreshold: 10,
 };
@@ -504,7 +516,7 @@ export const Header = () => (
 
 export const TabNav = ({ activeTab, onTabChange }) => (
   <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
-    <div className="grid grid-cols-1 md:grid-cols-4">
+    <div className="grid grid-cols-1 lg:grid-cols-5">
       {TABS.map((tab) => {
         const isActive = activeTab === tab.id;
         return (
@@ -513,7 +525,7 @@ export const TabNav = ({ activeTab, onTabChange }) => (
             type="button"
             onClick={() => onTabChange(tab.id)}
             className={[
-              "border-b border-r border-gray-200 px-5 py-4 text-left transition-colors last:border-r-0 md:last:border-r-0 dark:border-gray-700",
+              "border-b border-r border-gray-200 px-5 py-4 text-left transition-colors last:border-r-0 dark:border-gray-700",
               isActive
                 ? "bg-primary-50 dark:bg-primary-900/20"
                 : "bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700/40",
@@ -784,21 +796,15 @@ export const ConfigActionBar = ({
 
 export const DraftModeNotice = () => (
   <div className="rounded-2xl border border-amber-200 bg-amber-50/70 px-5 py-4 shadow-sm dark:border-amber-800/60 dark:bg-amber-950/10">
-    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-      <div>
-        <div className="flex items-center gap-3">
-          <h3 className={`text-base font-semibold ${TXT_TITLE}`}>Modo borrador</h3>
-          <StatusBadge tone="warning">Requiere guardar</StatusBadge>
-        </div>
-        <p className={`mt-2 text-sm ${TXT_BODY}`}>
-          Los campos y toggles de esta pantalla solo actualizan el borrador visual. Nada queda aplicado hasta usar
-          <span className="font-semibold"> Guardar cambios</span>.
-        </p>
+    <div>
+      <div className="flex items-center gap-3">
+        <h3 className={`text-base font-semibold ${TXT_TITLE}`}>Modo borrador</h3>
+        <StatusBadge tone="warning">Requiere guardar</StatusBadge>
       </div>
-      <div className="rounded-2xl border border-amber-200/80 bg-white/70 px-4 py-3 dark:border-amber-800/60 dark:bg-slate-900/40">
-        <p className={`text-xs font-semibold uppercase tracking-wide ${TXT_META}`}>Referencia</p>
-        <p className={`mt-1 text-sm ${TXT_TITLE}`}>El resumen conserva la última versión guardada.</p>
-      </div>
+      <p className={`mt-2 text-sm ${TXT_BODY}`}>
+        Los campos y toggles de esta pantalla solo actualizan el borrador visual. Nada queda aplicado hasta usar
+        <span className="font-semibold"> Guardar cambios</span>.
+      </p>
     </div>
   </div>
 );

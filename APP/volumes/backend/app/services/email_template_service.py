@@ -128,6 +128,20 @@ TEMPLATE_DEFINITIONS: dict[str, EmailTemplateDefinition] = {
         description="Valida una configuracion SMTP con un correo HTML real.",
         default_subject="Prueba SMTP · {{ APP_NAME }}",
     ),
+    "system_queue_alert": EmailTemplateDefinition(
+        template_id="system_queue_alert",
+        filename="system_queue_alert.html",
+        title="Alerta operativa de colas",
+        description="Advierte que una cola operativa superó su umbral de observabilidad.",
+        default_subject="Alerta operativa · {{ QUEUE_LABEL }} superó umbral",
+    ),
+    "system_queue_recovered": EmailTemplateDefinition(
+        template_id="system_queue_recovered",
+        filename="system_queue_recovered.html",
+        title="Normalización operativa de colas",
+        description="Informa que una cola volvió a un nivel normal tras una alerta previa.",
+        default_subject="Normalización operativa · {{ QUEUE_LABEL }} volvió a nivel normal",
+    ),
 }
 
 _env: Environment | None = None

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -32,6 +33,7 @@ from schemas.minute_observations import (
     MinuteObservationListResponse,
     MinuteObservationResolveResponse,
 )
+from services.notification_center_service import create_in_app_notification
 from services.email_queue import queue_templated_email
 from services.minutes_service import get_minute_detail, get_minute_versions
 from utils.device import get_device_string
@@ -40,6 +42,8 @@ from utils.network import get_client_ip
 VISITOR_SESSION_PREFIX = "visitor-session"
 VISITOR_OTP_TTL_MINUTES = 30
 VISITOR_SESSION_TTL_HOURS = 8
+
+logger = logging.getLogger(__name__)
 
 
 def _utcnow() -> datetime:
@@ -60,6 +64,18 @@ def _visitor_session_key(record_id: str, jti: str) -> str:
 
 def _normalize_email(email: str) -> str:
     return str(email or "").strip().lower()
+
+
+def _clean_user_ids(*values: str | None) -> list[str]:
+    seen: set[str] = set()
+    items: list[str] = []
+    for value in values:
+        user_id = str(value or "").strip()
+        if not user_id or user_id in seen:
+            continue
+        seen.add(user_id)
+        items.append(user_id)
+    return items
 
 
 def _hash_otp(record_id: str, email: str, otp_code: str) -> str:
@@ -391,7 +407,7 @@ def get_minute_view_pdf_bytes(db: Session, *, record_id: str) -> tuple[bytes, st
     return pdf_bytes, f"minute-{record_id}.pdf"
 
 
-def create_minute_view_observation(
+async def create_minute_view_observation(
     db: Session,
     *,
     record_id: str,
@@ -424,6 +440,42 @@ def create_minute_view_observation(
     db.add(observation)
     db.commit()
     db.refresh(observation)
+
+    recipient_user_ids = _clean_user_ids(
+        getattr(record, "prepared_by_user_id", None),
+        getattr(record, "created_by", None),
+        getattr(record, "updated_by", None),
+    )
+    if recipient_user_ids:
+        author_label = str(observation.author_name or observation.author_email or "Un invitado").strip()
+        try:
+            await create_in_app_notification(
+                db,
+                notification_type="minute.observation.created",
+                title="Nueva observación de invitado",
+                message=f'{author_label} dejó una observación en la minuta "{record.title}".',
+                level="info",
+                tags=["minute", "observation", "guest", "minute.observation.created"],
+                recipient_user_ids=recipient_user_ids,
+                scope_type="record",
+                scope_id=str(record.id),
+                action_url=f"/minutes/process/{record.id}",
+                metadata={
+                    "recordId": str(record.id),
+                    "recordVersionId": str(observation.record_version_id),
+                    "observationId": int(observation.id),
+                    "visitorSessionId": str(visitor_session.id),
+                    "authorEmail": observation.author_email,
+                    "authorName": observation.author_name,
+                },
+            )
+        except Exception as notify_exc:
+            logger.warning(
+                "No se pudo crear notificación in-app para observación visitante | record=%s obs=%s err=%s",
+                record_id,
+                observation.id,
+                notify_exc,
+            )
 
     return MinuteViewObservationCreateResponse(
         message="La observación fue registrada sobre la versión actual de la minuta.",
@@ -490,7 +542,7 @@ def list_editor_minute_observations(db: Session, *, record_id: str) -> MinuteObs
     )
 
 
-def resolve_editor_minute_observation(
+async def resolve_editor_minute_observation(
     db: Session,
     *,
     observation_id: int,
@@ -526,6 +578,57 @@ def resolve_editor_minute_observation(
     db.add(observation)
     db.commit()
     db.refresh(observation)
+
+    record = _resolve_record_or_404(db, str(observation.record_id))
+    recipient_user_ids = _clean_user_ids(
+        getattr(record, "prepared_by_user_id", None),
+        getattr(record, "created_by", None),
+        getattr(record, "updated_by", None),
+        actor_user_id,
+    )
+    if recipient_user_ids:
+        author_label = str(observation.author_name or observation.author_email or "Un invitado").strip()
+        notification_type = f"minute.observation.{normalized_status}"
+        title_map = {
+            "inserted": "Observación incorporada",
+            "approved": "Observación aprobada",
+            "rejected": "Observación rechazada",
+        }
+        message_map = {
+            "inserted": f'Se incorporó una observación de {author_label} en la minuta "{record.title}".',
+            "approved": f'Se aprobó una observación de {author_label} para actualización manual en la minuta "{record.title}".',
+            "rejected": f'Se rechazó una observación de {author_label} en la minuta "{record.title}".',
+        }
+        try:
+            await create_in_app_notification(
+                db,
+                notification_type=notification_type,
+                title=title_map.get(normalized_status, "Observación actualizada"),
+                message=message_map.get(normalized_status, f'Se actualizó una observación en la minuta "{record.title}".'),
+                level="success" if normalized_status != "rejected" else "warning",
+                tags=["minute", "observation", "guest", notification_type],
+                recipient_user_ids=recipient_user_ids,
+                scope_type="record",
+                scope_id=str(record.id),
+                action_url=f"/minutes/process/{record.id}",
+                actor_user_id=actor_user_id,
+                metadata={
+                    "recordId": str(record.id),
+                    "recordVersionId": str(observation.record_version_id),
+                    "observationId": int(observation.id),
+                    "status": normalized_status,
+                    "resolutionType": normalized_resolution_type,
+                    "authorEmail": observation.author_email,
+                    "authorName": observation.author_name,
+                },
+            )
+        except Exception as notify_exc:
+            logger.warning(
+                "No se pudo crear notificación in-app para resolución de observación | record=%s obs=%s err=%s",
+                record.id,
+                observation.id,
+                notify_exc,
+            )
 
     return MinuteObservationResolveResponse(
         message="La observación fue actualizada correctamente.",

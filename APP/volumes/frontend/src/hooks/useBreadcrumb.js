@@ -23,6 +23,7 @@ const NAV_HISTORY_MAX = 10;
 // ─── Rutas standalone ─────────────────────────────────────────────────────────
 const STANDALONE_ROUTES = [
   { path: '/globalSearch',         name: 'Búsqueda Global', icon: 'FaMagnifyingGlass' },
+  { path: '/notifications',        name: 'Notificaciones',  icon: 'FaBell'            },
   { path: '/settings/userProfile', name: 'Mi Perfil',       icon: 'FaPerson'          },
   { path: '/help',                 name: 'Ayuda & Soporte', icon: 'FaCircleInfo'      },
 ];

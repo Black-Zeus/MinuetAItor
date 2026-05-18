@@ -16,6 +16,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import sessionmaker
 
+from core.backend_client import ingest_notification
 from core.config import settings
 from core.job import JobEnvelope
 from core.logging_config import get_logger
@@ -72,6 +73,18 @@ async def handle_email_job(job: JobEnvelope) -> None:
         inline_assets,
         attachments,
     )
+
+    notification_context = payload.get("notification_context")
+    if isinstance(notification_context, dict) and notification_context:
+        try:
+            await loop.run_in_executor(None, ingest_notification, notification_context)
+        except Exception as exc:
+            logger.warning(
+                "No se pudo registrar notificación post-email | job_id=%s subject=%s err=%s",
+                job.job_id,
+                subject,
+                exc,
+            )
 
     logger.info("Email enviado | to=%s subject=%s", to, subject)
 

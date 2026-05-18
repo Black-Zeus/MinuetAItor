@@ -6,6 +6,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Icon from "@/components/ui/icon/iconManager";
 import ActionButton from "@/components/ui/button/ActionButton";
+import { toastSuccess } from "@/components/common/toast/toastHelpers";
 import { ModalManager } from "@/components/ui/modal";
 import { changePassword, getMySessions, logoutAllSessions, logoutSession } from "@/services/authService";
 import { formatDateTimeTechnical } from "@/utils/formats";
@@ -88,6 +89,44 @@ const PasswordStrengthBar = ({ password }) => {
   );
 };
 
+const PasswordField = ({
+  label,
+  value,
+  onChange,
+  show,
+  onToggle,
+  placeholder,
+  showStrength = false,
+  showMismatch = false,
+}) => (
+  <div>
+    <label className={LABEL_BASE}>
+      <Icon name="FaLock" className="inline w-3.5 h-3.5 mr-1.5" />
+      {label}
+    </label>
+    <div className="relative">
+      <input
+        type={show ? "text" : "password"}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className={`${INPUT_BASE} pr-11`}
+      />
+      <button
+        type="button"
+        onClick={onToggle}
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-theme"
+      >
+        <Icon name={show ? "FaEyeSlash" : "eye"} className="w-4 h-4" />
+      </button>
+    </div>
+    {showStrength ? <PasswordStrengthBar password={value} /> : null}
+    {showMismatch ? (
+      <p className="mt-1 text-xs text-red-500">Las contraseñas no coinciden.</p>
+    ) : null}
+  </div>
+);
+
 const ChangePasswordSection = () => {
   const [form, setForm] = useState({
     currentPassword: "",
@@ -122,20 +161,55 @@ const ChangePasswordSection = () => {
       return;
     }
 
+    const confirmed = await ModalManager.confirm({
+      title: "Confirmar cambio de contraseña",
+      message:
+        "Vas a actualizar la contraseña de tu cuenta. Asegúrate de recordarla antes de continuar.",
+      confirmText: "Cambiar contraseña",
+      cancelText: "Cancelar",
+    });
+
+    if (!confirmed) return;
+
+    let loadingModalId = null;
     try {
       setIsSubmitting(true);
+      loadingModalId = ModalManager.loading({
+        title: "Procesando cambio de contraseña",
+        message: "Estamos actualizando tu contraseña de forma segura. No cierres esta ventana.",
+        indeterminate: true,
+        showProgress: false,
+        showCancel: false,
+      });
+
       await changePassword({
         current_password: form.currentPassword,
         new_password: form.newPassword,
         confirm_password: form.confirmPassword,
         revoke_sessions: false,
       });
+
+      if (loadingModalId) {
+        ModalManager.close?.(loadingModalId);
+        loadingModalId = null;
+      }
+
+      toastSuccess(
+        "Contraseña actualizada",
+        "Tu contraseña se cambió correctamente.",
+        { autoClose: 4500, toastId: "profile-password-changed" }
+      );
       ModalManager.success?.({
         title: "Contraseña actualizada",
         message: "Tu contraseña se cambió correctamente.",
+        autoClose: 3500,
       });
       handleReset();
     } catch (error) {
+      if (loadingModalId) {
+        ModalManager.close?.(loadingModalId);
+        loadingModalId = null;
+      }
       ModalManager.error?.({
         title: "No se pudo cambiar la contraseña",
         message: error?.message ?? "Intenta nuevamente.",
@@ -144,35 +218,6 @@ const ChangePasswordSection = () => {
       setIsSubmitting(false);
     }
   };
-
-  const PasswordField = ({ label, fieldKey, show, onToggle, placeholder }) => (
-    <div>
-      <label className={LABEL_BASE}>
-        <Icon name="FaLock" className="inline w-3.5 h-3.5 mr-1.5" />
-        {label}
-      </label>
-      <div className="relative">
-        <input
-          type={show ? "text" : "password"}
-          value={form[fieldKey]}
-          onChange={(e) => handleChange(fieldKey, e.target.value)}
-          placeholder={placeholder}
-          className={`${INPUT_BASE} pr-11`}
-        />
-        <button
-          type="button"
-          onClick={onToggle}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-theme"
-        >
-          <Icon name={show ? "FaEyeSlash" : "eye"} className="w-4 h-4" />
-        </button>
-      </div>
-      {fieldKey === "newPassword" && <PasswordStrengthBar password={form.newPassword} />}
-      {fieldKey === "confirmPassword" && form.confirmPassword && form.newPassword !== form.confirmPassword && (
-        <p className="mt-1 text-xs text-red-500">Las contraseñas no coinciden.</p>
-      )}
-    </div>
-  );
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6 transition-theme">
@@ -192,7 +237,8 @@ const ChangePasswordSection = () => {
         <div className="col-span-12 md:col-span-6">
           <PasswordField
             label="Contraseña actual"
-            fieldKey="currentPassword"
+            value={form.currentPassword}
+            onChange={(value) => handleChange("currentPassword", value)}
             show={showCurrent}
             onToggle={() => setShowCurrent((v) => !v)}
             placeholder="Tu contraseña actual"
@@ -204,20 +250,24 @@ const ChangePasswordSection = () => {
         <div className="col-span-12 md:col-span-6">
           <PasswordField
             label="Nueva contraseña"
-            fieldKey="newPassword"
+            value={form.newPassword}
+            onChange={(value) => handleChange("newPassword", value)}
             show={showNew}
             onToggle={() => setShowNew((v) => !v)}
             placeholder="Mínimo 8 caracteres"
+            showStrength
           />
         </div>
 
         <div className="col-span-12 md:col-span-6">
           <PasswordField
             label="Confirmar nueva contraseña"
-            fieldKey="confirmPassword"
+            value={form.confirmPassword}
+            onChange={(value) => handleChange("confirmPassword", value)}
             show={showConfirm}
             onToggle={() => setShowConfirm((v) => !v)}
             placeholder="Repite la nueva contraseña"
+            showMismatch={Boolean(form.confirmPassword && form.newPassword !== form.confirmPassword)}
           />
         </div>
       </div>

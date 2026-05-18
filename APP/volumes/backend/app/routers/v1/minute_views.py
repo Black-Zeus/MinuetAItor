@@ -114,7 +114,7 @@ async def create_observation_endpoint(
     db: Session = Depends(get_db),
     visitor_session=Depends(current_visitor_dep),
 ):
-    return create_minute_view_observation(
+    return await create_minute_view_observation(
         db,
         record_id=record_id,
         body=body.body,

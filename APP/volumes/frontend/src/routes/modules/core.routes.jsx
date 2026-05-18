@@ -7,6 +7,7 @@ import { Navigate } from "react-router-dom";
 
 const Dashboard    = lazy(() => import("@/pages/dashboard/Dashboard"));
 const GlobalSearch = lazy(() => import("@/pages/globalSearch/GlobalSearch"));
+const NotificationsInbox = lazy(() => import("@/pages/notifications/NotificationsInbox"));
 
 export const coreRoutes = [
   {
@@ -20,6 +21,13 @@ export const coreRoutes = [
     path: "/globalSearch",
     component: GlobalSearch,
     title: "Búsqueda Global",
+    requiresAuth: true,
+    roles: [],
+  },
+  {
+    path: "/notifications",
+    component: NotificationsInbox,
+    title: "Notificaciones",
     requiresAuth: true,
     roles: [],
   },

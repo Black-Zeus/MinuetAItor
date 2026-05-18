@@ -13,6 +13,7 @@ from schemas.teams import (
     TeamStatusRequest,
     TeamUpdateRequest,
 )
+from services.notification_center_service import create_in_app_notification
 from services.teams_service import (
     change_team_status,
     create_team_member,
@@ -79,6 +80,26 @@ async def create_team_endpoint(
         result["id"],
         request_origin="teams.create",
     )
+    await create_in_app_notification(
+        db,
+        notification_type="team.account.created",
+        title="Cuenta creada",
+        message="Se creó tu cuenta en MinuetAItor y ya puedes ingresar con las credenciales enviadas por correo.",
+        level="success",
+        tags=["team", "account", "access", "team.account.created"],
+        recipient_user_ids=[result["id"]],
+        scope_type="user",
+        scope_id=result["id"],
+        action_url="/login",
+        actor_user_id=session.user_id,
+        metadata={
+            "targetUserId": result["id"],
+            "username": result.get("username"),
+            "email": result.get("email"),
+            "systemRole": result.get("system_role"),
+            "assignmentMode": result.get("assignment_mode"),
+        },
+    )
     return result
 
 
@@ -96,7 +117,57 @@ async def update_team_endpoint(
     session: UserSession = Depends(require_roles("ADMIN")),
     db: Session = Depends(get_db),
 ):
-    return update_team_member(db, team_id, payload, updated_by_id=session.user_id)
+    before = get_team_member(db, team_id)
+    result = update_team_member(db, team_id, payload, updated_by_id=session.user_id)
+
+    if payload.system_role is not None and before.get("system_role") != result.get("system_role"):
+        await create_in_app_notification(
+            db,
+            notification_type="rbac.role.changed",
+            title="Rol actualizado",
+            message=f'Se actualizó tu rol de sistema a "{result.get("system_role")}".',
+            level="info",
+            tags=["rbac", "role", "permission", "rbac.role.changed"],
+            recipient_user_ids=[team_id],
+            scope_type="user",
+            scope_id=team_id,
+            action_url="/settings/userProfile",
+            actor_user_id=session.user_id,
+            metadata={
+                "targetUserId": team_id,
+                "previousSystemRole": before.get("system_role"),
+                "nextSystemRole": result.get("system_role"),
+            },
+        )
+
+    scope_changed = (
+        (payload.assignment_mode is not None and before.get("assignment_mode") != result.get("assignment_mode"))
+        or (payload.clients is not None and set(before.get("clients") or []) != set(result.get("clients") or []))
+        or (payload.projects is not None and set(before.get("projects") or []) != set(result.get("projects") or []))
+    )
+    if scope_changed:
+        await create_in_app_notification(
+            db,
+            notification_type="access.assignment.updated",
+            title="Permisos de alcance actualizados",
+            message="Se actualizó el alcance de clientes, proyectos o modalidad de asignación de tu cuenta.",
+            level="info",
+            tags=["access", "assignment", "permission", "access.assignment.updated"],
+            recipient_user_ids=[team_id],
+            scope_type="user",
+            scope_id=team_id,
+            action_url="/settings/userProfile",
+            actor_user_id=session.user_id,
+            metadata={
+                "targetUserId": team_id,
+                "previousAssignmentMode": before.get("assignment_mode"),
+                "nextAssignmentMode": result.get("assignment_mode"),
+                "clientsIncluded": payload.clients is not None,
+                "projectsIncluded": payload.projects is not None,
+            },
+        )
+
+    return result
 
 
 # ── PATCH /teams/{id}/status ──────────────────────────
@@ -113,7 +184,33 @@ async def change_status_endpoint(
     session: UserSession = Depends(require_roles("ADMIN")),
     db: Session = Depends(get_db),
 ):
-    return change_team_status(db, team_id, payload.status, updated_by_id=session.user_id)
+    before = get_team_member(db, team_id)
+    result = change_team_status(db, team_id, payload.status, updated_by_id=session.user_id)
+    is_active = payload.status == TeamStatus.active
+    if before.get("status") != result.get("status"):
+        await create_in_app_notification(
+            db,
+            notification_type="team.account.activated" if is_active else "team.account.deactivated",
+            title="Cuenta activada" if is_active else "Cuenta desactivada",
+            message=(
+                "Se activó tu cuenta y vuelve a estar disponible para iniciar sesión."
+                if is_active
+                else "Tu cuenta fue desactivada y ya no podrá iniciar sesión hasta nuevo aviso."
+            ),
+            level="info" if is_active else "warning",
+            tags=["team", "account", "status", "team.account.activated" if is_active else "team.account.deactivated"],
+            recipient_user_ids=[team_id],
+            scope_type="user",
+            scope_id=team_id,
+            action_url="/settings/userProfile",
+            actor_user_id=session.user_id,
+            metadata={
+                "targetUserId": team_id,
+                "previousStatus": before.get("status"),
+                "status": result.get("status"),
+            },
+        )
+    return result
 
 
 # ── DELETE /teams/{id} ────────────────────────────────

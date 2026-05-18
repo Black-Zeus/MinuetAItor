@@ -205,6 +205,11 @@ axiosInstance.interceptors.request.use(
 const showToastBySemantics = async (status, code, message) => {
   const msg = message || "Ha ocurrido un error procesando tu solicitud.";
 
+  if (code === "TIMEOUT_ERROR") {
+    await notify.warning("La solicitud tardó demasiado. Intenta nuevamente.");
+    return;
+  }
+
   if (!status && !code) {
     await notify.error("Error de conexión. Verifica tu red e intenta nuevamente.");
     return;
@@ -295,7 +300,10 @@ axiosInstance.interceptors.response.use(
     // ── Otros errores: toast semántico ───────────────────────────────────────
     const status = error.response?.status;
     const resData = error.response?.data;
-    const code = resData?.error?.code || null;
+    const isTimeoutError =
+      error?.code === "ECONNABORTED" ||
+      String(error?.message || "").toLowerCase().includes("timeout");
+    const code = isTimeoutError ? "TIMEOUT_ERROR" : resData?.error?.code || null;
     const message = extractErrorMessage(resData, error.message);
 
     if (status !== 401) {

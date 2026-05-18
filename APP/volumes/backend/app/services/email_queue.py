@@ -29,6 +29,7 @@ async def queue_email(
     reply_to: Optional[str] = None,
     inline_assets: Optional[list[InlineAsset | dict[str, Any]]] = None,
     attachments: Optional[list[EmailAttachment | dict[str, Any]]] = None,
+    notification_context: Optional[dict[str, Any]] = None,
 ) -> None:
     """
     Encola un email para ser procesado por el worker.
@@ -56,6 +57,7 @@ async def queue_email(
             "template_id": None,
             "inline_assets": _serialize_inline_assets(inline_assets),
             "attachments": _serialize_attachments(attachments),
+            "notification_context": notification_context or None,
         },
     }
 
@@ -75,6 +77,7 @@ async def queue_templated_email(
     reply_to: Optional[str] = None,
     inline_assets: Optional[list[InlineAsset | dict[str, Any]]] = None,
     attachments: Optional[list[EmailAttachment | dict[str, Any]]] = None,
+    notification_context: Optional[dict[str, Any]] = None,
 ) -> None:
     rendered = render_email_template(
         template_id,
@@ -100,6 +103,7 @@ async def queue_templated_email(
                 [asset.model_dump(by_alias=False) for asset in get_inline_assets_for_html(rendered.html)],
             ),
             "attachments": _serialize_attachments(attachments),
+            "notification_context": notification_context or None,
         },
     }
 

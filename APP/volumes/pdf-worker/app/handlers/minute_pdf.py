@@ -29,6 +29,7 @@ Payload esperado (JobEnvelope.payload):
 """
 from __future__ import annotations
 
+from core.backend_client import ingest_notification
 from core.job          import JobEnvelope
 from core.logging_config import get_logger
 from core.minio_client import get_minio
@@ -113,5 +114,26 @@ async def handle_minute_pdf(job: JobEnvelope) -> None:
         bucket, output_key, len(pdf_bytes),
     )
 
-    # ── 6. TODO: Notificar al backend ──────────────────────────────────────────
-    # await notify_backend(record_id, version_id, output_key)
+    notification = payload.get("notification")
+    if isinstance(notification, dict) and notification:
+        metadata = dict(notification.get("metadata") or {})
+        metadata.update(
+            {
+                "minioBucket": bucket,
+                "minioOutputKey": output_key,
+                "pdfBytes": len(pdf_bytes),
+            }
+        )
+        body = {
+            **notification,
+            "metadata": metadata,
+        }
+        try:
+            await ingest_notification(body)
+        except Exception as exc:
+            logger.warning(
+                "No se pudo notificar PDF listo al backend | record_id=%s version_id=%s err=%s",
+                record_id,
+                version_id,
+                exc,
+            )

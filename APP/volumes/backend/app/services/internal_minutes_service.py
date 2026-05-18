@@ -46,6 +46,7 @@ from services.minute_participants_service import (
     build_version_participants_from_content,
     persist_record_version_participants,
 )
+from services.notification_center_service import create_in_app_notification
 from services.notification_service import enqueue_ai_processed_ready_email
 
 logger = logging.getLogger(__name__)
@@ -173,6 +174,32 @@ async def commit_minute_tx2(
             ai_output=body.ai_output,
             actor_user=actor_user,
         )
+        try:
+            record = db.query(Record).filter(Record.id == body.record_id, Record.deleted_at.is_(None)).first()
+            await create_in_app_notification(
+                db,
+                notification_type="minute.analysis.completed",
+                title="Acta procesada",
+                message=(
+                    f'El análisis de la minuta "{getattr(record, "title", body.record_id)}" terminó correctamente '
+                    "y ya está lista para edición."
+                ),
+                level="success",
+                tags=["minute", "analysis", "processed", "minute.analysis.completed"],
+                recipient_user_ids=[body.requested_by_id],
+                scope_type="record",
+                scope_id=body.record_id,
+                action_url=f"/minutes/process/{body.record_id}",
+                actor_user_id=body.requested_by_id,
+                metadata={
+                    "recordId": body.record_id,
+                    "transactionId": tx_id,
+                    "versionId": version_id,
+                    "openaiRunId": body.openai_run_id,
+                },
+            )
+        except Exception as notify_exc:
+            logger.warning("No se pudo crear notificación in-app TX2 success | tx=%s err=%s", tx_id, notify_exc)
         await _publish_event(tx_id, rec_id, "completed")
         logger.info("TX2 completada | tx=%s version=%s", tx_id, version_id)
         return MinuteCommitResponse(
@@ -187,6 +214,32 @@ async def commit_minute_tx2(
 
         # Marcar tx y record como fallidos (best-effort — no debe propagar)
         _mark_failed(db, tx_id, rec_id, error_msg)
+        try:
+            record = db.query(Record).filter(Record.id == body.record_id, Record.deleted_at.is_(None)).first()
+            await create_in_app_notification(
+                db,
+                notification_type="minute.analysis.failed",
+                title="Falló el procesamiento del acta",
+                message=(
+                    f'La minuta "{getattr(record, "title", body.record_id)}" no pudo ser procesada. '
+                    "Revisa el estado y vuelve a intentarlo."
+                ),
+                level="danger",
+                tags=["minute", "analysis", "failed", "minute.analysis.failed"],
+                recipient_user_ids=[body.requested_by_id],
+                scope_type="record",
+                scope_id=body.record_id,
+                action_url="/minutes",
+                actor_user_id=body.requested_by_id,
+                metadata={
+                    "recordId": body.record_id,
+                    "transactionId": tx_id,
+                    "openaiRunId": body.openai_run_id,
+                    "error": error_msg[:500],
+                },
+            )
+        except Exception as notify_exc:
+            logger.warning("No se pudo crear notificación in-app TX2 failed | tx=%s err=%s", tx_id, notify_exc)
         await _publish_event(tx_id, rec_id, "failed", error=error_msg)
 
         raise HTTPException(

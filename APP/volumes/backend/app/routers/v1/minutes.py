@@ -217,13 +217,13 @@ def observations_endpoint(
     status_code=status.HTTP_200_OK,
     summary="Resolver una observación visitante",
 )
-def resolve_observation_endpoint(
+async def resolve_observation_endpoint(
     observation_id: int,
     body: MinuteObservationResolveRequest,
     db: Session = Depends(get_db),
     session: UserSession = Depends(current_user_dep),
 ):
-    return resolve_editor_minute_observation(
+    return await resolve_editor_minute_observation(
         db,
         observation_id=observation_id,
         status=body.status,
