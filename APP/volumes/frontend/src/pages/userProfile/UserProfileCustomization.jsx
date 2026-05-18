@@ -1,163 +1,189 @@
 /**
  * UserProfileCustomization.jsx
- * Tab "Personalización" — controla qué widgets se muestran en el Dashboard.
- *
- * El store (baseSiteStore) solo persiste { enabled, order, category }.
- * Los campos de presentación (label, icon, description) son metadata estática
- * definida aquí — no se persisten en el store.
+ * Tab "Personalización" — preferencias reales de experiencia y dashboard.
  */
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Icon from "@/components/ui/icon/iconManager";
 import ActionButton from "@/components/ui/button/ActionButton";
-import { ModalManager } from "@/components/ui/modal";
 import useBaseSiteStore from "@store/baseSiteStore";
+import personalizationService from "@/services/personalizationService";
 
 const TXT_TITLE = "text-gray-900 dark:text-white";
-const TXT_BODY  = "text-gray-600 dark:text-gray-300";
-const TXT_META  = "text-gray-500 dark:text-gray-400";
+const TXT_BODY = "text-gray-600 dark:text-gray-300";
+const TXT_META = "text-gray-500 dark:text-gray-400";
 
-// ─── Metadata estática de widgets ─────────────────────────────────────────────
-// El store solo guarda { enabled, order, category } — label/icon/description son UI-only
 const WIDGET_META = {
   stats: {
-    label:       "Resumen estadístico",
-    icon:        "FaChartBar",
+    label: "Resumen estadístico",
+    icon: "FaChartBar",
     description: "KPIs principales: minutas, proyectos y clientes activos.",
   },
   ultima_conexion: {
-    label:       "Última conexión",
-    icon:        "FaClock",
+    label: "Última conexión",
+    icon: "FaClock",
     description: "Información de tu sesión más reciente y dispositivo.",
   },
   minutas_pendientes: {
-    label:       "Minutas pendientes",
-    icon:        "FaClipboardCheck",
+    label: "Minutas pendientes",
+    icon: "FaClipboardCheck",
     description: "Minutas en estado pendiente que requieren revisión.",
   },
   minutas_participadas: {
-    label:       "Minutas donde participé",
-    icon:        "FaUserCheck",
+    label: "Minutas donde participé",
+    icon: "FaUserCheck",
     description: "Últimas minutas registradas con tu participación.",
   },
   clientes_confidenciales: {
-    label:       "Clientes confidenciales",
-    icon:        "FaUserShield",
+    label: "Clientes confidenciales",
+    icon: "FaUserShield",
     description: "Clientes confidenciales a los que tienes visibilidad.",
   },
   proyectos_confidenciales: {
-    label:       "Proyectos confidenciales",
-    icon:        "FaFolderOpen",
+    label: "Proyectos confidenciales",
+    icon: "FaFolderOpen",
     description: "Proyectos confidenciales donde tienes permisos.",
   },
   tags_populares: {
-    label:       "Minutas completadas",
-    icon:        "FaCheckCircle",
+    label: "Minutas completadas",
+    icon: "FaCheckCircle",
     description: "Minutas recientes completadas donde eres el elaborador.",
   },
 };
 
-// ─── Categorías ───────────────────────────────────────────────────────────────
 const CATEGORY_CONFIG = {
   resumen: {
-    label:       "Resumen general",
-    icon:        "FaChartLine",
-    iconBg:      "bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400",
+    label: "Resumen general",
+    icon: "FaChartLine",
+    accent: "bg-blue-500",
+    iconWrap: "bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300",
     description: "KPIs, última conexión y actividad reciente.",
   },
   minutas: {
-    label:       "Minutas",
-    icon:        "FaFileAlt",
-    iconBg:      "bg-purple-100 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400",
+    label: "Minutas",
+    icon: "FaFileAlt",
+    accent: "bg-violet-500",
+    iconWrap: "bg-violet-100 text-violet-700 dark:bg-violet-950/30 dark:text-violet-300",
     description: "Widgets relacionados con minutas y tu participación.",
   },
   accesos: {
-    label:       "Accesos confidenciales",
-    icon:        "FaUserShield",
-    iconBg:      "bg-orange-100 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400",
+    label: "Accesos confidenciales",
+    icon: "FaUserShield",
+    accent: "bg-amber-500",
+    iconWrap: "bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300",
     description: "Clientes y proyectos confidenciales con acceso asignado.",
   },
 };
 
-// ─── Helpers — fusionar store con metadata ────────────────────────────────────
-// Produce { ...storeWidget, label, icon, description } para la UI
+const THEME_OPTIONS = [
+  { value: "light", label: "Claro", icon: "FaSun" },
+  { value: "dark", label: "Oscuro", icon: "FaMoon" },
+  { value: "system", label: "Sistema", icon: "FaDesktop" },
+];
+
+const DENSITY_OPTIONS = [
+  { value: "comfortable", label: "Cómoda", icon: "FaLayerGroup" },
+  { value: "compact", label: "Compacta", icon: "FaTableCellsLarge" },
+];
+
 const enrichWidget = (key, storeWidget) => ({
   ...storeWidget,
   ...(WIDGET_META[key] ?? { label: key, icon: "FaSquare", description: "" }),
 });
 
-// ─── Widget toggle row ────────────────────────────────────────────────────────
-const WidgetRow = ({ widgetKey, widget, onChange }) => (
-  <div className="flex items-center justify-between gap-4 py-3.5 transition-theme">
-    <div className="flex items-start gap-3 min-w-0">
-      <div className="w-9 h-9 rounded-xl bg-gray-100 dark:bg-gray-700/60 flex items-center justify-center shrink-0">
-        <Icon name={widget.icon} className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+const ChoiceChip = ({ active, icon, label, onClick }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className={[
+      "inline-flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm font-medium transition-all",
+      active
+        ? "border-primary-500 bg-primary-50 text-primary-700 shadow-sm dark:border-primary-400/55 dark:bg-primary-500/14 dark:text-primary-50 dark:shadow-[0_0_0_1px_rgba(96,165,250,0.08)]"
+        : "border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50 dark:border-slate-600 dark:bg-slate-800/75 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:bg-slate-700/85",
+    ].join(" ")}
+  >
+    <Icon name={icon} className="h-4 w-4" />
+    {label}
+  </button>
+);
+
+const InlineToggle = ({ checked, onChange, disabled = false }) => (
+  <button
+    type="button"
+    role="switch"
+    aria-checked={checked}
+    disabled={disabled}
+    onClick={() => !disabled && onChange(!checked)}
+    className={[
+      "relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200",
+      "focus:outline-none focus:ring-2 focus:ring-primary-500/40",
+      checked ? "bg-primary-500 dark:bg-primary-600" : "bg-gray-200 dark:bg-gray-700",
+      disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer",
+    ].join(" ")}
+  >
+    <span
+      className={[
+        "pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-md transform transition-transform duration-200",
+        checked ? "translate-x-5" : "translate-x-0",
+      ].join(" ")}
+    />
+  </button>
+);
+
+const PreferenceTile = ({ icon, title, description, children }) => (
+  <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition-theme dark:border-gray-700 dark:bg-gray-800">
+    <div className="mb-4 flex items-start gap-3">
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gray-100 text-gray-700 dark:bg-gray-700/70 dark:text-gray-200">
+        <Icon name={icon} className="h-5 w-5" />
       </div>
       <div className="min-w-0">
-        <p className={`text-sm font-semibold ${TXT_TITLE} leading-tight transition-theme`}>
-          {widget.label}
-        </p>
-        <p className={`text-xs ${TXT_META} mt-0.5 transition-theme`}>
-          {widget.description}
-        </p>
+        <h3 className={`text-base font-bold ${TXT_TITLE}`}>{title}</h3>
+        <p className={`mt-1 text-sm ${TXT_BODY}`}>{description}</p>
       </div>
     </div>
-
-    <button
-      type="button"
-      role="switch"
-      aria-checked={widget.enabled}
-      onClick={() => onChange(widgetKey, !widget.enabled)}
-      className={[
-        "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent",
-        "transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500/40",
-        widget.enabled
-          ? "bg-primary-500 dark:bg-primary-600"
-          : "bg-gray-200 dark:bg-gray-700",
-      ].join(" ")}
-    >
-      <span className={[
-        "pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-md",
-        "transform transition-transform duration-200",
-        widget.enabled ? "translate-x-5" : "translate-x-0",
-      ].join(" ")} />
-    </button>
+    {children}
   </div>
 );
 
-// ─── Category section ─────────────────────────────────────────────────────────
-const CategorySection = ({ categoryKey, widgets, onToggle }) => {
+const WidgetRow = ({ widgetKey, widget, onChange }) => (
+  <div className="flex items-center justify-between gap-4 py-3">
+    <div className="flex min-w-0 items-start gap-3">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-600 dark:bg-gray-700/70 dark:text-gray-300">
+        <Icon name={widget.icon} className="h-4 w-4" />
+      </div>
+      <div className="min-w-0">
+        <p className={`text-sm font-semibold ${TXT_TITLE}`}>{widget.label}</p>
+        <p className={`mt-0.5 text-xs ${TXT_META}`}>{widget.description}</p>
+      </div>
+    </div>
+    <InlineToggle checked={widget.enabled} onChange={(next) => onChange(widgetKey, next)} />
+  </div>
+);
+
+const WidgetCategoryCard = ({ categoryKey, widgets, onToggle }) => {
   const config = CATEGORY_CONFIG[categoryKey];
   if (!config) return null;
 
-  const entries      = Object.entries(widgets).sort(([, a], [, b]) => (a.order ?? 99) - (b.order ?? 99));
-  const enabledCount = entries.filter(([, w]) => w.enabled).length;
-  const totalCount   = entries.length;
+  const entries = Object.entries(widgets).sort(([, a], [, b]) => (a.order ?? 99) - (b.order ?? 99));
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6 transition-theme">
-      <div className="flex items-center gap-3 mb-1">
-        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${config.iconBg}`}>
-          <Icon name={config.icon} className="w-4 h-4" />
+    <div className="overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm transition-theme dark:border-gray-700 dark:bg-gray-800">
+      <div className={`h-1.5 w-full ${config.accent}`} />
+      <div className="px-6 py-5">
+        <div className="mb-4 flex items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <h3 className={`text-lg font-bold ${TXT_TITLE}`}>{config.label}</h3>
+            <p className={`mt-1 max-w-[34ch] text-sm leading-6 ${TXT_BODY}`}>{config.description}</p>
+          </div>
+          <div className={`mt-1 flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ${config.iconWrap}`}>
+            <Icon name={config.icon} className="h-6 w-6" />
+          </div>
         </div>
-        <div>
-          <h3 className={`text-base font-bold ${TXT_TITLE} leading-tight transition-theme`}>
-            {config.label}
-          </h3>
-          <p className={`text-xs ${TXT_META} transition-theme`}>{config.description}</p>
-        </div>
-        <span className={`ml-auto px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-          enabledCount > 0
-            ? "bg-primary-100 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300"
-            : "bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
-        }`}>
-          {enabledCount}/{totalCount} activos
-        </span>
       </div>
 
-      <div className="border-t border-gray-100 dark:border-gray-700/60 mt-3 mb-0.5" />
+      <div className="mx-6 h-px bg-gray-200 dark:bg-gray-700" />
 
-      <div className="divide-y divide-gray-100 dark:divide-gray-700/60">
+      <div className="divide-y divide-gray-100 px-6 py-2 dark:divide-gray-700/60">
         {entries.map(([key, widget]) => (
           <WidgetRow key={key} widgetKey={key} widget={widget} onChange={onToggle} />
         ))}
@@ -166,30 +192,30 @@ const CategorySection = ({ categoryKey, widgets, onToggle }) => {
   );
 };
 
-// ─── Preview ──────────────────────────────────────────────────────────────────
 const PreviewBadge = ({ enrichedWidgets }) => {
   const enabled = Object.entries(enrichedWidgets)
-    .filter(([, w]) => w.enabled)
+    .filter(([, widget]) => widget.enabled)
     .sort(([, a], [, b]) => (a.order ?? 99) - (b.order ?? 99));
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-4 transition-theme">
-      <p className={`text-xs font-semibold ${TXT_META} mb-2 transition-theme`}>
-        Vista previa del dashboard — secciones activas ({enabled.length}):
-      </p>
+    <div className="pt-4 transition-theme">
+      <div className="mb-3 flex items-center gap-2">
+        <Icon name="FaTableCellsLarge" className="h-4 w-4 text-primary-600 dark:text-primary-200" />
+        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-200">
+          Vista previa del dashboard
+        </p>
+      </div>
       <div className="flex flex-wrap gap-2">
         {enabled.length === 0 ? (
-          <span className={`text-xs ${TXT_META} italic`}>
-            Sin secciones activas. El dashboard estará vacío.
-          </span>
+          <span className="text-xs italic text-slate-500 dark:text-slate-300">No habrá widgets visibles en tu dashboard.</span>
         ) : (
-          enabled.map(([key, w]) => (
+          enabled.map(([key, widget]) => (
             <span
               key={key}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 transition-theme"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-primary-200/80 bg-white px-3 py-1.5 text-xs font-medium text-primary-700 shadow-sm dark:border-primary-400/25 dark:bg-primary-500/10 dark:text-primary-100"
             >
-              <Icon name={w.icon} className="w-3 h-3" />
-              {w.label}
+              <Icon name={widget.icon} className="h-3.5 w-3.5" />
+              {widget.label}
             </span>
           ))
         )}
@@ -198,108 +224,292 @@ const PreviewBadge = ({ enrichedWidgets }) => {
   );
 };
 
-// ─── Main ─────────────────────────────────────────────────────────────────────
 const UserProfileCustomization = () => {
-  const widgets           = useBaseSiteStore((s) => s.dashboard?.widgets ?? {});
-  const setWidgetEnabled  = useBaseSiteStore((s) => s.setWidgetEnabled);
-  const enableAllWidgets  = useBaseSiteStore((s) => s.enableAllWidgets);
-  const disableAllWidgets = useBaseSiteStore((s) => s.disableAllWidgets);
-  const resetWidgets      = useBaseSiteStore((s) => s.resetWidgets);
+  const widgets = useBaseSiteStore((s) => s.dashboard?.widgets ?? {});
+  const theme = useBaseSiteStore((s) => s.theme);
+  const density = useBaseSiteStore((s) => s.ui?.density ?? "comfortable");
+  const animations = useBaseSiteStore((s) => s.ui?.animations ?? true);
+  const sidebarCollapsed = useBaseSiteStore((s) => s.sidebar?.collapsed ?? false);
 
-  // Fusionar datos del store con metadata estática de presentación
+  const setTheme = useBaseSiteStore((s) => s.setTheme);
+  const setDensity = useBaseSiteStore((s) => s.setDensity);
+  const setAnimations = useBaseSiteStore((s) => s.setAnimations);
+  const setSidebarCollapsed = useBaseSiteStore((s) => s.setSidebarCollapsed);
+  const setWidgetEnabled = useBaseSiteStore((s) => s.setWidgetEnabled);
+  const enableAllWidgets = useBaseSiteStore((s) => s.enableAllWidgets);
+  const disableAllWidgets = useBaseSiteStore((s) => s.disableAllWidgets);
+  const resetWidgets = useBaseSiteStore((s) => s.resetWidgets);
+  const hydratePersonalization = useBaseSiteStore((s) => s.hydratePersonalization);
+  const getPersonalizationSnapshot = useBaseSiteStore((s) => s.getPersonalizationSnapshot);
+
+  const [syncState, setSyncState] = useState("saved");
+  const [syncMessage, setSyncMessage] = useState("Se sincroniza automáticamente con tu cuenta.");
+  const syncTimeoutRef = useRef(null);
+  const pendingSyncRef = useRef(false);
+  const isMountedRef = useRef(true);
+
   const enrichedWidgets = Object.fromEntries(
-    Object.entries(widgets).map(([key, w]) => [key, enrichWidget(key, w)])
+    Object.entries(widgets).map(([key, widget]) => [key, enrichWidget(key, widget)])
   );
 
-  const enabledCount = Object.values(enrichedWidgets).filter((w) => w.enabled).length;
-  const totalCount   = Object.values(enrichedWidgets).length;
+  const enabledCount = Object.values(enrichedWidgets).filter((widget) => widget.enabled).length;
+  const totalCount = Object.values(enrichedWidgets).length;
 
-  // Agrupar por categoría (con metadata enriquecida)
   const byCategory = Object.entries(enrichedWidgets).reduce((acc, [key, widget]) => {
-    const cat = widget.category || "resumen";
-    if (!acc[cat]) acc[cat] = {};
-    acc[cat][key] = widget;
+    const category = widget.category || "resumen";
+    if (!acc[category]) acc[category] = {};
+    acc[category][key] = widget;
     return acc;
   }, {});
 
-  const handleToggle = (key, value) => setWidgetEnabled(key, value);
-
-  const handleSave = () => {
-    ModalManager.success?.({
-      title:   "Personalización guardada",
-      message: "La configuración del dashboard se actualizó correctamente.",
-    });
+  const persistPersonalization = async () => {
+    pendingSyncRef.current = false;
+    try {
+      const payload = getPersonalizationSnapshot();
+      const persisted = await personalizationService.updateMyPersonalization(payload);
+      hydratePersonalization(persisted);
+      if (isMountedRef.current) {
+        setSyncState("saved");
+        setSyncMessage("Sincronizado con tu cuenta.");
+      }
+    } catch (error) {
+      if (isMountedRef.current) {
+        setSyncState("error");
+        setSyncMessage(error?.message || "No fue posible sincronizar tu personalización.");
+      }
+    }
   };
+
+  const schedulePersist = () => {
+    pendingSyncRef.current = true;
+    if (syncTimeoutRef.current) {
+      clearTimeout(syncTimeoutRef.current);
+    }
+    setSyncState("saving");
+    setSyncMessage("Guardando cambios en tu cuenta...");
+    syncTimeoutRef.current = setTimeout(() => {
+      syncTimeoutRef.current = null;
+      void persistPersonalization();
+    }, 450);
+  };
+
+  useEffect(() => () => {
+    isMountedRef.current = false;
+    if (syncTimeoutRef.current) {
+      clearTimeout(syncTimeoutRef.current);
+      syncTimeoutRef.current = null;
+    }
+    if (pendingSyncRef.current) {
+      void persistPersonalization();
+    }
+  }, []);
+
+  const handleThemeChange = (value) => {
+    setTheme(value);
+    schedulePersist();
+  };
+
+  const handleDensityChange = (value) => {
+    setDensity(value);
+    schedulePersist();
+  };
+
+  const handleAnimationsChange = (value) => {
+    setAnimations(value);
+    schedulePersist();
+  };
+
+  const handleSidebarCollapsedChange = (value) => {
+    setSidebarCollapsed(value);
+    schedulePersist();
+  };
+
+  const handleToggle = (key, value) => {
+    setWidgetEnabled(key, value);
+    schedulePersist();
+  };
+
+  const handleEnableAllWidgets = () => {
+    enableAllWidgets();
+    schedulePersist();
+  };
+
+  const handleDisableAllWidgets = () => {
+    disableAllWidgets();
+    schedulePersist();
+  };
+
+  const handleResetWidgets = () => {
+    resetWidgets();
+    schedulePersist();
+  };
+
+  const syncBadgeClassName = {
+    saved:
+      "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800/40 dark:bg-emerald-900/25 dark:text-emerald-200",
+    saving:
+      "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-800/40 dark:bg-sky-900/25 dark:text-sky-200",
+    error:
+      "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-800/40 dark:bg-rose-900/25 dark:text-rose-200",
+  }[syncState];
+
+  const syncDotClassName = {
+    saved: "bg-emerald-500",
+    saving: "bg-sky-500",
+    error: "bg-rose-500",
+  }[syncState];
+
+  const syncLabel = {
+    saved: "Sincronizado",
+    saving: "Sincronizando",
+    error: "Error de sincronización",
+  }[syncState];
 
   return (
     <div className="space-y-6">
-
-      {/* Header + acciones rápidas */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6 transition-theme">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <h2 className={`text-lg font-bold ${TXT_TITLE} flex items-center gap-2 transition-theme`}>
-              <Icon name="FaGear" className="text-primary-500 dark:text-primary-400 w-4 h-4" />
-              Personalización del dashboard
+      <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition-theme dark:border-slate-700 dark:bg-slate-800">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="max-w-3xl">
+            <h2 className={`flex items-center gap-2 text-lg font-bold ${TXT_TITLE}`}>
+              <Icon name="FaSliders" className="h-4 w-4 text-primary-500 dark:text-primary-300" />
+              Personalización del espacio de trabajo
             </h2>
-            <p className={`text-sm ${TXT_BODY} mt-1 transition-theme`}>
-              Elige qué secciones se mostrarán en tu dashboard. Los cambios aplican solo a tu vista.
-            </p>
-            <p className={`text-xs ${TXT_META} mt-0.5 transition-theme`}>
-              {enabledCount} de {totalCount} secciones activas.
+            <p className={`mt-1 text-sm ${TXT_BODY}`}>
+              Ajusta la experiencia visual y define qué bloques quieres ver en tu dashboard. Los cambios se sincronizan automáticamente con tu cuenta.
             </p>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] ${syncBadgeClassName}`}>
+              <span className={`h-2.5 w-2.5 rounded-full ${syncDotClassName}`} />
+              {syncLabel}
+            </span>
+            <span className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-600 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200">
+              {enabledCount}/{totalCount} widgets activos
+            </span>
+          </div>
+        </div>
+        <p className={`mt-3 text-xs ${syncState === "error" ? "text-rose-600 dark:text-rose-300" : TXT_META}`}>
+          {syncMessage}
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+        <PreferenceTile
+          icon="FaSliders"
+          title="Apariencia"
+          description="Define cómo quieres ver la aplicación en tu sesión diaria."
+        >
+          <div className="space-y-5">
+            <div>
+              <p className={`mb-2 text-xs font-semibold uppercase tracking-[0.08em] ${TXT_META}`}>Tema</p>
+              <div className="flex flex-wrap gap-2">
+                {THEME_OPTIONS.map((option) => (
+                  <ChoiceChip
+                    key={option.value}
+                    active={theme === option.value}
+                    icon={option.icon}
+                    label={option.label}
+                    onClick={() => handleThemeChange(option.value)}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <p className={`mb-2 text-xs font-semibold uppercase tracking-[0.08em] ${TXT_META}`}>Densidad</p>
+              <div className="flex flex-wrap gap-2">
+                {DENSITY_OPTIONS.map((option) => (
+                  <ChoiceChip
+                    key={option.value}
+                    active={density === option.value}
+                    icon={option.icon}
+                    label={option.label}
+                    onClick={() => handleDensityChange(option.value)}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        </PreferenceTile>
+
+        <PreferenceTile
+          icon="FaGears"
+          title="Comportamiento"
+          description="Pequeños ajustes de interacción para adaptar la navegación a tu ritmo."
+        >
+          <div className="divide-y divide-gray-100 dark:divide-gray-700/60">
+            <div className="flex items-center justify-between gap-4 py-3">
+              <div>
+                <p className={`text-sm font-semibold ${TXT_TITLE}`}>Animaciones de interfaz</p>
+                <p className={`mt-0.5 text-xs ${TXT_META}`}>Mantiene transiciones y microinteracciones visuales.</p>
+              </div>
+              <InlineToggle checked={animations} onChange={handleAnimationsChange} />
+            </div>
+
+            <div className="flex items-center justify-between gap-4 py-3">
+              <div>
+                <p className={`text-sm font-semibold ${TXT_TITLE}`}>Sidebar colapsado al abrir</p>
+                <p className={`mt-0.5 text-xs ${TXT_META}`}>Útil si prefieres más espacio de trabajo desde el inicio.</p>
+              </div>
+              <InlineToggle checked={sidebarCollapsed} onChange={handleSidebarCollapsedChange} />
+            </div>
+          </div>
+        </PreferenceTile>
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-6 shadow-sm transition-theme dark:border-slate-700 dark:bg-slate-800/95">
+        <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h3 className={`text-lg font-bold ${TXT_TITLE}`}>Dashboard personal</h3>
+            <p className={`mt-1 text-sm ${TXT_BODY}`}>
+              Activa solo los bloques que te aportan contexto y deja fuera lo que no necesitas ver todos los días.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
             <ActionButton
               label="Activar todas"
               variant="soft"
               size="xs"
               icon={<Icon name="checkCircle" />}
-              onClick={enableAllWidgets}
+              onClick={handleEnableAllWidgets}
+              className="border-slate-200/90 bg-white/85 text-slate-700 hover:bg-white dark:border-slate-500/80 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
             />
             <ActionButton
               label="Desactivar todas"
               variant="soft"
               size="xs"
               icon={<Icon name="xCircle" />}
-              onClick={disableAllWidgets}
+              onClick={handleDisableAllWidgets}
+              className="border-slate-200/90 bg-white/85 text-slate-700 hover:bg-white dark:border-slate-500/80 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
             />
             <ActionButton
               label="Restablecer"
               variant="soft"
               size="xs"
               icon={<Icon name="FaEraser" />}
-              onClick={resetWidgets}
+              onClick={handleResetWidgets}
+              className="border-slate-200/90 bg-white/85 text-slate-700 hover:bg-white dark:border-slate-500/80 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
             />
           </div>
         </div>
+
+        <div className="mt-5 border-t border-slate-200/80 pt-4 dark:border-slate-700/80">
+          <PreviewBadge enrichedWidgets={enrichedWidgets} />
+        </div>
       </div>
 
-      {/* Preview */}
-      <PreviewBadge enrichedWidgets={enrichedWidgets} />
-
-      {/* Categorías */}
-      {Object.entries(byCategory).map(([catKey, catWidgets]) => (
-        <CategorySection
-          key={catKey}
-          categoryKey={catKey}
-          widgets={catWidgets}
-          onToggle={handleToggle}
-        />
-      ))}
-
-      {/* Footer */}
-      <div className="flex justify-end gap-3 pt-2">
-        <ActionButton
-          label="Confirmar configuración"
-          variant="primary"
-          size="sm"
-          icon={<Icon name="check" />}
-          onClick={handleSave}
-        />
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
+        {Object.entries(byCategory).map(([categoryKey, categoryWidgets]) => (
+          <WidgetCategoryCard
+            key={categoryKey}
+            categoryKey={categoryKey}
+            widgets={categoryWidgets}
+            onToggle={handleToggle}
+          />
+        ))}
       </div>
-
     </div>
   );
 };
