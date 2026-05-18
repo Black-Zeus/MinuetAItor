@@ -4,9 +4,9 @@ import { FaMoon, FaSun } from 'react-icons/fa6';
 import Icon from '@/components/ui/icon/iconManager';
 import useBaseSiteStore from '@store/baseSiteStore';
 import { forgotPassword as requestPasswordReset } from '@/services/authService';
+import { APP_VERSION } from '@/utils/environment';
 
 const AUTH_LOGO_SRC = '/images/chinchinAItor.jpg';
-const APP_VERSION = '1.0.0';
 
 const ForgotPasswordPage = () => {
   const { theme, toggleTheme, setTheme } = useBaseSiteStore();
@@ -246,9 +246,11 @@ const ForgotPasswordPage = () => {
           </section>
         </div>
 
-        <span className="pointer-events-none absolute -bottom-7 right-2 select-none text-[0.8rem] text-slate-500">
-          v{APP_VERSION}
-        </span>
+        {APP_VERSION && (
+          <span className="pointer-events-none absolute -bottom-7 right-2 select-none text-[0.8rem] text-slate-500">
+            v{APP_VERSION}
+          </span>
+        )}
       </div>
     </div>
   );

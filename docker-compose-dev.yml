@@ -28,6 +28,7 @@ services:
       service.group: dependency
       service.lifecycle: persistent
     environment:
+      APP_VERSION: ${APP_VERSION}
       TZ: America/Santiago
       MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD}
       MARIADB_DATABASE: ${MARIADB_DATABASE}
@@ -59,6 +60,7 @@ services:
       service.group: dependency
       service.lifecycle: persistent
     environment:
+      APP_VERSION: ${APP_VERSION}
       TZ: America/Santiago
     command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
     volumes:
@@ -87,6 +89,7 @@ services:
       service.group: dependency
       service.lifecycle: persistent
     environment:
+      APP_VERSION: ${APP_VERSION}
       TZ: America/Santiago
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
@@ -121,6 +124,7 @@ services:
     image: ${PROJECT_NAME}/frontend:dev
     working_dir: /app
     environment:
+      APP_VERSION: ${APP_VERSION}
       TZ: America/Santiago
       NODE_ENV: development
       CHOKIDAR_USEPOLLING: "true"
@@ -157,6 +161,7 @@ services:
       dockerfile: ./Data/dokerFile/dev_qa/Dockerfile.backend
     image: ${PROJECT_NAME}/backend:dev
     environment:
+      APP_VERSION: ${APP_VERSION}
       TZ: America/Santiago
       ENV_NAME: ${ENV_NAME:-dev}
       MARIADB_HOST: ${MARIADB_HOST:-mariadb}
@@ -221,6 +226,7 @@ services:
       dockerfile: ./Data/dokerFile/dev_qa/Dockerfile.worker
     image: ${PROJECT_NAME}/worker:dev
     environment:
+      APP_VERSION: ${APP_VERSION}
       # ── Configuración General ─────────────────────────────────────────────────
       ENV_NAME: ${ENV_NAME:-dev}
       TZ: America/Santiago
@@ -304,6 +310,7 @@ services:
       dockerfile: ./Data/dokerFile/dev_qa/Dockerfile.pdf-worker
     image: ${PROJECT_NAME}/pdf-worker:dev
     environment:
+      APP_VERSION: ${APP_VERSION}
       TZ: America/Santiago
       REDIS_HOST:      ${REDIS_HOST:-redis}
       REDIS_PORT:      ${REDIS_PORT:-6379}
@@ -339,6 +346,7 @@ services:
     container_name: ${PROJECT_NAME}-gotenberg
     restart: unless-stopped
     environment:
+      APP_VERSION: ${APP_VERSION}
       TZ: America/Santiago
     command:
       - "gotenberg"
@@ -363,6 +371,7 @@ services:
       dockerfile: ./Data/dokerFile/dev_qa/Dockerfile.scheduler
     image: ${PROJECT_NAME}/scheduler:dev
     environment:
+      APP_VERSION: ${APP_VERSION}
       ENV_NAME:    ${ENV_NAME:-dev}
       REDIS_HOST:  ${REDIS_HOST:-redis}
       REDIS_PORT:  ${REDIS_PORT:-6379}
@@ -407,6 +416,7 @@ services:
       - ./APP/data/settings/nginx/certs:/etc/nginx/certs:ro
       - ./APP/logs/nginx:/var/log/nginx
     environment:
+      APP_VERSION: ${APP_VERSION}
       TZ: America/Santiago
     networks:
       - internal
@@ -430,6 +440,7 @@ services:
       - redisinsight_data:/data
       - ./APP/data/settings/redis/redisinsight.json:/data/config.json:ro
     environment:
+      APP_VERSION: ${APP_VERSION}
       TZ: America/Santiago
     depends_on:
       redis:
@@ -453,6 +464,7 @@ services:
       - "${MAILPIT_UI_PORT:-8025}:8025"
       - "${MAILPIT_SMTP_PORT:-1025}:1025"
     environment:
+      APP_VERSION: ${APP_VERSION}
       TZ: America/Santiago
     networks:
       - internal

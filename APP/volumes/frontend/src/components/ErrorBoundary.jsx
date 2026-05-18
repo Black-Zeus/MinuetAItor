@@ -5,6 +5,7 @@
  */
 
 import React from "react";
+import { APP_NAME, APP_VERSION } from "@/utils/environment";
 import logger from "@/utils/logger";
 
 const ebLog = logger.scope("error-boundary");
@@ -415,25 +416,25 @@ class ErrorBoundary extends React.Component {
                   <span>🛡️</span>
                   <span>ErrorBoundary</span>
 
-                  {import.meta.env.VITE_FRONTEND_NAME && (
+                  {APP_NAME && (
                     <>
                       <span className="text-text-muted-light dark:text-text-muted-dark">•</span>
                       <span className="font-medium">
                         <span className="uppercase">Sistema: </span>
                         <span className=" text-warm-600 dark:text-warm-400">
-                          {import.meta.env.VITE_FRONTEND_NAME}
+                          {APP_NAME}
                         </span>
                       </span>
                     </>
                   )}
 
-                  {import.meta.env.VITE_FRONTEND_VERSION && (
+                  {APP_VERSION && (
                     <>
                       <span className="text-text-muted-light dark:text-text-muted-dark">•</span>
                       <span className="font-medium">
                         <span className="uppercase">Version: </span>
                         <span className=" text-primary-600 dark:text-primary-400">
-                          {import.meta.env.VITE_FRONTEND_VERSION}
+                          {APP_VERSION}
                         </span>
                       </span>
                     </>

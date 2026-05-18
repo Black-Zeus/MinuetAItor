@@ -181,12 +181,9 @@ def _get_env() -> Environment:
 
 def _default_context() -> dict[str, str]:
     app_name = os.environ.get("APP_NAME") or os.environ.get("FRONTEND_NAME") or "MinuetAItor"
-    app_version = (
-        os.environ.get("APP_VERSION")
-        or os.environ.get("FRONTEND_VERSION")
-        or os.environ.get("ENV_NAME")
-        or "dev"
-    )
+    app_version = os.environ.get("APP_VERSION")
+    if not app_version:
+        raise RuntimeError("APP_VERSION environment variable is required for email templates.")
     support_email = os.environ.get("SUPPORT_EMAIL") or "soporte@minuetaitor.cl"
     developer_email = os.environ.get("DEVELOPER_EMAIL") or support_email
     developer_name = os.environ.get("DEVELOPER_NAME") or app_name
