@@ -28,6 +28,51 @@ const WIDGETS_DEFAULT = {
 const LAYOUT_DEFAULT    = { columns: 2, breakpoints: { lg: 2, md: 2, sm: 1 } };
 const NAV_HISTORY_MAX   = 10; // máximo de entradas en historial
 
+const normalizeTheme = (theme) =>
+  ["light", "dark", "system"].includes(theme) ? theme : "light";
+
+const normalizeDensity = (density) =>
+  ["compact", "comfortable"].includes(density) ? density : "comfortable";
+
+const mergeWidgetsWithDefaults = (widgetsInput = {}) => {
+  const mergedWidgets = { ...WIDGETS_DEFAULT };
+
+  for (const key of Object.keys(WIDGETS_DEFAULT)) {
+    const widget = widgetsInput[key];
+    if (widget && typeof widget === "object") {
+      mergedWidgets[key] = { ...WIDGETS_DEFAULT[key], ...widget };
+    }
+  }
+
+  return mergedWidgets;
+};
+
+const buildDashboardWidgetsPayload = (widgets = {}) =>
+  Object.entries(mergeWidgetsWithDefaults(widgets))
+    .map(([code, widget]) => ({
+      code,
+      enabled: Boolean(widget?.enabled),
+      sortOrder: Number(widget?.order ?? 0) || null,
+    }))
+    .sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
+
+const normalizeRemoteWidgets = (dashboardWidgets = []) => {
+  const nextWidgets = { ...WIDGETS_DEFAULT };
+
+  for (const item of Array.isArray(dashboardWidgets) ? dashboardWidgets : []) {
+    const code = String(item?.code || "").trim();
+    if (!code || !nextWidgets[code]) continue;
+
+    nextWidgets[code] = {
+      ...nextWidgets[code],
+      enabled: Boolean(item?.enabled),
+      order: Number(item?.sortOrder ?? item?.sort_order ?? nextWidgets[code].order),
+    };
+  }
+
+  return nextWidgets;
+};
+
 const initialState = {
   theme:    "light",
   accent:   "#6366f1",
@@ -175,6 +220,43 @@ const useBaseSiteStore = create(
       resetDashboardLayout: () =>
         set((s) => ({ dashboard: { ...s.dashboard, layout: { ...LAYOUT_DEFAULT } } })),
 
+      hydratePersonalization: (personalization = {}) =>
+        set((s) => ({
+          theme: normalizeTheme(personalization?.theme ?? s.theme),
+          sidebar: {
+            ...s.sidebar,
+            collapsed: Boolean(
+              personalization?.sidebarCollapsed ??
+              personalization?.sidebar_collapsed ??
+              s.sidebar?.collapsed
+            ),
+          },
+          ui: {
+            ...s.ui,
+            density: normalizeDensity(personalization?.density ?? s.ui?.density),
+            animations: Boolean(
+              personalization?.animations ?? s.ui?.animations
+            ),
+          },
+          dashboard: {
+            ...s.dashboard,
+            widgets: normalizeRemoteWidgets(
+              personalization?.dashboardWidgets ?? personalization?.dashboard_widgets ?? []
+            ),
+          },
+        })),
+
+      getPersonalizationSnapshot: () => {
+        const state = useBaseSiteStore.getState();
+        return {
+          theme: normalizeTheme(state.theme),
+          density: normalizeDensity(state.ui?.density),
+          animations: Boolean(state.ui?.animations),
+          sidebarCollapsed: Boolean(state.sidebar?.collapsed),
+          dashboardWidgets: buildDashboardWidgetsPayload(state.dashboard?.widgets ?? {}),
+        };
+      },
+
       // ── Reset total ────────────────────────────────────────────────────────
       resetSitePrefs: () => set({ ...initialState }),
     }),
@@ -201,17 +283,9 @@ const useBaseSiteStore = create(
         const s = persisted ?? {};
 
         // Merge seguro de widgets: conservar keys conocidas
-        const mergedWidgets = { ...WIDGETS_DEFAULT };
-        const pw = s.dashboard?.widgets ?? {};
-        for (const key of Object.keys(WIDGETS_DEFAULT)) {
-          if (pw[key] && typeof pw[key] === "object") {
-            mergedWidgets[key] = { ...WIDGETS_DEFAULT[key], ...pw[key] };
-          }
-        }
-
         return {
           ...current,
-          theme:    s.theme    ?? initialState.theme,
+          theme:    normalizeTheme(s.theme ?? initialState.theme),
           accent:   s.accent   ?? initialState.accent,
           language: s.language ?? initialState.language,
           sidebar: {
@@ -219,12 +293,12 @@ const useBaseSiteStore = create(
             activeModule: s.sidebar?.activeModule ?? null,
           },
           ui: {
-            density:    s.ui?.density    ?? "comfortable",
+            density:    normalizeDensity(s.ui?.density ?? "comfortable"),
             animations: s.ui?.animations ?? true,
           },
           navigationHistory: Array.isArray(s.navigationHistory) ? s.navigationHistory : [],
           dashboard: {
-            widgets: mergedWidgets,
+            widgets: mergeWidgetsWithDefaults(s.dashboard?.widgets ?? {}),
             layout: {
               columns: s.dashboard?.layout?.columns ?? 2,
               breakpoints: {

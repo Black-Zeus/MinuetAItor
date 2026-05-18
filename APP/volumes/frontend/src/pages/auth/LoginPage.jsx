@@ -10,6 +10,7 @@ import useAuthStore from '@store/authStore';
 import useBaseSiteStore from '@store/baseSiteStore';
 import { login as apiLogin } from '@/services/authService';
 import { APP_VERSION } from '@/utils/environment';
+import { applyThemeToDocument, resolveThemeMode } from '@/utils/theme';
 
 const LoginPage = () => {
     const navigate = useNavigate();
@@ -25,11 +26,11 @@ const LoginPage = () => {
     useLayoutEffect(() => {
         const stored = localStorage.getItem('site-storage'); // ← era 'minuteAItor-base-site'
         if (!stored) setTheme('dark');
-        document.documentElement.classList.toggle('dark', theme === 'dark');
+        applyThemeToDocument(theme);
     }, []);
 
     useLayoutEffect(() => {
-        document.documentElement.classList.toggle('dark', theme === 'dark');
+        applyThemeToDocument(theme);
     }, [theme]);
 
     const [credential, setCredential] = useState('');
@@ -65,7 +66,7 @@ const LoginPage = () => {
         }
     };
 
-    const isDark = theme === 'dark';
+    const isDark = resolveThemeMode(theme) === 'dark';
 
     return (
         <div className="

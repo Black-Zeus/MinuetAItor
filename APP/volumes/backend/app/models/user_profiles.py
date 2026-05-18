@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import enum
 
-from sqlalchemy import Column, Date, Enum, ForeignKey, String
+from sqlalchemy import Boolean, Column, Date, Enum, ForeignKey, String
 from sqlalchemy.orm import relationship
 
 from db.base import Base
@@ -33,6 +33,10 @@ class UserProfile(Base):
         default=AssignmentModeEnum.specific,
         server_default=AssignmentModeEnum.specific.value,
     )
+    theme = Column(String(20), nullable=True)
+    ui_density = Column(String(20), nullable=True)
+    ui_animations = Column(Boolean, nullable=True)
+    sidebar_collapsed = Column(Boolean, nullable=True)
 
     user = relationship(
         "User",

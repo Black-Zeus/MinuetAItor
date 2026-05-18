@@ -5,6 +5,7 @@ import Icon from '@/components/ui/icon/iconManager';
 import useBaseSiteStore from '@store/baseSiteStore';
 import { forgotPassword as requestPasswordReset } from '@/services/authService';
 import { APP_VERSION } from '@/utils/environment';
+import { applyThemeToDocument, resolveThemeMode } from '@/utils/theme';
 
 const AUTH_LOGO_SRC = '/images/chinchinAItor.jpg';
 
@@ -19,11 +20,11 @@ const ForgotPasswordPage = () => {
   useLayoutEffect(() => {
     const stored = localStorage.getItem('site-storage');
     if (!stored) setTheme('dark');
-    document.documentElement.classList.toggle('dark', theme === 'dark');
+    applyThemeToDocument(theme);
   }, []);
 
   useLayoutEffect(() => {
-    document.documentElement.classList.toggle('dark', theme === 'dark');
+    applyThemeToDocument(theme);
   }, [theme]);
 
   const validate = () => {
@@ -56,7 +57,7 @@ const ForgotPasswordPage = () => {
     }
   };
 
-  const isDark = theme === 'dark';
+  const isDark = resolveThemeMode(theme) === 'dark';
 
   return (
     <div className="min-h-screen grid place-items-center bg-gradient-to-b from-slate-800 to-slate-900 px-4 py-10 transition-colors duration-300 dark:from-slate-900 dark:to-black sm:px-6 lg:px-12">
