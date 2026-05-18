@@ -2,6 +2,7 @@ import React, { useLayoutEffect } from "react";
 import AppRouter from "@/routes/AppRouter";
 import useBaseSiteStore from "@store/baseSiteStore";
 import { isDev, isQA } from "@/utils/environment";
+import { applyThemeToDocument } from "@/utils/theme";
 import { exposeViteEnvToWindow } from "./utils/exposeEnv";
 import ToasterManager from "./components/common/toast/ToasterManager";
 import SessionExpiryModal from "./components/SessionExpiryModal";
@@ -19,11 +20,7 @@ function App() {
   const { theme } = useBaseSiteStore();
 
   useLayoutEffect(() => {
-    const html = document.documentElement;
-    const isDark = theme === "dark";
-    if (html.classList.contains("dark") !== isDark) {
-      html.classList.toggle("dark", isDark);
-    }
+    applyThemeToDocument(theme);
   }, [theme]);
 
   return (

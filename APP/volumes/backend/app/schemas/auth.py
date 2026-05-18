@@ -1,6 +1,8 @@
 # schemas/auth.py
 from pydantic import BaseModel, field_validator, model_validator
 
+from schemas.personalization import UserPersonalizationResponse
+
 
 class LoginRequest(BaseModel):
     credential: str
@@ -98,6 +100,7 @@ class MeResponse(BaseModel):
     is_active:         bool
     last_login_at:     str | None
     profile:           UserProfileData | None
+    personalization:  UserPersonalizationResponse | None = None
     active_connection: ConnectionInfo | None = None
     last_connections:  list[ConnectionInfo] = []
     

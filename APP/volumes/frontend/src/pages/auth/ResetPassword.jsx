@@ -5,6 +5,7 @@ import Icon from '@/components/ui/icon/iconManager';
 import useBaseSiteStore from '@store/baseSiteStore';
 import { resetPassword as submitPasswordReset } from '@/services/authService';
 import { APP_VERSION } from '@/utils/environment';
+import { applyThemeToDocument, resolveThemeMode } from '@/utils/theme';
 
 const AUTH_LOGO_SRC = '/images/chinchinAItor.jpg';
 
@@ -45,12 +46,14 @@ const ResetPasswordPage = () => {
   useLayoutEffect(() => {
     const stored = localStorage.getItem('site-storage');
     if (!stored) setTheme('dark');
-    document.documentElement.classList.toggle('dark', theme === 'dark');
+    applyThemeToDocument(theme);
   }, []);
 
   useLayoutEffect(() => {
-    document.documentElement.classList.toggle('dark', theme === 'dark');
+    applyThemeToDocument(theme);
   }, [theme]);
+
+  const isDark = resolveThemeMode(theme) === 'dark';
 
   useEffect(() => {
     setForm((prev) => (prev.token === tokenFromQuery ? prev : { ...prev, token: tokenFromQuery }));
@@ -132,7 +135,6 @@ const ResetPasswordPage = () => {
 
   const strength = form.password ? getStrength(form.password) : null;
   const passwordsMatch = form.password && form.confirm && form.password === form.confirm;
-  const isDark = theme === 'dark';
   const hasTokenFromQuery = Boolean(tokenFromQuery.trim());
 
   return (

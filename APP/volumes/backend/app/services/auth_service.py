@@ -40,6 +40,7 @@ from services.session_events_service import (
     session_exists,
 )
 from services.avatar_service import get_avatar_url_if_exists
+from services.user_personalization_service import get_user_personalization
 from utils.device import get_device_string
 from utils.geo import get_geo
 from utils.network import get_client_ip
@@ -288,6 +289,7 @@ async def get_me(token: str, db: Session) -> MeResponse:
         department = user.profile.department if user.profile else None,
         avatar_url = get_avatar_url_if_exists(user.id),
     )
+    personalization = get_user_personalization(db, user.id)
 
     # ── Sesiones ──────────────────────────────────────
     sessions = get_user_sessions(db, user_id, limit=11)
@@ -324,6 +326,7 @@ async def get_me(token: str, db: Session) -> MeResponse:
         is_active         = user.is_active,
         last_login_at     = user.last_login_at.isoformat() if user.last_login_at else None,
         profile           = profile,
+        personalization   = personalization,
         active_connection = active_connection,
         last_connections  = last_connections[:10],
     )

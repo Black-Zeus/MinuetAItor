@@ -140,9 +140,13 @@ const useSessionStore = create(
 
         try {
           const { getMe } = await import("@/services/authService");
+          const { default: useBaseSiteStore } = await import("@/store/baseSiteStore");
           const meData = await getMe(); // MeResponse
 
           const session = mapMeToSession(meData);
+          if (meData?.personalization) {
+            useBaseSiteStore.getState().hydratePersonalization(meData.personalization);
+          }
 
           set({
             ...session,

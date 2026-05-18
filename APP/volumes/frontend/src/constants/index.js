@@ -29,6 +29,7 @@ export const API_ENDPOINTS = {
     ME_SESSIONS: `${API_VERSION}/auth/me/sessions`,
     SESSION_EVENTS: `${API_VERSION}/auth/session-events`,
     ME_AVATAR: `${API_VERSION}/auth/me/avatar`,
+    ME_PERSONALIZATION: `${API_VERSION}/auth/me/personalization`,
     VALIDATE_TOKEN: `${API_VERSION}/auth/validate-token`,
     CHANGE_PASSWORD: `${API_VERSION}/auth/change-password`,
     CHANGE_PASSWORD_ADMIN: `${API_VERSION}/auth/change-password-by-admin`,

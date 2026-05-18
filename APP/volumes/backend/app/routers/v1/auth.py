@@ -11,6 +11,10 @@ from schemas.auth import (
     ChangePasswordByAdminRequest, ForgotPasswordRequest, ResetPasswordRequest,
     ActiveSessionsResponse, LogoutSessionRequest, LogoutSessionResponse, LogoutAllSessionsResponse,
 )
+from schemas.personalization import (
+    UserPersonalizationResponse,
+    UserPersonalizationUpdateRequest,
+)
 from services.auth_service import (
     login, logout, get_current_user, get_me,
     refresh_token, validate_token,
@@ -20,6 +24,10 @@ from services.auth_service import (
 )
 from services.session_events_service import auth_sse_headers, stream_session_events
 from services.avatar_service import read_user_avatar, remove_user_avatar, save_user_avatar
+from services.user_personalization_service import (
+    get_user_personalization,
+    update_user_personalization,
+)
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 bearer = HTTPBearer()
@@ -100,6 +108,40 @@ async def me_endpoint(
     db: Session = Depends(get_db),
 ):
     return await get_me(credentials.credentials, db)
+
+
+@router.get("/me/personalization", response_model=UserPersonalizationResponse, status_code=status.HTTP_200_OK)
+async def get_my_personalization_endpoint(
+    session: UserSession = Depends(current_user_dep),
+    db: Session = Depends(get_db),
+):
+    return get_user_personalization(db, session.user_id)
+
+
+@router.put("/me/personalization", response_model=UserPersonalizationResponse, status_code=status.HTTP_200_OK)
+async def update_my_personalization_endpoint(
+    payload: UserPersonalizationUpdateRequest,
+    session: UserSession = Depends(current_user_dep),
+    db: Session = Depends(get_db),
+):
+    normalized_widgets = [
+        {
+            "code": item.code,
+            "enabled": item.enabled,
+            "sort_order": item.sort_order,
+        }
+        for item in payload.dashboard_widgets
+    ]
+    return update_user_personalization(
+        db,
+        user_id=session.user_id,
+        theme=payload.theme,
+        density=payload.density,
+        animations=payload.animations,
+        sidebar_collapsed=payload.sidebar_collapsed,
+        dashboard_widgets=normalized_widgets,
+        actor_user_id=session.user_id,
+    )
 
 
 @router.post("/me/avatar", status_code=status.HTTP_200_OK)
