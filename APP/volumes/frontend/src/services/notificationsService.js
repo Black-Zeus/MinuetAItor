@@ -74,6 +74,33 @@ const normalizeListPayload = (payload = {}) => ({
   limit: Number(payload?.limit || 0),
 });
 
+const normalizeNotificationPreferenceItem = (item = {}) => ({
+  key: String(item?.key || ""),
+  title: String(item?.title || ""),
+  description: String(item?.description || ""),
+  isEnabled: Boolean(item?.isEnabled ?? item?.is_enabled),
+  isEditable: Boolean(item?.isEditable ?? item?.is_editable),
+  isMandatory: Boolean(item?.isMandatory ?? item?.is_mandatory),
+  receivesNotifications: Boolean(item?.receivesNotifications ?? item?.receives_notifications),
+  disabledReason: item?.disabledReason ?? item?.disabled_reason ?? null,
+  typePrefixes: Array.isArray(item?.typePrefixes ?? item?.type_prefixes)
+    ? (item?.typePrefixes ?? item?.type_prefixes).map((value) => String(value || "").trim()).filter(Boolean)
+    : [],
+});
+
+const normalizeNotificationPreferences = (payload = {}) => ({
+  globalEnabled: Boolean(payload?.globalEnabled ?? payload?.global_enabled ?? true),
+  sections: Array.isArray(payload?.sections)
+    ? payload.sections.map((section) => ({
+        key: String(section?.key || ""),
+        title: String(section?.title || ""),
+        description: String(section?.description || ""),
+        items: Array.isArray(section?.items) ? section.items.map(normalizeNotificationPreferenceItem) : [],
+      }))
+    : [],
+  totalItems: Number(payload?.totalItems ?? payload?.total_items ?? 0),
+});
+
 const notificationsService = {
   async list({ skip = 0, limit = 20, unreadOnly = false, tag = null } = {}) {
     const res = await request(
@@ -198,6 +225,37 @@ const notificationsService = {
         ? data?.notificationIds ?? data?.notification_ids
         : [],
     };
+  },
+
+  async getPreferences() {
+    const res = await request(
+      {
+        url: `${BASE}/preferences`,
+        method: "get",
+      },
+      "No fue posible cargar tus preferencias de notificaciones."
+    );
+    return normalizeNotificationPreferences(unwrap(res));
+  },
+
+  async updatePreferences({ globalEnabled, items = [] } = {}) {
+    const res = await request(
+      {
+        url: `${BASE}/preferences`,
+        method: "put",
+        data: {
+          globalEnabled: Boolean(globalEnabled),
+          items: Array.isArray(items)
+            ? items.map((item) => ({
+                key: String(item?.key || "").trim(),
+                isEnabled: Boolean(item?.isEnabled ?? item?.is_enabled),
+              })).filter((item) => item.key)
+            : [],
+        },
+      },
+      "No fue posible guardar tus preferencias de notificaciones."
+    );
+    return normalizeNotificationPreferences(unwrap(res));
   },
 };
 
