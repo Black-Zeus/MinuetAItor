@@ -1,13 +1,11 @@
 /**
  * UserProfileTabNav.jsx
  * Navegación por tabs del perfil de usuario.
- * Tabs: Perfil | Mis Registros | Seguridad | Notificaciones | Personalización
+ * Tabs: Perfil | Seguridad | Sesiones | Notificaciones | Personalización
  */
 
 import React from "react";
 import Icon from "@/components/ui/icon/iconManager";
-
-const TXT_META = "text-gray-500 dark:text-gray-400";
 
 export const PROFILE_TABS = [
   {
@@ -20,7 +18,13 @@ export const PROFILE_TABS = [
     id: "security",
     label: "Seguridad",
     icon: "FaLock",
-    description: "Contraseña y sesiones",
+    description: "Contraseña y acceso",
+  },
+  {
+    id: "sessions",
+    label: "Sesiones",
+    icon: "FaDesktop",
+    description: "Actividad y dispositivos",
   },
   {
     id: "notifications",
@@ -38,11 +42,9 @@ export const PROFILE_TABS = [
 
 const UserProfileTabNav = ({ activeTab, onTabChange }) => (
   <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm transition-theme overflow-hidden">
-    <div className="flex items-stretch">
-      {PROFILE_TABS.map((tab, idx) => {
+    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-px bg-gray-200 dark:bg-gray-700">
+      {PROFILE_TABS.map((tab) => {
         const isActive = activeTab === tab.id;
-        const isFirst  = idx === 0;
-        const isLast   = idx === PROFILE_TABS.length - 1;
 
         return (
           <button
@@ -50,10 +52,7 @@ const UserProfileTabNav = ({ activeTab, onTabChange }) => (
             type="button"
             onClick={() => onTabChange(tab.id)}
             className={[
-              "flex-1 flex items-center gap-2.5 px-4 py-4 transition-all",
-              isFirst ? "rounded-l-xl" : "",
-              isLast  ? "rounded-r-xl" : "",
-              idx > 0 ? "border-l border-gray-200 dark:border-gray-700" : "",
+              "min-w-0 flex items-center gap-2.5 px-4 py-4 transition-all text-left bg-white dark:bg-gray-800",
               isActive
                 ? "bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300"
                 : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-700 dark:hover:text-gray-200",

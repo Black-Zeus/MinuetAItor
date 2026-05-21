@@ -21,6 +21,7 @@ class User(Base, TimestampMixin):
     job_title     = Column(String(250), nullable=True)
     is_active     = Column(Boolean, nullable=False, default=True)
     last_login_at = Column(DateTime, nullable=True)
+    avatar_object_id = Column(String(36), ForeignKey("objects.id"), nullable=True)
 
     created_by = Column(String(36), ForeignKey("users.id"), nullable=True)
     updated_by = Column(String(36), ForeignKey("users.id"), nullable=True)
@@ -43,6 +44,7 @@ class User(Base, TimestampMixin):
         uselist=False,
         lazy="select",
     )
+    avatar_object = relationship("Object", foreign_keys=[avatar_object_id], lazy="select")
 
     def __repr__(self) -> str:
         return f"<User id={self.id} username={self.username!r} active={bool(self.is_active)}>"

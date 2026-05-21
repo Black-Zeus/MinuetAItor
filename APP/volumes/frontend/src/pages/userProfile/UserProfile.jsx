@@ -8,11 +8,13 @@ import UserProfileTabNav from "./UserProfileTabNav";
 import UserProfileHeader from "./UserProfileHeader";
 import UserProfilePersonalData from "./UserProfilePersonalData";
 import UserProfileSecurity from "./UserProfileSecurity";
+import UserProfileSessions from "./UserProfileSessions";
 import UserProfileNotifications from "./UserProfileNotifications";
 import UserProfileCustomization from "./UserProfileCustomization";
 
 import PageLoadingSpinner from "@/components/ui/modal/types/system/PageLoadingSpinner";
 import { ModalManager } from "@/components/ui/modal";
+import useAuthStore from "@/store/authStore";
 import useSessionStore from "@store/sessionStore";
 import { deleteMyAvatar, uploadMyAvatar } from "@/services/authService";
 
@@ -24,7 +26,7 @@ const usrProfLog = logger.scope("user-profile");
 // ─── Mapeo store → shape que espera el form ───────────────────────────────────
 // El form usa camelCase y nombres propios del UI.
 // El store usa snake_case igual que el backend.
-const sessionToForm = (user, profile, connections) => ({
+const sessionToForm = (user, profile, connections, loginTimestamp) => ({
   fullName: user?.full_name ?? "",   // user.full_name   → campo "Nombre completo"
   position: user?.job_title ?? "",   // user.job_title   → campo "Cargo"
   department: profile?.department ?? "",  // profile.department → campo "Departamento"
@@ -32,7 +34,9 @@ const sessionToForm = (user, profile, connections) => ({
   notes: user?.description ?? "",   // user.description → campo "Notas"
   phone: user?.phone ?? "",                          // no viene del backend aún — solo local
   area: user?.area ?? "",                          // no viene del backend aún — solo local
-  lastConection: formatDateTimeTechnical(connections?.active?.ts ?? "")
+  lastConection: formatDateTimeTechnical(
+    connections?.active?.ts ?? user?.last_login_at ?? loginTimestamp ?? ""
+  )
 });
 
 // ─── Mapeo inverso form → body del PATCH /users/me ───────────────────────────
@@ -59,12 +63,13 @@ const UserProfile = () => {
   const storeProfile = useSessionStore((s) => s.profile);
   const connections = useSessionStore((s) => s.connections);
   const isLoading = useSessionStore((s) => s.isLoading);
+  const loginTimestamp = useAuthStore((s) => s.loginTimestamp);
 
   // ── 2. Form state local ──────────────────────────────────────────────────────
   // Los datos del form son una COPIA local — no escriben directo al store.
   // Se inicializan con lo que ya haya en el store (del login).
   const [formData, setFormData] = useState(() =>
-    sessionToForm(storeUser, storeProfile, connections)
+    sessionToForm(storeUser, storeProfile, connections, loginTimestamp)
   );
 
   // ── 3. Forzar refresco al entrar al módulo ───────────────────────────────────
@@ -79,16 +84,16 @@ const UserProfile = () => {
   // → el form muestra los datos frescos del servidor
   useEffect(() => {
     if (storeUser) {
-      setFormData(sessionToForm(storeUser, storeProfile, connections));
+      setFormData(sessionToForm(storeUser, storeProfile, connections, loginTimestamp));
     }
-  }, [storeUser, storeProfile, connections]);
+  }, [storeUser, storeProfile, connections, loginTimestamp]);
 
 
   // ── Handlers ─────────────────────────────────────────────────────────────────
   const handleProfileChange = (updated) => setFormData(updated);
 
   // Restablecer = volver al estado actual del store (no del servidor)
-  const handleReset = () => setFormData(sessionToForm(storeUser, storeProfile, connections));
+  const handleReset = () => setFormData(sessionToForm(storeUser, storeProfile, connections, loginTimestamp));
   
   const handleSave = async () => {
     const body = formToRequest(formData);
@@ -170,6 +175,8 @@ const UserProfile = () => {
       )}
 
       {activeTab === "security" && <UserProfileSecurity />}
+
+      {activeTab === "sessions" && <UserProfileSessions />}
 
       {activeTab === "notifications" && <UserProfileNotifications />}
 
