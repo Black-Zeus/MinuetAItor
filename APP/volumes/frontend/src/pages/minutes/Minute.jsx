@@ -143,7 +143,7 @@ const Minutes = () => {
   }
 
   return (
-    <div className="w-full p-6 md:p-8">
+    <div className="space-y-6">
       <MinutesHeader
         onNewMinute={() => {
           setCurrentPage(1);
