@@ -8,9 +8,17 @@ import Icon from '@/components/ui/icon/iconManager';
 import { ModalManager } from '@/components/ui/modal';
 import ClientModal, { CLIENT_MODAL_MODES }           from '@/pages/clientes/ClientModal';
 import ProjectModal, { PROJECT_MODAL_MODES }         from '@/pages/project/ProjectModal';
+import ParticipantsModal, { PARTICIPANTS_MODAL_MODES } from '@/pages/participants/ParticipantsModal';
+import TeamsModal, { TEAMS_MODAL_MODES }             from '@/pages/teams/TeamsModal';
 import TagsModal, { TAGS_MODAL_MODES }               from '@/pages/tags/TagsModal';
 import ProfilesCatalogModal, { PROFILE_MODAL_MODES } from '@/pages/profiles/ProfilesCatalogModal';
+import clientService from '@/services/clientService';
 import { getMinutePdfBlob } from '@/services/minutesService';
+import participantsService from '@/services/participantsService';
+import profileService, { profileCategoryService } from '@/services/profileService';
+import projectService from '@/services/projectService';
+import tagService, { tagCategoryService } from '@/services/tagService';
+import teamsService from '@/services/teamsService';
 
 // ====================================
 // NOTA DE CAMPOS POR MÓDULO
@@ -85,22 +93,165 @@ const Paginator = ({ currentPage, totalPages, onPage }) => {
 // ====================================
 // MODALES
 // ====================================
-const openClientModal = (item) => {
-  const close = () => { ModalManager.hide?.(); ModalManager.close?.(); ModalManager.dismiss?.(); ModalManager.closeAll?.(); };
-  ModalManager.show({ type: 'custom', title: 'Detalle Cliente', size: 'large', showFooter: false,
-    content: <ClientModal mode={CLIENT_MODAL_MODES.VIEW} data={item.rawData} onClose={close} /> });
+const closeSearchDetailModal = () => {
+  ModalManager.hide?.();
+  ModalManager.close?.();
+  ModalManager.dismiss?.();
+  ModalManager.closeAll?.();
 };
-const openProjectModal = (item) => {
-  ModalManager.show({ type: 'custom', title: 'Detalles del Proyecto', size: 'large', showFooter: false,
-    content: <ProjectModal mode={PROJECT_MODAL_MODES.VIEW} data={item.rawData} clients={[]} onClose={() => ModalManager.closeAll?.()} onSubmit={() => {}} /> });
+
+const showDetailLoadError = (label) => {
+  ModalManager.error?.({
+    title: 'No fue posible abrir el detalle',
+    message: `No se pudo cargar la información de ${label}.`,
+  });
 };
-const openTagModal = (item) => {
-  ModalManager.show({ type: 'custom', title: 'Detalle de Etiqueta', size: 'large', showFooter: false,
-    content: <TagsModal mode={TAGS_MODAL_MODES.VIEW} data={item.rawData} onClose={() => ModalManager.closeAll?.()} onSubmit={() => {}} /> });
+
+const openClientModal = async (item) => {
+  try {
+    const detail = await clientService.getById(item.id);
+    if (!detail) return;
+
+    ModalManager.show({
+      type: 'custom',
+      title: 'Detalle Cliente',
+      size: 'clientWide',
+      showHeader: false,
+      showFooter: false,
+      content: <ClientModal mode={CLIENT_MODAL_MODES.VIEW} data={detail} onClose={closeSearchDetailModal} />,
+    });
+  } catch (_) {
+    showDetailLoadError('el cliente');
+  }
 };
-const openProfileModal = (item) => {
-  ModalManager.show({ type: 'custom', title: 'Ver Perfil de Análisis', size: 'large', showFooter: false,
-    content: <ProfilesCatalogModal mode={PROFILE_MODAL_MODES.VIEW} profile={item.rawData} onClose={() => ModalManager.closeAll?.()} onSubmit={() => {}} /> });
+
+const openProjectModal = async (item) => {
+  try {
+    const detail = await projectService.getById(item.id);
+    if (!detail) return;
+
+    ModalManager.show({
+      type: 'custom',
+      title: 'Detalle Proyecto',
+      size: 'clientWide',
+      showHeader: false,
+      showFooter: false,
+      content: (
+        <ProjectModal
+          mode={PROJECT_MODAL_MODES.VIEW}
+          data={detail}
+          clientCatalog={[]}
+          onClose={closeSearchDetailModal}
+          onSubmit={() => {}}
+        />
+      ),
+    });
+  } catch (_) {
+    showDetailLoadError('el proyecto');
+  }
+};
+
+const openTeamModal = async (item) => {
+  try {
+    const detail = await teamsService.getById(item.id);
+    if (!detail) return;
+
+    ModalManager.show({
+      type: 'custom',
+      title: 'Detalle de Usuario',
+      size: 'clientWide',
+      showHeader: false,
+      showFooter: false,
+      content: (
+        <TeamsModal
+          mode={TEAMS_MODAL_MODES.VIEW}
+          data={detail}
+          onClose={closeSearchDetailModal}
+        />
+      ),
+    });
+  } catch (_) {
+    showDetailLoadError('el usuario');
+  }
+};
+
+const openParticipantModal = async (item) => {
+  try {
+    const detail = await participantsService.getById(item.id);
+    if (!detail) return;
+
+    ModalManager.show({
+      type: 'custom',
+      title: 'Detalle participante',
+      size: 'clientWide',
+      showHeader: false,
+      showFooter: false,
+      content: (
+        <ParticipantsModal
+          mode={PARTICIPANTS_MODAL_MODES.VIEW}
+          data={detail}
+          onClose={closeSearchDetailModal}
+        />
+      ),
+    });
+  } catch (_) {
+    showDetailLoadError('el participante');
+  }
+};
+
+const openTagModal = async (item) => {
+  try {
+    const [detail, categoryResult] = await Promise.all([
+      tagService.getById(item.id),
+      tagCategoryService.list({ limit: 200, isActive: null }),
+    ]);
+
+    ModalManager.show({
+      type: 'custom',
+      title: 'Detalle de Etiqueta',
+      size: 'clientWide',
+      showHeader: false,
+      showFooter: false,
+      content: (
+        <TagsModal
+          mode={TAGS_MODAL_MODES.VIEW}
+          data={detail}
+          categories={categoryResult?.items ?? []}
+          onClose={closeSearchDetailModal}
+          onSubmit={() => {}}
+        />
+      ),
+    });
+  } catch (_) {
+    showDetailLoadError('la etiqueta');
+  }
+};
+const openProfileModal = async (item) => {
+  try {
+    const [detail, categoryResult] = await Promise.all([
+      profileService.getById(item.id),
+      profileCategoryService.list({ limit: 200, isActive: null }),
+    ]);
+
+    ModalManager.show({
+      type: 'custom',
+      title: 'Ver Perfil de Análisis',
+      size: 'clientWide',
+      showHeader: false,
+      showFooter: false,
+      content: (
+        <ProfilesCatalogModal
+          mode={PROFILE_MODAL_MODES.VIEW}
+          profile={detail}
+          categories={categoryResult?.items ?? []}
+          onClose={closeSearchDetailModal}
+          onSubmit={() => {}}
+        />
+      ),
+    });
+  } catch (_) {
+    showDetailLoadError('el perfil');
+  }
 };
 
 // ====================================
@@ -129,12 +280,14 @@ const resolveMinuteAction = (item, navigate) => {
 };
 
 const ACTION_BY_MODULE = {
-  clientes:  { icon: 'FaEye', label: 'Ver Cliente',  handler: openClientModal  },
-  proyectos: { icon: 'FaEye', label: 'Ver Proyecto', handler: openProjectModal },
-  tags:      { icon: 'FaEye', label: 'Ver Etiqueta', handler: openTagModal     },
-  profiles:  { icon: 'FaEye', label: 'Ver Perfil',   handler: openProfileModal },
-  minutes:   { icon: 'FaArrowUpRightFromSquare', label: 'Abrir Minuta', handler: null },
-  default:   { icon: 'FaArrowUpRightFromSquare', label: 'Abrir',        handler: null },
+  clientes:     { icon: 'FaEye', label: 'Ver Cliente',      handler: openClientModal      },
+  proyectos:    { icon: 'FaEye', label: 'Ver Proyecto',     handler: openProjectModal     },
+  teams:        { icon: 'FaEye', label: 'Ver Usuario',      handler: openTeamModal        },
+  participants: { icon: 'FaEye', label: 'Ver Participante', handler: openParticipantModal },
+  tags:         { icon: 'FaEye', label: 'Ver Etiqueta',     handler: openTagModal         },
+  profiles:     { icon: 'FaEye', label: 'Ver Perfil',       handler: openProfileModal     },
+  minutes:      { icon: 'FaArrowUpRightFromSquare', label: 'Abrir Minuta', handler: null },
+  default:      { icon: 'FaArrowUpRightFromSquare', label: 'Abrir',        handler: null },
 };
 const getAction = (moduleId, item, navigate) => {
   if (moduleId === 'minutes') return resolveMinuteAction(item, navigate);
@@ -253,22 +406,44 @@ const ResultRow = ({ item, moduleId, onNavigate }) => {
   const isTeams     = moduleId === 'teams';
   const isParticipants = moduleId === 'participants';
   const isDefault   = !isMinutes && !isTags && !isProyectos && !isClientes && !isProfiles && !isTeams && !isParticipants;
+  const canOpenFromName = moduleId !== 'minutes' && Boolean(action.handler);
 
-  const handleAction = (e) => {
+  const handleOpen = async () => {
+    if (action.handler) {
+      await action.handler(item);
+      return;
+    }
+    onNavigate(item);
+  };
+
+  const handleAction = async (e) => {
     e.stopPropagation();
-    if (action.handler) action.handler(item);
-    else onNavigate(item);
+    await handleOpen();
   };
 
   return (
-    <tr className="group border-b border-gray-100 dark:border-gray-700 last:border-0 hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors">
+    <tr
+      onClick={handleOpen}
+      className="group cursor-pointer border-b border-gray-100 transition-colors hover:bg-blue-50 dark:border-gray-700 dark:hover:bg-blue-900/10 last:border-0"
+    >
 
       {/* Nombre — siempre primero */}
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-gray-800 dark:text-gray-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate">
-            {item.label}
-          </span>
+          {canOpenFromName ? (
+            <button
+              type="button"
+              onClick={handleAction}
+              className="max-w-full cursor-pointer truncate text-left text-sm font-medium text-gray-800 transition-colors hover:text-blue-600 dark:text-gray-200 dark:hover:text-blue-400"
+              title={item.label}
+            >
+              {item.label}
+            </button>
+          ) : (
+            <span className="text-sm font-medium text-gray-800 dark:text-gray-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate">
+              {item.label}
+            </span>
+          )}
           {item.isConfidential && <ConfidentialBadge />}
         </div>
       </td>
@@ -318,7 +493,7 @@ const ResultRow = ({ item, moduleId, onNavigate }) => {
 
       {/* Acción — siempre */}
       <td className="px-4 py-3 text-right">
-        <button onClick={handleAction} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 border border-blue-100 dark:border-blue-800 transition-colors opacity-0 group-hover:opacity-100 cursor-pointer whitespace-nowrap">
+        <button onClick={handleAction} className="inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-lg border border-blue-100 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-600 transition-colors hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/40">
           <Icon name={action.icon} className="text-[10px]" />
           {action.label}
         </button>
