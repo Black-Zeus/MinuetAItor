@@ -131,6 +131,7 @@ class TeamResponse(BaseModel):
     name:            str        # ← user.full_name
     username:        str
     email:           str
+    avatar_url:      str | None = Field(None, serialization_alias="avatarUrl")
     position:        str | None
     phone:           str | None
     department:      str | None

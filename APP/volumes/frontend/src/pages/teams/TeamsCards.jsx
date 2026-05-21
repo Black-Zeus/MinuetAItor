@@ -4,7 +4,7 @@
  * Patrón: render con summary, fetchDetail on-demand para View/Edit, mutación optimista.
  */
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Icon from "@/components/ui/icon/iconManager";
 import ModalManager from "@/components/ui/modal";
 import ActionButton from "@/components/ui/button/ActionButton";
@@ -230,7 +230,13 @@ const TeamsCard = ({ id, summary = null, onUpdated, onDeleted }) => {
   const [loadingDetail, setLoadingDetail] = useState(false);
 
   const base = useMemo(() => summary ?? {}, [summary]);
+  const avatarUrl = base?.avatarUrl ?? base?.avatar_url ?? null;
   const role = getRoleBadge(base?.systemRole);
+  const [avatarFailed, setAvatarFailed] = useState(false);
+
+  useEffect(() => {
+    setAvatarFailed(false);
+  }, [avatarUrl]);
 
   // Detectar si el usuario conectado es administrador
   const isAdmin = useSessionStore((s) =>
@@ -270,7 +276,7 @@ const TeamsCard = ({ id, summary = null, onUpdated, onDeleted }) => {
         <TeamsModal
           mode={TEAMS_MODAL_MODES.VIEW}
           data={detail}
-          onSubmit={() => ModalManager.closeAll()}
+          onClose={() => ModalManager.closeAll?.()}
         />
       ),
     });
@@ -301,11 +307,12 @@ const TeamsCard = ({ id, summary = null, onUpdated, onDeleted }) => {
           onSubmit={async (formData) => {
             const payload = toApiPayload(formData);
             teamsLog.log("[TeamsCard] Actualizando usuario:", payload);
-            const updated = await teamsService.update(id, payload);
-            onUpdated?.(updated);
-            toastSuccess("Usuario actualizado exitosamente.");
-            ModalManager.closeAll();
+            return await teamsService.update(id, payload);
           }}
+          onSaved={async (updated) => {
+            onUpdated?.(updated);
+          }}
+          onClose={() => ModalManager.closeAll?.()}
         />
       ),
     });
@@ -364,7 +371,16 @@ const TeamsCard = ({ id, summary = null, onUpdated, onDeleted }) => {
             <div
               className={`w-11 h-11 bg-gradient-to-br ${getColorClass(base?.color)} rounded-full flex items-center justify-center text-white font-semibold text-base flex-shrink-0`}
             >
-              {base?.initials ?? "—"}
+              {avatarUrl && !avatarFailed ? (
+                <img
+                  src={avatarUrl}
+                  alt={base?.name ?? "Avatar de usuario"}
+                  className="w-full h-full rounded-full object-cover"
+                  onError={() => setAvatarFailed(true)}
+                />
+              ) : (
+                base?.initials ?? "—"
+              )}
             </div>
             <div className="min-w-0 flex-1">
               <h3 className={`font-semibold ${TXT_TITLE} truncate transition-theme leading-tight`}>

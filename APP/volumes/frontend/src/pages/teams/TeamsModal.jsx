@@ -20,7 +20,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Icon         from "@/components/ui/icon/iconManager";
 import ModalManager from "@/components/ui/modal";
-import { toastError } from "@/components/common/toast/toastHelpers";
+import { toastError, toastSuccess } from "@/components/common/toast/toastHelpers";
 
 import clientService  from "@/services/clientService";
 import projectService from "@/services/projectService";
@@ -77,8 +77,10 @@ const normalizeColor = (c) => {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+const cn = (...classes) => classes.filter(Boolean).join(" ");
 const normalizeText = (v) => String(v ?? "").trim();
 const EMAIL_RE      = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMPTY_VALUE   = <span className="italic text-gray-400 dark:text-gray-500">Sin información</span>;
 
 const computeInitials = (name) => {
   const n = normalizeText(name);
@@ -125,6 +127,7 @@ const normalizeUser = (data = {}) => {
     name:           normalizeText(name),
     username:       normalizeText(data.username),
     email:          normalizeText(data.email),
+    avatarUrl:      normalizeText(data.avatarUrl ?? data.avatar_url),
     emailOriginal:  normalizeText(data.email),   // para detectar si cambió
     position:       normalizeText(data.position),
     phone:          normalizeText(data.phone),
@@ -142,50 +145,146 @@ const normalizeUser = (data = {}) => {
   };
 };
 
-// ─── Micro-componentes ────────────────────────────────────────────────────────
+const AvatarPreview = ({ avatarUrl, color, initials, name, sizeClass, textClass }) => {
+  const [avatarFailed, setAvatarFailed] = useState(false);
 
-const SectionTitle = ({ number, color, children }) => {
-  const cls = { blue:"bg-blue-500", purple:"bg-purple-500", green:"bg-green-500", amber:"bg-amber-500", gray:"bg-gray-500" };
+  useEffect(() => {
+    setAvatarFailed(false);
+  }, [avatarUrl]);
+
   return (
-    <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-3 flex items-center gap-2">
-      <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full ${cls[color] ?? cls.gray} text-white text-xs flex-shrink-0`}>
-        {number}
-      </span>
-      {children}
-    </h4>
+    <div
+      className={`${sizeClass} bg-gradient-to-br ${COLOR_MAP[color] ?? COLOR_MAP.blue} rounded-full flex items-center justify-center text-white font-bold flex-shrink-0 overflow-hidden ${textClass}`}
+    >
+      {avatarUrl && !avatarFailed ? (
+        <img
+          src={avatarUrl}
+          alt={name || "Avatar de usuario"}
+          className="w-full h-full object-cover"
+          onError={() => setAvatarFailed(true)}
+        />
+      ) : (
+        initials || computeInitials(name) || "?"
+      )}
+    </div>
   );
 };
 
-const FieldRow = ({ label, value, icon }) => (
-  <div className="flex justify-between text-sm py-1.5 border-b border-gray-100 dark:border-gray-700/50 last:border-0 gap-2">
-    <span className="text-gray-500 dark:text-gray-400 font-medium flex-shrink-0 flex items-center gap-1.5">
-      {icon && <Icon name={icon} className="w-3 h-3" />}
-      {label}
-    </span>
-    <span className="text-gray-800 dark:text-gray-200 text-right">
-      {value || <em className="text-gray-400 font-normal">—</em>}
-    </span>
-  </div>
+const Section = ({ title, description, children }) => (
+  <section className="space-y-4">
+    <div>
+      <h4 className="text-sm font-semibold text-gray-900 dark:text-white">{title}</h4>
+      {description ? (
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{description}</p>
+      ) : null}
+    </div>
+    <div>{children}</div>
+  </section>
 );
 
-const ViewField = ({ label, value }) => (
-  <div>
-    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">{label}</label>
-    <p className="text-sm text-gray-800 dark:text-gray-200 min-h-[1.5rem]">
-      {value || <em className="text-gray-400">—</em>}
-    </p>
-  </div>
-);
-
-const FormField = ({ label, required, error, children }) => (
-  <div>
-    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-      {label}{required && <span className="text-red-500 ml-0.5">*</span>}
-    </label>
+const Field = ({ label, hint, error, children }) => (
+  <div className="space-y-2">
+    <div className="flex items-center justify-between gap-3">
+      <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</label>
+      {hint ? <span className="text-xs text-gray-400 dark:text-gray-500">{hint}</span> : null}
+    </div>
     {children}
-    {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
+    {error ? <p className="text-sm text-red-500">{error}</p> : null}
   </div>
 );
+
+const ReadValue = ({ value, multiline = false }) => {
+  const normalized = typeof value === "string" ? value.trim() : value;
+  return (
+    <div
+      className={cn(
+        "rounded-xl border border-slate-200/80 bg-white px-3.5 py-2.5 text-sm text-gray-700 dark:border-slate-700/80 dark:bg-slate-800 dark:text-gray-200",
+        multiline ? "whitespace-pre-line" : "break-words"
+      )}
+    >
+      {normalized || EMPTY_VALUE}
+    </div>
+  );
+};
+
+const SummaryItem = ({ label, value, multiline = false, className = "" }) => {
+  const normalized = typeof value === "string" ? value.trim() : value;
+  return (
+    <div
+      className={cn(
+        "border-b border-slate-200/70 pb-4 dark:border-slate-800/90",
+        multiline ? "min-h-[96px]" : "min-h-[72px]",
+        className
+      )}
+    >
+      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
+        {label}
+      </div>
+      <div
+        className={cn(
+          "mt-2 text-[15px] text-gray-800 dark:text-gray-200",
+          multiline ? "whitespace-pre-line break-words" : "break-words"
+        )}
+      >
+        {normalized || EMPTY_VALUE}
+      </div>
+    </div>
+  );
+};
+
+const SummaryAvatarItem = ({ avatarUrl, color, initials, name }) => (
+  <div className="border-b border-slate-200/70 pb-4 dark:border-slate-800/90 min-h-[72px]">
+    <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
+      Avatar
+    </div>
+    <div className="mt-3">
+      <AvatarPreview
+        avatarUrl={avatarUrl}
+        color={color}
+        initials={initials}
+        name={name}
+        sizeClass="w-12 h-12"
+        textClass="text-sm"
+      />
+    </div>
+  </div>
+);
+
+const StepItem = ({ index, currentStep, title, onClick }) => {
+  const isActive = index === currentStep;
+  const isDone = index < currentStep;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex items-center gap-3 rounded-xl px-2 py-1 text-left transition-colors hover:bg-slate-100/70 dark:hover:bg-slate-800/70"
+    >
+      <div
+        className={cn(
+          "flex h-8 w-8 items-center justify-center rounded-full border text-xs font-semibold",
+          isDone
+            ? "border-sky-700 bg-sky-700 text-white dark:border-sky-300 dark:bg-sky-300 dark:text-slate-900"
+            : isActive
+              ? "border-slate-500 bg-slate-500 text-white dark:border-slate-300 dark:bg-slate-300 dark:text-slate-900"
+              : "border-gray-300 bg-white/80 text-gray-500 dark:border-slate-700 dark:bg-slate-800/70 dark:text-gray-400"
+        )}
+      >
+        {isDone ? <Icon name="FaCheckCircle" className="h-3.5 w-3.5" /> : index + 1}
+      </div>
+      <span
+        className={cn(
+          "text-sm",
+          isActive ? "font-semibold text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400"
+        )}
+      >
+        {title}
+      </span>
+    </button>
+  );
+};
+
+// ─── Micro-componentes ────────────────────────────────────────────────────────
 
 const inputCls = (err) =>
   `w-full px-3 py-2 text-sm rounded-lg border transition-colors bg-white dark:bg-gray-800 ` +
@@ -642,39 +741,46 @@ const AccessSummaryBlock = ({ formData, catClients, catProjects }) => {
 // MODAL PRINCIPAL
 // ══════════════════════════════════════════════════════════════════════════════
 
-const TeamsModal = ({ mode, data, onSubmit }) => {
+const TeamsModal = ({ mode, data, onSubmit, onClose, onSaved }) => {
   const isCreate = mode === MODES.CREATE;
-  const isView   = mode === MODES.VIEW;
-  const isEdit   = mode === MODES.EDIT;
+  const isView = mode === MODES.VIEW;
+  const isEdit = mode === MODES.EDIT;
 
   const initial = useMemo(() => normalizeUser(data), [data]);
 
-  const [formData,    setFormData]    = useState(() => isCreate ? normalizeUser({}) : initial);
-  const [errors,      setErrors]      = useState({});
+  const [formData, setFormData] = useState(() => (isCreate ? normalizeUser({}) : initial));
+  const [errors, setErrors] = useState({});
   const [currentStep, setCurrentStep] = useState(0);
-  const [submitting,  setSubmitting]  = useState(false);
-
-  // Catálogos cargados lazy al llegar al paso de Confirmación (para el resumen)
-  const [catClients,  setCatClients]  = useState([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [catClients, setCatClients] = useState([]);
   const [catProjects, setCatProjects] = useState([]);
+
+  useEffect(() => {
+    setFormData(isCreate ? normalizeUser({}) : initial);
+    setErrors({});
+    setCurrentStep(0);
+    setSubmitting(false);
+  }, [initial, isCreate]);
 
   const steps = useMemo(() => {
     const s = [
-      { title: "Información General", number: 1 },
-      { title: "Rol del Sistema",     number: 2 },
-      { title: "Modo de Acceso",      number: 3 },
+      { title: "General", number: 1 },
+      { title: "Rol", number: 2 },
+      { title: "Acceso", number: 3 },
     ];
-    if (isEdit || isView) s.push({ title: "Clientes y Proyectos", number: 4 });
+    if (isEdit || isView) s.push({ title: "Asignaciones", number: 4 });
     s.push({ title: "Confirmación", number: s.length + 1 });
     return s;
   }, [isEdit, isView]);
 
-  const accessStepIdx = steps.findIndex((s) => s.title === "Clientes y Proyectos");
-  const lastStep      = steps.length - 1;
-  const isAccessStep  = currentStep === accessStepIdx && accessStepIdx >= 0;
-  const isLastStep    = currentStep === lastStep;
+  const accessStepIdx = steps.findIndex((s) => s.title === "Asignaciones");
+  const lastStep = steps.length - 1;
+  const isAccessStep = currentStep === accessStepIdx && accessStepIdx >= 0;
+  const isLastStep = currentStep === lastStep;
+  const headerTitle = isCreate
+    ? formData.name?.trim() || steps[currentStep]?.title || "Nuevo usuario"
+    : formData.name?.trim() || "Usuario sin nombre";
 
-  // Cargar catálogos al llegar al paso de Confirmación (solo una vez)
   useEffect(() => {
     if (!isLastStep || catClients.length > 0) return;
     Promise.all([
@@ -684,9 +790,7 @@ const TeamsModal = ({ mode, data, onSubmit }) => {
       setCatClients(cR.items ?? []);
       setCatProjects(pR.items ?? []);
     }).catch(() => {});
-  }, [isLastStep]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Helpers ───────────────────────────────────────────────────────────────
+  }, [isLastStep, catClients.length]);
 
   const set = (field) => (e) => {
     const val = e?.target ? e.target.value : e;
@@ -699,359 +803,540 @@ const TeamsModal = ({ mode, data, onSubmit }) => {
     if (errors[field]) setErrors((p) => ({ ...p, [field]: undefined }));
   };
 
-  const closeModal = () => { try { ModalManager.closeAll(); } catch (_) {} };
+  const closeModal = () => {
+    try {
+      onClose?.();
+    } catch (_) {}
 
-  // ── Navegación ────────────────────────────────────────────────────────────
+    try {
+      ModalManager.closeAll?.();
+    } catch (_) {}
+  };
 
-  const handleNext = async () => {
-    if (isView) {
-      if (currentStep < lastStep) { setCurrentStep((s) => s + 1); return; }
-      closeModal(); return;
+  const validateBeforeSubmit = () => {
+    if (isView) return true;
+
+    for (let step = 0; step < lastStep; step += 1) {
+      const nextErrors = validateStep(step, formData, isCreate);
+      if (Object.keys(nextErrors).length) {
+        setErrors(nextErrors);
+        setCurrentStep(step);
+        return false;
+      }
     }
-    const errs = validateStep(currentStep, formData, isCreate);
-    if (Object.keys(errs).length) { setErrors(errs); return; }
-    if (currentStep < lastStep) { setCurrentStep((s) => s + 1); return; }
+
+    setErrors({});
+    return true;
+  };
+
+  const handleSubmit = async () => {
+    if (isView) return;
+    if (!validateBeforeSubmit()) return;
 
     setSubmitting(true);
     try {
-      await onSubmit?.(formData);
+      const saved = await onSubmit?.(formData);
+      await onSaved?.(saved ?? formData);
+      toastSuccess(
+        "Guardado",
+        isCreate ? "Usuario creado correctamente." : "Usuario actualizado correctamente.",
+        { autoClose: 3000 }
+      );
+      closeModal();
     } catch (err) {
-      const msg = err?.response?.data?.error?.message ?? err?.message ?? "Error inesperado";
-      toastError(`Error al guardar: ${msg}`);
+      const msg =
+        err?.response?.data?.error?.message ??
+        err?.response?.data?.message ??
+        err?.message ??
+        "No fue posible completar la operación.";
+      toastError("Error", msg, { autoClose: 3000 });
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handlePrevious = () => { if (currentStep > 0) setCurrentStep((s) => s - 1); };
+  const handleNext = async () => {
+    if (isView) {
+      if (currentStep < lastStep) {
+        setCurrentStep((s) => s + 1);
+        return;
+      }
+      closeModal();
+      return;
+    }
 
-  // ── Render ────────────────────────────────────────────────────────────────
-  // h-[80vh] fijo — nunca cambia de tamaño entre pasos.
+    const nextErrors = validateStep(currentStep, formData, isCreate);
+    if (Object.keys(nextErrors).length) {
+      setErrors(nextErrors);
+      return;
+    }
+
+    if (currentStep < lastStep) {
+      setCurrentStep((s) => s + 1);
+      return;
+    }
+
+    await handleSubmit();
+  };
+
+  const handlePrevious = () => {
+    if (currentStep > 0) setCurrentStep((s) => s - 1);
+  };
 
   return (
     <div className="w-full rounded-[26px] bg-white/8 p-[2px] shadow-[0_0_24px_rgba(255,255,255,0.08),0_24px_70px_rgba(15,23,42,0.24)] backdrop-blur-[3px] dark:bg-white/[0.06] dark:shadow-[0_0_28px_rgba(255,255,255,0.06),0_24px_70px_rgba(2,6,23,0.52)]">
-    <div className="flex h-[78vh] min-h-[620px] w-full flex-col rounded-[24px] border border-white/45 bg-slate-100 dark:border-white/10 dark:bg-slate-950">
-
-      {/* ── HEADER: stepper + título ─────────────────────────────────────── */}
-      <div className="flex-shrink-0 px-8 pt-6 pb-5 border-b border-slate-200/80 dark:border-slate-700/80 space-y-4">
-        {/* Stepper */}
-        <div className="flex items-center justify-center gap-0.5">
-          {steps.map((step, idx) => (
-            <div key={idx} className="flex items-center flex-shrink-0">
-              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold transition-colors ${
-                idx === currentStep ? "bg-slate-700 text-white dark:bg-slate-300 dark:text-slate-900"
-                : idx < currentStep ? "bg-sky-700 text-white dark:bg-sky-300 dark:text-slate-900"
-                : "bg-white border border-gray-300 text-gray-500 dark:bg-slate-800 dark:border-slate-700 dark:text-gray-400"
-              }`}>
-                {idx < currentStep ? "✓" : step.number}
-              </div>
-              {idx < steps.length - 1 && (
-                <div className={`w-6 h-1 mx-0.5 rounded ${idx < currentStep ? "bg-sky-700 dark:bg-sky-300" : "bg-gray-300 dark:bg-slate-700"}`} />
-              )}
-            </div>
-          ))}
-        </div>
-        {/* Título + badge estado */}
-        <div className="flex items-center justify-between">
-          <h3 className="text-2xl font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-            <Icon name="FaUsers" className="w-4 h-4" />
-            {isCreate && `Nuevo Usuario — ${steps[currentStep].title}`}
-            {isEdit   && `Editar Usuario — ${steps[currentStep].title}`}
-            {isView   && `Detalle — ${steps[currentStep].title}`}
-          </h3>
-          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-            formData.status === "inactive"
-              ? "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
-              : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
-          }`}>
-            {formData.status === "inactive" ? "Inactivo" : "Activo"}
-          </span>
-        </div>
-      </div>
-
-      {/* ── BODY: scroll interno por paso ───────────────────────────────── */}
-      {/* El paso de Acceso usa flex+overflow-hidden para que su acordeón scrollee */}
-      <div className={`flex-1 min-h-0 px-8 py-6 ${isAccessStep ? "flex flex-col overflow-hidden" : "overflow-y-auto"}`}>
-
-        {/* ── PASO 0: Información General ──────────────────────────────── */}
-        {currentStep === 0 && (
-          <div className="space-y-5">
-            {/* Avatar preview */}
-            <div className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-              <div className={`w-14 h-14 bg-gradient-to-br ${COLOR_MAP[formData.color] ?? COLOR_MAP.blue} rounded-full flex items-center justify-center text-white font-bold text-xl flex-shrink-0`}>
-                {formData.initials || computeInitials(formData.name) || "?"}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-gray-800 dark:text-gray-200 truncate">
-                  {formData.name || <em className="text-gray-400 font-normal text-sm">Sin nombre</em>}
-                </p>
-                <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
-                  {formData.email || <em className="text-gray-400">Sin email</em>}
-                </p>
+      <div className="flex h-[78vh] min-h-[620px] w-full flex-col rounded-[24px] border border-white/45 bg-slate-100 dark:border-white/10 dark:bg-slate-950">
+        <div className="border-b border-slate-200/80 px-8 py-6 dark:border-slate-700/80">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div className="flex items-center gap-4">
+              <AvatarPreview
+                avatarUrl={formData.avatarUrl}
+                color={formData.color}
+                initials={formData.initials}
+                name={formData.name}
+                sizeClass="w-14 h-14"
+                textClass="text-lg"
+              />
+              <div>
+                <div className="text-xs font-medium uppercase tracking-[0.14em] text-gray-400 dark:text-gray-500">
+                  {isCreate ? "Nuevo usuario" : isEdit ? "Editar usuario" : "Detalle de usuario"}
+                </div>
+                <h3 className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
+                  {headerTitle}
+                </h3>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <FormField label="Nombre completo" required error={errors.name}>
-                {isView ? <ViewField value={formData.name} /> : (
-                  <input type="text" value={formData.name}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setFormData((prev) => ({ ...prev, name: val, initials: prev.initials || computeInitials(val) }));
-                      if (errors.name) setErrors((p) => ({ ...p, name: undefined }));
-                    }}
-                    placeholder="Ej: María González" className={inputCls(errors.name)} />
-                )}
-              </FormField>
-
-              <FormField label="Email" required error={errors.email}>
-                {isView ? <ViewField value={formData.email} /> : (
-                  <input type="email" value={formData.email} onChange={set("email")}
-                    placeholder="usuario@empresa.com" className={inputCls(errors.email)} />
-                )}
-              </FormField>
-
-              <FormField label="Nombre de usuario" required={isCreate} error={errors.username}>
-                {isView ? <ViewField value={formData.username} /> : (
-                  <>
-                    <input type="text" value={formData.username} onChange={set("username")} placeholder="mgonzalez"
-                      disabled={isEdit} className={`${inputCls(errors.username)} ${isEdit ? "opacity-60 cursor-not-allowed" : ""}`} />
-                    {isEdit && <p className="mt-1 text-xs text-gray-400">El nombre de usuario no puede modificarse.</p>}
-                  </>
-                )}
-              </FormField>
-
-              <FormField label="Cargo / Posición" required={isCreate} error={errors.position}>
-                {isView ? <ViewField value={formData.position} /> : (
-                  <input type="text" value={formData.position} onChange={set("position")} placeholder="Ej: Analista Senior" className={inputCls(errors.position)} />
-                )}
-              </FormField>
-
-              <FormField label="Teléfono">
-                {isView ? <ViewField value={formData.phone} /> : (
-                  <input type="tel" value={formData.phone} onChange={set("phone")} placeholder="+56 9 1234 5678" className={inputCls(false)} />
-                )}
-              </FormField>
-
-              <FormField label="Departamento" required={isCreate} error={errors.department}>
-                {isView ? <ViewField value={deptLabel(formData.department)} /> : (
-                  <select value={formData.department} onChange={set("department")} className={inputCls(errors.department)}>
-                    <option value="">Seleccionar…</option>
-                    {DEPARTMENTS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
-                  </select>
-                )}
-              </FormField>
-
-              <FormField label="Estado">
-                {isView ? <ViewField value={formData.status === "inactive" ? "Inactivo" : "Activo"} /> : (
-                  <div className="flex gap-4 pt-1">
-                    {["active","inactive"].map((s) => (
-                      <label key={s} className="flex items-center gap-2 cursor-pointer">
-                        <input type="radio" name="status" value={s} checked={formData.status === s}
-                          onChange={() => setField("status", s)} className="text-primary-600" />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">
-                          {s === "active" ? "Activo" : "Inactivo"}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </FormField>
-            </div>
-
-            {/* Iniciales + color (solo formulario) */}
-            {!isView && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <FormField label="Iniciales" required={isCreate} error={errors.initials}>
-                  <input type="text" value={formData.initials}
-                    onChange={(e) => setField("initials", e.target.value.toUpperCase().slice(0, 3))}
-                    maxLength={3} placeholder="MG" className={inputCls(errors.initials)} />
-                </FormField>
-                <FormField label="Color de avatar">
-                  <div className="flex gap-2 flex-wrap pt-1">
-                    {COLORS.map((c) => (
-                      <button key={c} type="button" onClick={() => setField("color", c)}
-                        className={`w-7 h-7 rounded-full bg-gradient-to-br ${COLOR_MAP[c]} border-2 transition-all ${formData.color === c ? "border-gray-900 dark:border-white scale-110" : "border-transparent hover:scale-105"}`} title={c} />
-                    ))}
-                  </div>
-                </FormField>
-              </div>
-            )}
-
-            <FormField label="Notas internas">
-              {isView ? <ViewField value={formData.notes} /> : (
-                <textarea value={formData.notes} onChange={set("notes")} rows={3}
-                  placeholder="Información adicional…" className={`${inputCls(false)} resize-none`} />
-              )}
-            </FormField>
-          </div>
-        )}
-
-        {/* ── PASO 1: Rol del Sistema ──────────────────────────────────── */}
-        {currentStep === 1 && (
-          <div className="space-y-4">
-            <p className="text-sm text-gray-600 dark:text-gray-400">Define el nivel de acceso del usuario dentro del sistema.</p>
-            {errors.systemRole && <p className="text-sm text-red-500">{errors.systemRole}</p>}
-            {[
-              { value: "ADMIN", label: "Administrador", desc: "Acceso completo: gestión de usuarios, clientes, proyectos y configuración del sistema.", icon: "FaUserShield", ring: "ring-red-500 border-red-400 bg-red-50 dark:bg-red-900/10" },
-              { value: "EDITOR", label: "Escritura",     desc: "Puede crear y editar contenido asignado, sin acceso a configuración del sistema.",    icon: "FaEdit",       ring: "ring-blue-500 border-blue-400 bg-blue-50 dark:bg-blue-900/10" },
-              { value: "VIEWER", label: "Solo lectura", desc: "Visualización de contenido asignado sin posibilidad de realizar cambios.",              icon: "eye",          ring: "ring-gray-400 border-gray-400" },
-            ].map((opt) => (
-              <button key={opt.value} type="button"
-                onClick={() => !isView && setField("systemRole", opt.value)} disabled={isView}
-                className={`w-full text-left p-4 rounded-lg border-2 transition-all ${formData.systemRole === opt.value ? `ring-2 ${opt.ring}` : "border-gray-200 dark:border-gray-700"} ${isView ? "cursor-default" : "hover:shadow-sm"}`}>
-                <div className="flex items-center gap-3">
-                  <Icon name={opt.icon} className="w-5 h-5 text-gray-600 dark:text-gray-400 flex-shrink-0" />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-gray-800 dark:text-gray-200">{opt.label}</span>
-                      {formData.systemRole === opt.value && (
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300">Seleccionado</span>
-                      )}
-                    </div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{opt.desc}</p>
-                  </div>
-                  {formData.systemRole === opt.value && <Icon name="FaCheck" className="w-4 h-4 text-primary-600 flex-shrink-0" />}
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* ── PASO 2: Modo de Acceso ───────────────────────────────────── */}
-        {currentStep === 2 && (
-          <div className="space-y-4">
-            <p className="text-sm text-gray-600 dark:text-gray-400">Define qué clientes y proyectos puede ver este usuario.</p>
-            {[
-              { value: "all",      label: "Acceso total",     desc: "El usuario puede ver todos los clientes y proyectos del sistema.", icon: "FaGlobe" },
-              { value: "specific", label: "Acceso específico", desc: "El usuario solo puede ver los clientes y proyectos que se le asignen explícitamente.", icon: "FaFilter" },
-            ].map((opt) => (
-              <button key={opt.value} type="button"
-                onClick={() => !isView && setField("assignmentMode", opt.value)} disabled={isView}
-                className={`w-full text-left p-4 rounded-lg border-2 transition-all ${formData.assignmentMode === opt.value ? "ring-2 ring-primary-500 border-primary-400 bg-primary-50 dark:bg-primary-900/10" : "border-gray-200 dark:border-gray-700"} ${isView ? "cursor-default" : "hover:shadow-sm"}`}>
-                <div className="flex items-center gap-3">
-                  <Icon name={opt.icon} className="w-5 h-5 text-gray-600 dark:text-gray-400 flex-shrink-0" />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-gray-800 dark:text-gray-200">{opt.label}</span>
-                      {formData.assignmentMode === opt.value && (
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300">Seleccionado</span>
-                      )}
-                    </div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{opt.desc}</p>
-                  </div>
-                  {formData.assignmentMode === opt.value && <Icon name="FaCheck" className="w-4 h-4 text-primary-600 flex-shrink-0" />}
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* ── PASO 3: Clientes y Proyectos (solo EDIT/VIEW) ───────────── */}
-        {isAccessStep && (
-          <StepAccessControl formData={formData} setField={setField} isView={isView} />
-        )}
-
-        {/* ── PASO FINAL: Confirmación completa ───────────────────────── */}
-        {isLastStep && (
-          <div className="space-y-5">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              {isView ? "Resumen completo del usuario." : "Revise todos los datos antes de confirmar."}
-            </p>
-
-            {/* Sección 1: Datos personales */}
-            <div className="bg-gray-50 dark:bg-gray-800/60 rounded-lg p-4">
-              <SectionTitle number="1" color="blue">Información personal</SectionTitle>
-              <div className="flex items-center gap-3 mb-3 pb-3 border-b border-gray-200 dark:border-gray-700">
-                <div className={`w-10 h-10 bg-gradient-to-br ${COLOR_MAP[formData.color] ?? COLOR_MAP.blue} rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0`}>
-                  {formData.initials || computeInitials(formData.name) || "?"}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-gray-800 dark:text-gray-200 text-sm truncate">{formData.name || "—"}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{formData.email || "—"}</p>
-                </div>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${
+            <div className="flex items-center gap-3">
+              <span
+                className={cn(
+                  "rounded-full px-3 py-1 text-xs font-medium",
                   formData.status === "inactive"
-                    ? "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
-                    : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
-                }`}>
-                  {formData.status === "inactive" ? "Inactivo" : "Activo"}
-                </span>
+                    ? "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"
+                    : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                )}
+              >
+                {formData.status === "inactive" ? "Inactivo" : "Activo"}
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-6 flex flex-wrap gap-x-8 gap-y-3">
+            {steps.map((step, index) => (
+              <StepItem
+                key={`${step.title}-${index}`}
+                index={index}
+                currentStep={currentStep}
+                title={step.title}
+                onClick={() => setCurrentStep(index)}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className={cn("flex-1 min-h-0 px-8 py-6", isAccessStep ? "flex flex-col overflow-hidden" : "overflow-y-auto")}>
+          {currentStep === 0 ? (
+            <div className="space-y-6">
+              <Section title="Información general" description="Datos base del usuario dentro del sistema.">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <Field label="Nombre completo" hint={isCreate ? "Obligatorio" : null} error={errors.name}>
+                    {isView ? (
+                      <ReadValue value={formData.name} />
+                    ) : (
+                      <input
+                        type="text"
+                        value={formData.name}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setFormData((prev) => ({
+                            ...prev,
+                            name: val,
+                            initials: prev.initials || computeInitials(val),
+                          }));
+                          if (errors.name) setErrors((p) => ({ ...p, name: undefined }));
+                        }}
+                        placeholder="Ej: María González"
+                        className={inputCls(errors.name)}
+                      />
+                    )}
+                  </Field>
+
+                  <Field label="Email" hint="Obligatorio" error={errors.email}>
+                    {isView ? (
+                      <ReadValue value={formData.email} />
+                    ) : (
+                      <input
+                        type="email"
+                        value={formData.email}
+                        onChange={set("email")}
+                        placeholder="usuario@empresa.com"
+                        className={inputCls(errors.email)}
+                      />
+                    )}
+                  </Field>
+
+                  <Field label="Nombre de usuario" hint={isCreate ? "Obligatorio" : null} error={errors.username}>
+                    {isView ? (
+                      <ReadValue value={formData.username} />
+                    ) : (
+                      <>
+                        <input
+                          type="text"
+                          value={formData.username}
+                          onChange={set("username")}
+                          placeholder="mgonzalez"
+                          disabled={isEdit}
+                          className={`${inputCls(errors.username)} ${isEdit ? "opacity-60 cursor-not-allowed" : ""}`}
+                        />
+                        {isEdit ? (
+                          <p className="text-xs text-gray-400">El nombre de usuario no puede modificarse.</p>
+                        ) : null}
+                      </>
+                    )}
+                  </Field>
+
+                  <Field label="Cargo / Posición" hint={isCreate ? "Obligatorio" : null} error={errors.position}>
+                    {isView ? (
+                      <ReadValue value={formData.position} />
+                    ) : (
+                      <input
+                        type="text"
+                        value={formData.position}
+                        onChange={set("position")}
+                        placeholder="Ej: Analista Senior"
+                        className={inputCls(errors.position)}
+                      />
+                    )}
+                  </Field>
+
+                  <Field label="Teléfono">
+                    {isView ? (
+                      <ReadValue value={formData.phone} />
+                    ) : (
+                      <input
+                        type="tel"
+                        value={formData.phone}
+                        onChange={set("phone")}
+                        placeholder="+56 9 1234 5678"
+                        className={inputCls(false)}
+                      />
+                    )}
+                  </Field>
+
+                  <Field label="Departamento" hint={isCreate ? "Obligatorio" : null} error={errors.department}>
+                    {isView ? (
+                      <ReadValue value={deptLabel(formData.department)} />
+                    ) : (
+                      <select value={formData.department} onChange={set("department")} className={inputCls(errors.department)}>
+                        <option value="">Seleccionar…</option>
+                        {DEPARTMENTS.map((d) => (
+                          <option key={d.value} value={d.value}>{d.label}</option>
+                        ))}
+                      </select>
+                    )}
+                  </Field>
+                </div>
+              </Section>
+
+              {!isView ? (
+                <Section title="Identidad visual" description="Iniciales y color usados cuando no existe avatar cargado por el propio usuario.">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <Field label="Iniciales" hint={isCreate ? "Obligatorio" : null} error={errors.initials}>
+                      <input
+                        type="text"
+                        value={formData.initials}
+                        onChange={(e) => setField("initials", e.target.value.toUpperCase().slice(0, 3))}
+                        maxLength={3}
+                        placeholder="MG"
+                        className={inputCls(errors.initials)}
+                      />
+                    </Field>
+
+                    <Field label="Color de avatar">
+                      <div className="flex gap-2 flex-wrap pt-1">
+                        {COLORS.map((c) => (
+                          <button
+                            key={c}
+                            type="button"
+                            onClick={() => setField("color", c)}
+                            className={`w-7 h-7 rounded-full bg-gradient-to-br ${COLOR_MAP[c]} border-2 transition-all ${formData.color === c ? "border-gray-900 dark:border-white scale-110" : "border-transparent hover:scale-105"}`}
+                            title={c}
+                          />
+                        ))}
+                      </div>
+                    </Field>
+                  </div>
+                </Section>
+              ) : null}
+
+              <Section title="Estado y notas" description="Contexto adicional y disponibilidad del usuario.">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <Field label="Estado">
+                    {isView ? (
+                      <ReadValue value={formData.status === "inactive" ? "Inactivo" : "Activo"} />
+                    ) : (
+                      <div className="flex gap-4 pt-1">
+                        {["active", "inactive"].map((status) => (
+                          <label key={status} className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="status"
+                              value={status}
+                              checked={formData.status === status}
+                              onChange={() => setField("status", status)}
+                              className="text-primary-600"
+                            />
+                            <span className="text-sm text-gray-700 dark:text-gray-300">
+                              {status === "active" ? "Activo" : "Inactivo"}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </Field>
+
+                  <div className="md:col-span-2">
+                    <Field label="Notas internas">
+                      {isView ? (
+                        <ReadValue value={formData.notes} multiline />
+                      ) : (
+                        <textarea
+                          value={formData.notes}
+                          onChange={set("notes")}
+                          rows={4}
+                          placeholder="Información adicional…"
+                          className={`${inputCls(false)} resize-none`}
+                        />
+                      )}
+                    </Field>
+                  </div>
+                </div>
+              </Section>
+            </div>
+          ) : null}
+
+          {currentStep === 1 ? (
+            <div className="space-y-6">
+              <Section title="Rol del sistema" description="Define el nivel de acceso del usuario dentro del sistema.">
+                <div className="space-y-4">
+                  {errors.systemRole ? <p className="text-sm text-red-500">{errors.systemRole}</p> : null}
+                  {[
+                    {
+                      value: "ADMIN",
+                      label: "Administrador",
+                      desc: "Acceso completo: gestión de usuarios, clientes, proyectos y configuración del sistema.",
+                      icon: "FaUserShield",
+                      ring: "ring-red-500 border-red-400 bg-red-50 dark:bg-red-900/10",
+                    },
+                    {
+                      value: "EDITOR",
+                      label: "Escritura",
+                      desc: "Puede crear y editar contenido asignado, sin acceso a configuración del sistema.",
+                      icon: "FaEdit",
+                      ring: "ring-blue-500 border-blue-400 bg-blue-50 dark:bg-blue-900/10",
+                    },
+                    {
+                      value: "VIEWER",
+                      label: "Solo lectura",
+                      desc: "Visualización de contenido asignado sin posibilidad de realizar cambios.",
+                      icon: "eye",
+                      ring: "ring-gray-400 border-gray-400",
+                    },
+                  ].map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => !isView && setField("systemRole", opt.value)}
+                      disabled={isView}
+                      className={`w-full text-left p-4 rounded-lg border-2 transition-all ${formData.systemRole === opt.value ? `ring-2 ${opt.ring}` : "border-gray-200 dark:border-gray-700"} ${isView ? "cursor-default" : "hover:shadow-sm"}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Icon name={opt.icon} className="w-5 h-5 text-gray-600 dark:text-gray-400 flex-shrink-0" />
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-gray-800 dark:text-gray-200">{opt.label}</span>
+                            {formData.systemRole === opt.value ? (
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300">
+                                Seleccionado
+                              </span>
+                            ) : null}
+                          </div>
+                          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{opt.desc}</p>
+                        </div>
+                        {formData.systemRole === opt.value ? (
+                          <Icon name="FaCheck" className="w-4 h-4 text-primary-600 flex-shrink-0" />
+                        ) : null}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </Section>
+            </div>
+          ) : null}
+
+          {currentStep === 2 ? (
+            <div className="space-y-6">
+              <Section title="Modo de acceso" description="Define qué clientes y proyectos puede ver este usuario.">
+                <div className="space-y-4">
+                  {[
+                    {
+                      value: "all",
+                      label: "Acceso total",
+                      desc: "El usuario puede ver todos los clientes y proyectos del sistema.",
+                      icon: "FaGlobe",
+                    },
+                    {
+                      value: "specific",
+                      label: "Acceso específico",
+                      desc: "El usuario solo puede ver los clientes y proyectos que se le asignen explícitamente.",
+                      icon: "FaFilter",
+                    },
+                  ].map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => !isView && setField("assignmentMode", opt.value)}
+                      disabled={isView}
+                      className={`w-full text-left p-4 rounded-lg border-2 transition-all ${formData.assignmentMode === opt.value ? "ring-2 ring-primary-500 border-primary-400 bg-primary-50 dark:bg-primary-900/10" : "border-gray-200 dark:border-gray-700"} ${isView ? "cursor-default" : "hover:shadow-sm"}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Icon name={opt.icon} className="w-5 h-5 text-gray-600 dark:text-gray-400 flex-shrink-0" />
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-gray-800 dark:text-gray-200">{opt.label}</span>
+                            {formData.assignmentMode === opt.value ? (
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300">
+                                Seleccionado
+                              </span>
+                            ) : null}
+                          </div>
+                          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{opt.desc}</p>
+                        </div>
+                        {formData.assignmentMode === opt.value ? (
+                          <Icon name="FaCheck" className="w-4 h-4 text-primary-600 flex-shrink-0" />
+                        ) : null}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </Section>
+            </div>
+          ) : null}
+
+          {isAccessStep ? (
+            <div className="flex min-h-0 flex-1 flex-col gap-4">
+              <div className="space-y-1">
+                <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Clientes y proyectos</h4>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {isView
+                    ? "Revise el alcance real del usuario sobre clientes y proyectos."
+                    : "Defina los clientes y proyectos disponibles para este usuario."}
+                </p>
               </div>
-              <FieldRow label="Usuario"      value={formData.username}              />
-              <FieldRow label="Cargo"        value={formData.position}              />
-              <FieldRow label="Teléfono"     value={formData.phone}                 />
-              <FieldRow label="Departamento" value={deptLabel(formData.department)} />
-              {formData.notes && <FieldRow label="Notas" value={formData.notes} />}
+              <div className="min-h-0 flex-1">
+                <StepAccessControl formData={formData} setField={setField} isView={isView} />
+              </div>
             </div>
+          ) : null}
 
-            {/* Sección 2: Rol y acceso */}
-            <div className="bg-gray-50 dark:bg-gray-800/60 rounded-lg p-4">
-              <SectionTitle number="2" color="purple">Rol y modo de acceso</SectionTitle>
-              <FieldRow
-                label="Rol del sistema"
-                value={formData.systemRole === "ADMIN" ? "Administrador" : formData.systemRole === "EDITOR" ? "Escritura" : "Solo lectura"}
-                icon={formData.systemRole === "ADMIN" ? "FaUserShield" : formData.systemRole === "EDITOR" ? "FaEdit" : "eye"}
-              />
-              <FieldRow
-                label="Modo de acceso"
-                value={formData.assignmentMode === "all" ? "Acceso total" : "Acceso específico"}
-                icon={formData.assignmentMode === "all" ? "FaGlobe" : "FaFilter"}
-              />
-            </div>
+          {isLastStep ? (
+            <div className="space-y-6">
+              <Section
+                title="Resumen"
+                description={isView ? "Vista consolidada del usuario." : "Revise todos los datos antes de confirmar."}
+              >
+                <div className="grid grid-cols-1 gap-x-8 gap-y-5 lg:grid-cols-2">
+                  <SummaryAvatarItem
+                    avatarUrl={formData.avatarUrl}
+                    color={formData.color}
+                    initials={formData.initials}
+                    name={formData.name}
+                  />
+                  <SummaryItem label="Estado" value={formData.status === "inactive" ? "Inactivo" : "Activo"} />
+                  <SummaryItem label="Nombre completo" value={formData.name} />
+                  <SummaryItem label="Email" value={formData.email} />
+                  <SummaryItem label="Nombre de usuario" value={formData.username} />
+                  <SummaryItem label="Cargo / Posición" value={formData.position} />
+                  <SummaryItem label="Teléfono" value={formData.phone} />
+                  <SummaryItem label="Departamento" value={deptLabel(formData.department)} />
+                  <SummaryItem
+                    label="Rol del sistema"
+                    value={formData.systemRole === "ADMIN" ? "Administrador" : formData.systemRole === "EDITOR" ? "Escritura" : "Solo lectura"}
+                  />
+                  <SummaryItem
+                    label="Modo de acceso"
+                    value={formData.assignmentMode === "all" ? "Acceso total" : "Acceso específico"}
+                  />
+                  <SummaryItem label="Iniciales" value={formData.initials} />
+                  <SummaryItem label="Color de avatar" value={formData.color} />
+                </div>
+              </Section>
 
-            {/* Sección 3: Clientes y proyectos (EDIT/VIEW) — siempre visible */}
-            {(isEdit || isView) && (
-              <div className="bg-gray-50 dark:bg-gray-800/60 rounded-lg p-4">
-                <SectionTitle number="3" color="amber">Clientes y proyectos asignados</SectionTitle>
-                {catClients.length === 0 && catProjects.length === 0
-                  ? <div className="flex items-center gap-2 text-sm text-gray-400 dark:text-gray-500">
+              <Section title="Notas internas" description="Información adicional para el equipo.">
+                <SummaryItem label="Notas" value={formData.notes} multiline />
+              </Section>
+
+              {(isEdit || isView) ? (
+                <Section title="Clientes y proyectos asignados" description="Alcance actual del usuario sobre el contenido.">
+                  {catClients.length === 0 && catProjects.length === 0 ? (
+                    <div className="flex items-center gap-2 text-sm text-gray-400 dark:text-gray-500">
                       <span className="w-4 h-4 border-2 border-gray-300 border-t-transparent rounded-full animate-spin flex-shrink-0" />
                       Cargando catálogo…
                     </div>
-                  : <AccessSummaryBlock formData={formData} catClients={catClients} catProjects={catProjects} />
-                }
-              </div>
-            )}
+                  ) : (
+                    <AccessSummaryBlock formData={formData} catClients={catClients} catProjects={catProjects} />
+                  )}
+                </Section>
+              ) : null}
 
-            {/* Aviso contraseña temporal (CREATE) */}
-            {isCreate && (
-              <div className="p-4 rounded-lg bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 flex gap-2">
-                <Icon name="FaKey" className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-blue-700 dark:text-blue-300">
+              {isCreate ? (
+                <div className="rounded-xl border border-blue-200 bg-blue-50/70 px-4 py-3 text-sm text-blue-700 dark:border-blue-900/60 dark:bg-blue-900/10 dark:text-blue-300">
                   Se generará una contraseña temporal automáticamente. El usuario deberá cambiarla en su primer acceso.
-                </p>
-              </div>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+
+        <div className="border-t border-slate-200/80 px-8 py-5 dark:border-slate-700/80">
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              onClick={currentStep === 0 ? closeModal : handlePrevious}
+              className="rounded-xl border border-slate-300 bg-white/70 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800/60 dark:text-gray-300 dark:hover:bg-slate-800"
+            >
+              {currentStep === 0 ? "Cancelar" : "Anterior"}
+            </button>
+
+            {currentStep < lastStep ? (
+              <button
+                type="button"
+                onClick={handleNext}
+                className="rounded-xl bg-sky-700 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-sky-800 dark:bg-sky-300 dark:text-slate-900 dark:hover:bg-sky-200"
+              >
+                Siguiente
+              </button>
+            ) : isView ? (
+              <button
+                type="button"
+                onClick={closeModal}
+                className="rounded-xl bg-sky-700 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-sky-800 dark:bg-sky-300 dark:text-slate-900 dark:hover:bg-sky-200"
+              >
+                Cerrar
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleNext}
+                disabled={submitting}
+                className="rounded-xl bg-sky-700 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-sky-800 disabled:opacity-60 dark:bg-sky-300 dark:text-slate-900 dark:hover:bg-sky-200"
+              >
+                {submitting ? "Guardando..." : isCreate ? "Crear usuario" : "Guardar cambios"}
+              </button>
             )}
           </div>
-        )}
+        </div>
       </div>
-
-      {/* ── FOOTER — patrón ProjectModal / ClientModal ───────────────────── */}
-      <div className="flex-shrink-0 px-8 py-5 border-t border-slate-200/80 dark:border-slate-700/80 flex justify-between">
-        <button
-          type="button"
-          onClick={currentStep === 0 ? closeModal : handlePrevious}
-          className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-300 dark:hover:bg-slate-700"
-        >
-          {currentStep === 0 ? "Cancelar" : "Anterior"}
-        </button>
-
-        <button
-          type="button"
-          onClick={handleNext}
-          disabled={submitting}
-          className="rounded-xl bg-sky-700 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-sky-800 dark:bg-sky-300 dark:text-slate-900 dark:hover:bg-sky-200 disabled:opacity-60 flex items-center gap-2"
-        >
-          {submitting && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-          {isLastStep
-            ? isView    ? "Cerrar"
-              : isCreate ? "Crear"
-              : "Guardar"
-            : "Siguiente"}
-        </button>
-      </div>
-    </div>
     </div>
   );
 };

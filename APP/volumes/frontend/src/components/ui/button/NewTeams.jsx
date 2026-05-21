@@ -11,7 +11,6 @@ import ModalManager from "@/components/ui/modal";
 
 import TeamsModal, { TEAMS_MODAL_MODES } from "@/pages/teams/TeamsModal";
 import teamsService from "@/services/teamsService";
-import { toastSuccess, toastError } from "@/components/common/toast/toastHelpers";
 
 import logger from "@/utils/logger";
 const teamsLog = logger.scope("teams");
@@ -82,11 +81,12 @@ const NewTeams = ({ onCreated }) => {
           onSubmit={async (formData) => {
             const payload = toApiPayload(formData);
             teamsLog.log("[NewTeams] Creando usuario:", payload);
-            const created = await teamsService.create(payload);
-            onCreated?.(created);
-            toastSuccess("Usuario creado exitosamente.");
-            ModalManager.closeAll();
+            return await teamsService.create(payload);
           }}
+          onSaved={async (created) => {
+            onCreated?.(created);
+          }}
+          onClose={() => ModalManager.closeAll?.()}
         />
       ),
     });
