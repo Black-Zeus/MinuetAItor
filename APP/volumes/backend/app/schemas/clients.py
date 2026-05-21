@@ -110,6 +110,7 @@ class ClientFilterRequest(BaseModel):
 class ClientResponse(BaseModel):
     id:   str
     name: str
+    logo_url: Optional[str] = Field(None, serialization_alias="logoUrl")
 
     # Empresa
     legal_name:  Optional[str] = Field(None, serialization_alias="legalName")

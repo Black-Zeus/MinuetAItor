@@ -1,7 +1,7 @@
 # routers/v1/clients.py
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, File, Response, UploadFile, status
 from sqlalchemy.orm import Session
 
 from core.authz import current_user_dep
@@ -18,9 +18,12 @@ from schemas.clients import (
 from services.clients_service import (
     change_client_status,
     create_client,
+    delete_client_logo,
     delete_client,
     get_client,
     list_clients,
+    read_client_logo_content,
+    upload_client_logo,
     update_client,
 )
 
@@ -38,6 +41,20 @@ def industries_endpoint(
     """
     from services.clients_service import list_industries
     return list_industries(db)
+
+@router.get("/{id}/logo", status_code=status.HTTP_200_OK)
+def logo_endpoint(
+    id: str,
+    db: Session = Depends(get_db),
+):
+    content, content_type = read_client_logo_content(db, id)
+    return Response(
+        content=content,
+        media_type=content_type,
+        headers={
+            "Cache-Control": "public, max-age=300",
+        },
+    )
 
 @router.get("/{id}", response_model=ClientResponse, status_code=status.HTTP_200_OK)
 def get_endpoint(
@@ -66,6 +83,16 @@ def create_endpoint(
     return create_client(db, body, created_by_id=session.user_id, session=session)
 
 
+@router.post("/{id}/logo", status_code=status.HTTP_200_OK)
+async def upload_logo_endpoint(
+    id: str,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    session: UserSession = Depends(current_user_dep),
+):
+    return await upload_client_logo(db, id, file, session)
+
+
 @router.put("/{id}", response_model=ClientResponse, status_code=status.HTTP_200_OK)
 def update_endpoint(
     id: str,
@@ -90,6 +117,15 @@ def status_endpoint(
         updated_by_id=session.user_id,
         session=session,
     )
+
+
+@router.delete("/{id}/logo", status_code=status.HTTP_200_OK)
+def delete_logo_endpoint(
+    id: str,
+    db: Session = Depends(get_db),
+    session: UserSession = Depends(current_user_dep),
+):
+    return delete_client_logo(db, id, session)
 
 
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)

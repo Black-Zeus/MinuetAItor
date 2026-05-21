@@ -4,7 +4,7 @@
  * El detalle completo se carga on-demand al abrir View o Edit.
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Icon from '@/components/ui/icon/iconManager';
 import { ModalManager } from '@/components/ui/modal';
 import ClientModal, { CLIENT_MODAL_MODES } from './ClientModal';
@@ -21,6 +21,7 @@ const TXT_META = "text-gray-500 dark:text-gray-400";
 
 const ClientCard = ({ id, summary = null, onUpdated, onDeleted }) => {
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const [logoFailed, setLogoFailed] = useState(false);
   const authz = useSessionStore((s) => s.authz);
   const canManageClients =
     Array.isArray(authz?.roles) && authz.roles.includes("ADMIN")
@@ -33,9 +34,12 @@ const ClientCard = ({ id, summary = null, onUpdated, onDeleted }) => {
     // Empresa
     name: formData.companyName ?? '',
     legal_name: formData.companyLegalName ?? null,
+    description: formData.description ?? null,
+    industry: formData.industry ?? null,
     email: formData.companyEmail ?? null,
     phone: formData.companyPhone ?? null,
     website: formData.companyWebsite ?? null,
+    address: formData.address ?? null,
 
     // Contacto
     contact_name: formData.contactName ?? null,
@@ -113,13 +117,11 @@ const ClientCard = ({ id, summary = null, onUpdated, onDeleted }) => {
           mode={CLIENT_MODAL_MODES.EDIT}
           data={detail}
           onSubmit={async (formData) => {
-            try {
-              const payload = toApiPayload(formData);
-              const updated = await clientService.update(id, payload);
-              onUpdated?.(updated);
-            } catch (err) {
-              clientLog.error('[ClientCard] Error actualizando cliente:', err);
-            }
+            const payload = toApiPayload(formData);
+            return await clientService.update(id, payload);
+          }}
+          onSaved={async (updated) => {
+            onUpdated?.(updated);
           }}
           onClose={closeModal}
         />
@@ -152,6 +154,11 @@ const ClientCard = ({ id, summary = null, onUpdated, onDeleted }) => {
   const name = summary?.name ?? '—';
   const industry = summary?.industry ?? null;
   const isActive = summary?.isActive ?? true;
+  const logoUrl = summary?.logoUrl ?? summary?.logo_url ?? null;
+
+  useEffect(() => {
+    setLogoFailed(false);
+  }, [logoUrl]);
 
   // ✅ tu API retorna isConfidential (camelCase)
   const isConfidential = Boolean(summary?.isConfidential);
@@ -165,8 +172,17 @@ const ClientCard = ({ id, summary = null, onUpdated, onDeleted }) => {
         {/* Header */}
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-3 flex-1 min-w-0">
-            <div className="w-12 h-12 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center flex-shrink-0">
-              <Icon name="FaUser" className="text-primary-600 dark:text-primary-400 w-5 h-5" />
+            <div className="w-12 h-12 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center flex-shrink-0 overflow-hidden">
+              {logoUrl && !logoFailed ? (
+                <img
+                  src={logoUrl}
+                  alt={name}
+                  className="w-full h-full object-cover"
+                  onError={() => setLogoFailed(true)}
+                />
+              ) : (
+                <Icon name="FaBuilding" className="text-primary-600 dark:text-primary-400 w-5 h-5" />
+              )}
             </div>
             <div className="min-w-0 flex-1">
               <h3 className={`font-semibold ${TXT_TITLE} truncate transition-theme`}>{name}</h3>

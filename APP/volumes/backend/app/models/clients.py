@@ -42,6 +42,7 @@ class Client(Base, TimestampMixin):
     # ── Gobernanza ────────────────────────────────────────────────────────────
     is_confidential = Column(Boolean, nullable=False, default=False)
     is_active       = Column(Boolean, nullable=False, default=True)
+    avatar_object_id = Column(String(36), ForeignKey("objects.id"), nullable=True)
 
     created_by = Column(String(36), ForeignKey("users.id"), nullable=True)
     updated_by = Column(String(36), ForeignKey("users.id"), nullable=True)
@@ -51,6 +52,7 @@ class Client(Base, TimestampMixin):
     created_by_user = relationship("User", foreign_keys=[created_by], lazy="select")
     updated_by_user = relationship("User", foreign_keys=[updated_by], lazy="select")
     deleted_by_user = relationship("User", foreign_keys=[deleted_by], lazy="select")
+    avatar_object   = relationship("Object", foreign_keys=[avatar_object_id], lazy="select")
 
     def __repr__(self) -> str:
         return f"<Client id={self.id} name={self.name!r} active={self.is_active}>"
