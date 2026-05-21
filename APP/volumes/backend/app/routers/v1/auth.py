@@ -148,22 +148,24 @@ async def update_my_personalization_endpoint(
 async def upload_my_avatar_endpoint(
     file: UploadFile = File(...),
     session: UserSession = Depends(current_user_dep),
+    db: Session = Depends(get_db),
 ):
-    avatar_url = await save_user_avatar(session.user_id, file)
+    avatar_url = await save_user_avatar(db, session.user_id, file, actor_user_id=session.user_id)
     return {"avatar_url": avatar_url}
 
 
 @router.delete("/me/avatar", status_code=status.HTTP_200_OK)
 async def delete_my_avatar_endpoint(
     session: UserSession = Depends(current_user_dep),
+    db: Session = Depends(get_db),
 ):
-    remove_user_avatar(session.user_id)
+    remove_user_avatar(db, session.user_id, actor_user_id=session.user_id)
     return {"avatar_url": None}
 
 
 @router.get("/users/{user_id}/avatar", status_code=status.HTTP_200_OK)
-def user_avatar_endpoint(user_id: str):
-    content, content_type = read_user_avatar(user_id)
+def user_avatar_endpoint(user_id: str, db: Session = Depends(get_db)):
+    content, content_type = read_user_avatar(db, user_id)
     return Response(
         content=content,
         media_type=content_type,

@@ -26,7 +26,8 @@ def get_user_with_roles_permissions(db: Session, user_id: str) -> User | None:
     return (
         db.query(User)
         .options(
-            joinedload(User.roles).joinedload(UserRole.role).joinedload(Role.permissions).joinedload(RolePermission.permission)
+            joinedload(User.roles).joinedload(UserRole.role).joinedload(Role.permissions).joinedload(RolePermission.permission),
+            joinedload(User.avatar_object),
         )
         .filter(
             User.id == user_id,
@@ -40,7 +41,8 @@ def get_user_full(db: Session, user_id: str) -> User | None:
     return (
         db.query(User)
         .options(
-            joinedload(User.profile, innerjoin=False)
+            joinedload(User.profile, innerjoin=False),
+            joinedload(User.avatar_object),
         )
         .filter(
             User.id == user_id,

@@ -138,8 +138,11 @@ async def logout(session: UserSession, db: Session) -> None:
 async def list_active_sessions(session: UserSession, db: Session) -> ActiveSessionsResponse:
     sessions = get_active_sessions(db, session.user_id)
     response_sessions: list[ActiveSessionInfo] = []
+    has_current_session = False
 
     for s in sessions:
+        is_current = s.jti == session.jti
+        has_current_session = has_current_session or is_current
         response_sessions.append(
             ActiveSessionInfo(
                 jti=s.jti,
@@ -149,9 +152,12 @@ async def list_active_sessions(session: UserSession, db: Session) -> ActiveSessi
                 ip_v4=s.ip_v4,
                 ip_v6=s.ip_v6,
                 is_online=await _is_session_online(session.user_id, s.jti),
-                is_current=(s.jti == session.jti),
+                is_current=is_current,
             )
         )
+
+    if not has_current_session and len(response_sessions) == 1:
+        response_sessions[0].is_current = True
 
     return ActiveSessionsResponse(
         sessions=response_sessions
@@ -287,15 +293,14 @@ async def get_me(token: str, db: Session) -> MeResponse:
         color      = user.profile.color if user.profile else None,
         position   = user.profile.position if user.profile else None,
         department = user.profile.department if user.profile else None,
-        avatar_url = get_avatar_url_if_exists(user.id),
+        avatar_url = get_avatar_url_if_exists(user),
     )
     personalization = get_user_personalization(db, user.id)
 
     # ── Sesiones ──────────────────────────────────────
     sessions = get_user_sessions(db, user_id, limit=11)
 
-    active_connection = None
-    last_connections  = []
+    session_connections: list[tuple[str, ConnectionInfo]] = []
 
     for s in sessions:
         is_online = await _is_session_online(user_id, s.jti)
@@ -307,10 +312,14 @@ async def get_me(token: str, db: Session) -> MeResponse:
             ip_v6    = s.ip_v6,
             is_online = is_online,
         )
-        if s.jti == jti:
-            active_connection = conn
-        else:
-            last_connections.append(conn)
+        session_connections.append((s.jti, conn))
+
+    active_connection = next((conn for session_jti, conn in session_connections if session_jti == jti), None)
+    last_connections = [conn for session_jti, conn in session_connections if session_jti != jti]
+
+    if active_connection is None and len(session_connections) == 1:
+        active_connection = session_connections[0][1]
+        last_connections = []
 
     return MeResponse(
         user_id           = user.id,
