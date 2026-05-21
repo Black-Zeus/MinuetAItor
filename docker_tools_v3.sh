@@ -188,6 +188,36 @@ list_services_by_group() {
     fi
 }
 
+print_grouped_services_summary() {
+    local group_name=""
+    local group_label=""
+    local has_any=0
+    local service_name=""
+
+    for group_name in dependency core tools; do
+        case "$group_name" in
+            dependency) group_label="Dependencies" ;;
+            core)       group_label="Core" ;;
+            tools)      group_label="Tools" ;;
+            *)          group_label="$group_name" ;;
+        esac
+
+        if list_services_by_group "$group_name" >/dev/null 2>&1; then
+            has_any=1
+            echo -e "${CYAN}   ${group_label}:${NC}"
+            while IFS= read -r service_name; do
+                [[ -z "$service_name" ]] && continue
+                echo -e "   • ${service_name}"
+            done < <(list_services_by_group "$group_name")
+            echo ""
+        fi
+    done
+
+    if [[ "$has_any" -eq 0 ]]; then
+        echo -e "${YELLOW}   (sin servicios detectados)${NC}"
+    fi
+}
+
 validate_compose_env_files() {
     local missing_files=()
     local env_file=""
@@ -1954,7 +1984,7 @@ validate_compose() {
         echo -e "${GREEN}${BOLD}✅ VALIDACIÓN EXITOSA${NC}"
         echo ""
         echo -e "${CYAN}📋 SERVICIOS CONFIGURADOS:${NC}"
-        $(build_compose_cmd "config --services") | sed 's/^/   • /'
+        print_grouped_services_summary
     else
         echo -e "${RED}${BOLD}❌ ERROR DE VALIDACIÓN${NC}"
         echo ""
