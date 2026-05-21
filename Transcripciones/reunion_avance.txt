@@ -1,0 +1,65 @@
+Reunión avance plataforma MinuetAItor
+jue, 21 may 2026
+
+0:04 - Paula Rojas
+Hola a todos, gracias por conectarse. La idea de hoy es revisar el avance de la plataforma, validar qué quedó listo en desarrollo y qué nos falta para pasar la próxima tanda de pruebas.
+
+0:18 - Diego Paredes
+Perfecto. Desde backend ya dejamos operativa la lectura de la integración activa de IA desde configuración persistida. Ya no dependemos del `.env` para modelo, timeout ni endpoint, y en el worker solamente se mantiene el prompt del sistema.
+
+0:41 - Camila Torres
+Desde QA probamos el flujo base de generación de minuta en desarrollo. La minuta se genera, cambia de estado y llega a edición. Lo que nos falta validar es el comportamiento cuando la configuración activa de IA está inválida o incompleta.
+
+1:03 - Martín Silva
+En infraestructura también avanzamos. MinIO quedó persistiendo en volumen Docker y no en carpeta montada, y además alineamos la zona horaria de los servicios para que los logs salgan con la hora de Santiago.
+
+1:24 - Paula Rojas
+Buenísimo. ¿Queda alguna dependencia vieja que nos pueda pegar más adelante, por ejemplo variables del compose o helpers antiguos?
+
+1:34 - Diego Paredes
+Revisamos eso. Se eliminaron variables obsoletas de OpenAI y Redis en desarrollo, se borró el helper legado que hablaba directo con OpenAI y el `docker_tools_v3` ahora agrupa los servicios por categoría cuando valida el compose.
+
+1:58 - Camila Torres
+Yo agregaría que todavía nos conviene hacer una prueba de error controlado. Por ejemplo, dejar una integración IA sin token y confirmar que el sistema responda con un mensaje claro y no quede el job colgado.
+
+2:16 - Martín Silva
+Sí, y del lado de infraestructura me gustaría también revisar que QA y producción queden con el mismo criterio de persistencia para MinIO. El cambio ya está en los compose, pero no está ejecutado en esos entornos.
+
+2:34 - Paula Rojas
+Entonces para esta semana el foco sería cerrar la validación funcional en desarrollo y dejar preparado el checklist para calidad. ¿Tenemos alguna duda con los tiempos?
+
+2:45 - Diego Paredes
+Por mi lado no. El ajuste de código ya quedó razonablemente limpio. Lo que puede tomar un poco más es documentar los escenarios de falla para que QA los pueda repetir.
+
+3:00 - Camila Torres
+Eso nos sirve. Si me dejan dos o tres casos esperados, yo mañana puedo ejecutar la tanda completa y registrar evidencia.
+
+3:10 - Martín Silva
+Y yo puedo dejar anotado el procedimiento para recrear MinIO en QA cuando lo autoricen, así no improvisamos después.
+
+3:19 - Paula Rojas
+Perfecto. Otro punto: en transcripciones y resúmenes necesitamos material de prueba corto y coherente. Voy a dejar una reunión ficticia de avance para alimentar ese flujo sin usar información real de clientes.
+
+3:35 - Camila Torres
+Súper, eso nos ayuda bastante para no depender siempre de audios reales.
+
+3:41 - Diego Paredes
+También sugeriría dejar claro en la documentación qué compose corresponde a desarrollo, calidad y producción, porque esa confusión apareció varias veces esta semana.
+
+3:54 - Martín Silva
+Sí, ya quedó documentado, pero igual lo podemos remarcar en el checklist.
+
+4:00 - Paula Rojas
+Buen punto. Entonces recapitulo: backend estable con integración persistida, infraestructura alineada en desarrollo, QA valida escenarios normales y de error, y dejamos checklist para el paso a calidad.
+
+4:16 - Camila Torres
+Correcto.
+
+4:18 - Diego Paredes
+Correcto por mi lado también.
+
+4:20 - Martín Silva
+Todo bien.
+
+4:23 - Paula Rojas
+Ya, gracias a todos. Si no sale nada raro, mañana cerramos con evidencia y definición de siguiente paso.
