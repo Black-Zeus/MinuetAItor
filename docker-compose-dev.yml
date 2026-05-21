@@ -35,7 +35,7 @@ services:
       MARIADB_USER: ${MARIADB_USER}
       MARIADB_PASSWORD: ${MARIADB_PASSWORD}
     volumes:
-      - ./APP/data/mariadb_data:/var/lib/mysql
+      - mariadb_data:/var/lib/mysql
       - ./APP/data/settings/mariadb/init:/docker-entrypoint-initdb.d:ro
       - ./APP/logs/mariadb:/var/log/mysql
     ports:
@@ -487,6 +487,8 @@ networks:
     name: ${PROJECT_NAME}_external
 
 volumes:
+  mariadb_data:
+    name: ${PROJECT_NAME}_mariadb_data
   frontend_node_modules:
     name: ${PROJECT_NAME}_frontend_node_modules
   frontend_npm_cache:

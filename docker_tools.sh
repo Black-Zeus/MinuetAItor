@@ -439,7 +439,7 @@ down() {
   banner_menu_ambiente
   echo "======================================="
   echo ""
-  docker compose -f "$COMPOSE_FILE" --env-file .env --env-file .env.$ENV down
+  docker compose -f "$COMPOSE_FILE" --env-file .env --env-file .env.$ENV --profile tools down
   pause
   menu_contenedores
 }
@@ -451,7 +451,7 @@ restart() {
   banner_menu_ambiente
   echo "======================================="
   echo ""
-  docker compose -f "$COMPOSE_FILE" --env-file .env --env-file .env.$ENV down
+  docker compose -f "$COMPOSE_FILE" --env-file .env --env-file .env.$ENV --profile tools down
   docker compose -f "$COMPOSE_FILE" --env-file .env --env-file .env.$ENV up -d --build
   pause
   menu_contenedores
@@ -680,7 +680,7 @@ clean() {
   banner_menu_ambiente
   echo "======================================="
   echo ""
-  docker compose -f "$COMPOSE_FILE" --env-file .env --env-file .env.$ENV down --volumes --remove-orphans
+  docker compose -f "$COMPOSE_FILE" --env-file .env --env-file .env.$ENV --profile tools down --volumes --remove-orphans
   pause
   menu_limpieza
 }
@@ -839,7 +839,7 @@ clean_all() {
   echo "======================================="
   echo "Limpiando contenedores, redes y volúmenes del stack..."
   echo "======================================="
-  docker compose -f "$COMPOSE_FILE" --env-file .env --env-file .env.$ENV down --volumes --remove-orphans
+  docker compose -f "$COMPOSE_FILE" --env-file .env --env-file .env.$ENV --profile tools down --volumes --remove-orphans
 
   echo "======================================="
   echo "Verificando volúmenes huérfanos relacionados con el stack..."
