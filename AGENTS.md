@@ -99,7 +99,8 @@ Reglas:
   - `20260517_1950_alter_system_maintenance_queue_monitoring.sql`
 
 Reglas:
-- Mantener orden léxico según la convención `YYYYMMDD_HHMM_finalidad.sql` con `HHMM` en formato de 24 horas.
+- Mantener orden léxico según la convención `YYYYMMDD_HHMM_{motivo}.sql`.
+- El bloque `HHMM` debe usar formato de 24 horas y corresponder a la hora real de creación del archivo SQL.
 - Si agregas campos o tablas, reflejar el cambio en SQL, modelos, schemas y servicios.
 - Evitar romper compatibilidad con seeds existentes salvo que el cambio lo requiera y quede justificado.
 
