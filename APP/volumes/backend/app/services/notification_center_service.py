@@ -26,7 +26,11 @@ def _utcnow() -> datetime:
 
 
 def _iso(value: datetime | None) -> str | None:
-    return value.isoformat() if value else None
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc).isoformat()
 
 
 def _json_dumps(value: Any) -> str | None:
@@ -136,6 +140,10 @@ def _apply_list_filters(query, *, user_id: str, unread_only: bool, tag: str | No
     return query
 
 
+def _normalized_tag(tag: str | None) -> str:
+    return str(tag or "").strip()
+
+
 def get_unread_notifications_count(db: Session, user_id: str) -> int:
     count = (
         db.query(func.count(NotificationRecipient.id))
@@ -158,7 +166,6 @@ def list_notification_tags(db: Session, session: UserSession) -> dict:
             NotificationRecipient.user_id == session.user_id,
             NotificationRecipient.is_hidden.is_(False),
         )
-        .order_by(Notification.created_at.desc())
         .all()
     )
 
@@ -191,25 +198,29 @@ def list_notifications(
     unread_only: bool = False,
     tag: str | None = None,
 ) -> dict:
+    normalized_tag = _normalized_tag(tag)
     query = _apply_list_filters(
         _base_recipient_query(db),
         user_id=session.user_id,
         unread_only=bool(unread_only),
-        tag=tag,
+        tag=normalized_tag,
     )
 
+    total_query = db.query(func.count(NotificationRecipient.id))
+    if normalized_tag:
+        total_query = total_query.join(Notification, Notification.id == NotificationRecipient.notification_id)
     total = (
         _apply_list_filters(
-            db.query(func.count(NotificationRecipient.id)).join(Notification, Notification.id == NotificationRecipient.notification_id),
+            total_query,
             user_id=session.user_id,
             unread_only=bool(unread_only),
-            tag=tag,
+            tag=normalized_tag,
         ).scalar()
         or 0
     )
 
     items = (
-        query.order_by(Notification.created_at.desc())
+        query.order_by(NotificationRecipient.created_at.desc())
         .offset(max(0, int(skip)))
         .limit(max(1, int(limit)))
         .all()

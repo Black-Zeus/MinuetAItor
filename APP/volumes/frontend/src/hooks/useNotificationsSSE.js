@@ -7,6 +7,7 @@ import notificationsService, { normalizeNotificationItem } from "@/services/noti
 
 const NOTIFICATIONS_EVENTS_URL = "/api/v1/notifications/events";
 const NOTIFICATIONS_CENTER_EVENT = "notifications-center-updated";
+const NOTIFICATIONS_PAGE_PATH = "/notifications";
 
 const toastByLevel = {
   success: toastSuccess,
@@ -48,6 +49,10 @@ export const useNotificationsSSE = () => {
     let isCancelled = false;
 
     const hydratePreview = async () => {
+      const currentPath = window.location?.pathname || "";
+      if (currentPath === NOTIFICATIONS_PAGE_PATH) {
+        return;
+      }
       try {
         const snapshot = await notificationsService.list({ limit: 4 });
         if (!isCancelled) {

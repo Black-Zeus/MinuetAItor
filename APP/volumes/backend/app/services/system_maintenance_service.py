@@ -29,6 +29,8 @@ SCHEDULER_TIMEZONE = "America/Santiago"
 MAINTENANCE_QUEUE = "queue:maintenance"
 DLQ_QUEUE = "queue:dlq"
 SYSTEM_MAINTENANCE_SINGLETON_ID = 1
+MAINTENANCE_TICK_LOCK_KEY = "lock:system:maintenance:tick"
+MAINTENANCE_TICK_LOCK_TTL_SEC = 90
 
 DEFAULT_SETTINGS = {
     "session_cleanup_enabled": True,
@@ -91,7 +93,32 @@ def _localnow() -> datetime:
 
 
 def _iso(value: datetime | None) -> str | None:
-    return value.isoformat() if value else None
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc).isoformat()
+
+
+async def _acquire_tick_lock() -> str | None:
+    redis = get_redis()
+    token = str(uuid.uuid4())
+    acquired = await redis.set(
+        MAINTENANCE_TICK_LOCK_KEY,
+        token,
+        ex=MAINTENANCE_TICK_LOCK_TTL_SEC,
+        nx=True,
+    )
+    return token if acquired else None
+
+
+async def _release_tick_lock(token: str | None) -> None:
+    if not token:
+        return
+    redis = get_redis()
+    current = await redis.get(MAINTENANCE_TICK_LOCK_KEY)
+    if current == token:
+        await redis.delete(MAINTENANCE_TICK_LOCK_KEY)
 
 
 def _is_missing_table_error(exc: Exception) -> bool:
@@ -743,107 +770,127 @@ async def get_system_maintenance_status(db: Session) -> dict:
 
 
 async def run_system_maintenance_tick(db: Session) -> dict:
-    obj = _get_singleton(db)
     current_local_dt = _localnow()
     current_slot = _current_slot(current_local_dt)
     current_utc_dt = _utcnow()
+    lock_token = await _acquire_tick_lock()
 
-    enqueued: list[dict] = []
-    skipped: list[dict] = []
-    events_to_publish: list[dict] = []
+    if not lock_token:
+        return {
+            "current_slot": current_slot,
+            "current_time": current_local_dt.isoformat(),
+            "timezone": SCHEDULER_TIMEZONE,
+            "enqueued": [],
+            "skipped": [
+                {
+                    "action": "maintenance_tick",
+                    "reason": "tick_locked",
+                    "job_id": None,
+                }
+            ],
+            "queue_alerts": [],
+        }
 
-    session_due = bool(obj.session_cleanup_enabled) and _cron_matches(obj.session_cleanup_cron, current_local_dt)
-    if session_due and obj.last_session_cleanup_enqueued_slot != current_slot:
-        job_id = await _enqueue_maintenance_job(
-            "cleanup_sessions",
-            {
-                "mode": obj.session_cleanup_mode,
+    try:
+        obj = _get_singleton(db)
+        enqueued: list[dict] = []
+        skipped: list[dict] = []
+        events_to_publish: list[dict] = []
+
+        session_due = bool(obj.session_cleanup_enabled) and _cron_matches(obj.session_cleanup_cron, current_local_dt)
+        if session_due and obj.last_session_cleanup_enqueued_slot != current_slot:
+            job_id = await _enqueue_maintenance_job(
+                "cleanup_sessions",
+                {
+                    "mode": obj.session_cleanup_mode,
+                    "scheduled_slot": current_slot,
+                },
+            )
+            _mark_runtime_enqueued(
+                obj,
+                "session_cleanup",
+                slot=current_slot,
+                enqueued_at=current_utc_dt,
+                message="Limpieza de sesiones encolada por programación.",
+            )
+            enqueued.append({
+                "action": "cleanup_sessions",
+                "reason": "cron_match",
+                "job_id": job_id,
+            })
+            events_to_publish.append({
+                "status": "queued",
+                "scope": "session_cleanup",
+                "action": "cleanup_sessions",
+                "message": "Limpieza de sesiones encolada por programación.",
+                "trigger": "cron",
+                "job_id": job_id,
                 "scheduled_slot": current_slot,
-            },
-        )
-        _mark_runtime_enqueued(
-            obj,
-            "session_cleanup",
-            slot=current_slot,
-            enqueued_at=current_utc_dt,
-            message="Limpieza de sesiones encolada por programación.",
-        )
-        enqueued.append({
-            "action": "cleanup_sessions",
-            "reason": "cron_match",
-            "job_id": job_id,
-        })
-        events_to_publish.append({
-            "status": "queued",
-            "scope": "session_cleanup",
-            "action": "cleanup_sessions",
-            "message": "Limpieza de sesiones encolada por programación.",
-            "trigger": "cron",
-            "job_id": job_id,
-            "scheduled_slot": current_slot,
-        })
-    else:
-        skipped.append({
-            "action": "cleanup_sessions",
-            "reason": "disabled" if not obj.session_cleanup_enabled else "already_enqueued" if obj.last_session_cleanup_enqueued_slot == current_slot else "not_due",
-            "job_id": None,
-        })
+            })
+        else:
+            skipped.append({
+                "action": "cleanup_sessions",
+                "reason": "disabled" if not obj.session_cleanup_enabled else "already_enqueued" if obj.last_session_cleanup_enqueued_slot == current_slot else "not_due",
+                "job_id": None,
+            })
 
-    temp_due = bool(obj.temp_cleanup_enabled) and _cron_matches(obj.temp_cleanup_cron, current_local_dt)
-    if temp_due and obj.last_temp_cleanup_enqueued_slot != current_slot:
-        job_id = await _enqueue_maintenance_job(
-            "cleanup_temp_files",
-            {
-                "max_age_days": int(obj.temp_cleanup_max_age_days),
+        temp_due = bool(obj.temp_cleanup_enabled) and _cron_matches(obj.temp_cleanup_cron, current_local_dt)
+        if temp_due and obj.last_temp_cleanup_enqueued_slot != current_slot:
+            job_id = await _enqueue_maintenance_job(
+                "cleanup_temp_files",
+                {
+                    "max_age_days": int(obj.temp_cleanup_max_age_days),
+                    "scheduled_slot": current_slot,
+                },
+            )
+            _mark_runtime_enqueued(
+                obj,
+                "temp_cleanup",
+                slot=current_slot,
+                enqueued_at=current_utc_dt,
+                message="Limpieza de temporales encolada por programación.",
+            )
+            enqueued.append({
+                "action": "cleanup_temp_files",
+                "reason": "cron_match",
+                "job_id": job_id,
+            })
+            events_to_publish.append({
+                "status": "queued",
+                "scope": "temp_cleanup",
+                "action": "cleanup_temp_files",
+                "message": "Limpieza de temporales encolada por programación.",
+                "trigger": "cron",
+                "job_id": job_id,
                 "scheduled_slot": current_slot,
-            },
-        )
-        _mark_runtime_enqueued(
+            })
+        else:
+            skipped.append({
+                "action": "cleanup_temp_files",
+                "reason": "disabled" if not obj.temp_cleanup_enabled else "already_enqueued" if obj.last_temp_cleanup_enqueued_slot == current_slot else "not_due",
+                "job_id": None,
+            })
+
+        queue_alerts = await _process_queue_observability(
+            db,
             obj,
-            "temp_cleanup",
-            slot=current_slot,
-            enqueued_at=current_utc_dt,
-            message="Limpieza de temporales encolada por programación.",
+            current_utc_dt=current_utc_dt,
         )
-        enqueued.append({
-            "action": "cleanup_temp_files",
-            "reason": "cron_match",
-            "job_id": job_id,
-        })
-        events_to_publish.append({
-            "status": "queued",
-            "scope": "temp_cleanup",
-            "action": "cleanup_temp_files",
-            "message": "Limpieza de temporales encolada por programación.",
-            "trigger": "cron",
-            "job_id": job_id,
-            "scheduled_slot": current_slot,
-        })
-    else:
-        skipped.append({
-            "action": "cleanup_temp_files",
-            "reason": "disabled" if not obj.temp_cleanup_enabled else "already_enqueued" if obj.last_temp_cleanup_enqueued_slot == current_slot else "not_due",
-            "job_id": None,
-        })
+        db.commit()
 
-    queue_alerts = await _process_queue_observability(
-        db,
-        obj,
-        current_utc_dt=current_utc_dt,
-    )
-    db.commit()
+        for event_payload in events_to_publish:
+            await publish_maintenance_event(**event_payload)
 
-    for event_payload in events_to_publish:
-        await publish_maintenance_event(**event_payload)
-
-    return {
-        "current_slot": current_slot,
-        "current_time": current_local_dt.isoformat(),
-        "timezone": SCHEDULER_TIMEZONE,
-        "enqueued": enqueued,
-        "skipped": skipped,
-        "queue_alerts": queue_alerts,
-    }
+        return {
+            "current_slot": current_slot,
+            "current_time": current_local_dt.isoformat(),
+            "timezone": SCHEDULER_TIMEZONE,
+            "enqueued": enqueued,
+            "skipped": skipped,
+            "queue_alerts": queue_alerts,
+        }
+    finally:
+        await _release_tick_lock(lock_token)
 
 
 async def run_system_maintenance_action_now(

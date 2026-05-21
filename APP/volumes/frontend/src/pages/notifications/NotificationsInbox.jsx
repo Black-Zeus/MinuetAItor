@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { toastError, toastInfo, toastSuccess } from "@/components/common/toast/toastHelpers";
@@ -54,9 +54,13 @@ const NotificationsInbox = () => {
   const [selectedTag, setSelectedTag] = useState("");
   const [availableTags, setAvailableTags] = useState([]);
   const [tagsTotal, setTagsTotal] = useState(0);
+  const [isLoadingTags, setIsLoadingTags] = useState(false);
   const [error, setError] = useState("");
   const [busyNotificationId, setBusyNotificationId] = useState("");
   const [isClearing, setIsClearing] = useState(false);
+  const listRequestRef = useRef(0);
+  const tagsRequestRef = useRef(0);
+  const tagsTimerRef = useRef(null);
 
   useDocumentTitle("Notificaciones");
 
@@ -65,6 +69,8 @@ const NotificationsInbox = () => {
     forceUnreadOnly = unreadOnly,
     forceTag = selectedTag,
   } = {}) => {
+    const requestId = Date.now();
+    listRequestRef.current = requestId;
     const currentSkip = reset ? 0 : items.length;
     if (reset) {
       setIsLoading(true);
@@ -79,49 +85,105 @@ const NotificationsInbox = () => {
         unreadOnly: forceUnreadOnly,
         tag: forceTag || null,
       });
+      if (listRequestRef.current !== requestId) return null;
       setItems((prev) => (reset ? result.items : [...prev, ...result.items]));
       setTotal(result.total);
       setError("");
+      return result;
     } catch (err) {
+      if (listRequestRef.current !== requestId) return null;
       setError(err?.message ?? "No fue posible cargar la bandeja.");
+      return null;
     } finally {
-      setIsLoading(false);
-      setIsLoadingMore(false);
+      if (listRequestRef.current === requestId) {
+        setIsLoading(false);
+        setIsLoadingMore(false);
+      }
     }
   };
 
-  const loadAvailableTags = async () => {
-    try {
-      const result = await notificationsService.getTags();
-      const tagItems = Array.isArray(result?.items) ? result.items : [];
-      setAvailableTags(
-        selectedTag && !tagItems.includes(selectedTag)
-          ? [selectedTag, ...tagItems]
-          : tagItems
-      );
-      setTagsTotal(Number(result?.total || 0));
-    } catch {
-      setAvailableTags((prev) =>
-        selectedTag && !prev.includes(selectedTag) ? [selectedTag, ...prev] : prev
-      );
+  const loadAvailableTags = async ({ delayMs = 0 } = {}) => {
+    if (tagsTimerRef.current) {
+      window.clearTimeout(tagsTimerRef.current);
+      tagsTimerRef.current = null;
     }
+
+    const run = async () => {
+      const requestId = Date.now();
+      tagsRequestRef.current = requestId;
+      setIsLoadingTags(true);
+
+      try {
+        const result = await notificationsService.getTags();
+        if (tagsRequestRef.current !== requestId) return;
+        const tagItems = Array.isArray(result?.items) ? result.items : [];
+        setAvailableTags(
+          selectedTag && !tagItems.includes(selectedTag)
+            ? [selectedTag, ...tagItems]
+            : tagItems
+        );
+        setTagsTotal(Number(result?.total || 0));
+      } catch {
+        if (tagsRequestRef.current !== requestId) return;
+        setAvailableTags((prev) =>
+          selectedTag && !prev.includes(selectedTag) ? [selectedTag, ...prev] : prev
+        );
+      } finally {
+        if (tagsRequestRef.current === requestId) {
+          setIsLoadingTags(false);
+        }
+      }
+    };
+
+    if (delayMs > 0) {
+      tagsTimerRef.current = window.setTimeout(run, delayMs);
+      return;
+    }
+
+    await run();
   };
 
   useEffect(() => {
-    loadNotifications({ reset: true, forceUnreadOnly: unreadOnly, forceTag: selectedTag });
-    loadAvailableTags();
+    let isCancelled = false;
+
+    const hydrate = async () => {
+      const result = await loadNotifications({
+        reset: true,
+        forceUnreadOnly: unreadOnly,
+        forceTag: selectedTag,
+      });
+      if (isCancelled) return;
+      if ((result?.total || 0) <= 0) {
+        setAvailableTags(selectedTag ? [selectedTag] : []);
+        setTagsTotal(selectedTag ? 1 : 0);
+        return;
+      }
+      loadAvailableTags({ delayMs: 250 });
+    };
+
+    hydrate();
+
+    return () => {
+      isCancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTag, unreadOnly]);
 
   useEffect(() => {
     const handleExternalUpdate = () => {
       loadNotifications({ reset: true, forceUnreadOnly: unreadOnly, forceTag: selectedTag });
-      loadAvailableTags();
+      loadAvailableTags({ delayMs: 500 });
     };
     window.addEventListener(NOTIFICATIONS_CENTER_EVENT, handleExternalUpdate);
     return () => window.removeEventListener(NOTIFICATIONS_CENTER_EVENT, handleExternalUpdate);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTag, unreadOnly]);
+
+  useEffect(() => () => {
+    if (tagsTimerRef.current) {
+      window.clearTimeout(tagsTimerRef.current);
+    }
+  }, []);
 
   const handleOpen = (notification) => {
     if (!notification?.isRead) {
@@ -167,7 +229,7 @@ const NotificationsInbox = () => {
       removeNotificationLocal(result.notificationId, result.unreadCount);
       setItems((prev) => prev.filter((item) => item.id !== result.notificationId));
       setTotal((prev) => Math.max(0, prev - 1));
-      loadAvailableTags();
+      loadAvailableTags({ delayMs: 300 });
       toastSuccess("Notificación eliminada", "La entrada fue eliminada de tu bandeja.");
     } catch (err) {
       toastError("No se pudo eliminar", err?.message ?? "La notificación sigue visible en tu bandeja.");
@@ -189,7 +251,7 @@ const NotificationsInbox = () => {
         return prev.filter((item) => !hiddenIds.has(item.id));
       });
       setTotal((prev) => Math.max(0, prev - result.hidden));
-      loadAvailableTags();
+      loadAvailableTags({ delayMs: 300 });
       toastInfo("Bandeja limpiada", result.message || "Las entradas visibles fueron apartadas de tu bandeja.");
     } catch (err) {
       toastError("No se pudo limpiar la bandeja", err?.message ?? "Intenta nuevamente.");
@@ -260,7 +322,7 @@ const NotificationsInbox = () => {
               Tags {tagsTotal > 0 ? `(${tagsTotal})` : ""}:
             </span>
 
-            {availableTags.length > 0 ? (
+              {availableTags.length > 0 ? (
               availableTags.slice(0, 24).map((tag) => {
                 const isActive = tag === selectedTag;
                 return (
@@ -280,7 +342,7 @@ const NotificationsInbox = () => {
               })
             ) : (
               <span className="text-sm text-gray-500 dark:text-gray-400">
-                No hay tags disponibles en tu bandeja.
+                {isLoadingTags ? "Cargando tags..." : "No hay tags disponibles en tu bandeja."}
               </span>
             )}
 
