@@ -184,7 +184,7 @@ export const SIDEBAR_MODULES = [
   },
   {
     id: 'profiles',
-    name: 'Perfiles',
+    name: 'Perfiles AI',
     icon: 'FaBrain',
     path: '/settings/profiles',
     section: 'config',

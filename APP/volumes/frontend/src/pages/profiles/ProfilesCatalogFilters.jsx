@@ -10,6 +10,7 @@
 
 import React, { useMemo, useState } from "react";
 import Icon from "@/components/ui/icon/iconManager";
+import ActionButton from "@/components/ui/button/ActionButton";
 
 const TXT_TITLE = "text-gray-900 dark:text-gray-50";
 const TXT_META  = "text-gray-500 dark:text-gray-400";
@@ -115,9 +116,11 @@ const ProfilesCatalogFilters = ({
   };
 
   const activeFiltersCount = useMemo(() => {
-    if (!filters) return 0;
     const keys = ["search", "categoryId", "status"];
-    return keys.reduce((acc, k) => acc + (normalizeText(filters?.[k]) !== "" ? 1 : 0), 0);
+    return keys.reduce(
+      (count, key) => count + (normalizeText(filters?.[key]) !== "" ? 1 : 0),
+      0
+    );
   }, [filters]);
 
   const statusOptions = [
@@ -151,13 +154,13 @@ const ProfilesCatalogFilters = ({
           <Icon name="FaFilter" className="text-primary-500 dark:text-primary-400" />
           Filtros
           {activeFiltersCount > 0 && (
-            <span className="ml-2 inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-semibold bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-200">
+            <span className="ml-1 px-2.5 py-0.5 bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 rounded-full text-xs font-semibold transition-theme">
               {activeFiltersCount}
             </span>
           )}
           <Icon
             name={filtersExpanded ? "FaChevronUp" : "FaChevronDown"}
-            className={`${TXT_META} text-xs transition-transform`}
+            className="text-sm transition-transform duration-200"
           />
         </button>
 
@@ -182,17 +185,19 @@ const ProfilesCatalogFilters = ({
 
       {/* Filtros */}
       {filtersExpanded && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 pt-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 items-end mt-6">
 
           {visibleFilters.search && (
-            <FilterField
-              type="search"
-              label={FILTER_LABELS.search}
-              icon={FILTER_ICONS.search}
-              value={filters?.search ?? ""}
-              onChange={(value) => onFilterChange?.("search", value)}
-              placeholder="Buscar por nombre o descripción..."
-            />
+            <div className="lg:col-span-2">
+              <FilterField
+                type="search"
+                label={FILTER_LABELS.search}
+                icon={FILTER_ICONS.search}
+                value={filters?.search ?? ""}
+                onChange={(value) => onFilterChange?.("search", value)}
+                placeholder="Buscar por nombre o descripción..."
+              />
+            </div>
           )}
 
           {visibleFilters.categoryId && (
