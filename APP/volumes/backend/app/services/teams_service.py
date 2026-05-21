@@ -24,6 +24,7 @@ from schemas.teams import (
     TeamSystemRole,
     TeamUpdateRequest,
 )
+from services.avatar_service import get_avatar_url_if_exists
 
 
 # ── Helpers privados ──────────────────────────────────────────────────────────
@@ -34,6 +35,7 @@ def _get_user_or_404(db: Session, user_id: str) -> User:
         .options(
             joinedload(User.profile),
             joinedload(User.roles).joinedload(UserRole.role),
+            joinedload(User.avatar_object),
         )
         .filter(User.id == user_id, User.deleted_at.is_(None))
         .first()
@@ -151,6 +153,7 @@ def _user_to_dict(user: User, db: Session | None = None) -> dict:
         "name":            user.full_name or "",
         "username":        user.username,
         "email":           user.email or "",
+        "avatar_url":      get_avatar_url_if_exists(user),
         "position":        profile.position   if profile else None,
         "phone":           user.phone,
         "department":      profile.department if profile else None,
@@ -287,6 +290,7 @@ def list_team_members(db: Session, filters: TeamFilterRequest) -> dict:
         .options(
             joinedload(User.profile),
             joinedload(User.roles).joinedload(UserRole.role),
+            joinedload(User.avatar_object),
         )
         .filter(User.deleted_at.is_(None))
     )
