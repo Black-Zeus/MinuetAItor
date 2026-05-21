@@ -96,6 +96,7 @@ class ParticipantResponse(BaseModel):
     id: str
     display_name: str = Field(..., serialization_alias="displayName")
     normalized_name: str = Field(..., serialization_alias="normalizedName")
+    logo_url: str | None = Field(None, serialization_alias="logoUrl")
     organization: str | None = None
     title: str | None = None
     notes: str | None = None

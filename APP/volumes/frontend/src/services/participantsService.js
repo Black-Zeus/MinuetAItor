@@ -62,6 +62,25 @@ export const participantsService = {
     return unwrap(res);
   },
 
+  async uploadLogo(id, file) {
+    if (!id) throw new Error("participantsService.uploadLogo: id es requerido");
+    if (!file) throw new Error("participantsService.uploadLogo: file es requerido");
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await axiosInstance.post(`${BASE}/${encodeURIComponent(id)}/logo`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return unwrap(res);
+  },
+
+  async deleteLogo(id) {
+    if (!id) throw new Error("participantsService.deleteLogo: id es requerido");
+    const res = await axiosInstance.delete(`${BASE}/${encodeURIComponent(id)}/logo`);
+    return unwrap(res);
+  },
+
   async updateStatus(id, isActive) {
     if (!id) throw new Error("participantsService.updateStatus: id es requerido");
     const res = await axiosInstance.patch(

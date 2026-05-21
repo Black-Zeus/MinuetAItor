@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Icon from "@/components/ui/icon/iconManager";
 import ModalManager from "@/components/ui/modal";
 import ActionButton from "@/components/ui/button/ActionButton";
@@ -22,8 +22,24 @@ const toApiPayload = (formData) => ({
     .filter((item) => item.email),
 });
 
+const ParticipantLogoBadge = ({ logoUrl, displayName, logoFailed, onLogoError }) => (
+  <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-primary-100 text-primary-600 dark:bg-primary-900/30 dark:text-primary-300">
+    {logoUrl && !logoFailed ? (
+      <img
+        src={logoUrl}
+        alt={displayName || "Avatar del participante"}
+        className="h-full w-full object-cover"
+        onError={onLogoError}
+      />
+    ) : (
+      <Icon name="FaUser" className="h-5 w-5" />
+    )}
+  </div>
+);
+
 const ParticipantsCard = ({ id, summary, onUpdated, onDeleted }) => {
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+  const [logoFailed, setLogoFailed] = useState(false);
 
   const primaryEmail = useMemo(() => {
     const emails = Array.isArray(summary?.emails) ? summary.emails : [];
@@ -41,6 +57,12 @@ const ParticipantsCard = ({ id, summary, onUpdated, onDeleted }) => {
     }
   };
 
+  const logoUrl = summary?.logoUrl ?? summary?.logo_url ?? null;
+
+  useEffect(() => {
+    setLogoFailed(false);
+  }, [logoUrl]);
+
   const openModal = async (mode) => {
     const detail = await fetchDetail();
     if (!detail) return;
@@ -57,21 +79,10 @@ const ParticipantsCard = ({ id, summary, onUpdated, onDeleted }) => {
           data={detail}
           onClose={() => ModalManager.closeAll?.()}
           onSubmit={async (formData) => {
-            try {
-              const updated = await participantsService.update(id, toApiPayload(formData));
-              onUpdated?.(updated);
-              toastSuccess("Participante actualizado", "Los cambios se guardaron correctamente.");
-              ModalManager.closeAll?.();
-            } catch (error) {
-              toastError(
-                "No se pudo actualizar",
-                error?.response?.data?.error?.message ??
-                  error?.response?.data?.detail ??
-                  error?.message ??
-                  "Error inesperado al actualizar el participante."
-              );
-              throw error;
-            }
+            return await participantsService.update(id, toApiPayload(formData));
+          }}
+          onSaved={async (updated) => {
+            onUpdated?.(updated);
           }}
         />
       ),
@@ -101,9 +112,17 @@ const ParticipantsCard = ({ id, summary, onUpdated, onDeleted }) => {
     <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
       <div className="p-5 space-y-4">
         <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h3 className="font-semibold text-gray-900 dark:text-white truncate">{summary?.displayName ?? "—"}</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{summary?.title || "Sin cargo"}</p>
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <ParticipantLogoBadge
+              logoUrl={logoUrl}
+              displayName={summary?.displayName}
+              logoFailed={logoFailed}
+              onLogoError={() => setLogoFailed(true)}
+            />
+            <div className="min-w-0">
+              <h3 className="font-semibold text-gray-900 dark:text-white truncate">{summary?.displayName ?? "—"}</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{summary?.title || "Sin cargo"}</p>
+            </div>
           </div>
           <span
             className={`px-2 py-1 rounded-full text-xs font-medium ${

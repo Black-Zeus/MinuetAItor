@@ -1,7 +1,7 @@
 # routers/v1/participants.py
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, File, Response, UploadFile, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
@@ -22,11 +22,14 @@ from services.auth_service import get_current_user
 from services.participants_service import (
     change_participant_status,
     create_participant,
+    delete_participant_logo,
     get_participant,
     lookup_participant_emails,
     list_participants,
+    read_participant_logo_content,
     resolve_participant,
     soft_delete_participant,
+    upload_participant_logo,
     update_participant,
 )
 
@@ -38,6 +41,21 @@ async def current_user_dep(
     credentials: HTTPAuthorizationCredentials = Depends(bearer),
 ) -> UserSession:
     return await get_current_user(credentials.credentials)
+
+
+@router.get("/{id}/logo", status_code=status.HTTP_200_OK)
+def logo_endpoint(
+    id: str,
+    db: Session = Depends(get_db),
+):
+    content, content_type = read_participant_logo_content(db, id)
+    return Response(
+        content=content,
+        media_type=content_type,
+        headers={
+            "Cache-Control": "public, max-age=300",
+        },
+    )
 
 
 @router.get("/{id}", response_model=ParticipantResponse, status_code=status.HTTP_200_OK)
@@ -65,6 +83,16 @@ def create_endpoint(
     session: UserSession = Depends(current_user_dep),
 ):
     return create_participant(db, body, actor_id=session.user_id)
+
+
+@router.post("/{id}/logo", status_code=status.HTTP_200_OK)
+async def upload_logo_endpoint(
+    id: str,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    session: UserSession = Depends(current_user_dep),
+):
+    return await upload_participant_logo(db, id, file, actor_id=session.user_id)
 
 
 @router.post("/emails/lookup", response_model=ParticipantEmailLookupResponse, status_code=status.HTTP_200_OK)
@@ -113,3 +141,12 @@ def delete_endpoint(
 ):
     soft_delete_participant(db, id, actor_id=session.user_id)
     return None
+
+
+@router.delete("/{id}/logo", status_code=status.HTTP_200_OK)
+def delete_logo_endpoint(
+    id: str,
+    db: Session = Depends(get_db),
+    session: UserSession = Depends(current_user_dep),
+):
+    return delete_participant_logo(db, id, actor_id=session.user_id)
