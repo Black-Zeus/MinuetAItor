@@ -31,6 +31,8 @@ const toStringArray = (str) =>
     .map((s) => s.trim())
     .filter(Boolean);
 
+const cn = (...classes) => classes.filter(Boolean).join(" ");
+
 const MEETING_LOCATION_SUGGESTIONS = [
   "Microsoft Teams",
   "Zoom",
@@ -141,6 +143,40 @@ const InlineSpinner = ({ text = "Cargando..." }) => (
     <span className="text-sm">{text}</span>
   </div>
 );
+
+const StepItem = ({ index, currentStep, title, onClick }) => {
+  const isActive = index === currentStep;
+  const isDone = index < currentStep;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex shrink-0 items-center gap-2.5 rounded-xl px-2 py-1 text-left transition-colors hover:bg-slate-100/10"
+    >
+      <div
+        className={cn(
+          "flex h-8 w-8 items-center justify-center rounded-full border text-xs font-semibold",
+          isDone
+            ? "border-sky-300 bg-sky-300 text-slate-900"
+            : isActive
+              ? "border-slate-300 bg-slate-300 text-slate-900"
+              : "border-slate-700 bg-slate-800/70 text-slate-300"
+        )}
+      >
+        {isDone ? <Icon name="FaCheckCircle" className="h-3.5 w-3.5" /> : index + 1}
+      </div>
+      <span
+        className={cn(
+          "text-sm whitespace-nowrap",
+          isActive ? "font-semibold text-white" : "text-slate-400"
+        )}
+      >
+        {title}
+      </span>
+    </button>
+  );
+};
 
 // ─── NewMinuteFormInner ────────────────────────────────────────────────────────
 
@@ -388,17 +424,34 @@ const NewMinuteFormInner = ({ onSubmit, onCancel, isSubmitting, onCatalogLoaded 
     if (currentStep > 0) setCurrentStep(currentStep - 1);
   };
 
+  const handleStepJump = (targetStep) => {
+    if (targetStep === currentStep) return;
+
+    if (targetStep < currentStep) {
+      setCurrentStep(targetStep);
+      return;
+    }
+
+    for (let step = currentStep; step < targetStep; step += 1) {
+      if (!validateStep(step)) {
+        return;
+      }
+    }
+
+    setCurrentStep(targetStep);
+  };
+
   const handleSubmit = () => {
     onSubmit?.(formData);
   };
 
   const steps = [
-    { title: "Información General",   number: 1 },
-    { title: "Adjuntos",              number: 2 },
-    { title: "Fechas y Horarios",     number: 3 },
-    { title: "Participantes",         number: 4 },
-    { title: "Información Adicional", number: 5 },
-    { title: "Confirmación",          number: 6 },
+    { title: "General", number: 1 },
+    { title: "Adjuntos", number: 2 },
+    { title: "Agenda", number: 3 },
+    { title: "Participantes", number: 4 },
+    { title: "Notas", number: 5 },
+    { title: "Confirmación", number: 6 },
   ];
 
   const isLastStep     = currentStep === steps.length - 1;
@@ -407,37 +460,43 @@ const NewMinuteFormInner = ({ onSubmit, onCancel, isSubmitting, onCatalogLoaded 
   return (
     <>
     <div className="w-full rounded-[26px] bg-white/8 p-[2px] shadow-[0_0_24px_rgba(255,255,255,0.08),0_24px_70px_rgba(15,23,42,0.24)] backdrop-blur-[3px] dark:bg-white/[0.06] dark:shadow-[0_0_28px_rgba(255,255,255,0.06),0_24px_70px_rgba(2,6,23,0.52)]">
-    <div className="flex h-[78vh] min-h-[620px] w-full flex-col rounded-[24px] border border-white/45 bg-slate-100 dark:border-white/10 dark:bg-slate-950">
+    <div className="flex h-[78vh] min-h-[620px] w-full flex-col overflow-hidden rounded-[24px] border border-white/10 bg-[#050b1f]">
 
-      {/* Stepper */}
-      <div className="flex-shrink-0 px-8 py-6 border-b border-slate-200/80 dark:border-slate-700/80">
-        <div className="flex items-center justify-between mb-4">
-          {steps.map((step, idx) => (
-            <div key={idx} className="flex items-center">
-              <div
-                className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold
-                  ${idx === currentStep
-                    ? "bg-blue-600 text-white"
-                    : idx < currentStep
-                      ? "bg-green-600 text-white"
-                      : "bg-gray-300 dark:bg-gray-600 text-gray-600 dark:text-gray-400"
-                  }`}
-              >
-                {idx < currentStep ? "✓" : step.number}
-              </div>
-              {idx < steps.length - 1 && (
-                <div className={`w-12 h-1 mx-2 ${idx < currentStep ? "bg-green-600" : "bg-gray-300 dark:bg-gray-600"}`} />
-              )}
+      <div className="flex-shrink-0 px-8 py-7">
+        <div className="flex items-start justify-between gap-5">
+          <div className="flex min-w-0 items-center gap-4">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-800 text-sky-300">
+              <Icon name="FaFileLines" className="h-6 w-6" />
             </div>
-          ))}
+            <div className="min-w-0">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
+                NUEVA MINUTA
+              </div>
+              <h2 className="truncate text-[2rem] font-semibold leading-tight text-white">
+                Preparación de Minuta
+              </h2>
+            </div>
+          </div>
+
         </div>
-        <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
-          {steps[currentStep].title}
-        </h3>
+
+        <div className="mt-6 overflow-x-auto pb-1">
+          <div className="flex min-w-max items-center gap-5">
+          {steps.map((step, index) => (
+            <StepItem
+              key={`${step.title}-${index}`}
+              index={index}
+              currentStep={currentStep}
+              title={step.title}
+              onClick={() => handleStepJump(index)}
+            />
+          ))}
+          </div>
+        </div>
       </div>
 
       {/* Contenido con scroll */}
-      <div className="flex-1 overflow-y-auto px-8 py-6 min-h-0">
+      <div className="min-h-0 flex-1 overflow-y-auto border-t border-slate-800/90 px-8 py-6">
 
         {loadingCatalog && <InlineSpinner text="Cargando catálogos..." />}
         {!loadingCatalog && catalogError && (
@@ -882,14 +941,12 @@ const NewMinuteFormInner = ({ onSubmit, onCancel, isSubmitting, onCatalogLoaded 
       </div>
 
       {/* Footer */}
-      <div className="flex-shrink-0 px-8 py-5 border-t border-slate-200/80 dark:border-slate-700/80">
+      <div className="flex-shrink-0 border-t border-slate-800/90 px-8 py-5">
         <div className="flex justify-between">
           <button
             onClick={currentStep === 0 ? onCancel : handlePrevious}
             disabled={isSubmitting}
-            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800
-              border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700
-              focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors
+            className="rounded-full border border-slate-600 bg-slate-800/70 px-5 py-3 text-sm font-semibold text-slate-200 transition hover:border-slate-500 hover:bg-slate-700/70
               disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {currentStep === 0 ? "Cancelar" : "Anterior"}
@@ -897,8 +954,7 @@ const NewMinuteFormInner = ({ onSubmit, onCancel, isSubmitting, onCatalogLoaded 
           <button
             onClick={handleNext}
             disabled={submitDisabled}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700
-              focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors
+            className="inline-flex items-center gap-2 rounded-full bg-sky-300 px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-sky-200
               disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             {isLastStep && isSubmitting ? (
