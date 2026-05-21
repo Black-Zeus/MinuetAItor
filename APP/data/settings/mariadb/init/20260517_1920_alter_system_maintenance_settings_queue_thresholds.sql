@@ -4,9 +4,9 @@
 -- Umbrales persistidos para observabilidad general de colas
 -- ----------------------------------------------------------------------------
 ALTER TABLE system_maintenance_settings
-  ADD COLUMN minutes_queue_warning_threshold INT NOT NULL DEFAULT 5
+  ADD COLUMN IF NOT EXISTS minutes_queue_warning_threshold INT NOT NULL DEFAULT 5
     AFTER maintenance_queue_warning_threshold,
-  ADD COLUMN email_queue_warning_threshold   INT NOT NULL DEFAULT 20
+  ADD COLUMN IF NOT EXISTS email_queue_warning_threshold   INT NOT NULL DEFAULT 20
     AFTER minutes_queue_warning_threshold,
-  ADD COLUMN pdf_queue_warning_threshold     INT NOT NULL DEFAULT 10
+  ADD COLUMN IF NOT EXISTS pdf_queue_warning_threshold     INT NOT NULL DEFAULT 10
     AFTER email_queue_warning_threshold;
