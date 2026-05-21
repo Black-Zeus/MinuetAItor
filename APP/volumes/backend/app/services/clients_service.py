@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from fastapi import HTTPException
+from fastapi import HTTPException, UploadFile
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
@@ -18,6 +18,12 @@ from services.access_control_service import (
     can_manage_clients,
     ensure_client_read_access,
 )
+from services.client_logo_service import (
+    get_client_logo_url_if_exists,
+    read_client_logo,
+    remove_client_logo,
+    save_client_logo,
+)
 
 from utils.text import title_case_es
 
@@ -28,6 +34,7 @@ def _get_or_404(db: Session, client_id: str) -> Client:
             joinedload(Client.created_by_user),
             joinedload(Client.updated_by_user),
             joinedload(Client.deleted_by_user),
+            joinedload(Client.avatar_object),
         )
         .filter(Client.id == client_id, Client.deleted_at.is_(None))
         .first()
@@ -58,6 +65,7 @@ def _user_ref(u) -> Optional[dict]:
 def _build_response_dict(obj: Client) -> dict:
     return {
         "id": str(obj.id),
+        "logo_url": get_client_logo_url_if_exists(obj),
         # Empresa
         "name":        obj.name,
         "legal_name":  obj.legal_name,
@@ -99,6 +107,7 @@ def _reload_with_relations(db: Session, client_id: str) -> Client:
             joinedload(Client.created_by_user),
             joinedload(Client.updated_by_user),
             joinedload(Client.deleted_by_user),
+            joinedload(Client.avatar_object),
         )
         .filter(Client.id == client_id)
         .first()
@@ -151,6 +160,7 @@ def list_clients(db: Session, filters: ClientFilterRequest, session: UserSession
             joinedload(Client.created_by_user),
             joinedload(Client.updated_by_user),
             joinedload(Client.deleted_by_user),
+            joinedload(Client.avatar_object),
         )
         .order_by(Client.name.asc())
         .offset(filters.skip)
@@ -283,6 +293,39 @@ def delete_client(db: Session, client_id: str, deleted_by_id: str, session: User
     obj.deleted_by = deleted_by_id
     obj.is_active  = False
     db.commit()
+
+
+async def upload_client_logo(
+    db: Session,
+    client_id: str,
+    file: UploadFile,
+    session: UserSession,
+) -> dict:
+    if not can_manage_clients(session):
+        raise ForbiddenException("No tienes permisos para editar clientes")
+
+    obj = _get_or_404(db, client_id)
+    logo_url = await save_client_logo(db, obj, file, actor_user_id=session.user_id)
+    return {"logo_url": logo_url}
+
+
+def delete_client_logo(
+    db: Session,
+    client_id: str,
+    session: UserSession,
+) -> dict:
+    if not can_manage_clients(session):
+        raise ForbiddenException("No tienes permisos para editar clientes")
+
+    obj = _get_or_404(db, client_id)
+    remove_client_logo(db, obj, actor_user_id=session.user_id)
+    return {"logo_url": None}
+
+
+def read_client_logo_content(db: Session, client_id: str) -> tuple[bytes, str]:
+    obj = _get_or_404(db, client_id)
+    return read_client_logo(db, obj)
+
 
 def list_industries(db: Session) -> list[str]:
     """

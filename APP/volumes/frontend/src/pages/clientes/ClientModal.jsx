@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import Icon from "@/components/ui/icon/iconManager";
 import { ModalManager } from "@/components/ui/modal";
 import { toastError, toastSuccess } from "@/components/common/toast/toastHelpers";
+import clientService from "@/services/clientService";
 
 const MODES = {
   CREATE: "createNewClient",
@@ -18,6 +19,7 @@ const STEPS = [
 
 const normalizeClient = (data = {}) => ({
   companyName: data.companyName ?? data.name ?? "",
+  logoUrl: data.logoUrl ?? data.logo_url ?? "",
   companyLegalName: data.companyLegalName ?? data.legalName ?? "",
   description: data.description ?? "",
   industry: data.industry ?? "",
@@ -53,14 +55,14 @@ const fieldClass = (hasError = false) =>
   );
 
 const Section = ({ title, description, children }) => (
-  <section className="rounded-2xl border border-slate-200/80 bg-slate-50 shadow-sm dark:border-slate-700/80 dark:bg-slate-800">
-    <div className="border-b border-slate-200/80 px-5 py-4 dark:border-slate-700/80">
+  <section className="space-y-4">
+    <div>
       <h4 className="text-sm font-semibold text-gray-900 dark:text-white">{title}</h4>
       {description ? (
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{description}</p>
       ) : null}
     </div>
-    <div className="p-5">{children}</div>
+    <div>{children}</div>
   </section>
 );
 
@@ -89,24 +91,86 @@ const ReadValue = ({ value, multiline = false }) => {
   );
 };
 
-const SummaryItem = ({ label, value }) => {
+const SummaryItem = ({ label, value, multiline = false, className = "" }) => {
   const normalized = typeof value === "string" ? value.trim() : value;
   return (
-    <div className="rounded-xl border border-slate-200/80 bg-white px-4 py-3 dark:border-slate-700/80 dark:bg-slate-800">
-      <div className="text-xs font-medium uppercase tracking-[0.12em] text-gray-400 dark:text-gray-500">
+    <div
+      className={cn(
+        "border-b border-slate-200/70 pb-4 dark:border-slate-800/90",
+        multiline ? "min-h-[96px]" : "min-h-[72px]",
+        className
+      )}
+    >
+      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
         {label}
       </div>
-      <div className="mt-1 text-sm text-gray-800 dark:text-gray-200">{normalized || EMPTY_VALUE}</div>
+      <div
+        className={cn(
+          "mt-2 text-[15px] text-gray-800 dark:text-gray-200",
+          multiline ? "whitespace-pre-line break-words" : "break-words"
+        )}
+      >
+        {normalized || EMPTY_VALUE}
+      </div>
     </div>
   );
 };
 
-const StepItem = ({ index, currentStep, title }) => {
+const ClientLogoBadge = ({
+  logoUrl,
+  companyName,
+  logoFailed,
+  onLogoError,
+  className = "h-14 w-14 rounded-2xl",
+  iconClassName = "h-6 w-6",
+}) => (
+  <div
+    className={cn(
+      "flex items-center justify-center overflow-hidden bg-primary-100 text-primary-600 dark:bg-primary-900/30 dark:text-primary-300",
+      className
+    )}
+  >
+    {logoUrl && !logoFailed ? (
+      <img
+        src={logoUrl}
+        alt={companyName || "Logo del cliente"}
+        className="h-full w-full object-cover"
+        onError={onLogoError}
+      />
+    ) : (
+      <Icon name="FaBuilding" className={iconClassName} />
+    )}
+  </div>
+);
+
+const SummaryLogoItem = ({ logoUrl, companyName, logoFailed, onLogoError }) => (
+  <div className="border-b border-slate-200/70 pb-4 dark:border-slate-800/90 min-h-[72px]">
+    <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
+      Logo
+    </div>
+    <div className="mt-3">
+      <ClientLogoBadge
+        logoUrl={logoUrl}
+        companyName={companyName}
+        logoFailed={logoFailed}
+        onLogoError={onLogoError}
+        className="h-12 w-12 rounded-xl"
+        iconClassName="h-5 w-5"
+      />
+    </div>
+  </div>
+);
+
+const StepItem = ({ index, currentStep, title, onClick }) => {
   const isActive = index === currentStep;
   const isDone = index < currentStep;
 
   return (
-    <div className="flex items-center gap-3">
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex items-center gap-3 rounded-xl px-2 py-1 text-left transition-colors hover:bg-slate-100/70 dark:hover:bg-slate-800/70"
+    >
       <div
         className={cn(
           "flex h-8 w-8 items-center justify-center rounded-full border text-xs font-semibold",
@@ -127,11 +191,11 @@ const StepItem = ({ index, currentStep, title }) => {
       >
         {title}
       </span>
-    </div>
+    </button>
   );
 };
 
-const ClientModal = ({ mode, data, onSubmit, onClose }) => {
+const ClientModal = ({ mode, data, onSubmit, onClose, onSaved }) => {
   const isCreate = mode === MODES.CREATE;
   const isView = mode === MODES.VIEW;
   const isEdit = mode === MODES.EDIT;
@@ -140,14 +204,31 @@ const ClientModal = ({ mode, data, onSubmit, onClose }) => {
   const [formData, setFormData] = useState(() => (isCreate ? normalizeClient({}) : initial));
   const [errors, setErrors] = useState({});
   const [currentStep, setCurrentStep] = useState(0);
+  const [pendingLogoFile, setPendingLogoFile] = useState(null);
+  const [localLogoUrl, setLocalLogoUrl] = useState("");
+  const [removeLogoRequested, setRemoveLogoRequested] = useState(false);
+  const [logoFailed, setLogoFailed] = useState(false);
 
   useEffect(() => {
     setFormData(isCreate ? normalizeClient({}) : initial);
     setErrors({});
     setCurrentStep(0);
+    setPendingLogoFile(null);
+    setLocalLogoUrl("");
+    setRemoveLogoRequested(false);
+    setLogoFailed(false);
   }, [initial, isCreate]);
 
+  useEffect(() => () => {
+    if (localLogoUrl?.startsWith("blob:")) {
+      URL.revokeObjectURL(localLogoUrl);
+    }
+  }, [localLogoUrl]);
+
   const currentMeta = STEPS[currentStep];
+  const headerTitle = isCreate
+    ? formData.companyName?.trim() || currentMeta.title
+    : formData.companyName?.trim() || "Cliente sin nombre";
 
   const tagsPreview = useMemo(
     () =>
@@ -173,12 +254,7 @@ const ClientModal = ({ mode, data, onSubmit, onClose }) => {
     if (errors[name]) setErrors((prev) => ({ ...prev, [name]: null }));
   };
 
-  const validateStep = (step) => {
-    if (isView) {
-      setErrors({});
-      return true;
-    }
-
+  const getStepErrors = (step) => {
     const nextErrors = {};
 
     if (step === 0) {
@@ -191,15 +267,92 @@ const ClientModal = ({ mode, data, onSubmit, onClose }) => {
       if (!formData.contactEmail.trim()) nextErrors.contactEmail = "Email del contacto es requerido";
     }
 
+    return nextErrors;
+  };
+
+  const validateStep = (step) => {
+    if (isView) {
+      setErrors({});
+      return true;
+    }
+
+    const nextErrors = getStepErrors(step);
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
 
+  const validateBeforeSubmit = () => {
+    if (isView) return true;
+
+    for (const step of [0, 1]) {
+      const nextErrors = getStepErrors(step);
+      if (Object.keys(nextErrors).length) {
+        setErrors(nextErrors);
+        setCurrentStep(step);
+        return false;
+      }
+    }
+
+    setErrors({});
+    return true;
+  };
+
+  const currentLogoUrl = removeLogoRequested ? "" : localLogoUrl || formData.logoUrl || "";
+
+  const handleSelectLogo = (file) => {
+    if (!file) return;
+
+    const allowedTypes = ["image/jpeg", "image/png"];
+    if (!allowedTypes.includes(file.type)) {
+      toastError("Archivo no permitido", "Usa JPEG o PNG.", { autoClose: 3000 });
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      toastError("Archivo demasiado grande", "El logo no puede superar 2 MB.", { autoClose: 3000 });
+      return;
+    }
+
+    if (localLogoUrl?.startsWith("blob:")) {
+      URL.revokeObjectURL(localLogoUrl);
+    }
+
+    setPendingLogoFile(file);
+    setLocalLogoUrl(URL.createObjectURL(file));
+    setRemoveLogoRequested(false);
+    setLogoFailed(false);
+  };
+
+  const handleRemoveLogo = () => {
+    if (localLogoUrl?.startsWith("blob:")) {
+      URL.revokeObjectURL(localLogoUrl);
+    }
+    setPendingLogoFile(null);
+    setLocalLogoUrl("");
+    setRemoveLogoRequested(true);
+    setLogoFailed(false);
+  };
+
   const handleSubmit = async () => {
     if (isView) return;
+    if (!validateBeforeSubmit()) return;
 
     try {
-      await onSubmit?.({ ...formData });
+      const persisted = await onSubmit?.({ ...formData });
+      let finalEntity = persisted ?? null;
+      const clientId = data?.id;
+
+      if (isEdit && clientId) {
+        if (removeLogoRequested && formData.logoUrl) {
+          await clientService.deleteLogo(clientId);
+          finalEntity = await clientService.getById(clientId);
+        } else if (pendingLogoFile) {
+          await clientService.uploadLogo(clientId, pendingLogoFile);
+          finalEntity = await clientService.getById(clientId);
+        }
+      }
+
+      await onSaved?.(finalEntity ?? persisted ?? { ...formData });
       toastSuccess(
         "Guardado",
         isCreate ? "Cliente creado correctamente." : "Cliente actualizado correctamente.",
@@ -235,14 +388,21 @@ const ClientModal = ({ mode, data, onSubmit, onClose }) => {
       <div className="flex h-[78vh] min-h-[620px] w-full flex-col rounded-[24px] border border-white/45 bg-slate-100 dark:border-white/10 dark:bg-slate-950">
       <div className="border-b border-slate-200/80 px-8 py-6 dark:border-slate-700/80">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <div className="text-xs font-medium uppercase tracking-[0.14em] text-gray-400 dark:text-gray-500">
-              {isCreate ? "Nuevo cliente" : isEdit ? "Editar cliente" : "Detalle de cliente"}
+          <div className="flex items-center gap-4">
+            <ClientLogoBadge
+              logoUrl={currentLogoUrl}
+              companyName={formData.companyName}
+              logoFailed={logoFailed}
+              onLogoError={() => setLogoFailed(true)}
+            />
+            <div>
+              <div className="text-xs font-medium uppercase tracking-[0.14em] text-gray-400 dark:text-gray-500">
+                {isCreate ? "Nuevo cliente" : isEdit ? "Editar cliente" : "Detalle de cliente"}
+              </div>
+              <h3 className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
+                {headerTitle}
+              </h3>
             </div>
-            <h3 className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
-              {currentMeta.title}
-            </h3>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{currentMeta.description}</p>
           </div>
 
           <div className="flex items-center gap-3">
@@ -251,15 +411,18 @@ const ClientModal = ({ mode, data, onSubmit, onClose }) => {
                 Confidencial
               </span>
             ) : null}
-            <span className="text-sm text-gray-500 dark:text-gray-400">
-              Paso {currentStep + 1} de {STEPS.length}
-            </span>
           </div>
         </div>
 
         <div className="mt-6 flex flex-wrap gap-x-8 gap-y-3">
           {STEPS.map((step, index) => (
-            <StepItem key={step.title} index={index} currentStep={currentStep} title={step.title} />
+            <StepItem
+              key={step.title}
+              index={index}
+              currentStep={currentStep}
+              title={step.title}
+              onClick={() => setCurrentStep(index)}
+            />
           ))}
         </div>
       </div>
@@ -421,76 +584,127 @@ const ClientModal = ({ mode, data, onSubmit, onClose }) => {
         ) : null}
 
         {currentStep === 1 ? (
-          <Section title="Contacto principal" description="Responsable de referencia para la cuenta.">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <Field label="Nombre completo" hint="Obligatorio" error={errors.contactName}>
-                {isView ? (
-                  <ReadValue value={formData.contactName} />
-                ) : (
-                  <input
-                    type="text"
-                    value={formData.contactName}
-                    onChange={(e) => handleChange("contactName", e.target.value)}
-                    className={fieldClass(Boolean(errors.contactName))}
-                  />
-                )}
-              </Field>
+          <div className="space-y-6">
+            {!isView ? (
+              <Section title="Logo / Avatar" description="Imagen representativa del cliente usada en listados y fichas.">
+                <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex items-center gap-4">
+                    <ClientLogoBadge
+                      logoUrl={currentLogoUrl}
+                      companyName={formData.companyName}
+                      logoFailed={logoFailed}
+                      onLogoError={() => setLogoFailed(true)}
+                    />
+                    <div>
+                      <div className="text-sm font-medium text-gray-900 dark:text-white">
+                        {currentLogoUrl ? "Logo cargado" : "Sin logo cargado"}
+                      </div>
+                      <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                        Formatos permitidos: JPEG o PNG. Máximo 2 MB. Los cambios se aplican solo al guardar.
+                      </div>
+                    </div>
+                  </div>
 
-              <Field label="Email" hint="Obligatorio" error={errors.contactEmail}>
-                {isView ? (
-                  <ReadValue value={formData.contactEmail} />
-                ) : (
-                  <input
-                    type="email"
-                    value={formData.contactEmail}
-                    onChange={(e) => handleChange("contactEmail", e.target.value)}
-                    className={fieldClass(Boolean(errors.contactEmail))}
-                  />
-                )}
-              </Field>
+                  {isEdit ? (
+                    <div className="flex flex-wrap gap-3">
+                      <label className="cursor-pointer rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-300 dark:hover:bg-slate-700">
+                        {currentLogoUrl ? "Cambiar logo" : "Cargar logo"}
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png"
+                          className="hidden"
+                          onChange={(e) => {
+                            handleSelectLogo(e.target.files?.[0]);
+                            e.target.value = "";
+                          }}
+                        />
+                      </label>
+                      {(currentLogoUrl || formData.logoUrl) ? (
+                        <button
+                          type="button"
+                          onClick={handleRemoveLogo}
+                          className="rounded-xl border border-red-300 bg-white px-4 py-2.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 dark:border-red-800 dark:bg-slate-800 dark:text-red-300 dark:hover:bg-red-950/30"
+                        >
+                          Quitar logo
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              </Section>
+            ) : null}
 
-              <Field label="Teléfono" hint="Opcional">
-                {isView ? (
-                  <ReadValue value={formData.contactPhone} />
-                ) : (
-                  <input
-                    type="tel"
-                    value={formData.contactPhone}
-                    onChange={(e) => handleChange("contactPhone", e.target.value)}
-                    className={fieldClass()}
-                  />
-                )}
-              </Field>
-
-              <Field label="Cargo" hint="Opcional">
-                {isView ? (
-                  <ReadValue value={formData.contactPosition} />
-                ) : (
-                  <input
-                    type="text"
-                    value={formData.contactPosition}
-                    onChange={(e) => handleChange("contactPosition", e.target.value)}
-                    className={fieldClass()}
-                  />
-                )}
-              </Field>
-
-              <div className="md:col-span-2">
-                <Field label="Área o departamento" hint="Opcional">
+            <Section title="Contacto principal" description="Responsable de referencia para la cuenta.">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <Field label="Nombre completo" hint="Obligatorio" error={errors.contactName}>
                   {isView ? (
-                    <ReadValue value={formData.contactDepartment} />
+                    <ReadValue value={formData.contactName} />
                   ) : (
                     <input
                       type="text"
-                      value={formData.contactDepartment}
-                      onChange={(e) => handleChange("contactDepartment", e.target.value)}
+                      value={formData.contactName}
+                      onChange={(e) => handleChange("contactName", e.target.value)}
+                      className={fieldClass(Boolean(errors.contactName))}
+                    />
+                  )}
+                </Field>
+
+                <Field label="Email" hint="Obligatorio" error={errors.contactEmail}>
+                  {isView ? (
+                    <ReadValue value={formData.contactEmail} />
+                  ) : (
+                    <input
+                      type="email"
+                      value={formData.contactEmail}
+                      onChange={(e) => handleChange("contactEmail", e.target.value)}
+                      className={fieldClass(Boolean(errors.contactEmail))}
+                    />
+                  )}
+                </Field>
+
+                <Field label="Teléfono" hint="Opcional">
+                  {isView ? (
+                    <ReadValue value={formData.contactPhone} />
+                  ) : (
+                    <input
+                      type="tel"
+                      value={formData.contactPhone}
+                      onChange={(e) => handleChange("contactPhone", e.target.value)}
                       className={fieldClass()}
                     />
                   )}
                 </Field>
+
+                <Field label="Cargo" hint="Opcional">
+                  {isView ? (
+                    <ReadValue value={formData.contactPosition} />
+                  ) : (
+                    <input
+                      type="text"
+                      value={formData.contactPosition}
+                      onChange={(e) => handleChange("contactPosition", e.target.value)}
+                      className={fieldClass()}
+                    />
+                  )}
+                </Field>
+
+                <div className="md:col-span-2">
+                  <Field label="Área o departamento" hint="Opcional">
+                    {isView ? (
+                      <ReadValue value={formData.contactDepartment} />
+                    ) : (
+                      <input
+                        type="text"
+                        value={formData.contactDepartment}
+                        onChange={(e) => handleChange("contactDepartment", e.target.value)}
+                        className={fieldClass()}
+                      />
+                    )}
+                  </Field>
+                </div>
               </div>
-            </div>
-          </Section>
+            </Section>
+          </div>
         ) : null}
 
         {currentStep === 2 ? (
@@ -555,8 +769,14 @@ const ClientModal = ({ mode, data, onSubmit, onClose }) => {
         {currentStep === 3 ? (
           <div className="space-y-6">
             <Section title="Resumen" description="Verifique los datos antes de confirmar.">
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <div className="grid grid-cols-1 gap-x-8 gap-y-5 lg:grid-cols-2">
                 <SummaryItem label="Nombre comercial" value={formData.companyName} />
+                <SummaryLogoItem
+                  logoUrl={currentLogoUrl}
+                  companyName={formData.companyName}
+                  logoFailed={logoFailed}
+                  onLogoError={() => setLogoFailed(true)}
+                />
                 <SummaryItem label="Industria" value={formData.industry} />
                 <SummaryItem label="Razón social" value={formData.companyLegalName} />
                 <SummaryItem label="Email corporativo" value={formData.companyEmail} />
@@ -574,9 +794,9 @@ const ClientModal = ({ mode, data, onSubmit, onClose }) => {
 
             <Section title="Notas y etiquetas" description="Información interna adicional.">
               <div className="space-y-4">
-                <SummaryItem label="Notas" value={formData.notes} />
-                <div>
-                  <div className="mb-2 text-xs font-medium uppercase tracking-[0.12em] text-gray-400 dark:text-gray-500">
+                <SummaryItem label="Notas" value={formData.notes} multiline />
+                <div className="border-b border-slate-200/70 pb-4 dark:border-slate-800/90">
+                  <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
                     Etiquetas
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -584,12 +804,12 @@ const ClientModal = ({ mode, data, onSubmit, onClose }) => {
                       ? tagsPreview.map((tag) => (
                           <span
                             key={tag}
-                            className="rounded-full border border-gray-300 px-3 py-1 text-xs text-gray-700 dark:border-slate-700 dark:text-gray-300"
+                            className="rounded-full border border-slate-300/80 px-3 py-1 text-xs font-medium text-slate-700 dark:border-slate-700 dark:text-slate-300"
                           >
                             {tag}
                           </span>
                         ))
-                      : EMPTY_VALUE}
+                      : <div className="text-sm text-gray-800 dark:text-gray-200">{EMPTY_VALUE}</div>}
                   </div>
                 </div>
               </div>

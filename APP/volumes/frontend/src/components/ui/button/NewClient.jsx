@@ -45,29 +45,14 @@ const NewClient = ({ onCreated }) => {
         <ClientModal
           mode={CLIENT_MODAL_MODES.CREATE}
           onSubmit={async (formData) => {
+            const payload = toApiPayload(formData);
+            return await clientService.create(payload);
+          }}
+          onSaved={async (created) => {
             try {
-              const payload = toApiPayload(formData);
-              const created = await clientService.create(payload);
-
-              // ✅ gatilla actualización SIEMPRE (sin depender del onClose)
-              try {
-                await onCreated?.(created);
-              } catch (e) {
-                clientLog.error('[NewClient] Error ejecutando onCreated:', e);
-              }
-
-              ModalManager.success({
-                title: 'Cliente Creado',
-                message: 'El cliente ha sido creado exitosamente.',
-                onClose: () => ModalManager.closeAll(),
-              });
-
-            } catch (err) {
-              clientLog.error('[NewClient] Error creando cliente:', err);
-              ModalManager.error?.({
-                title: 'Error',
-                message: 'No se pudo crear el cliente. Intenta de nuevo.'
-              });
+              await onCreated?.(created);
+            } catch (e) {
+              clientLog.error('[NewClient] Error ejecutando onCreated:', e);
             }
           }}
           onClose={() => {}}
