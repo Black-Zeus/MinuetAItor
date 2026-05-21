@@ -1,0 +1,64 @@
+Reunión avance plataforma MinuetAItor
+jue, 21 may 2026
+
+Resumen:
+
+La reunión se centró en revisar el estado del entorno de desarrollo de MinuetAItor, el avance del recableado de la integración de IA y las validaciones pendientes antes de pasar una nueva ronda de pruebas en calidad.
+
+El equipo confirmó que el flujo de minutas ya consume la configuración activa de IA desde la persistencia interna y que se eliminaron dependencias obsoletas desde `.env` para modelo, endpoint y timeout, manteniendo únicamente el prompt del sistema. También se señaló que el helper antiguo que llamaba directo a OpenAI fue eliminado para reducir riesgo de rutas paralelas.
+
+Desde QA se reportó que el flujo principal de generación de minuta en desarrollo funciona correctamente, pero todavía falta cubrir escenarios de error, especialmente cuando la integración activa de IA está incompleta o inválida. Se acordó preparar casos esperados y evidencia para cerrar esa validación.
+
+En infraestructura se informó que MinIO quedó persistido en volumen Docker y que los servicios ya están alineados con la zona horaria de Santiago en desarrollo. Además, se indicó que QA y producción ya tienen los cambios de compose preparados, aunque aún falta la ejecución operativa en esos entornos.
+
+
+Capítulos y Temas:
+
+Estado general del avance
+Se abrió la reunión con una revisión del estado actual de la plataforma y del objetivo inmediato: confirmar estabilidad en desarrollo antes de avanzar a la siguiente ronda de pruebas.
+* El objetivo principal fue validar el avance funcional y operativo del entorno de desarrollo.
+
+Recableado de la integración de IA
+Se confirmó que la plataforma ya usa la configuración persistida de la integración activa de IA y que se eliminaron dependencias viejas ligadas a variables de entorno y helpers heredados.
+* El worker ya no depende del `.env` para modelo, endpoint ni timeout.
+* Se mantiene únicamente el `OPENAI_SYSTEM_PROMPT` como configuración de entorno para el prompt base.
+* Se eliminó el helper legado que llamaba directamente a OpenAI.
+
+Validación funcional en QA
+QA informó que la generación de minutas en desarrollo funciona en el escenario normal, pero recomendó ampliar la cobertura hacia casos de error controlado para evitar jobs colgados o mensajes poco claros.
+* Falta validar el comportamiento cuando la integración de IA está incompleta o inválida.
+* Se pidió dejar casos esperados para ejecutar una tanda de pruebas con evidencia.
+
+Infraestructura y persistencia
+Se revisó el avance de infraestructura asociado a MinIO y a la estandarización horaria de los contenedores en desarrollo.
+* MinIO quedó persistido en volumen Docker en vez de carpeta montada.
+* Los logs de los servicios en desarrollo ya usan la hora de Santiago.
+* QA y producción tienen los cambios preparados, pero aún no ejecutados.
+
+Documentación y material de prueba
+Se acordó reforzar la documentación de mapeo de archivos compose por entorno y generar material ficticio de transcripción para pruebas funcionales sin exponer información real.
+* Se remarcó documentar con claridad qué compose corresponde a desarrollo, calidad y producción.
+* Se propuso usar reuniones ficticias cortas para alimentar el flujo de transcripción y resumen.
+
+Cierre y próximos pasos
+El equipo cerró alineando el trabajo de backend, QA e infraestructura para completar evidencia en desarrollo y preparar el traspaso ordenado a calidad.
+
+
+Puntos de Acción:
+
+* Diego Paredes: Documentar escenarios de falla esperados para integraciones IA inválidas o incompletas
+* Camila Torres: Ejecutar la tanda de pruebas funcionales y de error en desarrollo y registrar evidencia
+* Martín Silva: Dejar checklist operativo para recrear MinIO en QA cuando se autorice
+* Paula Rojas: Preparar material ficticio de reunión para pruebas de transcripción y resumen
+
+
+Preguntas clave:
+
+* ¿Cómo responde el sistema cuando la integración activa de IA no tiene token o está incompleta?
+* ¿Cuándo se ejecutarán en QA y producción los cambios ya preparados de persistencia para MinIO?
+* ¿Qué evidencia mínima necesita QA para cerrar la validación en desarrollo?
+
+
+Bloc de notas:
+
+* No hay notas
