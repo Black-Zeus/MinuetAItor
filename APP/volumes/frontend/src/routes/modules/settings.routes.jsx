@@ -6,6 +6,7 @@ import { lazy } from "react";
 
 const TagsPage         = lazy(() => import("@/pages/tags/Tags"));
 const ProfilesCatalog  = lazy(() => import("@/pages/profiles/ProfilesCatalog"));
+const OrganizationSettings = lazy(() => import("@/pages/system/OrganizationSettings"));
 const UserProfile      = lazy(() => import("@/pages/userProfile/UserProfile"));
 const SystemSettings   = lazy(() => import("@/pages/system/SystemSettings"));
 const UnderConstruction = lazy(() =>
@@ -27,6 +28,14 @@ export const settingsRoutes = [
     title: "Catálogo de Perfiles",
     requiresAuth: true,
     roles: [],
+    permissions: [],
+  },
+  {
+    path: "/settings/organization",
+    component: OrganizationSettings,
+    title: "Organización",
+    requiresAuth: true,
+    roles: ["admin"],
     permissions: [],
   },
   {
