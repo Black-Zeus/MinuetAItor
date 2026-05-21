@@ -1,9 +1,12 @@
 # AGENTS.md
 
 ## Ambito
-Este archivo aplica a `APP/data/settings/mariadb/init`.
+Este archivo aplica a `APP/data/settings/mariadb` y, en particular, al bootstrap SQL ubicado en `APP/data/settings/mariadb/init`.
 
-Aqui vive el bootstrap SQL y la evolucion manual del esquema MariaDB/MySQL. No hay framework de migraciones visible en el repo.
+Aqui vive la configuracion SQL manual de MariaDB/MySQL. El bootstrap y la evolucion del esquema viven en `APP/data/settings/mariadb/init`. No hay framework de migraciones visible en el repo.
+
+Nota operativa:
+- `AGENTS.md` se mantiene en `APP/data/settings/mariadb` y no dentro de `init/` para evitar que el contenedor de MariaDB lo monte en `/docker-entrypoint-initdb.d` y lo reporte como archivo ignorado durante el bootstrap.
 
 ## Orden observado
 - `20260517_1810_schema_core.sql`
