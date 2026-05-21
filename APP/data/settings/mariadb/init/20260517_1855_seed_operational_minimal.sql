@@ -20,13 +20,15 @@
 -- USUARIO ADMINISTRADOR (1)
 -- ============================================================
 
+SET @bootstrap_admin_default_id := 'c168b91d-e16f-468c-afd1-547efd2c486b';
+
 INSERT IGNORE INTO users (
   id, username, email, password_hash, full_name, job_title,
   description, phone, area, is_active, last_login_at, 
   created_at, updated_at
 ) VALUES
 (
-  'c168b91d-e16f-468c-afd1-547efd2c486b',
+  @bootstrap_admin_default_id,
   'admin',
   'admin@minuetaitor.local',
   '$2b$12$mLiqAf2M.LBJ2Zl/GQ4H/OdpIHQXCc3R6XSgZTNxvMcKoVoZIuzi.',
@@ -41,24 +43,43 @@ INSERT IGNORE INTO users (
   NOW()
 );
 
+SET @bootstrap_admin_user_id := (
+  SELECT u.id
+  FROM users u
+  WHERE u.username = 'admin' OR u.email = 'admin@minuetaitor.local'
+  ORDER BY CASE WHEN u.username = 'admin' THEN 0 ELSE 1 END, u.created_at ASC, u.id ASC
+  LIMIT 1
+);
+
+UPDATE users
+SET
+  is_active = 1,
+  deleted_at = NULL,
+  deleted_by = NULL
+WHERE id = @bootstrap_admin_user_id;
+
 -- Asignar rol ADMIN al usuario
-INSERT IGNORE INTO user_roles (user_id, role_id, created_at, created_by)
+INSERT INTO user_roles (user_id, role_id, created_at, created_by)
 SELECT 
-  'c168b91d-e16f-468c-afd1-547efd2c486b',
+  @bootstrap_admin_user_id,
   id,
   NOW(),
-  'c168b91d-e16f-468c-afd1-547efd2c486b'
+  @bootstrap_admin_user_id
 FROM roles 
-WHERE code = 'ADMIN';
+WHERE code = 'ADMIN'
+ON DUPLICATE KEY UPDATE
+  deleted_at = NULL,
+  deleted_by = NULL,
+  created_by = @bootstrap_admin_user_id;
 
 -- Crear perfil base del usuario
 INSERT IGNORE INTO user_profiles (user_id, initials, color, position)
-VALUES (
-  'c168b91d-e16f-468c-afd1-547efd2c486b',
+SELECT
+  @bootstrap_admin_user_id,
   'AD',
   '#6366f1',
   'Administrador'
-);
+WHERE @bootstrap_admin_user_id IS NOT NULL;
 
 -- ============================================================
 -- CLIENTES DE PRUEBA (3)
@@ -81,8 +102,8 @@ INSERT IGNORE INTO clients (
   'fcontreras@santaaurora.cl',
   'Gerente de TI',
   'activo', 'alta', 0, 1,
-  NOW(), 'c168b91d-e16f-468c-afd1-547efd2c486b',
-  NOW(), 'c168b91d-e16f-468c-afd1-547efd2c486b'
+  NOW(), @bootstrap_admin_user_id,
+  NOW(), @bootstrap_admin_user_id
 ),
 (
   'c1000000-0000-4000-a000-000000000002',
@@ -95,8 +116,8 @@ INSERT IGNORE INTO clients (
   'rvalenzuela@delvalle.cl',
   'Jefa de Proyectos',
   'activo', 'media', 0, 1,
-  NOW(), 'c168b91d-e16f-468c-afd1-547efd2c486b',
-  NOW(), 'c168b91d-e16f-468c-afd1-547efd2c486b'
+  NOW(), @bootstrap_admin_user_id,
+  NOW(), @bootstrap_admin_user_id
 ),
 (
   'c1000000-0000-4000-a000-000000000003',
@@ -109,8 +130,8 @@ INSERT IGNORE INTO clients (
   'amatus@retailpacifico.cl',
   'Directora de Operaciones',
   'activo', 'media', 0, 1,
-  NOW(), 'c168b91d-e16f-468c-afd1-547efd2c486b',
-  NOW(), 'c168b91d-e16f-468c-afd1-547efd2c486b'
+  NOW(), @bootstrap_admin_user_id,
+  NOW(), @bootstrap_admin_user_id
 );
 
 -- ============================================================
@@ -129,8 +150,8 @@ INSERT IGNORE INTO projects (
   'CSA-HIS-2026',
   'Implementación del sistema de información hospitalaria (HIS). Módulos: admisiones, urgencias y pabellón.',
   'activo', 0, 1,
-  NOW(), 'c168b91d-e16f-468c-afd1-547efd2c486b',
-  NOW(), 'c168b91d-e16f-468c-afd1-547efd2c486b'
+  NOW(), @bootstrap_admin_user_id,
+  NOW(), @bootstrap_admin_user_id
 ),
 (
   'p1000000-0000-4000-a000-000000000002',
@@ -139,8 +160,8 @@ INSERT IGNORE INTO projects (
   'CSA-SEC-2026',
   'Auditoría de seguridad y plan de remediación para cumplimiento normativa MINSAL.',
   'activo', 1, 1,
-  NOW(), 'c168b91d-e16f-468c-afd1-547efd2c486b',
-  NOW(), 'c168b91d-e16f-468c-afd1-547efd2c486b'
+  NOW(), @bootstrap_admin_user_id,
+  NOW(), @bootstrap_admin_user_id
 ),
 -- Constructora Del Valle → 2 proyectos
 (
@@ -150,8 +171,8 @@ INSERT IGNORE INTO projects (
   'CDV-DIG-2026',
   'Plataforma móvil para control de avance de obra, reportes y firma digital de documentos en terreno.',
   'activo', 0, 1,
-  NOW(), 'c168b91d-e16f-468c-afd1-547efd2c486b',
-  NOW(), 'c168b91d-e16f-468c-afd1-547efd2c486b'
+  NOW(), @bootstrap_admin_user_id,
+  NOW(), @bootstrap_admin_user_id
 ),
 (
   'p1000000-0000-4000-a000-000000000004',
@@ -160,8 +181,8 @@ INSERT IGNORE INTO projects (
   'CDV-ERP-2025',
   'Migración e integración del ERP corporativo con módulo de proveedores y facturación electrónica.',
   'en_pausa', 0, 1,
-  NOW(), 'c168b91d-e16f-468c-afd1-547efd2c486b',
-  NOW(), 'c168b91d-e16f-468c-afd1-547efd2c486b'
+  NOW(), @bootstrap_admin_user_id,
+  NOW(), @bootstrap_admin_user_id
 ),
 -- Retail Pacífico → 1 proyecto
 (
@@ -171,8 +192,8 @@ INSERT IGNORE INTO projects (
   'RPC-OMN-2026',
   'Integración de canales online y tiendas físicas: inventario unificado, click & collect y CRM.',
   'activo', 0, 1,
-  NOW(), 'c168b91d-e16f-468c-afd1-547efd2c486b',
-  NOW(), 'c168b91d-e16f-468c-afd1-547efd2c486b'
+  NOW(), @bootstrap_admin_user_id,
+  NOW(), @bootstrap_admin_user_id
 );
 
 -- ============================================================
