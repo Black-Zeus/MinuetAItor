@@ -1,11 +1,12 @@
 # models/objects.py
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 
 from sqlalchemy import BigInteger, DateTime, ForeignKey, SmallInteger, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from core.datetime_utils import utc_now_db
 from db.base import Base
 
 
@@ -58,7 +59,7 @@ class Object(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         nullable=False,
-        default=lambda: datetime.now(timezone.utc),
+        default=utc_now_db,
         server_default=func.now(),
     )
     created_by: Mapped[str | None] = mapped_column(

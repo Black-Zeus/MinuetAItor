@@ -8,6 +8,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
+from core.datetime_utils import utc_now_db
 from models.ai_profiles import AiProfile
 from schemas.ai_profiles import (
     AiProfileCreateRequest,
@@ -189,7 +190,7 @@ def change_ai_profile_status(db: Session, profile_id: str, is_active: bool, upda
 def delete_ai_profile(db: Session, profile_id: str, deleted_by_id: str) -> None:
     obj = _get_or_404(db, profile_id)
 
-    obj.deleted_at = datetime.utcnow()
+    obj.deleted_at = utc_now_db()
     obj.deleted_by = str(deleted_by_id) if deleted_by_id else None
     obj.is_active = False
     obj.updated_by = str(deleted_by_id) if deleted_by_id else None

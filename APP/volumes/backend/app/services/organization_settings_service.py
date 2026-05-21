@@ -7,6 +7,7 @@ from sqlalchemy import inspect
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session, joinedload
 
+from core.datetime_utils import utc_now_db
 from core.exceptions import BadRequestException
 from models.organization_settings import OrganizationSetting
 from schemas.organization_settings import OrganizationSettingsRequest
@@ -73,7 +74,7 @@ EXPECTED_ORGANIZATION_SETTINGS_COLUMNS = {
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return utc_now_db()
 
 
 def _iso(value: datetime | None) -> str | None:

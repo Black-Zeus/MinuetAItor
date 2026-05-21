@@ -1,7 +1,7 @@
 # db/base.py
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy import Column, Integer, DateTime
-from datetime import datetime, timezone
+from core.datetime_utils import utc_now_db
 
 
 class Base(DeclarativeBase):
@@ -9,6 +9,12 @@ class Base(DeclarativeBase):
 
 
 class TimestampMixin:
-    """Mixin reutilizable para auditoría de fechas."""
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+    """
+    Mixin reutilizable para auditoría de fechas.
+
+    Convención:
+    - Persistencia BD: UTC naive
+    - Presentación/logs operativos: hora local Santiago
+    """
+    created_at = Column(DateTime, default=utc_now_db, nullable=False)
+    updated_at = Column(DateTime, default=utc_now_db, onupdate=utc_now_db, nullable=False)

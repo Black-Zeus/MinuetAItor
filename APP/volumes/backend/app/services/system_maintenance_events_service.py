@@ -7,6 +7,7 @@ import time
 from datetime import datetime, timezone
 from typing import AsyncGenerator
 
+from core.datetime_utils import utc_now
 from db.redis import get_redis
 from schemas.auth import UserSession
 
@@ -57,7 +58,7 @@ async def publish_maintenance_event(
         "scheduled_slot": scheduled_slot,
         "actor_user_id": actor_user_id,
         "affected_count": affected_count,
-        "ts": datetime.now(timezone.utc).isoformat(),
+        "ts": utc_now().isoformat(),
         "metadata": metadata or {},
     }
     await redis.publish(get_maintenance_events_channel(), json.dumps(payload))

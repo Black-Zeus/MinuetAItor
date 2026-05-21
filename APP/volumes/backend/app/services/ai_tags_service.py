@@ -1,11 +1,11 @@
 # services/ai_tags_service.py
 import uuid
-from datetime import datetime
 
 from fastapi import HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from core.datetime_utils import utc_now_db
 from models.ai_tags import AITag
 from schemas.ai_tags import AITagCreateRequest, AITagFilterRequest, AITagUpdateRequest
 
@@ -76,7 +76,7 @@ def create_ai_tag(db: Session, body: AITagCreateRequest) -> dict:
         slug=body.slug,
         description=body.description,
         is_active=bool(body.is_active),
-        created_at=datetime.utcnow(),
+        created_at=utc_now_db(),
     )
 
     db.add(obj)

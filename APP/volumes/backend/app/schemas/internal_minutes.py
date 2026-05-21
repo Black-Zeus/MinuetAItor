@@ -1,13 +1,37 @@
 # schemas/internal_minutes.py
 """
-Schemas del endpoint interno POST /internal/v1/minutes/commit
+Schemas de endpoints internos del pipeline de minutas.
 
 Consumido exclusivamente por el worker. No forma parte de la API pública.
 """
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 from pydantic import BaseModel, Field
+
+
+class ActiveAIProviderConfigResponse(BaseModel):
+    """
+    Configuración runtime de la integración AI activa.
+
+    Consumida por el worker vía API interna para resolver el proveedor/modelo
+    efectivo sin leer secretos desde .env.
+    """
+    id: str
+    name: str
+    provider_type: str = Field(..., description="Tipo de proveedor activo, ej: openai")
+    provider_family: str = Field(..., description="Familia/protocolo del proveedor")
+    base_url: str = Field(..., description="Base URL efectiva para el cliente del worker")
+    model_name: str = Field(..., description="Modelo configurado para procesamiento")
+    auth_type: str = Field(..., description="Modo de autenticación configurado")
+    token: str | None = Field(None, description="Token/API key desenmascarado para uso interno")
+    username: str | None = None
+    password: str | None = None
+    custom_headers: dict[str, str] | None = Field(None, description="Headers personalizados efectivos")
+    timeout_seconds: int = Field(..., ge=1, description="Timeout efectivo para llamadas al proveedor")
+    validation_status: str = Field(..., description="Estado de validación de la configuración activa")
+
+    model_config = {"populate_by_name": True}
 
 
 class MinuteCommitRequest(BaseModel):
@@ -31,8 +55,8 @@ class MinuteCommitRequest(BaseModel):
     record_id: str = Field(..., description="ID del Record asociado")
     requested_by_id: str = Field(..., description="ID del usuario que solicitó la generación")
 
-    # Output de OpenAI
-    ai_output: dict[str, Any] = Field(..., description="JSON estructurado retornado por OpenAI")
+    # Output de IA
+    ai_output: dict[str, Any] = Field(..., description="JSON estructurado retornado por el proveedor IA")
     ai_input_schema: dict[str, Any] = Field(
         default_factory=dict,
         description="Schema de entrada usado para generar la minuta",
@@ -41,6 +65,8 @@ class MinuteCommitRequest(BaseModel):
         default_factory=dict,
         description="Campos derivados determinísticamente por el worker a partir del input/adjuntos",
     )
+    ai_provider: str = Field(..., description="Proveedor IA efectivo usado por el worker")
+    ai_model: str = Field(..., description="Modelo IA efectivo usado por el worker")
     openai_run_id: str = Field(..., description="ID del run de OpenAI (chatcmpl-xxx)")
     tokens_input: int = Field(..., ge=0, description="Tokens consumidos en el prompt")
     tokens_output: int = Field(..., ge=0, description="Tokens generados en la respuesta")
@@ -69,6 +95,39 @@ class MinuteCommitResponse(BaseModel):
     version_id: str
     transaction_id: str
     message: str = "TX2 completada exitosamente"
+
+    model_config = {"populate_by_name": True}
+
+
+class MinuteFailRequest(BaseModel):
+    """
+    Payload que envía el worker al backend cuando detecta un fallo terminal
+    que no debe reintentarse.
+    """
+    transaction_id: str = Field(..., description="ID de MinuteTransaction (TX1)")
+    record_id: str = Field(..., description="ID del Record asociado")
+    requested_by_id: str = Field(..., description="ID del usuario que solicitó la generación")
+    error_message: str = Field(..., min_length=1, description="Mensaje de error que explica el fallo terminal")
+    record_status: Literal["llm-failed", "processing-error"] = Field(
+        "processing-error",
+        description="Estado funcional final que debe reflejar el record",
+    )
+    source: str = Field("worker", description="Origen del reporte de fallo")
+    openai_run_id: str | None = Field(None, description="Run ID asociado si existe")
+
+    model_config = {"populate_by_name": True}
+
+
+class MinuteFailResponse(BaseModel):
+    """
+    Confirmación del backend tras marcar una minuta como fallida.
+    """
+    ok: bool = True
+    record_id: str
+    transaction_id: str
+    tx_status: str = "failed"
+    record_status: str
+    message: str = "Fallo terminal registrado"
 
     model_config = {"populate_by_name": True}
 

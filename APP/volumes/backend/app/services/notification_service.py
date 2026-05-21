@@ -12,6 +12,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session, joinedload
 
+from core.datetime_utils import utc_now
 from db.minio_client import get_minio_client
 from db.redis import get_redis
 from models.ai_profiles import AiProfile
@@ -52,7 +53,7 @@ class PasswordResetTokenData:
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return utc_now()
 
 
 def _env(name: str, default: str) -> str:
@@ -119,6 +120,14 @@ def _format_record_datetime(record: Record | None) -> str:
     if len(pieces) == 2:
         return f"{pieces[0]} {pieces[1]}"
     return pieces[0]
+
+
+def _format_ai_engine(provider_type: str | None, model_name: str | None) -> str:
+    provider = str(provider_type or "").strip()
+    model = str(model_name or "").strip()
+    if provider and model:
+        return f"{provider} · {model}"
+    return model or provider or "AI"
 
 
 def _human_size(num_bytes: int | None) -> str:
@@ -635,6 +644,7 @@ async def enqueue_ai_processed_ready_email(
     *,
     ai_output: dict[str, Any] | None = None,
     actor_user: User | None = None,
+    ai_engine: str | None = None,
 ) -> bool:
     record = _record_with_relations(db, record_id)
     if not record:
@@ -644,6 +654,11 @@ async def enqueue_ai_processed_ready_email(
     recipients = _recipient_emails_for_version(record, None)
     prepared_by = _user_display_name(record.prepared_by_user)
     profile = getattr(record, "ai_profile", None)
+    version = _record_version_with_participants(db, record.active_version_id)
+    resolved_ai_engine = (
+        str(ai_engine or "").strip()
+        or _format_ai_engine(getattr(version, "ai_provider", None), getattr(version, "ai_model", None))
+    )
 
     context = {
         "MEETING_TITLE": record.title,
@@ -656,7 +671,7 @@ async def enqueue_ai_processed_ready_email(
         "AI_PROFILE_NAME": getattr(profile, "name", "-"),
         "AI_PROFILE_CATEGORY": getattr(getattr(profile, "category", None), "name", "Sin categoria"),
         "AI_PROCESSED_AT": _format_dt(_utcnow()),
-        "AI_ENGINE": _env("OPENAI_MODEL", "gpt-4o"),
+        "AI_ENGINE": resolved_ai_engine,
         "AI_CONFIDENCE": _env("MINUTE_AI_CONFIDENCE_DEFAULT", "90"),
         "AI_LATENCY_MS": _env("MINUTE_AI_LATENCY_DEFAULT_MS", "0"),
         "AI_RUN_ID": str(getattr(ai_output or {}, "get", lambda *_: None)("run_id") or getattr(record, "id", "-")),

@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any
 
 from fastapi import HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
+from core.datetime_utils import utc_now_db
 from models.record_version_tags import RecordVersionTag
 
 
@@ -119,7 +119,7 @@ def touch_record_version_tag(
     """
     obj = _get_or_404(db, record_version_id, tag_id)
 
-    obj.added_at = datetime.utcnow()
+    obj.added_at = utc_now_db()
     obj.added_by = updated_by_id
 
     db.add(obj)

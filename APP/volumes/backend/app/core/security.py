@@ -6,6 +6,7 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 
 from core.config import settings
+from core.datetime_utils import utc_now
 from core.exceptions import UnauthorizedException
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -22,7 +23,7 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 # ── JWT ───────────────────────────────────────────────
 def create_access_token(subject: Any, expires_delta: timedelta | None = None, extra: dict = {}) -> str:
-    expire = datetime.now(timezone.utc) + (
+    expire = utc_now() + (
         expires_delta or timedelta(minutes=settings.jwt_expire_minutes)
     )
     payload = {"sub": str(subject), "exp": expire, **extra}

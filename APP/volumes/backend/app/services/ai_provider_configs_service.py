@@ -21,6 +21,7 @@ from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session, joinedload
 
 from core.config import settings
+from core.datetime_utils import utc_now, utc_now_db
 from core.exceptions import BadRequestException, ConflictException
 from models.ai_provider_configs import AiProviderConfig
 from schemas.ai_provider_configs import (
@@ -60,7 +61,7 @@ TECHNICAL_FIELDS = {
 }
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return utc_now()
 
 
 def _is_missing_table_error(exc: Exception) -> bool:
@@ -164,6 +165,25 @@ def _build_response_dict(obj: AiProviderConfig) -> dict[str, Any]:
         "created_by": _user_ref(obj.created_by_user),
         "updated_by": _user_ref(obj.updated_by_user),
         "last_validated_by": _user_ref(obj.last_validated_by_user),
+    }
+
+
+def _build_runtime_response_dict(obj: AiProviderConfig) -> dict[str, Any]:
+    values = _config_values_from_obj(obj)
+    return {
+        "id": str(obj.id),
+        "name": obj.name,
+        "provider_type": obj.provider_type,
+        "provider_family": _provider_family(obj.provider_type),
+        "base_url": obj.base_url,
+        "model_name": obj.model_name,
+        "auth_type": obj.auth_type,
+        "token": read_secret(values.get("token_secret")),
+        "username": obj.username,
+        "password": read_secret(values.get("password_secret")),
+        "custom_headers": _parse_custom_headers(obj.custom_headers_json),
+        "timeout_seconds": int(obj.timeout_seconds),
+        "validation_status": obj.validation_status,
     }
 
 
@@ -486,7 +506,7 @@ def _mark_validation_result(
     validated_by_id: str,
 ) -> dict[str, Any]:
     obj.validation_status = status
-    obj.last_validated_at = _utcnow()
+    obj.last_validated_at = utc_now_db()
     obj.last_validated_by = validated_by_id
     obj.last_error = None if status == "valid" else message
     obj.updated_by = validated_by_id
@@ -775,6 +795,27 @@ def get_ai_provider_config(db: Session, config_id: str) -> dict[str, Any]:
     return _build_response_dict(_get_or_404(db, config_id))
 
 
+def get_active_ai_provider_runtime_config(db: Session) -> dict[str, Any]:
+    _require_ai_schema(db)
+    obj = (
+        db.query(AiProviderConfig)
+        .filter(AiProviderConfig.deleted_at.is_(None), AiProviderConfig.is_active.is_(True))
+        .order_by(AiProviderConfig.updated_at.desc(), AiProviderConfig.created_at.desc())
+        .first()
+    )
+    if not obj:
+        raise BadRequestException(
+            "No existe una configuración AI activa. Activa una integración válida en Sistema > Integraciones > IA."
+        )
+    if str(obj.validation_status or "").strip() != "valid":
+        raise BadRequestException(
+            "La configuración AI activa no está validada. Valídala antes de procesar minutas."
+        )
+    if not str(obj.model_name or "").strip():
+        raise BadRequestException("La configuración AI activa no tiene modelo configurado.")
+    return _build_runtime_response_dict(obj)
+
+
 def list_ai_provider_catalog() -> list[dict[str, Any]]:
     try:
         catalog_items = get_ai_provider_catalog()
@@ -865,7 +906,7 @@ def create_ai_provider_config(db: Session, body: AIProviderConfigCreateRequest, 
     values = _merge_effective_values(payload, existing=None)
     _verify_validation_token(body.validation_token, values)
     _check_unique_name(db, values["name"])
-    validated_at = _utcnow()
+    validated_at = utc_now_db()
 
     with _optional_active_config_lock(db, bool(values["is_active"])):
         if values["is_active"]:
@@ -912,7 +953,7 @@ def update_ai_provider_config(
     values = _merge_effective_values(payload, existing=obj)
     _verify_validation_token(body.validation_token, values)
     _check_unique_name(db, values["name"], exclude_id=obj.id)
-    validated_at = _utcnow()
+    validated_at = utc_now_db()
     should_lock_active_scope = bool(values["is_active"]) or bool(obj.is_active)
 
     with _optional_active_config_lock(db, should_lock_active_scope):
@@ -1056,7 +1097,7 @@ def delete_ai_provider_config(db: Session, config_id: str, deleted_by_id: str) -
     obj = _get_or_404(db, config_id)
 
     with _active_config_lock(db):
-        obj.deleted_at = _utcnow()
+        obj.deleted_at = utc_now_db()
         obj.deleted_by = deleted_by_id
         obj.updated_by = deleted_by_id
         obj.is_active = False

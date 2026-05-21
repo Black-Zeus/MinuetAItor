@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
+from core.datetime_utils import utc_now
 from db.redis import get_redis
 from services.system_queue_catalog import QUEUE_DEFINITIONS
 from services.system_maintenance_service import get_system_maintenance_singleton
@@ -13,7 +14,7 @@ QUEUE_ACTIVITY_HASH = "system:queue:last_activity"
 
 
 def _utcnow_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return utc_now().isoformat()
 
 
 def _build_status(queue_name: str, size: int, warning_threshold: int) -> tuple[str, str, str, bool]:

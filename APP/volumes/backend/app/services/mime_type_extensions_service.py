@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any
 
 from fastapi import HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
+from core.datetime_utils import utc_now_db
 from models.mime_type_extensions import MimeTypeExtension
 from schemas.mime_type_extensions import (
     MimeTypeExtensionCreateRequest,
@@ -127,7 +127,7 @@ def create_mime_type_extension(
     if existing and existing.deleted_at is None:
         raise HTTPException(status_code=409, detail="MIME_TYPE_EXTENSION_ALREADY_EXISTS")
 
-    now = datetime.utcnow()
+    now = utc_now_db()
 
     # Si existe soft-deleted → “revivir”
     if existing and existing.deleted_at is not None:
@@ -178,7 +178,7 @@ def update_mime_type_extension(
         obj.is_active = bool(body.is_active)
 
     obj.updated_by = updated_by_id
-    obj.updated_at = datetime.utcnow()
+    obj.updated_at = utc_now_db()
 
     db.commit()
 
@@ -197,7 +197,7 @@ def change_mime_type_extension_status(
 
     obj.is_active = bool(is_active)
     obj.updated_by = updated_by_id
-    obj.updated_at = datetime.utcnow()
+    obj.updated_at = utc_now_db()
 
     db.commit()
 
@@ -213,7 +213,7 @@ def delete_mime_type_extension(
 ) -> None:
     obj = _get_or_404(db, mime_type_id, file_extension_id)
 
-    obj.deleted_at = datetime.utcnow()
+    obj.deleted_at = utc_now_db()
     obj.deleted_by = deleted_by_id
     obj.is_active = False
 

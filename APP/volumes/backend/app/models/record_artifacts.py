@@ -1,11 +1,10 @@
 # models/record_artifacts.py
 from __future__ import annotations
 
-from datetime import datetime, timezone
-
 from sqlalchemy import BigInteger, Boolean, Column, DateTime, ForeignKey, SmallInteger, String, func
 from sqlalchemy.orm import relationship
 
+from core.datetime_utils import utc_now_db
 from db.base import Base
 
 
@@ -38,7 +37,7 @@ class RecordArtifact(Base):
     created_at = Column(
         DateTime,
         nullable=False,
-        default=lambda: datetime.now(timezone.utc),
+        default=utc_now_db,
         server_default=func.now(),
     )
     created_by = Column(String(36), ForeignKey("users.id"), nullable=False)

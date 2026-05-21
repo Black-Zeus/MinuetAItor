@@ -89,6 +89,11 @@ export const generateMinute = async (payload, files = []) => {
   return unwrap(res);
 };
 
+export const reprocessMinute = async (recordId) => {
+  const res = await api.post(`${BASE}/${recordId}/reprocess`);
+  return unwrap(res);
+};
+
 // ─── DETAIL ───────────────────────────────────────────────────────────────────
 /**
  * GET /v1/minutes/{record_id}

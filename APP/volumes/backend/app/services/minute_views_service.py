@@ -10,6 +10,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from starlette.requests import Request
 
+from core.datetime_utils import utc_now, utc_now_db
 from core.security import create_access_token, decode_access_token
 from db.minio_client import get_minio_client
 from db.redis import get_redis
@@ -47,7 +48,7 @@ logger = logging.getLogger(__name__)
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return utc_now()
 
 
 def _as_utc(value: datetime | None) -> datetime | None:
@@ -145,7 +146,7 @@ async def request_minute_view_otp(
         record_version_participant_id=participant.id,
         email=normalized_email,
         otp_code_hash=_hash_otp(record.id, normalized_email, otp_code),
-        otp_expires_at=expires_at,
+        otp_expires_at=expires_at.replace(tzinfo=None),
         requester_ip=requester_ip,
         requester_user_agent=request.headers.get("User-Agent"),
         delivery_status="queued",
@@ -191,6 +192,7 @@ async def verify_minute_view_otp(
     normalized_email = _normalize_email(email)
     otp_hash = _hash_otp(record_id, normalized_email, str(otp_code or "").strip())
     now = _utcnow()
+    now_db = now.replace(tzinfo=None)
 
     access_request = (
         db.query(VisitorAccessRequest)
@@ -206,7 +208,7 @@ async def verify_minute_view_otp(
         raise HTTPException(status_code=401, detail="No existe una solicitud de acceso activa para ese correo")
 
     access_request.attempt_count = int(access_request.attempt_count or 0) + 1
-    access_request.last_attempt_at = now
+    access_request.last_attempt_at = now_db
 
     expires_at_utc = _as_utc(access_request.otp_expires_at)
     if (expires_at_utc and expires_at_utc < now) or access_request.otp_code_hash != otp_hash:
@@ -214,7 +216,7 @@ async def verify_minute_view_otp(
         db.commit()
         raise HTTPException(status_code=401, detail="El código es inválido o expiró")
 
-    access_request.consumed_at = now
+    access_request.consumed_at = now_db
     db.add(access_request)
 
     participant = _resolve_active_participant(db, record, normalized_email)
@@ -233,7 +235,7 @@ async def verify_minute_view_otp(
         ip_v6=ip_v6,
         user_agent=request.headers.get("User-Agent"),
         device=get_device_string(request.headers.get("User-Agent")),
-        expires_at=expires_at,
+        expires_at=expires_at.replace(tzinfo=None),
     )
     db.add(session)
     db.commit()
@@ -294,7 +296,7 @@ async def get_current_visitor_session(token: str, record_id: str, db: Session) -
 
 async def logout_current_visitor_session(token: str, record_id: str, db: Session) -> None:
     session = await get_current_visitor_session(token, record_id, db)
-    session.revoked_at = _utcnow()
+    session.revoked_at = utc_now_db()
     db.add(session)
     db.commit()
 
@@ -572,7 +574,7 @@ async def resolve_editor_minute_observation(
     observation.resolution_type = normalized_resolution_type
     observation.editor_comment = clean_comment
     observation.resolved_by = actor_user_id
-    observation.resolved_at = _utcnow()
+    observation.resolved_at = utc_now_db()
     observation.applied_in_version_id = observation.record_version_id if normalized_status == "inserted" else None
 
     db.add(observation)

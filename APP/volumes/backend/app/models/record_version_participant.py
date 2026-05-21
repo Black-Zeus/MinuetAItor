@@ -2,12 +2,12 @@
 from __future__ import annotations
 
 import enum
-from datetime import datetime, timezone
 
 from sqlalchemy import Column, DateTime, Enum, ForeignKey, String, func
 from sqlalchemy.dialects.mysql import BIGINT
 from sqlalchemy.orm import relationship
 
+from core.datetime_utils import utc_now_db
 from db.base import Base
 
 
@@ -47,7 +47,7 @@ class RecordVersionParticipant(Base):
     created_at = Column(
         DateTime,
         nullable=False,
-        default=lambda: datetime.now(timezone.utc),
+        default=utc_now_db,
         server_default=func.now(),
     )
 

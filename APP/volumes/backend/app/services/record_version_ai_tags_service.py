@@ -1,13 +1,13 @@
 # services/record_version_ai_tags_service.py
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any
 
 from fastapi import HTTPException
 from sqlalchemy import and_, func
 from sqlalchemy.orm import Session, joinedload
 
+from core.datetime_utils import utc_now_db
 from models.record_version_ai_tags import RecordVersionAiTag
 
 
@@ -97,7 +97,7 @@ def create_record_version_ai_tag(db: Session, body) -> dict[str, Any]:
     obj = RecordVersionAiTag(
         record_version_id=body.record_version_id,
         ai_tag_id=body.ai_tag_id,
-        detected_at=body.detected_at or datetime.utcnow(),
+        detected_at=body.detected_at or utc_now_db(),
     )
 
     db.add(obj)

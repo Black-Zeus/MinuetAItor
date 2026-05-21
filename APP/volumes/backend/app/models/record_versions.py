@@ -1,11 +1,10 @@
 # models/record_versions.py
 from __future__ import annotations
 
-from datetime import datetime, timezone
-
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, SmallInteger, String, Text, func
 from sqlalchemy.orm import relationship
 
+from core.datetime_utils import utc_now_db
 from db.base import Base
 
 
@@ -25,8 +24,7 @@ class RecordVersion(Base):
     version_num = Column(Integer,    nullable=False)
     status_id   = Column(Integer,    ForeignKey("version_statuses.id"), nullable=False)
 
-    published_at = Column(DateTime, nullable=False, server_default=func.now(),
-                          default=lambda: datetime.now(timezone.utc))
+    published_at = Column(DateTime, nullable=False, server_default=func.now(), default=utc_now_db)
     published_by = Column(String(36), ForeignKey("users.id"), nullable=False)
 
     schema_version   = Column(String(40), nullable=False)

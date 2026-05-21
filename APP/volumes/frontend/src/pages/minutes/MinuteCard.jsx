@@ -50,7 +50,7 @@ const STATUS_CONFIG = {
   },
   "processing-error": {
     label:     "Error de proceso",
-    icon:      "circleXmark",
+    icon:      "xCircle",
     className: "bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300",
   },
   "deleted": {
@@ -297,8 +297,8 @@ const CardBody = ({ minute }) => {
 //   preview          → [Ver]     [Ver PDF] [Anular]      (3 botones)
 //   completed        → [Ver]     [Ver PDF]               (2 botones)
 //   cancelled        → sin acciones
-//   llm-failed       → mensaje de error, sin acciones
-//   processing-error → mensaje de error, sin acciones
+//   llm-failed       → mensaje de error + reprocesar/anular
+//   processing-error → mensaje de error + reprocesar/anular
 //   deleted          → sin acciones
 // ============================================================
 
@@ -356,11 +356,13 @@ const FooterBtn = ({ icon, label, tooltip, onClick, variant = "default" }) => {
   );
 };
 
-const CardFooter = ({ minute, onStatusChange }) => {
+const CardFooter = ({ minute, onStatusChange, onReprocess }) => {
   const navigate = useNavigate();
   const minuteId = minute?.id;
   const status   = String(minute?.status ?? "in-progress");
   const filename = buildMinuteFilename(minute?.title, minute?.date);
+  const canReprocess = Boolean(minute?.can_reprocess);
+  const reprocessReason = String(minute?.reprocess_reason ?? "");
 
   const isInProgress      = status === "in-progress";
   const isReadyForEdit    = status === "ready-for-edit";
@@ -370,9 +372,11 @@ const CardFooter = ({ minute, onStatusChange }) => {
   const isCancelled       = status === "cancelled";
   const isLlmFailed       = status === "llm-failed";
   const isProcessingError = status === "processing-error";
+  const isStaleInProgress = isInProgress && canReprocess;
 
   const goToEditor  = () => { if (minuteId) navigate(`/minutes/process/${minuteId}`); };
   const handleCancel = () => showConfirmCancelModal({ minuteId, onConfirm: onStatusChange });
+  const handleReprocess = () => { if (minuteId) onReprocess?.(minuteId); };
   const handleViewPdf = () => {
     if (!minuteId) return;
 
@@ -395,13 +399,47 @@ const CardFooter = ({ minute, onStatusChange }) => {
   }
 
   // ── Error ─────────────────────────────────────────────────────────────────
-  if (isLlmFailed || isProcessingError) {
+  if (isLlmFailed || isProcessingError || isStaleInProgress) {
+    const message = isLlmFailed
+      ? "Fallo en el procesamiento IA"
+      : isProcessingError
+        ? "Error interno de proceso"
+        : "Procesamiento anterior atascado";
+
+    const hint = minute?.error_message
+      ?? (reprocessReason === "stale-processing"
+        ? "La minuta lleva demasiado tiempo en procesamiento y puede reintentarse."
+        : null);
+
     return (
-      <div className="px-4 py-3 border-t border-secondary-200 dark:border-secondary-700/60 transition-theme flex items-center justify-center gap-2">
-        <Icon name="triangleExclamation" className="text-red-400 text-xs" />
-        <span className="text-xs text-red-500 dark:text-red-400 italic">
-          {isLlmFailed ? "Fallo en el procesamiento IA" : "Error interno de proceso"}
-        </span>
+      <div className="p-4 border-t border-secondary-200 dark:border-secondary-700/60 transition-theme space-y-3">
+        <div className="flex items-center justify-center gap-2">
+          <Icon name="triangleExclamation" className="text-red-400 text-xs" />
+          <span className="text-xs text-red-500 dark:text-red-400 italic">
+            {message}
+          </span>
+        </div>
+        {hint ? (
+          <p className="text-[11px] text-center text-gray-500 dark:text-gray-400 line-clamp-2">
+            {hint}
+          </p>
+        ) : null}
+        <div className="grid grid-cols-2 gap-2">
+          <FooterBtn
+            icon={<Icon name="arrowsRotate" />}
+            label="Reprocesar"
+            tooltip="Volver a enviar la minuta a procesamiento"
+            onClick={handleReprocess}
+            variant="default"
+          />
+          <FooterBtn
+            icon={<Icon name="ban" />}
+            label="Anular"
+            tooltip="Anular minuta"
+            onClick={handleCancel}
+            variant="danger"
+          />
+        </div>
       </div>
     );
   }
@@ -511,9 +549,10 @@ const CardFooter = ({ minute, onStatusChange }) => {
 // ============================================================
 // COMPONENTE PRINCIPAL
 // ============================================================
-const MinuteCard = ({ minute, onStatusChange }) => {
-  const status       = String(minute?.status ?? "in-progress");
-  const statusConfig = getStatusCfg(status);
+const MinuteCard = ({ minute, onStatusChange, onReprocess }) => {
+  const rawStatus      = String(minute?.status ?? "in-progress");
+  const visualStatus   = rawStatus === "in-progress" && minute?.can_reprocess ? "processing-error" : rawStatus;
+  const statusConfig   = getStatusCfg(visualStatus);
 
   return (
     <div className="bg-surface rounded-2xl border border-secondary-200 dark:border-secondary-700/60 dark:ring-1 dark:ring-white/5 transition-all duration-200 shadow-card hover:shadow-card-hover hover:-translate-y-0.5 hover:border-primary-500 dark:hover:border-primary-400 h-full flex flex-col">
@@ -521,7 +560,7 @@ const MinuteCard = ({ minute, onStatusChange }) => {
       <div className="flex-1">
         <CardBody minute={minute} />
       </div>
-      <CardFooter minute={minute} onStatusChange={onStatusChange} />
+      <CardFooter minute={minute} onStatusChange={onStatusChange} onReprocess={onReprocess} />
     </div>
   );
 };

@@ -6,13 +6,13 @@
 #
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
+from core.datetime_utils import utc_now_db
 from models.user_clients import UserClient
 from schemas.user_clients import (
     UserClientCreateRequest,
@@ -130,7 +130,7 @@ def create_user_client(
         existing.deleted_by  = None
         existing.is_active   = bool(body.is_active)
         existing.updated_by  = created_by_id
-        existing.updated_at  = datetime.now(timezone.utc)
+        existing.updated_at  = utc_now_db()
         db.commit()
         return _build_response_dict(_get_or_404(db, existing.user_id, existing.client_id))
 
@@ -139,7 +139,7 @@ def create_user_client(
         client_id  = body.client_id,
         is_active  = bool(body.is_active),
         created_by = created_by_id,
-        created_at = datetime.now(timezone.utc),
+        created_at = utc_now_db(),
     )
 
     db.add(obj)
@@ -157,7 +157,7 @@ def change_user_client_status(
     obj = _get_or_404(db, user_id, client_id)
     obj.is_active  = bool(is_active)
     obj.updated_by = updated_by_id
-    obj.updated_at = datetime.now(timezone.utc)
+    obj.updated_at = utc_now_db()
     db.commit()
     return _build_response_dict(_get_or_404(db, user_id, client_id))
 
@@ -169,7 +169,7 @@ def delete_user_client(
     deleted_by_id: str,
 ) -> None:
     obj = _get_or_404(db, user_id, client_id)
-    obj.deleted_at = datetime.now(timezone.utc)
+    obj.deleted_at = utc_now_db()
     obj.deleted_by = deleted_by_id
     obj.is_active  = False
     db.commit()

@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from starlette.requests import Request
 
 from core.config import settings
+from core.datetime_utils import utc_now, utc_now_db
 from core.exceptions import BadRequestException, ForbiddenException, UnauthorizedException
 from core.security import verify_password, create_access_token, decode_access_token, hash_password
 from db.redis import get_redis
@@ -123,7 +124,7 @@ async def login(db: Session, credential: str, password: str, request: Request) -
     )
 
     # ── Actualizar last_login_at ──────────────────────
-    user.last_login_at = datetime.now(timezone.utc)
+    user.last_login_at = utc_now_db()
     db.commit()
 
     return TokenResponse(access_token=token, expires_in=ttl)
@@ -413,7 +414,7 @@ async def validate_token(token: str) -> ValidateTokenResponse:
 
         # Calcular segundos restantes
         exp = payload.get("exp", 0)
-        now = datetime.now(timezone.utc).timestamp()
+        now = utc_now().timestamp()
         expires_in = max(0, int(exp - now))
 
         return ValidateTokenResponse(valid=True, user_id=user_id, expires_in=expires_in)

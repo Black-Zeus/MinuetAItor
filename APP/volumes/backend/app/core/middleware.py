@@ -11,6 +11,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
 from core.config import settings
+from core.datetime_utils import utc_now
 from core.exceptions import AppException
 from schemas.response import ErrorDetail, MetaSchema, RouteInfo, fail, ok
 from utils.geo import get_geo, _is_private_ip
@@ -22,7 +23,7 @@ from utils.network import get_client_ip
 def _build_meta(request: Request, duration_ms: int) -> MetaSchema:
     return MetaSchema(
         request_id=f"req_{uuid.uuid4().hex[:24]}",
-        timestamp=datetime.now(timezone.utc).isoformat(),
+        timestamp=utc_now().isoformat(),
         duration_ms=duration_ms,
         route=RouteInfo(method=request.method, path=request.url.path),
     )

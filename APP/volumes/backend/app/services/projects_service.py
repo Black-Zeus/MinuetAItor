@@ -8,6 +8,7 @@ from fastapi import HTTPException, UploadFile
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
+from core.datetime_utils import utc_now_db
 from core.exceptions import ForbiddenException
 from models.projects import Project
 from schemas.auth import UserSession
@@ -282,7 +283,7 @@ def delete_project(db: Session, project_id: str, deleted_by_id: str, session: Us
     ensure_project_read_access(db, session, project_id)
     obj = _get_or_404(db, project_id)
 
-    obj.deleted_at = datetime.utcnow()
+    obj.deleted_at = utc_now_db()
     obj.deleted_by = deleted_by_id
     obj.is_active = False
 

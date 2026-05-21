@@ -29,29 +29,13 @@ class Settings(BaseSettings):
     geo_block_enabled: bool = True 
     geo_allowed_countries: list[str] = ["CL"]
 
-    # OpenAI
-    openai_api_key: str
-    openai_model: str = "gpt-4o"
-    openai_assistant_id: str = ""
-    openai_max_tokens: int = 16000
-    openai_max_tokens_retry: int = 24000 
-    openai_timeout_seconds: int = 120
-    openai_temperature: float = 0.0
-    openai_top_p: float = 1.0
-    openai_seed: int = 42
+    # IA legacy / compatibilidad mínima.
+    # Solo mantenemos OPENAI_API_KEY por helpers antiguos y OPENAI_SYSTEM_PROMPT
+    # para el pipeline actual de minutas.
+    openai_api_key: str = ""
     openai_system_prompt: str = "system_prompt_v08.txt"
     prompt_path_base: str = "/app/assets/prompts"
     ai_provider_catalog_path: str = "/app/assets/config/ai_provider_catalog.json"
-
-    # OpenAI — capacidades por modelo
-    openai_models_with_file_support: list[str] = [
-        "gpt-4o",
-        "gpt-4o-mini",
-        "gpt-4o-2024-08-06",
-        "gpt-4o-2024-11-20",
-        "gpt-4.1",
-        "gpt-4.1-2025-04-14",
-    ]
 
     # Minutes — formatos de archivo soportados
     minutes_supported_extensions: dict[str, str] = {

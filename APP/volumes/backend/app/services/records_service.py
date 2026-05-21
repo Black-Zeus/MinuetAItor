@@ -9,6 +9,7 @@ from fastapi import HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
+from core.datetime_utils import utc_now_db
 from models.records import Record
 from schemas.records import RecordCreateRequest, RecordUpdateRequest, RecordFilterRequest
 
@@ -231,7 +232,7 @@ def change_record_status(db: Session, record_id: str, status_id: int, updated_by
 def delete_record(db: Session, record_id: str, deleted_by_id: str) -> None:
     obj = _get_or_404(db, record_id)
 
-    obj.deleted_at = datetime.utcnow()
+    obj.deleted_at = utc_now_db()
     obj.deleted_by = deleted_by_id
 
     db.commit()

@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from core.datetime_utils import utc_now
 from models.clients import Client
 from models.projects import Project
 from models.records import Record
@@ -34,7 +35,7 @@ def _metric(value: int, previous: int) -> dict:
 
 
 def get_dashboard_stats(db: Session, session: UserSession) -> dict:
-    previous_start, current_start, now = _month_bounds(datetime.now(timezone.utc))
+    previous_start, current_start, now = _month_bounds(utc_now())
 
     minutes_current = (
         db.query(func.count(Record.id))

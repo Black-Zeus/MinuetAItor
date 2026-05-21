@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import Path
 import uuid
@@ -9,6 +8,7 @@ from fastapi import HTTPException, UploadFile, status
 from minio.error import S3Error
 from sqlalchemy.orm import Session
 
+from core.datetime_utils import utc_now_db
 from db.minio_client import get_minio_client
 from models.buckets import Bucket
 from models.objects import Object
@@ -125,7 +125,7 @@ async def _save_media(
     db.add(object_row)
 
     previous_object = getattr(obj, relationship_attr, None)
-    now = datetime.now(timezone.utc)
+    now = utc_now_db()
     if previous_object and not getattr(previous_object, "deleted_at", None):
         previous_object.deleted_at = now
         previous_object.deleted_by = actor_user_id
@@ -151,7 +151,7 @@ def _remove_media(
     relationship_attr: str,
 ) -> None:
     media_object = getattr(obj, relationship_attr, None)
-    now = datetime.now(timezone.utc)
+    now = utc_now_db()
 
     if not media_object or getattr(media_object, "deleted_at", None):
         setattr(obj, object_attr, None)

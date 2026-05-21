@@ -6,6 +6,7 @@ import time
 from datetime import datetime, timezone
 from typing import AsyncGenerator
 
+from core.datetime_utils import utc_now
 from db.redis import get_redis
 from schemas.auth import UserSession
 
@@ -34,7 +35,7 @@ async def publish_notification_event(user_id: str, event: str, payload: dict) ->
     body = {
         "event": event,
         "user_id": user_id,
-        "ts": datetime.now(timezone.utc).isoformat(),
+        "ts": utc_now().isoformat(),
         **(payload or {}),
     }
     await redis.publish(get_notification_events_channel(user_id), json.dumps(body))

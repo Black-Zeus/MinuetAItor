@@ -2,12 +2,12 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
 
 from fastapi import HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
+from core.datetime_utils import utc_now_db
 from models.record_versions import RecordVersion
 from schemas.record_versions import (
     RecordVersionCreateRequest,
@@ -180,7 +180,7 @@ def create_record_version(
         version_num = int(body.version_num),
         status_id   = int(body.status_id),
 
-        published_at = body.published_at or datetime.now(timezone.utc),
+        published_at = body.published_at or utc_now_db(),
         published_by = created_by_id,   # CORRECCIÓN: deriva del token, no del body
 
         schema_version   = body.schema_version,
@@ -245,6 +245,6 @@ def update_record_version(
 
 def delete_record_version(db: Session, id: str, deleted_by_id: str) -> None:
     obj = _get_or_404(db, id)
-    obj.deleted_at = datetime.now(timezone.utc)
+    obj.deleted_at = utc_now_db()
     obj.deleted_by = deleted_by_id
     db.commit()
