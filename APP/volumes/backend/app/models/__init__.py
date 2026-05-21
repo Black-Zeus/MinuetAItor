@@ -26,6 +26,7 @@ from models.ai_profile_categories import AiProfileCategory
 from models.ai_provider_configs import AiProviderConfig
 from models.notifications import Notification
 from models.notification_recipients import NotificationRecipient
+from models.organization_settings import OrganizationSetting
 from models.smtp_configs import SmtpConfig
 from models.system_maintenance_setting import SystemMaintenanceSetting
 
@@ -77,6 +78,7 @@ __all__ = [
     "DashboardWidget", "AiProfileCategory",
     "AiProviderConfig",
     "Notification", "NotificationRecipient",
+    "OrganizationSetting",
     "SmtpConfig",
     "SystemMaintenanceSetting",
     # Negocio

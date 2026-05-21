@@ -306,6 +306,11 @@ app.include_router(sendmail_router, prefix="/v1")
 from routers.v1.smtp_configs import router as smtp_configs_router
 app.include_router(smtp_configs_router, prefix="/v1")
 
+# ── System Organization ───────────────────────────────────────────────────────
+# [ACTIVO] Datos institucionales base de la instancia
+from routers.v1.organization_settings import router as organization_settings_router
+app.include_router(organization_settings_router, prefix="/v1")
+
 # ── System Maintenance ────────────────────────────────────────────────────────
 # [ACTIVO] Configuración administrativa del submódulo de mantenimiento
 from routers.v1.system_maintenance import router as system_maintenance_router

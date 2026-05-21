@@ -191,12 +191,21 @@ export const SIDEBAR_MODULES = [
     order: 11
   },
   {
+    id: 'organization',
+    name: 'Organización',
+    icon: 'FaBuilding',
+    path: '/settings/organization',
+    section: 'config',
+    order: 12,
+    requiresAdmin: true
+  },
+  {
     id: 'system',
     name: 'Sistema',
     icon: 'FaGears',
     path: '/settings/system',
     section: 'config',
-    order: 12,
+    order: 13,
     requiresAdmin: true
   },
 
