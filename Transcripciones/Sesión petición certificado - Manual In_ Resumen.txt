@@ -1,0 +1,65 @@
+Sesión petición certificado - Manual Interactivo
+mar, 19 may 2026
+
+Resumen:
+
+La reunión trató la actualización del servidor que aloja los manuales interactivos y la obtención del certificado HTTPS, evaluando riesgos por la falta de control completo sobre el servidor en AWS. Se discutieron medidas de mitigación, responsabilidades técnicas y plazos estimados.
+
+Se identificó un problema crítico: no existe una snapshot accesible del servidor en AWS y obtener ese respaldo desde AWS podría tardar semanas por procesos contractuales y de aprobación, según Carlos. Esto plantea riesgo de pérdida de archivos si se actualiza PHP sin snapshot disponible.
+
+Se acordó como objetivo técnico actualizar PHP a una versión intermedia —propuesta PHP 8.2— para facilitar migraciones futuras. Sebastián y Daniel señalaron que la plataforma suele adaptarse al SO y confirmaron que mantienen respaldos propios del manual; recomendaron además levantar un respaldo adicional si se procede. Victor estimó que la instalación de PHP y módulos SCL tomaría alrededor de 30 minutos si no hay complicaciones, mientras que la adaptación profunda del código del manual podría requerir varios días de revisión por Sebastián/Relengcorp.
+
+Respecto a HTTPS, se definió la secuencia técnica: instalar los módulos SSL/HTTPS necesarios en el servidor, generar la CSR y entregarla a Alejandro para la compra e instalación del certificado, y que Gabriel realice el enlace HTTPS una vez emitido el certificado. Se dejaron identificadas las responsabilidades técnicas (Carlos, Víctor, Alejandro, Sebastián) y los riesgos pendientes vinculados a la ausencia de snapshot y al tiempo de adaptación del código.
+
+
+Capítulos y Temas:
+
+Introducción y reporte del problema
+Se saludaron los participantes y se presentó la dificultad principal: la necesidad de un snapshot previo para actualizar el servidor de manuales interactivos alojado en AWS y la falta de gestión total sobre ese servidor, lo que genera incertidumbre sobre la seguridad del cambio.
+* El servidor de manuales está en AWS y no se tiene gestión total, por lo que solicitar un snapshot oficial puede demorar semanas.
+* Existe riesgo de pérdida de archivos al actualizar PHP sin snapshot, por lo que se evaluó respaldar antes de proceder.
+
+Riesgos de actualizar sin snapshot y discusión sobre tiempos
+Se evaluaron los riesgos de actualizar PHP sin snapshot, incluyendo la posibilidad de pérdida de archivos, y se explicó que solicitar un snapshot a AWS podría tardar semanas por el proceso contractual; se discutieron alternativas como proceder con la actualización y confiar en respaldos internos.
+
+Respaldo y plan de actualización de PHP
+Se confirmó que el equipo ya tiene respaldos en sus propios servidores y se propuso realizar respaldos adicionales en sitio si procede la actualización; se acordó que la versión de PHP debe comunicarse para homologar el código antes de la migración.
+* El equipo dispone de respaldos propios del manual en sus servidores, lo que reduce el riesgo si la actualización falla.
+* Se acordó actualizar PHP a 8.2 como paso intermedio para facilitar migraciones futuras y luego homologar el código del manual.
+
+Proceso de certificado (CSR) y módulos HTTPS
+Se detalló el procedimiento para el certificado: instalar módulos necesarios para tráfico HTTPS, generar la petición CSR, que Alejandro reciba la CSR para comprar el certificado y luego instalarlo en el sitio correspondiente antes de habilitar el enlace HTTPS.
+* Es necesario instalar módulos SSL/HTTPS antes de generar la CSR para obtener el certificado y habilitar tráfico HTTPS.
+* El flujo operativo acordado: instalar módulos, generar CSR, Alejandro compra e instala el certificado, y Gabriel enlaza el servidor vía HTTPS.
+
+Confirmaciones de responsabilidad y estimación de tiempo técnico
+Daniel y Sebastián confirmaron la existencia de respaldos; se estableció que tras la instalación de módulos se avisará al equipo para que actualicen el manual, y Victor estimó que la instalación de PHP y módulos tomará alrededor de 30 minutos si no hay inconvenientes.
+* Victor calculó aproximadamente 30 minutos para instalar PHP y los módulos SCL si no surgen problemas.
+
+Trabajo de homologación del código y plazos adicionales
+Se consultó la duración total hasta obtener el certificado; Victor precisó tiempos cortos para la instalación, mientras que Danny/Relengcorp indicó que la revisión y adaptación del código del manual a la nueva versión de PHP podría tomar un par de días.
+* La adaptación del código del manual a la nueva versión de PHP puede requerir "un par de días" para revisión y ajustes por parte de Danny/Relengcorp.
+
+Cierre y coordinación de comunicaciones
+Se cerró la reunión acordando mantener la comunicación por el canal habitual, proceder con las acciones coordinadas y agradecer la participación de los asistentes.
+
+
+Puntos de Acción:
+
+* Carlos Miranda: Solicita el snapshot a AWS y comunica el estado del trámite al equipo
+* Badani Sebastian: Actualiza y adapta el manual al entorno PHP informado por el equipo tras la instalación
+* Alejandro Quinteros: Genera y recibe la CSR, compra el certificado y entrega el certificado instalado para el sitio correspondiente
+* Gabriel: Realiza el enlace del servidor por HTTPS una vez que el certificado esté emitido e instalado
+* Victor Soto: Instala PHP y los módulos SCL/SSL en el servidor y confirma al equipo cuando esté listo
+
+
+Preguntas clave:
+
+* ¿Qué pasa si solicitamos el snapshot a AWS?
+* ¿Pueden manejar ustedes la solicitud e instalación del certificado?
+* ¿Cuánto demoraría todo el proceso hasta tener el certificado?
+
+
+Bloc de notas:
+
+* No hay notas

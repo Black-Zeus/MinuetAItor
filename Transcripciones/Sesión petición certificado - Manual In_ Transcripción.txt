@@ -1,0 +1,125 @@
+Sesión petición certificado - Manual Interactivo
+mar, 19 may 2026
+
+0:06 - Andrea Manzanares
+Hola, buenos días. Hola Carlos, hola Sebastián, ¿cómo están?
+
+0:16 - Orador no identificado
+Bien, ¿ustedes?
+
+0:19 - Orador no identificado
+Buen día.
+
+0:21 - Orador no identificado
+Bien, bien, hola, hola.
+
+0:26 - Carlos Miranda
+Muchachos, mientras se conecta Alejandro, Victor. Tenemos eh una dificultad menor si para poder eh hola Alejandro ¿cómo estás? Hola hola buen día eh le estaba contando que recién empezando a contar en realidad tenemos una dificultad con el acceso al al servidor no no es acceso sino hacer un snapshot previo ya para poder hacer la actualización al al servidor de de manuales interactivos. Perfecto. Es lo que me contaba, es lo que me contaba Victor. ¿Por qué les digo? Porque ese servidor está en AWS y y en este momento no tenemos la gestión total. Podríamos hacer la actualización del PHP, pero podría haber eventualmente algún riesgo, me decía Victor, de perder algún archivo de la del manual. Sebastián, en caso que ocurra eso, ¿Podemos actualizar la plataforma o archivos?
+
+1:29 - Carlos Miranda
+En cuanto a...
+
+1:30 - Orador no identificado
+Sí, yo me imagino que sí.
+
+1:32 - Badani Sebastian
+O sea, la plataforma igual se adapta como al sistema operativo, entonces... Me imagino que sí. Tendría que igual conversarlo con Daniel. No queríamos correr el riesgo y hacer un snapshot previo, pero como te digo, me gusta no doler ese.
+
+1:48 - Carlos Miranda
+Si yo pido este snapshot, se van a demorar un par de semanas. Yo ya los conozco como son, son bien lentos los viejos de arriba. Lamentablemente el contrato que tenemos con AWS, tengo que levantar un chain request, me lo aprueban el día jueves a las seis de la mañana, si no pasa una semana. Entonces queríamos ahí evaluar en conjunto que si nos lanzamos, nos lanzamos nomás con la actualización del PHP, puede ser el riesgo que había levantado Ya.
+
+2:23 - Alejandro Quinteros
+Oye, y lo otro sería como tienen que hacer actualización de PHP y entre comillas eso es algo un poquito más, es casi como un upgrade de la versión. ¿Levantarlo en paralelo?
+
+2:40 - Orador no identificado
+¿Podríamos, se demorará más si pedimos levantar un nuevo servidor?
+
+2:45 - Carlos Miranda
+No sé, ahí Sebastián podría... Mira, por un lado Sebastián dice que el sistema igual se acomoda al sistema advertido. No, no diría hay mucho riesgo. En el caso de que ocurra algo Sebastián, ¿qué podríamos?
+
+2:59 - Badani Sebastian
+Eso, eso mismo. Eh, que claro, nosotros teníamos el el manual estaba en un PHP en el siete punto cuatro, si no me equivoco. Me imagino que ahora lo van a actualizar al ocho punto tres o o no sé cuál será la última versión. Sí. Eh ¿Quién era lo que conversábamos en un principio, actualizar el nuestro sistema, el manual, al 8.3, ahí lo tienen que definir ustedes bien cuál va a ser. Si es que todo obviamente no sale como lo previsto, podemos obviamente, claro, adaptar a otro servidor y que esté con el PHP 7.4 que era con el que estaba el manual inicialmente.
+
+3:37 - Alejandro Quinteros
+Claro, ahí lo importante, como decía Carlos, es no perder la data, o sea, que no se vaya a perder algo. No sé si de repente lo mejor hacer un respaldo previo de la configuración, a lo mejor en el mismo disco duro del servidor actual, en una carpeta aparte.
+
+3:57 - Badani Sebastian
+Sí, de todas formas nosotros tenemos un respaldo porque nosotros lo tenemos en nuestros servidores también.
+
+4:05 - Orador no identificado
+Buenísimo.
+
+4:05 - Carlos Miranda
+Ya. Buen día, buen día a todos. Hola, buen día.
+
+4:10 - Orador no identificado
+Hola.
+
+4:10 - Carlos Miranda
+Entonces los pasos serían hacer la actualización del patch A la que indicó Victor y Alejandro, me acuerdo cuál es la última compatible, ¿eh? Y ver cómo opera el manual.
+
+4:27 - Badani Sebastian
+Ustedes van a hacer la actualización, pero nos tienen que decir a qué versión va a ser actualizado para nosotros también actualizar el manual.
+
+4:39 - Alejandro Quinteros
+Ah, de todas maneras hay el PHP va ligado al código Carlos, tienen que estar homologados, o sea, el código tiene que ir de la mano con él, la versión y todo, claro, sí.
+
+4:54 - Carlos Miranda
+Entonces siempre teníamos el riesgo, muchachos, volvemos atrás, pues no habría nada que nos frene, creo yo, ¿no? Hagamos la extensión del PHP y luego Sebastián hace la extensión de manual.
+
+5:09 - Badani Sebastian
+Ahí Danny, tú como lo ves, es lo que habíamos conversado, ¿no, Danny? Sí, sí, no hay ningún problema.
+
+5:17 - Carlos Miranda
+Sí, exacto, que hagan la actualización. Sería bueno a la PHP 8.2 para poder hacer la migración al árabe 9 y con eso podríamos estar ya sin ningún problema. Súper. ¿Estamos todos de acuerdo?
+
+5:31 - Alejandro Quinteros
+Sí, si no hay problema, le damos nomás la acción. Documental.
+
+5:37 - Carlos Miranda
+¿Y el certificado Alejandro lo podemos manejar nosotros?
+
+5:41 - Alejandro Quinteros
+Eh sí hay que generar hacer el la petición del CSR eh y ah pero acuérdate que ahí había algo que nombró Victor que tiene que cargar unos módulos en el servidor que hoy día no están cargados. Entonces. Sí esa es la primera parte. Cargar los módulos modulos para poder que que el servidor empiece a trabajar a traficar con HTTPS. Cuando tiene la capacidad de traficar por HTTPS, ahí recién puede hacer la petición del CSR. Con la petición del CSR me la entrega a mí, entira certificado ahora, compro el certificado, se lo paso de vuelta y y lo instala en el sitio porque parece que tiene dos sitios. Se lo instala en el sitio que corresponde. Mirá, ahí está justo subiéndose el Victor. De acuerdo.
+
+6:31 - Orador no identificado
+Victor.
+
+6:32 - Alejandro Quinteros
+Buenos días, perdón la Sí, oye, cortito, los chicos dicen que, bueno, Carlos comentó que para pedir un Snapchat se va a demorar mucho, hay un tema de gestión que hay que hacer, entonces no podemos ocupar el Snapchat, entonces la forma que nos comentan los muchachos es que en general debería ser un riesgo mínimo subir la versión de PHP, que va a ligar, hay que declararle cuál es la versión para que ellos lo vayan acomodado, la versión de PHP que se va a instalar. Tú ayer comentaste que había que instalar los módulos del SSH, ¿cierto? Para el tema del HTTPS, para poder hacer la petición del CCR. Entonces, ese es el primer paso, hacer esa actualización para poder hacer la petición del CCR. Y después, cuando se haga la actualización del PHP, hay que declarárselo a los chicos para que puedan homologar el código que corra en esa versión de PHP. Ahora, les decía que si era factible generar generar algún tipo de respaldo en el mismo disco, en alguna otra carpeta, donde saquemos configuraciones, cosas que tengamos un punto de retorno manual, digamos, para poder realizar la actualización y no quedarnos frenados.
+
+7:47 - Carlos Miranda
+Levantan los manitos, Daniel y Sebastián confirmaron que ellos tienen distinto. Ellos cuentan con un respaldo, Alejandro. Ya, perfecto. Entonces, sería la SSH, avisan a la versión que se instaló al grupo, para que actualicen manualmente el activo, emiten el certificado y de ahí recién, Andrea, una vez que esté emitido el certificado, estamos en condiciones de que Gabriel haga el link al servidor por HTTPS.
+
+8:21 - Carlos Miranda
+Super, consulta, ¿cuánto más o menos demoraría todo este proceso?
+
+8:26 - Carlos Miranda
+hasta llegar al certificado? Aproximadamente. Buena pregunta.
+
+8:29 - Andrea Manzanares
+Don Victor ahí la lleva, ¿no?
+
+8:31 - Orador no identificado
+Sí.
+
+8:31 - Victor Soto
+A ver, la instalación de de PHP por lo que ya son cinco o diez minutos y la instalación de los módulos SCL deberían ser también unos quince minutos. O sea, en media hora deberíamos poder tener ya el servidor estable. Ya. Si es que no hay ningún tipo sacando los respaldos y todo así, en media hora un poquito más pero está listo.
+
+8:59 - Carlos Miranda
+Tiempo ideales. Suponiendo que a las diez, suponiendo que a las diez esté listo ahí Sebastián, eh, Daniel, eh, les avisamos para que usted actualice el manual y usted, ¿cuánto se demora en actualizar eso?
+
+9:13 - Badani Sebastian
+Ahí Danny tiene la palabra.
+
+9:15 - Relengcorp Peru SAC
+Danny, ¿cuánto nos demoraríamos en hacer la actualización del Pancho Ben?
+
+9:20 - Carlos Miranda
+Ah, vamos a tener que una versión superior, entonces podría hacer un par de días para poder ver el código que está ahí demandando. Ya. Ya. Ya, súper, sí es para tener más o menos una idea. Ya. Ya, equipo. Ahí estaríamos listos entonces con las acciones, ¿no? Ya, mantenemos la comunicación en el mismo, en el mismo canal, muchachos, ahí, en el mismo grupo.
+
+9:49 - Orador no identificado
+Ya.
+
+9:49 - Carlos Miranda
+Perfecto. Gracias a todos. Gracias.
