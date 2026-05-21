@@ -43,7 +43,7 @@ const NewTag = ({ onCreated, categories = [] }) => {
   const handleClick = () => {
     ModalManager.show({
       type:        "custom",
-      title:       "Nuevo Tag",
+      title:       "Nueva Etiqueta",
       size:        "clientWide",
       showHeader:  false,
       showFooter:  false,
@@ -61,7 +61,7 @@ const NewTag = ({ onCreated, categories = [] }) => {
 
   return (
     <ActionButton
-      label="Nuevo Tag"
+      label="Nueva Etiqueta"
       onClick={handleClick}
       variant="primary"
       icon={<Icon name="FaPlus" />}
