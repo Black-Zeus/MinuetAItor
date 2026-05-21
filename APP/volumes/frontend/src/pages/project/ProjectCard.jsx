@@ -4,7 +4,7 @@
  * El detalle completo se carga on-demand al abrir View o Edit.
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Icon from '@/components/ui/icon/iconManager';
 import { ModalManager } from '@/components/ui/modal';
 import ProjectModal, { PROJECT_MODAL_MODES } from './ProjectModal';
@@ -19,13 +19,31 @@ const TXT_TITLE = "text-gray-900 dark:text-white";
 const TXT_BODY = "text-gray-600 dark:text-gray-300";
 const TXT_META = "text-gray-500 dark:text-gray-400";
 
+const ProjectLogoBadge = ({ logoUrl, projectName, logoFailed, onLogoError }) => (
+  <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-primary-100 text-primary-600 dark:bg-primary-900/30 dark:text-primary-300">
+    {logoUrl && !logoFailed ? (
+      <img
+        src={logoUrl}
+        alt={projectName || "Logo del proyecto"}
+        className="h-full w-full object-cover"
+        onError={onLogoError}
+      />
+    ) : (
+      <Icon name="FaFolderOpen" className="h-5 w-5" />
+    )}
+  </div>
+);
+
 // Mapea formData del wizard → snake_case para el backend
 const toApiPayload = (formData) => ({
   client_id: formData.clientId ?? null,
   name: formData.projectName ?? '',
   code: formData.projectCode ?? null,
   description: formData.projectDescription ?? null,
+  notes: formData.projectNotes ?? null,
+  tags: formData.projectTags ?? null,
   status: formData.projectStatus ?? 'activo',
+  is_active: (formData.projectStatus ?? 'activo') === 'activo',
   is_confidential: Boolean(formData.isConfidential),
   auto_send_on_preview: Boolean(formData.autoSendOnPreview),
   auto_send_on_completed: Boolean(formData.autoSendOnCompleted),
@@ -43,6 +61,7 @@ const getStatusText = (isActive) => (isActive ? "Activo" : "Inactivo");
 
 const ProjectCard = ({ id, summary = null, clientCatalog = [], onUpdated, onDeleted }) => {
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const [logoFailed, setLogoFailed] = useState(false);
   const authz = useSessionStore((s) => s.authz);
   const canManageProjects =
     Array.isArray(authz?.roles) && authz.roles.includes("ADMIN")
@@ -116,7 +135,9 @@ const ProjectCard = ({ id, summary = null, clientCatalog = [], onUpdated, onDele
           onClose={closeModal}
           onSubmit={async (formData) => {
             const payload = toApiPayload(formData);
-            const updated = await projectService.update(id, payload); // lanza si falla → modal muestra toast error
+            return await projectService.update(id, payload);
+          }}
+          onSaved={async (updated) => {
             onUpdated?.(updated);
           }}
         />
@@ -151,7 +172,11 @@ const ProjectCard = ({ id, summary = null, clientCatalog = [], onUpdated, onDele
   const isConf = summary?.isConfidential ?? false;
   const description = summary?.description ?? null;
   const clientName = summary?.clientName ?? summary?.client ?? null;
-  const code = summary?.code ?? null;
+  const logoUrl = summary?.logoUrl ?? summary?.logo_url ?? null;
+
+  useEffect(() => {
+    setLogoFailed(false);
+  }, [logoUrl]);
 
 
   // Tags normalizados
@@ -169,26 +194,27 @@ const ProjectCard = ({ id, summary = null, clientCatalog = [], onUpdated, onDele
       <div className="p-5 border-b border-secondary-200 dark:border-secondary-700/60 min-h-[100px]">
         <div className="flex items-start justify-between gap-3 mb-2">
           {/* Left: Título + meta */}
-          <div className="min-w-0 flex-1">
-            <h3 className={`text-base font-bold ${TXT_TITLE} leading-snug transition-theme`} title={name}>
-              {name}
-            </h3>
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <ProjectLogoBadge
+              logoUrl={logoUrl}
+              projectName={name}
+              logoFailed={logoFailed}
+              onLogoError={() => setLogoFailed(true)}
+            />
 
-            <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1">
-              {clientName && (
-                <div className={`text-xs ${TXT_META} flex items-center gap-1 truncate col-span-2 transition-theme`}>
-                  <Icon name="FaBuilding" className="flex-shrink-0 w-3 h-3" />
-                  <span className="truncate">{clientName}</span>
-                </div>
-              )}
+            <div className="min-w-0 flex-1">
+              <h3 className={`text-base font-bold ${TXT_TITLE} leading-snug transition-theme`} title={name}>
+                {name}
+              </h3>
 
-              {/* Si quieres mostrar una mini-descripción en header, que sea col-span-2 */}
-              {/* OJO: en tu card ya hay descripción en el BODY, yo sugiero NO duplicar. */}
-              {false && description && (
-                <div className={`text-xs ${TXT_META} col-span-2 transition-theme`}>
-                  <span className="line-clamp-2">{description}</span>
-                </div>
-              )}
+              <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1">
+                {clientName && (
+                  <div className={`text-xs ${TXT_META} flex items-center gap-1 truncate col-span-2 transition-theme`}>
+                    <Icon name="FaBuilding" className="flex-shrink-0 w-3 h-3" />
+                    <span className="truncate">{clientName}</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -226,8 +252,12 @@ const ProjectCard = ({ id, summary = null, clientCatalog = [], onUpdated, onDele
       </div>
 
       {/* TAGS */}
-      {tagList.length > 0 && (
-        <div className="px-5 pb-3 border-t border-secondary-200 dark:border-secondary-700/60 pt-3">
+      <div className="px-5 pb-3 border-t border-secondary-200 dark:border-secondary-700/60 pt-3">
+        <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
+          Tags
+        </div>
+
+        {tagList.length > 0 ? (
           <div className="flex flex-wrap gap-1.5">
             {tagList.slice(0, 4).map((tag, i) => (
               <span
@@ -243,8 +273,10 @@ const ProjectCard = ({ id, summary = null, clientCatalog = [], onUpdated, onDele
               </span>
             )}
           </div>
-        </div>
-      )}
+        ) : (
+          <p className={`text-sm italic ${TXT_META} transition-theme`}>Sin tags</p>
+        )}
+      </div>
 
       {/* FOOTER */}
       <div className="p-4 border-t border-secondary-200 dark:border-secondary-700/60 transition-theme">

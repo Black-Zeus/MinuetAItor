@@ -4,7 +4,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from fastapi import HTTPException
+from fastapi import HTTPException, UploadFile
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
@@ -17,6 +17,12 @@ from services.access_control_service import (
     can_manage_projects,
     ensure_client_read_access,
     ensure_project_read_access,
+)
+from services.project_logo_service import (
+    get_project_logo_url_if_exists,
+    read_project_logo,
+    remove_project_logo,
+    save_project_logo,
 )
 
 
@@ -35,9 +41,12 @@ def _build_response_dict(obj: Project) -> dict:
         "id": str(obj.id),
         "client_id": str(obj.client_id),
         "client_name": getattr(obj.client, "name", None),   # ← NUEVO
+        "logo_url": get_project_logo_url_if_exists(obj),
         "name": obj.name,
         "code": obj.code,
         "description": obj.description,
+        "notes": obj.notes,
+        "tags": obj.tags,
         # "status": obj.status,   ← ELIMINADO (redundante con is_active)
         "is_confidential": bool(obj.is_confidential),
         "is_active": bool(obj.is_active),
@@ -57,6 +66,7 @@ def _get_or_404(db: Session, project_id: str) -> Project:
         db.query(Project)
         .options(
             joinedload(Project.client),
+            joinedload(Project.avatar_object),
             joinedload(Project.created_by_user),
             joinedload(Project.updated_by_user),
             joinedload(Project.deleted_by_user),
@@ -120,13 +130,14 @@ def list_projects(db: Session, filters: ProjectFilterRequest, session: UserSessi
 
     if filters.q:
         like = f"%{filters.q.strip()}%"
-        q = q.filter(or_(Project.name.ilike(like), Project.code.ilike(like)))
+        q = q.filter(or_(Project.name.ilike(like), Project.code.ilike(like), Project.tags.ilike(like)))
 
     total = q.with_entities(func.count(Project.id)).scalar() or 0
 
     items = (
         q.options(
             joinedload(Project.client),
+            joinedload(Project.avatar_object),
             joinedload(Project.created_by_user),
             joinedload(Project.updated_by_user),
             joinedload(Project.deleted_by_user),
@@ -167,6 +178,8 @@ def create_project(
         name=body.name,
         code=generated_code,
         description=body.description,
+        notes=body.notes,
+        tags=body.tags,
         status=body.status,
         is_confidential=bool(body.is_confidential),
         is_active=bool(body.is_active),
@@ -215,6 +228,10 @@ def update_project(
         obj.code = body.code
     if body.description is not None:
         obj.description = body.description
+    if body.notes is not None:
+        obj.notes = body.notes
+    if body.tags is not None:
+        obj.tags = body.tags
     if body.status is not None:
         obj.status = body.status
     if body.is_confidential is not None:
@@ -270,3 +287,37 @@ def delete_project(db: Session, project_id: str, deleted_by_id: str, session: Us
     obj.is_active = False
 
     db.commit()
+
+
+async def upload_project_logo(
+    db: Session,
+    project_id: str,
+    file: UploadFile,
+    session: UserSession,
+) -> dict:
+    if not can_manage_projects(session):
+        raise ForbiddenException("No tienes permisos para editar proyectos")
+
+    ensure_project_read_access(db, session, project_id)
+    obj = _get_or_404(db, project_id)
+    logo_url = await save_project_logo(db, obj, file, actor_user_id=session.user_id)
+    return {"logo_url": logo_url}
+
+
+def delete_project_logo(
+    db: Session,
+    project_id: str,
+    session: UserSession,
+) -> dict:
+    if not can_manage_projects(session):
+        raise ForbiddenException("No tienes permisos para editar proyectos")
+
+    ensure_project_read_access(db, session, project_id)
+    obj = _get_or_404(db, project_id)
+    remove_project_logo(db, obj, actor_user_id=session.user_id)
+    return {"logo_url": None}
+
+
+def read_project_logo_content(db: Session, project_id: str) -> tuple[bytes, str]:
+    obj = _get_or_404(db, project_id)
+    return read_project_logo(db, obj)

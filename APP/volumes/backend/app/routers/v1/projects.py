@@ -1,7 +1,7 @@
 # routers/v1/projects.py
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, File, Response, UploadFile, status
 from sqlalchemy.orm import Session
 
 from core.authz import current_user_dep
@@ -18,13 +18,31 @@ from schemas.projects import (
 from services.projects_service import (
     change_project_status,
     create_project,
+    delete_project_logo,
     delete_project,
     get_project,
     list_projects,
+    read_project_logo_content,
+    upload_project_logo,
     update_project,
 )
 
 router = APIRouter(prefix="/projects", tags=["Projects"])
+
+
+@router.get("/{id}/logo", status_code=status.HTTP_200_OK)
+def logo_endpoint(
+    id: str,
+    db: Session = Depends(get_db),
+):
+    content, content_type = read_project_logo_content(db, id)
+    return Response(
+        content=content,
+        media_type=content_type,
+        headers={
+            "Cache-Control": "public, max-age=300",
+        },
+    )
 
 
 @router.get("/{id}", response_model=ProjectResponse, status_code=status.HTTP_200_OK)
@@ -53,6 +71,16 @@ def create_endpoint(
     session: UserSession = Depends(current_user_dep),
 ):
     return create_project(db, body, created_by_id=session.user_id, session=session)
+
+
+@router.post("/{id}/logo", status_code=status.HTTP_200_OK)
+async def upload_logo_endpoint(
+    id: str,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    session: UserSession = Depends(current_user_dep),
+):
+    return await upload_project_logo(db, id, file, session)
 
 
 @router.put("/{id}", response_model=ProjectResponse, status_code=status.HTTP_200_OK)
@@ -89,3 +117,12 @@ def delete_endpoint(
 ):
     delete_project(db, id, deleted_by_id=session.user_id, session=session)
     return None
+
+
+@router.delete("/{id}/logo", status_code=status.HTTP_200_OK)
+def delete_logo_endpoint(
+    id: str,
+    db: Session = Depends(get_db),
+    session: UserSession = Depends(current_user_dep),
+):
+    return delete_project_logo(db, id, session)

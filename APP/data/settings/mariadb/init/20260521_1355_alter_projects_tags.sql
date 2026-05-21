@@ -1,0 +1,2 @@
+ALTER TABLE projects
+  ADD COLUMN tags VARCHAR(500) NULL AFTER notes;
