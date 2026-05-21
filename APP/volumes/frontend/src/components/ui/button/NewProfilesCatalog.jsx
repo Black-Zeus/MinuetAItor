@@ -54,7 +54,7 @@ const NewProfilesCatalog = ({ categories = [], onCreated }) => {
   const handleClick = () => {
     ModalManager.show({
       type:       "custom",
-      title:      "Nuevo Perfil de Análisis",
+      title:      "Nuevo Perfil AI",
       size:       "clientWide",
       showHeader: false,
       showFooter: false,
@@ -72,7 +72,7 @@ const NewProfilesCatalog = ({ categories = [], onCreated }) => {
 
   return (
     <ActionButton
-      label="Nuevo Perfil"
+      label="Nuevo Perfil AI"
       onClick={handleClick}
       variant="primary"
       icon={<Icon name="FaPlus" />}
