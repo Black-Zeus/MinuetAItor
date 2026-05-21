@@ -4,7 +4,6 @@ import Icon from "@/components/ui/icon/iconManager";
 import ModalManager from "@/components/ui/modal";
 import ParticipantsModal, { PARTICIPANTS_MODAL_MODES } from "@/pages/participants/ParticipantsModal";
 import participantsService from "@/services/participantsService";
-import { toastError, toastSuccess } from "@/components/common/toast/toastHelpers";
 
 const toApiPayload = (formData) => ({
   displayName: formData.displayName ?? "",
@@ -34,21 +33,10 @@ const NewParticipant = ({ onCreated }) => {
         <ParticipantsModal
           mode={PARTICIPANTS_MODAL_MODES.CREATE}
           onSubmit={async (formData) => {
-            try {
-              const created = await participantsService.create(toApiPayload(formData));
-              onCreated?.(created);
-              toastSuccess("Participante creado", "El participante fue registrado correctamente.");
-              ModalManager.closeAll?.();
-            } catch (error) {
-              toastError(
-                "No se pudo crear",
-                error?.response?.data?.error?.message ??
-                  error?.response?.data?.detail ??
-                  error?.message ??
-                  "Error inesperado al crear el participante."
-              );
-              throw error;
-            }
+            return await participantsService.create(toApiPayload(formData));
+          }}
+          onSaved={async (created) => {
+            onCreated?.(created);
           }}
           onClose={() => ModalManager.closeAll?.()}
         />

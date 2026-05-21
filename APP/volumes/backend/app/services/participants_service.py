@@ -6,7 +6,7 @@ import unicodedata
 import uuid
 from datetime import datetime
 
-from fastapi import HTTPException
+from fastapi import HTTPException, UploadFile
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
@@ -20,6 +20,12 @@ from schemas.participants import (
     ParticipantResolveRequest,
     ParticipantStatusRequest,
     ParticipantUpdateRequest,
+)
+from services.participant_logo_service import (
+    get_participant_logo_url_if_exists,
+    read_participant_logo,
+    remove_participant_logo,
+    save_participant_logo,
 )
 
 
@@ -67,6 +73,7 @@ def _participant_to_dict(obj: Participant) -> dict:
         "id": str(obj.id),
         "display_name": obj.display_name,
         "normalized_name": obj.normalized_name,
+        "logo_url": get_participant_logo_url_if_exists(obj),
         "organization": obj.organization,
         "title": obj.title,
         "notes": obj.notes,
@@ -89,6 +96,7 @@ def _participant_query(db: Session):
             joinedload(Participant.created_by_user),
             joinedload(Participant.updated_by_user),
             joinedload(Participant.deleted_by_user),
+            joinedload(Participant.avatar_object),
         )
     )
 
@@ -520,3 +528,29 @@ def soft_delete_participant(db: Session, participant_id: str, actor_id: str) -> 
             email.deleted_by = actor_id
             email.updated_by = actor_id
     db.commit()
+
+
+async def upload_participant_logo(
+    db: Session,
+    participant_id: str,
+    file: UploadFile,
+    actor_id: str,
+) -> dict:
+    participant = _get_or_404(db, participant_id)
+    logo_url = await save_participant_logo(db, participant, file, actor_user_id=actor_id)
+    return {"logo_url": logo_url}
+
+
+def delete_participant_logo(
+    db: Session,
+    participant_id: str,
+    actor_id: str,
+) -> dict:
+    participant = _get_or_404(db, participant_id)
+    remove_participant_logo(db, participant, actor_user_id=actor_id)
+    return {"logo_url": None}
+
+
+def read_participant_logo_content(db: Session, participant_id: str) -> tuple[bytes, str]:
+    participant = _get_or_404(db, participant_id)
+    return read_participant_logo(db, participant)
