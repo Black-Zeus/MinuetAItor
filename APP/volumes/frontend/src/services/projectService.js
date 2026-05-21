@@ -95,6 +95,25 @@ export const projectService = {
     return unwrap(res);
   },
 
+  async uploadLogo(id, file) {
+    if (!id) throw new Error("projectService.uploadLogo: id es requerido");
+    if (!file) throw new Error("projectService.uploadLogo: file es requerido");
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await axiosInstance.post(`${BASE}/${encodeURIComponent(id)}/logo`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return unwrap(res);
+  },
+
+  async deleteLogo(id) {
+    if (!id) throw new Error("projectService.deleteLogo: id es requerido");
+    const res = await axiosInstance.delete(`${BASE}/${encodeURIComponent(id)}/logo`);
+    return unwrap(res);
+  },
+
   /**
    * DELETE /v1/projects/{id}  — soft delete
    */

@@ -22,6 +22,8 @@ class ProjectCreateRequest(BaseModel):
     client_id: str
     name: str
     description: str | None = None
+    notes: str | None = None
+    tags: str | None = None
     status: str = "activo"
     is_confidential: bool = False
     is_active: bool = True
@@ -39,6 +41,8 @@ class ProjectUpdateRequest(BaseModel):
     name: str | None = None
     code: str | None = None
     description: str | None = None
+    notes: str | None = None
+    tags: str | None = None
     status: str | None = None
     is_confidential: bool | None = None
     is_active: bool | None = None
@@ -72,10 +76,13 @@ class ProjectResponse(BaseModel):
     id: str
     client_id: str = Field(..., serialization_alias="clientId")
     client_name: str | None = Field(None, serialization_alias="clientName")  # ← NUEVO
+    logo_url: str | None = Field(None, serialization_alias="logoUrl")
 
     name: str
     code: str | None = None
     description: str | None = None
+    notes: str | None = None
+    tags: str | None = None
     # status: str   ← ELIMINADO
 
     is_confidential: bool = Field(..., serialization_alias="isConfidential")

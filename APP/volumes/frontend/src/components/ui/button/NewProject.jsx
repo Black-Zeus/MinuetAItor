@@ -19,9 +19,11 @@ const toApiPayload = (formData) => ({
   name:            formData.projectName       ?? '',
   // code: omitido — el backend genera UUID v4 automáticamente al crear
   description:     formData.projectDescription ?? null,
+  notes:           formData.projectNotes ?? null,
+  tags:            formData.projectTags ?? null,
   status:          formData.projectStatus     ?? 'activo',
+  is_active:       (formData.projectStatus ?? 'activo') === 'activo',
   is_confidential: Boolean(formData.isConfidential),
-  is_active:       true,
   auto_send_on_preview: Boolean(formData.autoSendOnPreview),
   auto_send_on_completed: Boolean(formData.autoSendOnCompleted),
 });
@@ -41,9 +43,9 @@ const NewProject = ({ onCreated, clientCatalog = [] }) => {
           clientCatalog={clientCatalog}
           onSubmit={async (formData) => {
             const payload = toApiPayload(formData);
-            const created = await projectService.create(payload); // lanza si falla → modal muestra toast error
-
-            // refresco de lista ANTES del toast/close del modal
+            return await projectService.create(payload);
+          }}
+          onSaved={async (created) => {
             try { await onCreated?.(created); } catch (e) {
               projectLog.error('[NewProject] Error ejecutando onCreated:', e);
             }
