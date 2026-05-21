@@ -95,8 +95,11 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     command: ["server", "/data", "--console-address", ":9001"]
     volumes:
-      - ./APP/data/minio_data:/data
+      - minio_data:/data
       - ./APP/logs/minio:/var/log/minio
+      - /usr/share/zoneinfo/America/Santiago:/etc/localtime:ro
+      - /usr/share/zoneinfo/America/Santiago:/usr/share/zoneinfo/America/Santiago:ro
+      - /etc/timezone:/etc/timezone:ro
     ports:
       - "${MINIO_PORT:-9000}:9000"
       - "${MINIO_CONSOLE_PORT:-9001}:9001"
@@ -177,9 +180,6 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
-      OPENAI_MODEL: ${OPENAI_MODEL}
-      OPENAI_ASSISTANT_ID: ${OPENAI_ASSISTANT_ID}
-      OPENAI_MAX_TOKENS: ${OPENAI_MAX_TOKENS}
       OPENAI_SYSTEM_PROMPT: ${OPENAI_SYSTEM_PROMPT}
       PROMPT_PATH_BASE: "/app/assets/prompts"
       MINUTES_MAX_FILE_SIZE_MB: ${MINUTES_MAX_FILE_SIZE_MB}
@@ -239,8 +239,6 @@ services:
       REDIS_HOST:      ${REDIS_HOST:-redis}
       REDIS_PORT:      ${REDIS_PORT:-6379}
       REDIS_DB:        ${REDIS_DB:-0}
-      REDIS_TIMEOUT:   ${REDIS_TIMEOUT:-30}        # Timeout de operaciones
-      REDIS_KEEPALIVE: ${REDIS_KEEPALIVE:-60}      # Keepalive en segundos
 
       # ── Comportamiento del Worker ────────────────────────────────────────────
       WORKER_MAX_CONCURRENT:  ${WORKER_MAX_CONCURRENT:-5}    # Jobs en paralelo
@@ -268,11 +266,7 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
       MINIO_SECURE:        ${MINIO_SECURE:-false}
 
-      # ── OpenAI (Generación de minutas) ────────────────────────────────────────
-      OPENAI_API_KEY:       ${OPENAI_API_KEY}
-      OPENAI_MODEL:         ${OPENAI_MODEL:-gpt-4o}
-      OPENAI_MAX_TOKENS:    ${OPENAI_MAX_TOKENS:-16000}
-      OPENAI_TIMEOUT:       ${OPENAI_TIMEOUT:-300}
+      # ── Prompt IA runtime ─────────────────────────────────────────────────────
       OPENAI_SYSTEM_PROMPT: ${OPENAI_SYSTEM_PROMPT}
 
       # ── Backend interno ────────────────────────────────────────
@@ -439,6 +433,9 @@ services:
     volumes:
       - redisinsight_data:/data
       - ./APP/data/settings/redis/redisinsight.json:/data/config.json:ro
+      - /usr/share/zoneinfo/America/Santiago:/etc/localtime:ro
+      - /usr/share/zoneinfo/America/Santiago:/usr/share/zoneinfo/America/Santiago:ro
+      - /etc/timezone:/etc/timezone:ro
     environment:
       APP_VERSION: ${APP_VERSION}
       TZ: America/Santiago
@@ -489,6 +486,8 @@ networks:
 volumes:
   mariadb_data:
     name: ${PROJECT_NAME}_mariadb_data
+  minio_data:
+    name: ${PROJECT_NAME}_minio_data
   frontend_node_modules:
     name: ${PROJECT_NAME}_frontend_node_modules
   frontend_npm_cache:

@@ -6,7 +6,10 @@ Este repositorio implementa MinuetAItor, una plataforma para gestionar minutas, 
 Este archivo define reglas globales para cualquier agente que trabaje en el repo. Las carpetas con su propio `AGENTS.md` refinan estas reglas para su ambito.
 
 ## Mapa real del proyecto
-- Orquestacion principal: `docker-compose-dev.yml`
+- Archivos de orquestacion por entorno:
+  - `docker-compose.yml` → Produccion
+  - `docker-compose-dev.yml` → Desarrollo
+  - `docker-compose-qa.yml` → Calidad
 - Backend API: `APP/volumes/backend/app`
 - Frontend: `APP/volumes/frontend`
 - Worker de negocio e IA: `APP/volumes/worker/app`
@@ -85,6 +88,10 @@ Reglas:
 ### Base de datos
 - No hay framework de migraciones visible.
 - El estado inicial depende de scripts SQL manuales en `APP/data/settings/mariadb/init`.
+- Convencion temporal del proyecto:
+  - Persistencia en BD: UTC
+  - Presentacion UI y logs operativos: hora local Santiago (`America/Santiago`)
+  - Si un `DATETIME` de MariaDB no trae tz, debe interpretarse como UTC de aplicacion
 - Orden observado:
   - `20260517_1810_schema_core.sql`
   - `20260517_1820_schema_extensions.sql`
