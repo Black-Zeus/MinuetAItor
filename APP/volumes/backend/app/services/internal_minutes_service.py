@@ -22,12 +22,12 @@ import io
 import json
 import logging
 import uuid
-from datetime import datetime, timezone
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from core.config import settings
+from core.datetime_utils import utc_now_db
 from db.minio_client import get_minio_client
 from models.artifact_states import ArtifactState
 from models.artifact_types import ArtifactType
@@ -42,6 +42,7 @@ from models.records import Record
 from models.user import User
 from models.version_statuses import VersionStatus
 from schemas.internal_minutes import MinuteCommitRequest, MinuteCommitResponse
+from schemas.internal_minutes import MinuteFailRequest, MinuteFailResponse
 from services.minute_participants_service import (
     build_version_participants_from_content,
     persist_record_version_participants,
@@ -74,8 +75,8 @@ PUBSUB_CHANNEL        = settings.pubsub_minutes_channel if hasattr(settings, "pu
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _now_utc() -> datetime:
-    return datetime.now(timezone.utc)
+def _now_utc():
+    return utc_now_db()
 
 
 def _sha256_bytes(data: bytes) -> str:
@@ -173,6 +174,7 @@ async def commit_minute_tx2(
             body.record_id,
             ai_output=body.ai_output,
             actor_user=actor_user,
+            ai_engine=f"{body.ai_provider} · {body.ai_model}",
         )
         try:
             record = db.query(Record).filter(Record.id == body.record_id, Record.deleted_at.is_(None)).first()
@@ -195,6 +197,8 @@ async def commit_minute_tx2(
                     "recordId": body.record_id,
                     "transactionId": tx_id,
                     "versionId": version_id,
+                    "aiProvider": body.ai_provider,
+                    "aiModel": body.ai_model,
                     "openaiRunId": body.openai_run_id,
                 },
             )
@@ -250,6 +254,74 @@ async def commit_minute_tx2(
                 "transaction_id": tx_id,
             },
         )
+
+
+async def fail_minute_tx2(
+    db: Session,
+    body: MinuteFailRequest,
+) -> MinuteFailResponse:
+    """
+    Cierra explícitamente una minuta en estado terminal no reintentable.
+
+    Este flujo se usa cuando el worker detecta una condición que no amerita
+    seguir reintentando, por ejemplo falta de configuración activa del
+    proveedor IA.
+    """
+    tx_id = body.transaction_id
+    rec_id = body.record_id
+    error_msg = str(body.error_message or "").strip() or "Fallo terminal de procesamiento"
+    record_status = str(body.record_status or RECORD_STATUS_PROC_ERROR).strip() or RECORD_STATUS_PROC_ERROR
+
+    _mark_failed(db, tx_id, rec_id, error_msg, record_status_code=record_status)
+
+    try:
+        record = db.query(Record).filter(Record.id == body.record_id, Record.deleted_at.is_(None)).first()
+        title = getattr(record, "title", body.record_id)
+        if record_status == RECORD_STATUS_LLM_FAILED:
+            notification_title = "Falló el análisis IA del acta"
+            notification_message = (
+                f'La minuta "{title}" quedó marcada con fallo de IA. '
+                "Revisa el error y vuelve a intentarlo si corresponde."
+            )
+        else:
+            notification_title = "Falló el procesamiento del acta"
+            notification_message = (
+                f'La minuta "{title}" quedó con error de proceso y no seguirá en cola. '
+                "Revisa la configuración o corrige el problema antes de reintentar."
+            )
+
+        await create_in_app_notification(
+            db,
+            notification_type="minute.analysis.failed",
+            title=notification_title,
+            message=notification_message,
+            level="danger",
+            tags=["minute", "analysis", "failed", record_status, "minute.analysis.failed"],
+            recipient_user_ids=[body.requested_by_id],
+            scope_type="record",
+            scope_id=body.record_id,
+            action_url="/minutes",
+            actor_user_id=body.requested_by_id,
+            metadata={
+                "recordId": body.record_id,
+                "transactionId": tx_id,
+                "openaiRunId": body.openai_run_id,
+                "error": error_msg[:500],
+                "recordStatus": record_status,
+                "source": body.source,
+            },
+        )
+    except Exception as notify_exc:
+        logger.warning("No se pudo crear notificación in-app TX2 fail endpoint | tx=%s err=%s", tx_id, notify_exc)
+
+    await _publish_event(tx_id, rec_id, "failed", error=error_msg)
+    logger.info("Fallo terminal persistido | tx=%s record=%s status=%s", tx_id, rec_id, record_status)
+
+    return MinuteFailResponse(
+        record_id=rec_id,
+        transaction_id=tx_id,
+        record_status=record_status,
+    )
 
 
 def _execute_tx2(db: Session, body: MinuteCommitRequest) -> str:
@@ -332,7 +404,8 @@ def _execute_tx2(db: Session, body: MinuteCommitRequest) -> str:
         published_by=by_id,
         schema_version="1.0",
         template_version="1.0",
-        ai_model=settings.openai_model,
+        ai_provider=body.ai_provider,
+        ai_model=body.ai_model,
         ai_run_id=body.openai_run_id,
     )
     db.add(version)
@@ -392,7 +465,7 @@ def _execute_tx2(db: Session, body: MinuteCommitRequest) -> str:
     tx.completed_at  = _now_utc()
     tx.output_object_id = can_obj_id
     tx.openai_run_id    = body.openai_run_id
-    tx.openai_model     = settings.openai_model
+    tx.openai_model     = body.ai_model
     tx.tokens_input     = body.tokens_input
     tx.tokens_output    = body.tokens_output
 
@@ -409,7 +482,14 @@ def _execute_tx2(db: Session, body: MinuteCommitRequest) -> str:
     return ver_id
 
 
-def _mark_failed(db: Session, tx_id: str, rec_id: str, error_msg: str) -> None:
+def _mark_failed(
+    db: Session,
+    tx_id: str,
+    rec_id: str,
+    error_msg: str,
+    *,
+    record_status_code: str = RECORD_STATUS_LLM_FAILED,
+) -> None:
     """
     Marca tx y record como fallidos. Best-effort — nunca propaga excepciones.
     Abre una sesión nueva para no depender del estado de la sesión principal.
@@ -425,12 +505,12 @@ def _mark_failed(db: Session, tx_id: str, rec_id: str, error_msg: str) -> None:
             tx.completed_at  = _now_utc()
 
         if record:
-            llm_failed_id    = _get_status_id(db, RECORD_STATUS_LLM_FAILED)
-            record.status_id = llm_failed_id
+            failed_status_id = _get_status_id(db, record_status_code)
+            record.status_id = failed_status_id
             record.updated_by = tx.requested_by if tx else None
 
         db.commit()
-        logger.info("Estado failed marcado | tx=%s record=%s", tx_id, rec_id)
+        logger.info("Estado failed marcado | tx=%s record=%s record_status=%s", tx_id, rec_id, record_status_code)
 
     except Exception as e:
         logger.error("Error marcando failed (ignorado) | tx=%s: %s", tx_id, e)

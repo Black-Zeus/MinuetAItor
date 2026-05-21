@@ -2,12 +2,12 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
 
 from fastapi import HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
+from core.datetime_utils import utc_now_db
 from models.user_sessions import UserSession
 from schemas.user_sessions import (
     UserSessionsCreateRequest,
@@ -122,7 +122,7 @@ def create_user_session(db: Session, body: UserSessionsCreateRequest) -> dict:
         city=body.city,
         location=body.location,
         logged_out_at=body.logged_out_at,
-        created_at=datetime.utcnow(),
+        created_at=utc_now_db(),
     )
 
     db.add(obj)

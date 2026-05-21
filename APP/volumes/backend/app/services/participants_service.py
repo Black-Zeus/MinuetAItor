@@ -10,6 +10,7 @@ from fastapi import HTTPException, UploadFile
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
+from core.datetime_utils import utc_now_db
 from models.participant import Participant
 from models.participant_email import ParticipantEmail
 from models.user import User
@@ -248,7 +249,7 @@ def _sync_participant_emails(
             existing.is_primary = item["is_primary"] and item["is_active"]
             existing.is_active = item["is_active"]
             existing.updated_by = actor_id
-            existing.deleted_at = None if item["is_active"] else datetime.utcnow()
+            existing.deleted_at = None if item["is_active"] else utc_now_db()
             existing.deleted_by = None if item["is_active"] else actor_id
             keep_ids.add(int(existing.id))
             continue
@@ -259,7 +260,7 @@ def _sync_participant_emails(
             is_active=item["is_active"],
             created_by=actor_id,
             updated_by=actor_id,
-            deleted_at=None if item["is_active"] else datetime.utcnow(),
+            deleted_at=None if item["is_active"] else utc_now_db(),
             deleted_by=None if item["is_active"] else actor_id,
         )
         participant.emails.append(created)
@@ -272,7 +273,7 @@ def _sync_participant_emails(
         if existing.deleted_at is None:
             existing.is_active = False
             existing.is_primary = False
-            existing.deleted_at = datetime.utcnow()
+            existing.deleted_at = utc_now_db()
             existing.deleted_by = actor_id
             existing.updated_by = actor_id
 
@@ -516,7 +517,7 @@ def change_participant_status(
 
 def soft_delete_participant(db: Session, participant_id: str, actor_id: str) -> None:
     participant = _get_or_404(db, participant_id)
-    participant.deleted_at = datetime.utcnow()
+    participant.deleted_at = utc_now_db()
     participant.deleted_by = actor_id
     participant.is_active = False
     participant.updated_by = actor_id
@@ -524,7 +525,7 @@ def soft_delete_participant(db: Session, participant_id: str, actor_id: str) -> 
         if email.deleted_at is None:
             email.is_active = False
             email.is_primary = False
-            email.deleted_at = datetime.utcnow()
+            email.deleted_at = utc_now_db()
             email.deleted_by = actor_id
             email.updated_by = actor_id
     db.commit()

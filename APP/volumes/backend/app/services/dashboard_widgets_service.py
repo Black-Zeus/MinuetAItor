@@ -9,6 +9,7 @@ from fastapi import HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
+from core.datetime_utils import utc_now_db
 from models.dashboard_widgets import DashboardWidget
 from schemas.dashboard_widgets import (
     DashboardWidgetCreateRequest,
@@ -179,7 +180,7 @@ def change_dashboard_widget_status(db: Session, id: int, is_active: bool, update
 def delete_dashboard_widget(db: Session, id: int, deleted_by_id: str) -> None:
     obj = _get_or_404(db, id)
 
-    obj.deleted_at = datetime.utcnow()
+    obj.deleted_at = utc_now_db()
     obj.deleted_by = deleted_by_id
     obj.is_active = False
 

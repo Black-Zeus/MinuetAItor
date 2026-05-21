@@ -1,9 +1,9 @@
 # repositories/session_repository.py
 import uuid
-from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
+from core.datetime_utils import utc_now_db
 from models.user_sessions import UserSession
 
 
@@ -23,7 +23,7 @@ def create_session(db: Session, *, user_id: str, jti: str, ip_v4: str | None,
         country_name = country_name,
         city         = city,
         location     = location,
-        created_at   = datetime.now(timezone.utc),
+        created_at   = utc_now_db(),
     )
     db.add(session)
     db.commit()
@@ -37,7 +37,7 @@ def get_session_by_jti(db: Session, jti: str) -> UserSession | None:
 def mark_logout(db: Session, jti: str) -> None:
     session = get_session_by_jti(db, jti)
     if session:
-        session.logged_out_at = datetime.now(timezone.utc)
+        session.logged_out_at = utc_now_db()
         db.commit()
 
 
@@ -66,7 +66,7 @@ def get_active_sessions(db: Session, user_id: str) -> list[UserSession]:
 
 def revoke_all_sessions(db: Session, user_id: str, exclude_jti: str | None = None) -> int:
     """Marca como logged_out todas las sesiones activas. Retorna cantidad revocada."""
-    now = datetime.now(timezone.utc)
+    now = utc_now_db()
     query = db.query(UserSession).filter(
         UserSession.user_id == user_id,
         UserSession.logged_out_at.is_(None),

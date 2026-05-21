@@ -7,6 +7,7 @@ import time
 from datetime import datetime, timezone
 from typing import AsyncGenerator
 
+from core.datetime_utils import utc_now
 from db.redis import get_redis
 from schemas.auth import UserSession
 
@@ -51,7 +52,7 @@ async def publish_session_event(
         "reason": reason,
         "message": message,
         "force_logout": force_logout,
-        "ts": datetime.now(timezone.utc).isoformat(),
+        "ts": utc_now().isoformat(),
         "metadata": metadata or {},
     }
     await redis.publish(get_session_events_channel(user_id), json.dumps(payload))

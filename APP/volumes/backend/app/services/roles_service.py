@@ -9,6 +9,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
+from core.datetime_utils import utc_now_db
 from models.roles import Role
 
 
@@ -167,7 +168,7 @@ def change_role_status(db: Session, role_id: int, is_active: bool, updated_by_id
 def delete_role(db: Session, role_id: int, deleted_by_id: str) -> None:
     obj = _get_or_404(db, role_id)
 
-    obj.deleted_at = datetime.utcnow()
+    obj.deleted_at = utc_now_db()
     obj.deleted_by = deleted_by_id
     obj.is_active = False
     obj.updated_by = deleted_by_id

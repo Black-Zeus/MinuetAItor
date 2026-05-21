@@ -1,9 +1,9 @@
 # repositories/audit_repository.py
 import json
-from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
+from core.datetime_utils import utc_now_db
 from models.audit_logs import AuditLog
 
 
@@ -17,7 +17,7 @@ def write_audit(
     details: dict | None = None,
 ) -> AuditLog:
     entry = AuditLog(
-        event_at      = datetime.now(timezone.utc),
+        event_at      = utc_now_db(),
         actor_user_id = actor_user_id,
         action        = action,
         entity_type   = entity_type,

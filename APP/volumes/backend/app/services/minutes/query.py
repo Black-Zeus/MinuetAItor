@@ -28,6 +28,10 @@ from services.minutes.constants import (
     RECORD_STATUS_READY,
     STATUSES_NO_CONTENT,
 )
+from services.minutes.reprocess import (
+    get_latest_minute_transaction,
+    get_reprocess_eligibility,
+)
 from services.minutes.sanitizers import (
     calculate_duration_label,
     extract_summary_from_minute_content,
@@ -220,6 +224,8 @@ def list_minutes(
             status_code,
             version_num,
         )
+        latest_tx = get_latest_minute_transaction(db, rec.id)
+        can_reprocess, reprocess_reason = get_reprocess_eligibility(status_code, latest_tx)
         time_text = format_hhmm(rec.actual_start_time or rec.scheduled_start_time)
         duration_text = calculate_duration_label(
             rec.scheduled_start_time,
@@ -249,6 +255,8 @@ def list_minutes(
                 date=rec.document_date.isoformat() if rec.document_date else None,
                 time=time_text,
                 duration=duration_text,
+                client_id=str(rec.client_id) if rec.client_id else None,
+                project_id=str(rec.project_id) if rec.project_id else None,
                 prepared_by=prepared_by_name,
                 status=status_code,
                 client=client_name,
@@ -256,6 +264,9 @@ def list_minutes(
                 participants=participant_names,
                 summary=summary_text,
                 tags=tag_items,
+                error_message=getattr(latest_tx, "error_message", None),
+                can_reprocess=can_reprocess,
+                reprocess_reason=reprocess_reason,
             )
         )
 

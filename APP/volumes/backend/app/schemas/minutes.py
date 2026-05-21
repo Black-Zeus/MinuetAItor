@@ -232,6 +232,8 @@ class MinuteListItem(BaseModel):
     date:         Optional[str]           = None
     time:         Optional[str]           = None
     duration:     Optional[str]           = None
+    client_id:    Optional[str]           = None
+    project_id:   Optional[str]           = None
     prepared_by:  Optional[str]           = Field(None, serialization_alias="preparedBy")
     status:       str
     client:       Optional[str]           = None
@@ -239,6 +241,9 @@ class MinuteListItem(BaseModel):
     participants: list[str]               = Field(default_factory=list)
     summary:      Optional[str]           = None
     tags:         list[MinuteTagItem]     = Field(default_factory=list)
+    error_message: Optional[str]          = None
+    can_reprocess: bool                   = False
+    reprocess_reason: Optional[str]       = None
 
     model_config = {"populate_by_name": True}
 
@@ -250,6 +255,20 @@ class MinuteListResponse(BaseModel):
     limit:   int
 
     model_config = {"populate_by_name": True}
+
+
+class MinuteReprocessResponse(BaseModel):
+    transaction_id: str
+    record_id: str
+    status: str
+    message: str
+
+    model_config = {
+        "populate_by_name": True,
+        "alias_generator": lambda s: "".join(
+            w.capitalize() if i else w for i, w in enumerate(s.split("_"))
+        ),
+    }
 
 # ── VERSIONES: GET /minutes/{record_id}/versions ─────────────────────────────
 

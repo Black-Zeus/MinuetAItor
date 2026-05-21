@@ -7,6 +7,7 @@ from fastapi import HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
+from core.datetime_utils import utc_now_db
 from models.artifact_type_mime_types import ArtifactTypeMimeType
 
 
@@ -176,7 +177,7 @@ def delete_artifact_type_mime_type(
 ) -> None:
     obj = _get_or_404(db, artifact_type_id, mime_type_id)
 
-    obj.deleted_at = datetime.utcnow()
+    obj.deleted_at = utc_now_db()
     obj.deleted_by = deleted_by_id
     obj.is_active = False
 

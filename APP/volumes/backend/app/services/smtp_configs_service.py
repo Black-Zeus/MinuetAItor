@@ -21,6 +21,7 @@ from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session, joinedload
 
 from core.config import settings
+from core.datetime_utils import utc_now, utc_now_db
 from core.exceptions import BadRequestException
 from models.smtp_configs import SmtpConfig
 from services.email_template_service import render_email_template, resolve_default_logo_path
@@ -35,7 +36,7 @@ TEST_TOKEN_TTL_SECONDS = 15 * 60
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return utc_now()
 
 
 def _is_missing_table_error(exc: Exception) -> bool:
@@ -479,7 +480,7 @@ def create_smtp_config(db: Session, body: SmtpConfigCreateRequest, created_by_id
         use_ssl=bool(values.get("use_ssl")),
         timeout_seconds=int(values["timeout_seconds"]),
         is_active=bool(values.get("is_active")),
-        last_tested_at=_utcnow(),
+        last_tested_at=utc_now_db(),
         last_tested_by=created_by_id,
         created_by=created_by_id,
         updated_by=None,
@@ -521,7 +522,7 @@ def update_smtp_config(db: Session, config_id: str, body: SmtpConfigUpdateReques
     if values.get("is_active") is not None:
         obj.is_active = bool(values["is_active"])
     obj.updated_by = updated_by_id
-    obj.last_tested_at = _utcnow()
+    obj.last_tested_at = utc_now_db()
     obj.last_tested_by = updated_by_id
 
     db.commit()
@@ -560,7 +561,7 @@ def delete_smtp_config(db: Session, config_id: str, deleted_by_id: str) -> dict[
             replacement.is_active = True
             replacement.updated_by = deleted_by_id
 
-    obj.deleted_at = _utcnow()
+    obj.deleted_at = utc_now_db()
     obj.deleted_by = deleted_by_id
     obj.updated_by = deleted_by_id
     obj.is_active = False

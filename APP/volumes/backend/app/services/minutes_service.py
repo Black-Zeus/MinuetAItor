@@ -8,7 +8,6 @@ import json
 import logging
 import os
 import uuid
-from datetime import datetime, timezone
 from datetime import time as dt_time
 from pathlib import Path
 from typing import Any, Optional
@@ -19,6 +18,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from core.config import settings
+from core.datetime_utils import utc_now_db
 from db.minio_client import get_minio_client
 from models.minute_transaction import MinuteTransaction
 from models.objects import Object
@@ -31,6 +31,7 @@ from schemas.minutes import (
     MinuteDetailResponse,
     MinuteGenerateRequest,
     MinuteGenerateResponse,
+    MinuteReprocessResponse,
     MinuteRecordInfo,
     MinuteSendEmailResponse,
     MinuteStatusResponse,
@@ -47,6 +48,7 @@ from services.minutes import constants as minute_constants
 from services.minutes import generate as minute_generate
 from services.minutes import queue as minute_queue
 from services.minutes import query as minute_query
+from services.minutes import reprocess as minute_reprocess
 from services.minutes import sanitizers as minute_sanitizers
 from services.minutes import storage as minute_storage
 from services.notification_center_service import create_in_app_notification
@@ -107,8 +109,8 @@ _VALID_TRANSITIONS: dict[str, set[str]] = {
     RECORD_STATUS_PENDING:     {RECORD_STATUS_PREVIEW, RECORD_STATUS_CANCELLED, RECORD_STATUS_DELETED},
     RECORD_STATUS_PREVIEW:     {RECORD_STATUS_PENDING, RECORD_STATUS_COMPLETED, RECORD_STATUS_CANCELLED, RECORD_STATUS_DELETED},
     RECORD_STATUS_CANCELLED:   {RECORD_STATUS_DELETED},
-    RECORD_STATUS_LLM_FAILED:  {RECORD_STATUS_DELETED},
-    RECORD_STATUS_PROC_ERROR:  {RECORD_STATUS_DELETED},
+    RECORD_STATUS_LLM_FAILED:  {RECORD_STATUS_CANCELLED, RECORD_STATUS_DELETED},
+    RECORD_STATUS_PROC_ERROR:  {RECORD_STATUS_CANCELLED, RECORD_STATUS_DELETED},
     RECORD_STATUS_COMPLETED:   set(),   # terminal
     RECORD_STATUS_DELETED:     set(),   # terminal
 }
@@ -383,6 +385,18 @@ async def generate_minute(
         request=request,
         files=files,
         requested_by_id=requested_by_id,
+    )
+
+
+async def reprocess_minute(
+    db: Session,
+    record_id: str,
+    actor_user_id: str,
+) -> MinuteReprocessResponse:
+    return await minute_reprocess.reprocess_minute(
+        db=db,
+        record_id=record_id,
+        actor_user_id=actor_user_id,
     )
 
     """
@@ -985,7 +999,7 @@ async def transition_minute(
 
     # ── * → deleted ───────────────────────────────────────────────────────────
     elif target_status == RECORD_STATUS_DELETED:
-        record.deleted_at = datetime.now(timezone.utc)
+        record.deleted_at = utc_now_db()
 
     # ── * → cancelled: solo cambia el estado ─────────────────────────────────
 

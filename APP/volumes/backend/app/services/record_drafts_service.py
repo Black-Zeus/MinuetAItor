@@ -8,6 +8,7 @@ from fastapi import HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
+from core.datetime_utils import utc_now_db
 from models.record_drafts import RecordDraft
 from schemas.record_drafts import RecordDraftCreateRequest, RecordDraftFilterRequest, RecordDraftUpdateRequest
 
@@ -159,7 +160,7 @@ def update_record_draft(db: Session, record_id: str, body: RecordDraftUpdateRequ
 def delete_record_draft(db: Session, record_id: str, deleted_by_id: str) -> None:
     obj = _get_or_404(db, record_id)
 
-    obj.deleted_at = datetime.utcnow()
+    obj.deleted_at = utc_now_db()
     obj.deleted_by = deleted_by_id
 
     db.commit()

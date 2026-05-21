@@ -9,6 +9,7 @@ from fastapi import HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
+from core.datetime_utils import utc_now_db
 from models.artifact_states import ArtifactState
 from schemas.artifact_states import (
     ArtifactStateCreateRequest,
@@ -167,7 +168,7 @@ def change_artifact_state_status(db: Session, id: int, is_active: bool, updated_
 
 def delete_artifact_state(db: Session, id: int, deleted_by_id: str | None) -> None:
     obj = _get_or_404(db, id)
-    obj.deleted_at = datetime.utcnow()
+    obj.deleted_at = utc_now_db()
     obj.deleted_by = deleted_by_id
     obj.is_active = False
 

@@ -1,12 +1,11 @@
 # services/role_permissions_service.py
 from __future__ import annotations
 
-from datetime import datetime
-
 from fastapi import HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
+from core.datetime_utils import utc_now_db
 from models.role_permissions import RolePermission
 from schemas.role_permissions import (
     RolePermissionCreateRequest,
@@ -149,7 +148,7 @@ def create_role_permission(
     obj = RolePermission(
         role_id=body.role_id,
         permission_id=body.permission_id,
-        created_at=datetime.utcnow(),
+        created_at=utc_now_db(),
         created_by=created_by_id,
         deleted_at=None,
         deleted_by=None,
@@ -215,7 +214,7 @@ def delete_role_permission(db: Session, role_id: int, permission_id: int, delete
     if not obj:
         raise HTTPException(status_code=404, detail="RECURSO_NOT_FOUND")
 
-    obj.deleted_at = datetime.utcnow()
+    obj.deleted_at = utc_now_db()
     obj.deleted_by = deleted_by_id
 
     db.commit()

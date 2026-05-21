@@ -8,6 +8,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
+from core.datetime_utils import utc_now_db
 from models.buckets import Bucket
 
 
@@ -177,7 +178,7 @@ def change_bucket_status(db: Session, id: int, is_active: bool, updated_by_id: s
 def delete_bucket(db: Session, id: int, deleted_by_id: str | None) -> None:
     obj = _get_or_404(db, id)
 
-    obj.deleted_at = datetime.utcnow()
+    obj.deleted_at = utc_now_db()
     obj.deleted_by = deleted_by_id
     obj.is_active = False
 

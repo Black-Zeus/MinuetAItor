@@ -9,6 +9,7 @@ from fastapi import HTTPException
 from sqlalchemy import and_, func
 from sqlalchemy.orm import Session, joinedload
 
+from core.datetime_utils import utc_now_db
 from models.user_project_acl import UserProjectACL, UserProjectPermission
 from schemas.user_project_acl import (
     UserProjectACLCreateRequest,
@@ -180,7 +181,7 @@ def change_user_project_acl_status(
 def delete_user_project_acl(db: Session, user_id: str, project_id: str, deleted_by_id: str) -> None:
     obj = _get_or_404(db, user_id, project_id)
 
-    obj.deleted_at = datetime.utcnow()
+    obj.deleted_at = utc_now_db()
     obj.deleted_by = deleted_by_id
     obj.is_active = False
     obj.updated_by = deleted_by_id

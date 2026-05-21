@@ -10,6 +10,8 @@ from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy import func, inspect
 from sqlalchemy.orm import Session, joinedload
 
+from core.datetime_utils import utc_now
+from core.datetime_utils import utc_now_db
 from core.exceptions import BadRequestException
 from db.redis import get_redis
 from models.roles import Role
@@ -85,7 +87,7 @@ MANUAL_ACTIONS = {
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return utc_now()
 
 
 def _localnow() -> datetime:
@@ -191,7 +193,7 @@ def _get_singleton(db: Session, *, actor_user_id: str | None = None) -> SystemMa
     if obj:
         return obj
 
-    now = _utcnow()
+    now = utc_now_db()
     obj = SystemMaintenanceSetting(
         id=SYSTEM_MAINTENANCE_SINGLETON_ID,
         created_at=now,
@@ -694,7 +696,7 @@ def update_system_maintenance_settings(
     updated_by_id: str,
 ) -> dict:
     obj = _get_singleton(db, actor_user_id=updated_by_id)
-    now = _utcnow()
+    now = utc_now_db()
 
     obj.session_cleanup_enabled = body.session_cleanup_enabled
     obj.session_cleanup_cron = body.session_cleanup_cron

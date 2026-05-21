@@ -6,6 +6,8 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from core.datetime_utils import utc_now
+from core.datetime_utils import utc_now_db
 from models.roles import Role
 from models.user_notification_preferences import UserNotificationPreference
 from models.user_roles import UserRole
@@ -87,7 +89,7 @@ PREFERENCE_DEFINITIONS_BY_KEY = {item["key"]: item for item in PREFERENCE_DEFINI
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return utc_now()
 
 
 def _normalize_role_codes(role_codes: list[str] | None) -> set[str]:
@@ -253,7 +255,7 @@ def update_user_notification_preferences(
     user_id = str(session.user_id)
     user_roles = _normalize_role_codes(session.roles)
     requested_items = items or []
-    now = _utcnow()
+    now = utc_now_db()
 
     if global_enabled is not None:
         row = (

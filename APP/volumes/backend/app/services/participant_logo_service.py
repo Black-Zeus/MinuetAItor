@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-from io import BytesIO
-from datetime import datetime, timezone
-from pathlib import Path
 import uuid
+from io import BytesIO
+from pathlib import Path
 
 from fastapi import HTTPException, UploadFile, status
 from minio.error import S3Error
 from sqlalchemy.orm import Session
 
+from core.datetime_utils import utc_now_db
 from db.minio_client import get_minio_client
 from models.buckets import Bucket
 from models.objects import Object
@@ -102,7 +102,7 @@ async def save_participant_logo(
     db.add(object_row)
 
     previous_object = getattr(participant, "avatar_object", None)
-    now = datetime.now(timezone.utc)
+    now = utc_now_db()
     if previous_object and not getattr(previous_object, "deleted_at", None):
         previous_object.deleted_at = now
         previous_object.deleted_by = actor_user_id
@@ -121,7 +121,7 @@ async def save_participant_logo(
 
 def remove_participant_logo(db: Session, participant: Participant, *, actor_user_id: str | None) -> None:
     avatar_object = getattr(participant, "avatar_object", None)
-    now = datetime.now(timezone.utc)
+    now = utc_now_db()
 
     if not avatar_object or getattr(avatar_object, "deleted_at", None):
         participant.avatar_object_id = None

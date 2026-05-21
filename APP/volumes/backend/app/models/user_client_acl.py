@@ -2,11 +2,11 @@
 from __future__ import annotations
 
 import enum
-from datetime import datetime, timezone
 
 from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, Index, String, func
 from sqlalchemy.orm import relationship
 
+from core.datetime_utils import utc_now_db
 from db.base import Base
 
 
@@ -38,12 +38,12 @@ class UserClientAcl(Base):
     created_at = Column(
         DateTime,
         nullable=False,
-        default=lambda: datetime.now(timezone.utc),
+        default=utc_now_db,
         server_default=func.now(),
     )
     created_by = Column(String(36), ForeignKey("users.id"), nullable=True)
 
-    updated_at = Column(DateTime, nullable=True, onupdate=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, nullable=True, onupdate=utc_now_db)
     updated_by = Column(String(36), ForeignKey("users.id"), nullable=True)
 
     deleted_at = Column(DateTime, nullable=True)

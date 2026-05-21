@@ -1,13 +1,13 @@
 # services/user_roles_service.py
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any
 
 from fastapi import HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
+from core.datetime_utils import utc_now_db
 from models.user_roles import UserRole
 
 
@@ -124,7 +124,7 @@ def create_user_role(db: Session, body, created_by_id: str) -> dict[str, Any]:
     obj = UserRole(
         user_id=body.user_id,
         role_id=int(body.role_id),
-        created_at=datetime.utcnow(),
+        created_at=utc_now_db(),
         created_by=created_by_id,
         deleted_at=None,
         deleted_by=None,
@@ -162,7 +162,7 @@ def update_user_role(db: Session, user_id: str, role_id: int, body, updated_by_i
     obj = UserRole(
         user_id=user_id,
         role_id=int(role_id),
-        created_at=datetime.utcnow(),
+        created_at=utc_now_db(),
         created_by=updated_by_id,
         deleted_at=None,
         deleted_by=None,
@@ -183,6 +183,6 @@ def delete_user_role(db: Session, user_id: str, role_id: int, deleted_by_id: str
     if not obj:
         raise HTTPException(status_code=404, detail="RECURSO_NOT_FOUND")
 
-    obj.deleted_at = datetime.utcnow()
+    obj.deleted_at = utc_now_db()
     obj.deleted_by = deleted_by_id
     db.commit()

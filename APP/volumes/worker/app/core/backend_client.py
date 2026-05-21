@@ -24,6 +24,8 @@ logger = logging.getLogger(__name__)
 
 # ── Constantes ────────────────────────────────────────────────────────────────
 COMMIT_PATH = "/internal/v1/minutes/commit"
+FAIL_PATH = "/internal/v1/minutes/fail"
+ACTIVE_PROVIDER_PATH = "/internal/v1/minutes/active-provider"
 NOTIFICATIONS_INGEST_PATH = "/internal/v1/notifications/ingest"
 
 
@@ -35,6 +37,46 @@ class BackendClientError(Exception):
         self.retryable   = retryable
 
 
+def _extract_backend_error_message(raw_body: str) -> str | None:
+    """
+    Intenta obtener un mensaje legible desde el envelope estándar del backend.
+
+    Soporta estructuras típicas como:
+      {"error": {"message": "..."}}
+      {"detail": {"message": "..."}}
+      {"message": "..."}
+    """
+    body = str(raw_body or "").strip()
+    if not body:
+        return None
+
+    try:
+        payload = json.loads(body)
+    except json.JSONDecodeError:
+        return body[:200]
+
+    if isinstance(payload, dict):
+        error_obj = payload.get("error")
+        if isinstance(error_obj, dict):
+            message = str(error_obj.get("message") or "").strip()
+            if message:
+                return message
+
+        detail_obj = payload.get("detail")
+        if isinstance(detail_obj, dict):
+            message = str(detail_obj.get("message") or detail_obj.get("error") or "").strip()
+            if message:
+                return message
+        if isinstance(detail_obj, str) and detail_obj.strip():
+            return detail_obj.strip()
+
+        message = str(payload.get("message") or "").strip()
+        if message:
+            return message
+
+    return body[:200]
+
+
 def _build_headers() -> dict[str, str]:
     return {
         "Content-Type":    "application/json",
@@ -42,17 +84,19 @@ def _build_headers() -> dict[str, str]:
     }
 
 
-def _do_request(path: str, body: dict) -> dict:
+def _do_request(path: str, body: dict | None = None, *, method: str = "POST") -> dict:
     """
-    Ejecuta un POST HTTP hacia el backend interno.
+    Ejecuta un request HTTP hacia el backend interno.
     Usa urllib (stdlib) para evitar dependencias adicionales en el worker.
     """
     url     = f"{settings.BACKEND_INTERNAL_URL.rstrip('/')}{path}"
-    payload = json.dumps(body, ensure_ascii=False).encode("utf-8")
     headers = _build_headers()
     timeout = getattr(settings, "BACKEND_TIMEOUT", 30)
+    payload = None
+    if body is not None:
+        payload = json.dumps(body, ensure_ascii=False).encode("utf-8")
 
-    req = urllib.request.Request(url, data=payload, headers=headers, method="POST")
+    req = urllib.request.Request(url, data=payload, headers=headers, method=method)
 
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
@@ -64,6 +108,7 @@ def _do_request(path: str, body: dict) -> dict:
     except urllib.error.HTTPError as e:
         raw  = e.read()
         body_str = raw.decode("utf-8", errors="replace")
+        readable_message = _extract_backend_error_message(body_str)
 
         # 4xx → error de datos, no reintentable
         retryable = e.code >= 500
@@ -72,7 +117,7 @@ def _do_request(path: str, body: dict) -> dict:
             e.code, path, body_str[:300],
         )
         raise BackendClientError(
-            f"Backend retornó {e.code}: {body_str[:200]}",
+            readable_message or f"El backend retornó HTTP {e.code}.",
             status_code=e.code,
             retryable=retryable,
         )
@@ -97,6 +142,8 @@ def commit_tx2(
     ai_output:         dict[str, Any],
     ai_input_schema:   dict[str, Any],
     derived_fields:    dict[str, Any],
+    ai_provider:       str,
+    ai_model:          str,
     openai_run_id:     str,
     tokens_input:      int,
     tokens_output:     int,
@@ -121,6 +168,8 @@ def commit_tx2(
         "ai_output":         ai_output,
         "ai_input_schema":   ai_input_schema,
         "derived_fields":    derived_fields,
+        "ai_provider":       ai_provider,
+        "ai_model":          ai_model,
         "openai_run_id":     openai_run_id,
         "tokens_input":      tokens_input,
         "tokens_output":     tokens_output,
@@ -135,6 +184,45 @@ def commit_tx2(
         result.get("version_id", "?"),
     )
     return result
+
+
+def get_active_ai_provider_config() -> dict[str, Any]:
+    """
+    Recupera desde el backend interno la configuración AI activa, con secretos
+    resueltos para uso exclusivo del worker.
+    """
+    logger.info("Solicitando configuración AI activa al backend interno")
+    return _do_request(ACTIVE_PROVIDER_PATH, method="GET")
+
+
+def report_minute_failure(
+    transaction_id: str,
+    record_id: str,
+    requested_by_id: str,
+    error_message: str,
+    *,
+    record_status: str = "processing-error",
+    source: str = "worker",
+    openai_run_id: str | None = None,
+) -> dict:
+    """
+    Reporta al backend un fallo terminal no reintentable para que actualice el
+    estado funcional del record, publique SSE y cree notificación in-app.
+    """
+    logger.warning(
+        "Reportando fallo terminal al backend | tx=%s record=%s record_status=%s",
+        transaction_id, record_id, record_status,
+    )
+    payload = {
+        "transaction_id": transaction_id,
+        "record_id": record_id,
+        "requested_by_id": requested_by_id,
+        "error_message": error_message,
+        "record_status": record_status,
+        "source": source,
+        "openai_run_id": openai_run_id,
+    }
+    return _do_request(FAIL_PATH, payload)
 
 
 def ingest_notification(body: dict[str, Any]) -> dict:

@@ -1,13 +1,13 @@
 # services/audit_logs_service.py
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
+from core.datetime_utils import utc_now_db
 from models.audit_logs import AuditLog
 
 
@@ -98,7 +98,7 @@ def create_audit_log(db: Session, body, created_by_id: str) -> dict[str, Any]:
         entity_type   = body.entity_type,
         entity_id     = body.entity_id,
         details_json  = body.details_json,
-        event_at      = body.event_at or datetime.now(timezone.utc),
+        event_at      = body.event_at or utc_now_db(),
     )
 
     db.add(obj)

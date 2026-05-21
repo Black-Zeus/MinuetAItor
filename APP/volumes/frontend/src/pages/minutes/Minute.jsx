@@ -8,7 +8,8 @@ import MinuteCard from "./MinuteCard";
 import MinutesPagination from "./MinutesPagination";
 import PageLoadingSpinner from "@/components/ui/modal/types/system/PageLoadingSpinner";
 
-import { listMinutes, transitionMinute } from "@/services/minutesService";
+import { listMinutes, reprocessMinute, transitionMinute } from "@/services/minutesService";
+import useMinuteNotificationStore from "@/store/minuteNotificationStore";
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 const PAGE_SIZE = 12;
@@ -38,6 +39,7 @@ const extractOptions = (minutes) => {
 
 // ─── Componente ───────────────────────────────────────────────────────────────
 const Minutes = () => {
+  const addPending = useMinuteNotificationStore((s) => s.addPending);
 
   // ── Estado de carga ──────────────────────────────────────────────────────
   const [isLoading,    setIsLoading]    = useState(true);
@@ -125,6 +127,21 @@ const Minutes = () => {
     }
   }, [currentPage, filters, fetchMinutes]);
 
+  const handleReprocess = useCallback(async (minuteId) => {
+    try {
+      const result = await reprocessMinute(minuteId);
+      const minute = minutes.find((item) => item.id === minuteId);
+      addPending(
+        result?.transactionId,
+        result?.recordId ?? minuteId,
+        minute?.title ?? minute?.client ?? "Minuta"
+      );
+      fetchMinutes(currentPage, filters, false);
+    } catch {
+      // El interceptor de axios ya muestra el toast de error
+    }
+  }, [addPending, currentPage, filters, minutes, fetchMinutes]);
+
   // ─── Opciones para filtros ────────────────────────────────────────────────
   const { clients, projects } = useMemo(() => extractOptions(minutes), [minutes]);
 
@@ -193,6 +210,7 @@ const Minutes = () => {
                 key={minute.id}
                 minute={minute}
                 onStatusChange={handleStatusChange}
+                onReprocess={handleReprocess}
               />
             ))}
           </div>

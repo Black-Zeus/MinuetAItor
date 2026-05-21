@@ -35,7 +35,12 @@ from typing import Any
 import openai
 from minio import Minio
 
-from core.backend_client import BackendClientError, commit_tx2
+from core.backend_client import (
+    BackendClientError,
+    commit_tx2,
+    get_active_ai_provider_config,
+    report_minute_failure,
+)
 from core.config import settings
 from core.job import JobEnvelope
 from core.logging_config import get_logger
@@ -49,6 +54,18 @@ PUBSUB_CHANNEL = settings.PUBSUB_MINUTES_CHANNEL
 
 # ── Lazy-init MinIO ───────────────────────────────────────────────────────────
 _minio_client = None
+
+
+class NonRetryableMinuteError(RuntimeError):
+    """
+    Error terminal del pipeline de minutas.
+
+    Se usa cuando el worker detecta una condición que no mejorará con
+    reintentos automáticos.
+    """
+    def __init__(self, message: str, *, record_status: str = "processing-error"):
+        super().__init__(message)
+        self.record_status = str(record_status or "processing-error").strip() or "processing-error"
 
 
 def _get_minio() -> Minio:
@@ -152,6 +169,8 @@ def _trace_write(
     files: list[dict],
     tokens_in: int,
     tokens_out: int,
+    ai_provider: str,
+    ai_model: str,
     run_id: str,
 ) -> None:
     """
@@ -186,11 +205,13 @@ def _trace_write(
 
         meta = {
             "transaction_id": tx_id,
+            "ai_provider":    ai_provider,
+            "ai_model":       ai_model,
             "openai_run_id":  run_id,
             "tokens_input":   tokens_in,
             "tokens_output":  tokens_out,
             "timestamp_utc":  _now_utc().isoformat(),
-            "model":          settings.OPENAI_MODEL,
+            "model":          ai_model,
         }
         (base / "meta.json").write_text(
             json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -289,22 +310,72 @@ def _load_agent_prompt(ai_profile: dict, additional_notes: str = "") -> str:
     return tmpl
 
 
-# ── Llamada a OpenAI ──────────────────────────────────────────────────────────
+# ── Resolución de proveedor runtime ──────────────────────────────────────────
+
+def _resolve_runtime_ai_provider() -> dict[str, Any]:
+    provider = get_active_ai_provider_config()
+    provider_type = str(provider.get("provider_type") or "").strip()
+    provider_family = str(provider.get("provider_family") or "").strip() or "generic"
+    model_name = str(provider.get("model_name") or "").strip()
+    auth_type = str(provider.get("auth_type") or "").strip() or "none"
+    base_url = str(provider.get("base_url") or "").strip()
+    timeout_seconds = int(provider.get("timeout_seconds") or settings.AI_PROVIDER_TIMEOUT_FALLBACK)
+    token = str(provider.get("token") or "").strip() or None
+
+    if not provider_type:
+        raise NonRetryableMinuteError("La configuración AI activa no informó un provider_type válido")
+    if not model_name:
+        raise NonRetryableMinuteError("La configuración AI activa no informó un modelo válido")
+    if not base_url:
+        raise NonRetryableMinuteError("La configuración AI activa no informó una base_url válida")
+    if provider_family != "openai_compatible":
+        raise NonRetryableMinuteError(
+            f"La familia de proveedor '{provider_family}' aún no está soportada por el worker de minutas. "
+            "Por ahora solo se admite 'openai_compatible'."
+        )
+    if auth_type not in {"api_key", "none"}:
+        raise NonRetryableMinuteError(
+            f"El auth_type '{auth_type}' aún no está soportado por el worker de minutas para proveedores openai_compatible."
+        )
+    if auth_type == "api_key" and not token:
+        raise NonRetryableMinuteError("La configuración AI activa requiere token/API key, pero no entregó credencial usable")
+
+    return {
+        "provider_type": provider_type,
+        "provider_family": provider_family,
+        "model_name": model_name,
+        "auth_type": auth_type,
+        "base_url": base_url.rstrip("/"),
+        "timeout_seconds": timeout_seconds if timeout_seconds > 0 else settings.AI_PROVIDER_TIMEOUT_FALLBACK,
+        "token": token,
+        "custom_headers": provider.get("custom_headers") or {},
+    }
+
+
+# ── Llamada a proveedor IA ───────────────────────────────────────────────────
 
 def _call_openai_sync(
+    provider_config: dict[str, Any],
     prompt: str,
     files: list[dict],
     ai_input: dict,
 ) -> tuple[dict, str, int, int]:
     """
-    Llama a OpenAI de forma sincrona.
+    Llama al proveedor IA compatible con OpenAI de forma sincrona.
 
     files: lista de { fileName, content (bytes), mimeType }
     Retorna (parsed_output, run_id, tokens_in, tokens_out).
     """
+    extra_headers = provider_config.get("custom_headers") or {}
+    if extra_headers:
+        logger.warning(
+            "La configuración AI activa incluye custom_headers; el worker actual no los aplica en el cliente openai_compatible"
+        )
+
     client = openai.OpenAI(
-        api_key=settings.OPENAI_API_KEY,
-        timeout=settings.OPENAI_TIMEOUT,
+        api_key=provider_config.get("token") or "not-needed",
+        base_url=provider_config["base_url"],
+        timeout=provider_config["timeout_seconds"],
     )
 
     content_parts: list[Any] = []
@@ -334,14 +405,14 @@ def _call_openai_sync(
 
     total_chars = sum(len(str(p)) for p in content_parts)
     logger.info(
-        "Llamando a OpenAI | model=%s archivos=%d partes=%d chars~%d",
-        settings.OPENAI_MODEL, len(files), len(content_parts), total_chars,
+        "Llamando a proveedor IA | provider=%s model=%s archivos=%d partes=%d chars~%d",
+        provider_config["provider_type"], provider_config["model_name"], len(files), len(content_parts), total_chars,
     )
 
     try:
         resp = client.chat.completions.create(
-            model=settings.OPENAI_MODEL,
-            max_tokens=settings.OPENAI_MAX_TOKENS,
+            model=provider_config["model_name"],
+            max_tokens=settings.AI_MAX_TOKENS,
             messages=[
                 {"role": "system", "content": prompt},
                 {"role": "user",   "content": content_parts},
@@ -358,13 +429,16 @@ def _call_openai_sync(
         parsed = json.loads(raw_text)
     except json.JSONDecodeError as e:
         logger.error("JSON invalido de OpenAI: %s...", raw_text[:200])
-        raise RuntimeError(f"IA retorno JSON invalido: {e}")
+        raise NonRetryableMinuteError(f"IA retornó JSON inválido: {e}", record_status="llm-failed")
 
     # Validar estructura minima esperada
     required = ["scope", "agreements", "requirements", "upcomingMeetings"]
     missing  = [k for k in required if k not in parsed]
     if missing:
-        raise RuntimeError(f"Respuesta de IA incompleta. Faltantes: {missing}")
+        raise NonRetryableMinuteError(
+            f"Respuesta de IA incompleta. Faltantes: {missing}",
+            record_status="llm-failed",
+        )
 
     usage      = resp.usage
     tokens_in  = getattr(usage, "prompt_tokens",     0) if usage else 0
@@ -379,7 +453,7 @@ def _call_openai_sync(
 
 # ── TX2 sincrona (para ejecutar en executor) ─────────────────────────────────
 
-def _execute_tx2_sync(payload: dict) -> tuple[str, str, int, int]:
+def _execute_tx2_sync(payload: dict) -> tuple[str, str, int, int, str, str]:
     """
     Ejecuta TX2 de forma sincrona:
       1. Descarga archivos desde MinIO         (usa file_metadata[].fileName)
@@ -387,7 +461,7 @@ def _execute_tx2_sync(payload: dict) -> tuple[str, str, int, int]:
       3. Vuelca trace si TRACE_ENABLED         (usa files[].fileName)
       4. Envia resultado al backend via HTTP   (envia input_objects_meta tal cual)
 
-    Retorna (openai_run_id, version_id, tokens_in, tokens_out).
+    Retorna (openai_run_id, version_id, tokens_in, tokens_out, ai_provider, ai_model).
     """
     tx_id         = payload["transaction_id"]
     rec_id        = payload["record_id"]
@@ -406,12 +480,14 @@ def _execute_tx2_sync(payload: dict) -> tuple[str, str, int, int]:
     if not files:
         raise ValueError("No se pudieron descargar archivos desde MinIO")
 
+    provider_config = _resolve_runtime_ai_provider()
+
     # 2. Cargar prompt
     additional_notes = ai_input.get("additionalNotes", "")
     prompt = _load_agent_prompt(profile, additional_notes)
 
-    # 3. Llamar a OpenAI
-    ai_output, run_id, tokens_in, tokens_out = _call_openai_sync(prompt, files, ai_input)
+    # 3. Llamar al proveedor IA configurado
+    ai_output, run_id, tokens_in, tokens_out = _call_openai_sync(provider_config, prompt, files, ai_input)
 
     # 4. Trace
     _trace_write(
@@ -422,6 +498,8 @@ def _execute_tx2_sync(payload: dict) -> tuple[str, str, int, int]:
         files=files,
         tokens_in=tokens_in,
         tokens_out=tokens_out,
+        ai_provider=provider_config["provider_type"],
+        ai_model=provider_config["model_name"],
         run_id=run_id,
     )
 
@@ -438,6 +516,8 @@ def _execute_tx2_sync(payload: dict) -> tuple[str, str, int, int]:
         ai_output=ai_output,
         ai_input_schema=ai_input,
         derived_fields=derived_fields,
+        ai_provider=provider_config["provider_type"],
+        ai_model=provider_config["model_name"],
         openai_run_id=run_id,
         tokens_input=tokens_in,
         tokens_output=tokens_out,
@@ -447,7 +527,7 @@ def _execute_tx2_sync(payload: dict) -> tuple[str, str, int, int]:
 
     version_id = result.get("version_id", "unknown")
     logger.info("Backend confirmo TX2 | version=%s", version_id)
-    return run_id, version_id, tokens_in, tokens_out
+    return run_id, version_id, tokens_in, tokens_out, provider_config["provider_type"], provider_config["model_name"]
 
 
 # ── Handler principal ─────────────────────────────────────────────────────────
@@ -469,23 +549,56 @@ async def handle_minutes_job(job: JobEnvelope) -> None:
     redis  = await get_redis()
     status = "failed"
     error  = ""
+    failure_reported = False
 
     try:
         loop = asyncio.get_event_loop()
-        run_id, version_id, tokens_in, tokens_out = await loop.run_in_executor(
+        run_id, version_id, tokens_in, tokens_out, ai_provider, ai_model = await loop.run_in_executor(
             None, _execute_tx2_sync, payload
         )
 
         status = "completed"
         logger.info(
-            "TX2 completada | tx=%s run=%s tokens=%d/%d version=%s",
-            tx_id, run_id, tokens_in, tokens_out, version_id,
+            "TX2 completada | tx=%s provider=%s model=%s run=%s tokens=%d/%d version=%s",
+            tx_id, ai_provider, ai_model, run_id, tokens_in, tokens_out, version_id,
         )
+
+    except NonRetryableMinuteError as exc:
+        error = str(exc)
+        logger.error("Error terminal de procesamiento | tx=%s status=%s error=%s", tx_id, exc.record_status, error)
+        try:
+            await asyncio.to_thread(
+                report_minute_failure,
+                tx_id,
+                rec_id,
+                payload.get("requested_by_id", ""),
+                error,
+                record_status=exc.record_status,
+                source="worker",
+            )
+            failure_reported = True
+        except Exception as report_exc:
+            logger.error("No se pudo reportar fallo terminal al backend | tx=%s err=%s", tx_id, report_exc)
+        logger.warning("Error terminal no reintentable — descartando job | tx=%s", tx_id)
+        return
 
     except BackendClientError as exc:
         error = str(exc)
         logger.error("Error de comunicacion con backend | tx=%s: %s", tx_id, error)
         if not exc.retryable:
+            try:
+                await asyncio.to_thread(
+                    report_minute_failure,
+                    tx_id,
+                    rec_id,
+                    payload.get("requested_by_id", ""),
+                    error,
+                    record_status="processing-error",
+                    source="backend_client",
+                )
+                failure_reported = True
+            except Exception as report_exc:
+                logger.error("No se pudo reportar fallo terminal al backend | tx=%s err=%s", tx_id, report_exc)
             # Error de datos — no reintenta
             logger.warning("Error no reintentable — descartando job | tx=%s", tx_id)
             return
@@ -499,7 +612,7 @@ async def handle_minutes_job(job: JobEnvelope) -> None:
     finally:
         # Solo publicamos failed desde el worker si el proceso fallo.
         # Si fue exitoso, el backend ya publico el evento completed.
-        if status == "failed" and error:
+        if status == "failed" and error and not failure_reported:
             try:
                 event = {
                     "event":          "failed",

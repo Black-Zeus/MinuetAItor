@@ -18,6 +18,7 @@ from schemas.minutes import (
     MinuteDetailResponse,
     MinuteGenerateRequest,
     MinuteGenerateResponse,
+    MinuteReprocessResponse,
     MinuteSendEmailRequest,
     MinuteSendEmailResponse,
     MinuteSaveRequest,
@@ -38,6 +39,7 @@ from services.minutes_service import (
     get_minute_attachment_blob,
     generate_minute_pdf_preview,
     get_minute_detail,
+    reprocess_minute,
     get_minute_status,
     get_minute_versions,
     save_minute_draft,
@@ -254,6 +256,24 @@ async def transition_endpoint(
         commit_message = body.commit_message,
         actor_user_id  = session.user_id,
         review_email   = body.review_email,
+    )
+
+
+@router.post(
+    "/{record_id}/reprocess",
+    response_model = MinuteReprocessResponse,
+    status_code    = status.HTTP_202_ACCEPTED,
+    summary        = "Reprocesar minuta fallida o atascada",
+)
+async def reprocess_endpoint(
+    record_id: str,
+    db: Session = Depends(get_db),
+    session: UserSession = Depends(current_user_dep),
+):
+    return await reprocess_minute(
+        db=db,
+        record_id=record_id,
+        actor_user_id=session.user_id,
     )
 
 

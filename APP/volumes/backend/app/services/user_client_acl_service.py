@@ -6,13 +6,13 @@
 #
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
+from core.datetime_utils import utc_now_db
 from models.user_client_acl import UserClientAcl
 from schemas.user_client_acl import (
     UserClientAclCreateRequest,
@@ -133,7 +133,7 @@ def create_user_client_acl(
         permission = body.permission.value,
         is_active  = bool(body.is_active),
         created_by = created_by_id,
-        created_at = datetime.now(timezone.utc),
+        created_at = utc_now_db(),
     )
 
     db.add(obj)
@@ -149,7 +149,7 @@ def update_user_client_acl(
     updated_by_id: str,
 ) -> dict[str, Any]:
     obj = _get_or_404(db, user_id, client_id)
-    now = datetime.now(timezone.utc)
+    now = utc_now_db()
 
     if body.permission is not None:
         obj.permission = body.permission.value
@@ -171,7 +171,7 @@ def change_user_client_acl_status(
     updated_by_id: str,
 ) -> dict[str, Any]:
     obj = _get_or_404(db, user_id, client_id)
-    now = datetime.now(timezone.utc)
+    now = utc_now_db()
 
     obj.is_active  = bool(is_active)
     obj.updated_by = updated_by_id
@@ -188,7 +188,7 @@ def delete_user_client_acl(
     deleted_by_id: str,
 ) -> None:
     obj = _get_or_404(db, user_id, client_id)
-    now = datetime.now(timezone.utc)
+    now = utc_now_db()
 
     obj.deleted_at = now
     obj.deleted_by = deleted_by_id

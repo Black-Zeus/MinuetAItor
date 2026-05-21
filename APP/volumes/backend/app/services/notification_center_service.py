@@ -9,6 +9,8 @@ from fastapi import HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
+from core.datetime_utils import utc_now
+from core.datetime_utils import utc_now_db
 from models.notification_recipients import NotificationRecipient
 from models.notifications import Notification
 from models.roles import Role
@@ -22,7 +24,7 @@ from services.notification_preferences_service import (
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return utc_now()
 
 
 def _iso(value: datetime | None) -> str | None:
@@ -265,7 +267,7 @@ async def mark_notification_as_read(db: Session, session: UserSession, notificat
 
     if not obj.is_read:
         obj.is_read = True
-        obj.read_at = _utcnow()
+        obj.read_at = utc_now_db()
         db.commit()
 
         await publish_notification_event(
@@ -286,7 +288,7 @@ async def mark_notification_as_read(db: Session, session: UserSession, notificat
 
 
 async def mark_all_notifications_as_read(db: Session, session: UserSession) -> dict:
-    now = _utcnow()
+    now = utc_now_db()
     rows = (
         db.query(NotificationRecipient)
         .filter(
@@ -334,7 +336,7 @@ async def hide_notification(db: Session, session: UserSession, notification_id: 
         raise HTTPException(status_code=404, detail="NOTIFICATION_NOT_FOUND")
 
     obj.is_hidden = True
-    obj.hidden_at = _utcnow()
+    obj.hidden_at = utc_now_db()
     db.commit()
     unread_count = get_unread_notifications_count(db, session.user_id)
 
@@ -362,7 +364,7 @@ async def clear_notifications(
     session: UserSession,
     notification_ids: list[str] | None = None,
 ) -> dict:
-    now = _utcnow()
+    now = utc_now_db()
     visible_ids = _dedupe_notification_ids(notification_ids)
     if not visible_ids:
         return {
@@ -475,7 +477,7 @@ async def create_in_app_notification(
             "message": "No se resolvieron destinatarios para la notificación.",
         }
 
-    now = _utcnow()
+    now = utc_now_db()
     notification = Notification(
         id=str(uuid.uuid4()),
         notification_type=str(notification_type or "general.notice").strip()[:80],

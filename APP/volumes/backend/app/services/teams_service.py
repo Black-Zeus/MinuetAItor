@@ -3,13 +3,14 @@ from __future__ import annotations
 
 import secrets
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 
 import bcrypt
 from fastapi import HTTPException, status
 from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 
+from core.datetime_utils import utc_now_db
 from models.user           import User
 from models.user_profiles  import UserProfile, AssignmentModeEnum
 from models.user_roles     import UserRole
@@ -345,7 +346,7 @@ def create_team_member(
     _check_unique_username(db, payload.username)
 
     role = _get_role(db, payload.system_role.value)
-    now  = datetime.now(timezone.utc)
+    now  = utc_now_db()
 
     # 1. User
     user = User(
@@ -400,7 +401,7 @@ def update_team_member(
 ) -> dict:
     user = _get_user_or_404(db, user_id)
     update_data = payload.model_dump(exclude_unset=True, by_alias=False)
-    now = datetime.now(timezone.utc)
+    now = utc_now_db()
 
     # ── Validaciones de unicidad ──────────────────────────────────────────────
     if "email" in update_data and str(payload.email) != user.email:
@@ -539,7 +540,7 @@ def delete_team_member(
     deleted_by_id: str | None = None,
 ) -> None:
     user = _get_user_or_404(db, user_id)
-    now = datetime.now(timezone.utc)
+    now = utc_now_db()
 
     # Soft-delete también las relaciones del usuario
     _sync_user_clients(db, user_id, [], deleted_by_id, now)
