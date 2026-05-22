@@ -62,6 +62,31 @@ class NotificationMarkAllReadResponse(BaseModel):
     message: str
 
 
+class NotificationBulkReadStateRequest(BaseModel):
+    notification_ids: list[str] = Field(
+        default_factory=list,
+        validation_alias="notificationIds",
+        serialization_alias="notificationIds",
+    )
+    is_read: bool = Field(
+        ...,
+        validation_alias="isRead",
+        serialization_alias="isRead",
+    )
+
+    model_config = {"populate_by_name": True}
+
+
+class NotificationBulkReadStateResponse(BaseModel):
+    updated: int
+    message: str
+    unread_count: int = Field(..., serialization_alias="unreadCount")
+    notification_ids: list[str] = Field(default_factory=list, serialization_alias="notificationIds")
+    is_read: bool = Field(..., serialization_alias="isRead")
+
+    model_config = {"populate_by_name": True}
+
+
 class NotificationHideResponse(BaseModel):
     notification_id: str = Field(..., serialization_alias="notificationId")
     is_hidden: bool = Field(..., serialization_alias="isHidden")

@@ -39,11 +39,15 @@ const levelAccent = {
 const unreadRowClass =
   "border-l-2 border-l-primary-400 bg-primary-500/[0.05] dark:border-l-primary-300 dark:bg-primary-400/[0.07]";
 
+const selectionCheckboxClass =
+  "h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800";
+
 const NotificationsInbox = () => {
   const navigate = useNavigate();
   const unreadCount = useNotificationsStore((s) => s.unreadCount);
   const markAllReadLocal = useNotificationsStore((s) => s.markAllReadLocal);
   const markReadLocal = useNotificationsStore((s) => s.markReadLocal);
+  const updateReadStateLocal = useNotificationsStore((s) => s.updateReadStateLocal);
   const removeNotificationLocal = useNotificationsStore((s) => s.removeNotificationLocal);
   const removeNotificationsLocal = useNotificationsStore((s) => s.removeNotificationsLocal);
   const [items, setItems] = useState([]);
@@ -58,6 +62,8 @@ const NotificationsInbox = () => {
   const [error, setError] = useState("");
   const [busyNotificationId, setBusyNotificationId] = useState("");
   const [isClearing, setIsClearing] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [bulkAction, setBulkAction] = useState("");
   const listRequestRef = useRef(0);
   const tagsRequestRef = useRef(0);
   const tagsTimerRef = useRef(null);
@@ -185,12 +191,21 @@ const NotificationsInbox = () => {
     }
   }, []);
 
+  useEffect(() => {
+    setSelectedIds((prev) => prev.filter((id) => items.some((item) => item.id === id)));
+  }, [items]);
+
   const handleOpen = (notification) => {
     if (!notification?.isRead) {
       markReadLocal(notification.id);
-      setItems((prev) =>
-        prev.map((item) => (item.id === notification.id ? { ...item, isRead: true } : item))
-      );
+      if (unreadOnly) {
+        setItems((prev) => prev.filter((item) => item.id !== notification.id));
+        setTotal((prev) => Math.max(0, prev - 1));
+      } else {
+        setItems((prev) =>
+          prev.map((item) => (item.id === notification.id ? { ...item, isRead: true } : item))
+        );
+      }
     }
 
     openNotificationDetailModal({
@@ -203,9 +218,79 @@ const NotificationsInbox = () => {
     try {
       await notificationsService.markAllRead();
       markAllReadLocal();
-      setItems((prev) => prev.map((item) => ({ ...item, isRead: true })));
+      if (unreadOnly) {
+        setItems([]);
+        setTotal(0);
+      } else {
+        setItems((prev) => prev.map((item) => ({ ...item, isRead: true })));
+      }
+      await loadNotifications({ reset: true, forceUnreadOnly: unreadOnly, forceTag: selectedTag });
+      loadAvailableTags({ delayMs: 0 });
     } catch (err) {
       setError(err?.message ?? "No fue posible marcar las notificaciones.");
+    }
+  };
+
+  const visibleIds = items.map((item) => item.id).filter(Boolean);
+  const selectedVisibleIds = selectedIds.filter((id) => visibleIds.includes(id));
+  const selectedCount = selectedVisibleIds.length;
+  const allVisibleSelected = visibleIds.length > 0 && selectedCount === visibleIds.length;
+  const hasPartialSelection = selectedCount > 0 && !allVisibleSelected;
+
+  const toggleSelection = (notificationId) => {
+    setSelectedIds((prev) =>
+      prev.includes(notificationId)
+        ? prev.filter((id) => id !== notificationId)
+        : [...prev, notificationId]
+    );
+  };
+
+  const toggleSelectAllVisible = () => {
+    setSelectedIds((prev) => {
+      if (allVisibleSelected) {
+        return prev.filter((id) => !visibleIds.includes(id));
+      }
+      const next = new Set(prev);
+      visibleIds.forEach((id) => next.add(id));
+      return Array.from(next);
+    });
+  };
+
+  const clearSelection = () => setSelectedIds([]);
+
+  const handleBulkReadState = async (isRead) => {
+    if (!selectedVisibleIds.length) return;
+    setBulkAction(isRead ? "read" : "unread");
+    try {
+      const result = await notificationsService.updateReadState(selectedVisibleIds, isRead);
+      updateReadStateLocal(result.notificationIds, result.isRead, result.unreadCount);
+      if (unreadOnly && result.isRead) {
+        const affectedIds = new Set(result.notificationIds || []);
+        setItems((prev) => prev.filter((item) => !affectedIds.has(item.id)));
+        setTotal((prev) => Math.max(0, prev - affectedIds.size));
+      } else {
+        setItems((prev) =>
+          prev.map((item) =>
+            result.notificationIds.includes(item.id)
+              ? { ...item, isRead: result.isRead, readAt: result.isRead ? item.readAt || new Date().toISOString() : null }
+              : item
+          )
+        );
+      }
+      clearSelection();
+      await loadNotifications({ reset: true, forceUnreadOnly: unreadOnly, forceTag: selectedTag });
+      loadAvailableTags({ delayMs: 0 });
+      toastSuccess(
+        isRead ? "Notificaciones marcadas como leídas" : "Notificaciones marcadas como no leídas",
+        result.message || "La selección fue actualizada correctamente."
+      );
+    } catch (err) {
+      toastError(
+        isRead ? "No se pudo marcar como leídas" : "No se pudo marcar como no leídas",
+        err?.message ?? "Intenta nuevamente."
+      );
+    } finally {
+      setBulkAction("");
     }
   };
 
@@ -257,6 +342,36 @@ const NotificationsInbox = () => {
       toastError("No se pudo limpiar la bandeja", err?.message ?? "Intenta nuevamente.");
     } finally {
       setIsClearing(false);
+    }
+  };
+
+  const handleBulkClear = async () => {
+    if (!selectedVisibleIds.length) return;
+
+    const confirmed = await ModalManager.confirm({
+      title: "Eliminar selección",
+      message: "¿Quieres eliminar las notificaciones seleccionadas de tu bandeja?",
+      description: "La acción se aplicará solo sobre la selección visible según tus filtros actuales.",
+      confirmText: "Eliminar selección",
+      cancelText: "Cancelar",
+      variant: "danger",
+    });
+    if (!confirmed) return;
+
+    setBulkAction("delete");
+    try {
+      const result = await notificationsService.clearInbox(selectedVisibleIds);
+      const hiddenIds = new Set(result.notificationIds || []);
+      removeNotificationsLocal(result.notificationIds, result.unreadCount);
+      setItems((prev) => prev.filter((item) => !hiddenIds.has(item.id)));
+      setTotal((prev) => Math.max(0, prev - result.hidden));
+      clearSelection();
+      loadAvailableTags({ delayMs: 300 });
+      toastInfo("Selección eliminada", result.message || "Las notificaciones seleccionadas fueron eliminadas.");
+    } catch (err) {
+      toastError("No se pudo eliminar la selección", err?.message ?? "Intenta nuevamente.");
+    } finally {
+      setBulkAction("");
     }
   };
 
@@ -364,6 +479,68 @@ const NotificationsInbox = () => {
         </div>
       </div>
 
+      <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="inline-flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+              <input
+                type="checkbox"
+                className={selectionCheckboxClass}
+                checked={allVisibleSelected}
+                ref={(element) => {
+                  if (element) {
+                    element.indeterminate = hasPartialSelection;
+                  }
+                }}
+                onChange={toggleSelectAllVisible}
+                disabled={items.length === 0}
+              />
+              Seleccionar visibles
+            </label>
+            <span className="text-sm text-gray-500 dark:text-gray-400">
+              {selectedCount > 0
+                ? `${selectedCount} seleccionada${selectedCount === 1 ? "" : "s"}`
+                : "Selecciona filas para aplicar acciones masivas"}
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <ActionButton
+              label="Marcar leídas"
+              variant="soft"
+              size="sm"
+              icon={<Icon name="FaCheck" />}
+              onClick={() => handleBulkReadState(true)}
+              disabled={selectedCount === 0 || bulkAction !== ""}
+            />
+            <ActionButton
+              label="Marcar no leídas"
+              variant="soft"
+              size="sm"
+              icon={<Icon name="FaEnvelope" />}
+              onClick={() => handleBulkReadState(false)}
+              disabled={selectedCount === 0 || bulkAction !== ""}
+            />
+            <ActionButton
+              label="Eliminar"
+              variant="soft"
+              size="sm"
+              icon={<Icon name="FaTrash" />}
+              onClick={handleBulkClear}
+              disabled={selectedCount === 0 || bulkAction !== ""}
+            />
+            <ActionButton
+              label="Limpiar selección"
+              variant="soft"
+              size="sm"
+              icon={<Icon name="FaXmark" />}
+              onClick={clearSelection}
+              disabled={selectedCount === 0 || bulkAction !== ""}
+            />
+          </div>
+        </div>
+      </div>
+
       {error ? (
         <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
           {error}
@@ -392,6 +569,15 @@ const NotificationsInbox = () => {
                   notification.isRead ? "" : unreadRowClass
                 }`}
               >
+                <div className="flex items-start pt-5 pl-2">
+                  <input
+                    type="checkbox"
+                    className={selectionCheckboxClass}
+                    checked={selectedIds.includes(notification.id)}
+                    onChange={() => toggleSelection(notification.id)}
+                    aria-label={`Seleccionar notificación ${notification.title}`}
+                  />
+                </div>
                 <button
                   type="button"
                   onClick={() => handleOpen(notification)}

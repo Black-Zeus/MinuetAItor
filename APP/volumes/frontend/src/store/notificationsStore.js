@@ -55,6 +55,21 @@ const useNotificationsStore = create((set, get) => ({
       };
     }),
 
+  markUnreadLocal: (notificationId) =>
+    set((state) => {
+      const current = state.previewItems.find((item) => item.id === notificationId);
+      const wasUnread = current ? !current.isRead : false;
+      return {
+        previewItems: state.previewItems.map((item) =>
+          item.id === notificationId
+            ? { ...item, isRead: false, readAt: null }
+            : item
+        ),
+        unreadCount: wasUnread ? state.unreadCount : state.unreadCount + (current ? 1 : 0),
+        lastSyncAt: new Date().toISOString(),
+      };
+    }),
+
   markAllReadLocal: () =>
     set((state) => ({
       previewItems: state.previewItems.map((item) => ({
@@ -65,6 +80,37 @@ const useNotificationsStore = create((set, get) => ({
       unreadCount: 0,
       lastSyncAt: new Date().toISOString(),
     })),
+
+  updateReadStateLocal: (notificationIds = [], isRead = true, unreadCount = null) =>
+    set((state) => {
+      const visibleIds = new Set(
+        (Array.isArray(notificationIds) ? notificationIds : [])
+          .map((item) => String(item || "").trim())
+          .filter(Boolean)
+      );
+      if (!visibleIds.size) {
+        return {
+          lastSyncAt: new Date().toISOString(),
+        };
+      }
+
+      const nextItems = state.previewItems.map((item) =>
+        visibleIds.has(item.id)
+          ? { ...item, isRead: Boolean(isRead), readAt: isRead ? item.readAt || new Date().toISOString() : null }
+          : item
+      );
+
+      const nextUnreadCount =
+        unreadCount == null
+          ? nextItems.reduce((count, item) => count + (item.isRead ? 0 : 1), 0)
+          : Math.max(0, Number(unreadCount || 0));
+
+      return {
+        previewItems: nextItems,
+        unreadCount: nextUnreadCount,
+        lastSyncAt: new Date().toISOString(),
+      };
+    }),
 
   removeNotificationLocal: (notificationId, unreadCount = null) =>
     set((state) => {

@@ -49,6 +49,7 @@ export const useNotificationsSSE = () => {
   const prependNotification = useNotificationsStore((s) => s.prependNotification);
   const markReadLocal = useNotificationsStore((s) => s.markReadLocal);
   const markAllReadLocal = useNotificationsStore((s) => s.markAllReadLocal);
+  const updateReadStateLocal = useNotificationsStore((s) => s.updateReadStateLocal);
   const removeNotificationLocal = useNotificationsStore((s) => s.removeNotificationLocal);
   const removeNotificationsLocal = useNotificationsStore((s) => s.removeNotificationsLocal);
   const clear = useNotificationsStore((s) => s.clear);
@@ -131,6 +132,16 @@ export const useNotificationsSSE = () => {
       notifyUi(payload);
     });
 
+    source.addEventListener("notifications_read_state_updated", (event) => {
+      const payload = parseEventPayload(event);
+      updateReadStateLocal(
+        payload?.notification_ids ?? payload?.notificationIds ?? [],
+        payload?.is_read ?? payload?.isRead ?? true,
+        payload?.unread_count ?? payload?.unreadCount ?? null
+      );
+      notifyUi(payload);
+    });
+
     source.addEventListener("notification_hidden", (event) => {
       const payload = parseEventPayload(event);
       const notificationId = payload?.notification_id ?? payload?.notificationId;
@@ -167,5 +178,6 @@ export const useNotificationsSSE = () => {
     removeNotificationLocal,
     removeNotificationsLocal,
     setPreview,
+    updateReadStateLocal,
   ]);
 };

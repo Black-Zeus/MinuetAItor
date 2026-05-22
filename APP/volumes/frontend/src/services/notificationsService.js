@@ -188,6 +188,30 @@ const notificationsService = {
     };
   },
 
+  async updateReadState(notificationIds = [], isRead = true) {
+    const res = await request(
+      {
+        url: `${BASE}/read-state`,
+        method: "post",
+        data: {
+          notificationIds: Array.isArray(notificationIds) ? notificationIds : [],
+          isRead: Boolean(isRead),
+        },
+      },
+      `No fue posible marcar las notificaciones como ${isRead ? "leídas" : "no leídas"}.`
+    );
+    const data = unwrap(res);
+    return {
+      updated: Number(data?.updated || 0),
+      message: String(data?.message || ""),
+      unreadCount: Number(data?.unreadCount ?? data?.unread_count ?? 0),
+      notificationIds: Array.isArray(data?.notificationIds ?? data?.notification_ids)
+        ? data?.notificationIds ?? data?.notification_ids
+        : [],
+      isRead: Boolean(data?.isRead ?? data?.is_read ?? isRead),
+    };
+  },
+
   async hide(notificationId) {
     const res = await request(
       {
