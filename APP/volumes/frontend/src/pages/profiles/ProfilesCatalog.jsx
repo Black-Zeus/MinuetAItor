@@ -10,10 +10,21 @@ import ProfilesCatalogHeader  from "./ProfilesCatalogHeader";
 import ProfilesCatalogStats   from "./ProfilesCatalogStats";
 import ProfilesCatalogFilters from "./ProfilesCatalogFilters";
 import ProfilesCatalogGrid    from "./ProfilesCatalogGrid";
+import ProfilesCatalogListView from "./ProfilesCatalogListView";
+import ProfilesCatalogTableView from "./ProfilesCatalogTableView";
+import ProfilesCatalogGroupedByCategory from "./ProfilesCatalogGroupedByCategory";
 import PageLoadingSpinner from "@/components/ui/modal/types/system/PageLoadingSpinner";
+import CatalogViewBar from "@/components/common/CatalogViewBar";
+import useModuleViewMode from "@/hooks/useModuleViewMode";
 
 import logger from "@/utils/logger";
 const profileLog = logger.scope("profiles");
+const VIEW_OPTIONS = [
+  { id: "base", label: "Base" },
+  { id: "list", label: "Listado" },
+  { id: "table", label: "Tabla" },
+  { id: "category", label: "Por categoría" },
+];
 
 // ─── Stats ────────────────────────────────────────────────────────────────────
 
@@ -83,6 +94,7 @@ const ProfilesCatalog = () => {
     categoryId: "",
     sort:       "az",
   });
+  const [viewMode, setViewMode] = useModuleViewMode(["base", "list", "table", "category"]);
 
   // Pagination
   const [page, setPage]         = useState(1);
@@ -193,17 +205,82 @@ const ProfilesCatalog = () => {
 
       <ProfilesCatalogStats stats={stats} />
 
-      <ProfilesCatalogGrid
-        profiles={paginatedProfiles}
-        allProfiles={filteredProfiles}
-        page={page}
-        totalPages={totalPages}
-        itemsPerPage={itemsPerPage}
-        onPageChange={handlePageChange}
-        categories={categories}
-        onUpdated={handleUpdated}
-        onDeleted={handleDeleted}
+      <CatalogViewBar
+        count={filteredProfiles.length}
+        singularLabel="perfil"
+        pluralLabel="perfiles"
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        options={VIEW_OPTIONS}
       />
+
+      {viewMode === "base" ? (
+        <ProfilesCatalogGrid
+          profiles={paginatedProfiles}
+          allProfiles={filteredProfiles}
+          page={page}
+          totalPages={totalPages}
+          itemsPerPage={itemsPerPage}
+          onPageChange={handlePageChange}
+          categories={categories}
+          onUpdated={handleUpdated}
+          onDeleted={handleDeleted}
+        />
+      ) : null}
+
+      {viewMode === "list" ? (
+        <ProfilesCatalogListView
+          profiles={paginatedProfiles}
+          categories={categories}
+          hasFilters={filteredProfiles.length === 0 || filteredProfiles.length !== profiles.length}
+          onUpdated={handleUpdated}
+          onDeleted={handleDeleted}
+        />
+      ) : null}
+
+      {viewMode === "table" ? (
+        <ProfilesCatalogTableView
+          profiles={paginatedProfiles}
+          categories={categories}
+          hasFilters={filteredProfiles.length === 0 || filteredProfiles.length !== profiles.length}
+          onUpdated={handleUpdated}
+          onDeleted={handleDeleted}
+        />
+      ) : null}
+
+      {viewMode === "category" ? (
+        <ProfilesCatalogGroupedByCategory
+          profiles={filteredProfiles}
+          categories={categories}
+          hasFilters={filteredProfiles.length === 0 || filteredProfiles.length !== profiles.length}
+          onUpdated={handleUpdated}
+          onDeleted={handleDeleted}
+        />
+      ) : null}
+
+      {viewMode !== "base" && viewMode !== "category" && totalPages > 1 ? (
+        <div className="flex items-center justify-between border-t border-gray-200 pt-4 dark:border-gray-700">
+          <span className="text-sm text-gray-500 dark:text-gray-400">
+            Página {page} / {totalPages}
+          </span>
+          <div className="flex gap-2">
+            <button
+              onClick={() => handlePageChange(page - 1)}
+              disabled={page <= 1}
+              className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm transition-colors hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:hover:bg-gray-700"
+            >
+              ← Anterior
+            </button>
+            <button
+              onClick={() => handlePageChange(page + 1)}
+              disabled={page >= totalPages}
+              className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm transition-colors hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:hover:bg-gray-700"
+            >
+              Siguiente →
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };

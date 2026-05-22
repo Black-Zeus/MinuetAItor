@@ -16,6 +16,10 @@ class UserPersonalizationResponse(BaseModel):
     density: str
     animations: bool
     sidebar_collapsed: bool = Field(..., serialization_alias="sidebarCollapsed")
+    default_module_view: str = Field(
+        "base",
+        serialization_alias="defaultModuleView",
+    )
     dashboard_widgets: list[UserPersonalizationWidgetResponse] = Field(
         default_factory=list,
         serialization_alias="dashboardWidgets",
@@ -44,6 +48,11 @@ class UserPersonalizationUpdateRequest(BaseModel):
         None,
         validation_alias="sidebarCollapsed",
         serialization_alias="sidebarCollapsed",
+    )
+    default_module_view: str | None = Field(
+        None,
+        validation_alias="defaultModuleView",
+        serialization_alias="defaultModuleView",
     )
     dashboard_widgets: list[UserPersonalizationWidgetUpdateRequest] = Field(
         default_factory=list,

@@ -207,79 +207,6 @@ export const SIDEBAR_MODULES = [
     section: 'config',
     order: 13,
     requiresAdmin: true
-  },
-
-  // ====================================
-  // DEMOS - Componentes / Ejemplos (AL FINAL)
-  // ====================================
-  {
-    id: 'demos',
-    name: 'Demos',
-    icon: 'FaFlask',
-    section: 'demos',
-    order: 100,
-    children: [
-      {
-        id: 'demo-general',
-        name: 'General',
-        icon: 'FaRegFile',
-        path: '/demo/general',
-        order: 1
-      },
-      {
-        id: 'demo-modal',
-        name: 'Modal',
-        icon: 'FaRegWindowRestore',
-        path: '/demo/modal',
-        order: 2
-      },
-
-      // ✅ Demos de error pages
-      {
-        id: 'demo-403',
-        name: '403 Forbidden',
-        icon: 'FaBan',
-        path: '/demo/forbidden',
-        order: 3
-      },
-      {
-        id: 'demo-404',
-        name: '404 Not Found',
-        icon: 'FaCircleQuestion',
-        path: '/demo/not-found',
-        order: 4
-      },
-      {
-        id: 'demo-500',
-        name: '500 Server Error',
-        icon: 'FaBug',
-        path: '/demo/server-error',
-        order: 5
-      },
-
-      // ✅ Demos de auth pages
-      {
-        id: 'demo-login',
-        name: 'Login',
-        icon: 'FaRightToBracket',
-        path: '/login',
-        order: 6
-      },
-      {
-        id: 'demo-forgot',
-        name: 'Forgot Password',
-        icon: 'FaEnvelope',
-        path: '/forgot-password',
-        order: 7
-      },
-      {
-        id: 'demo-reset',
-        name: 'Reset Password',
-        icon: 'FaKey',
-        path: '/reset-password',
-        order: 8
-      }
-    ]
   }
 ];
 
@@ -310,12 +237,6 @@ export const SIDEBAR_SECTIONS = {
     title: 'Configuración',
     order: 4,
     color: 'gray'
-  },
-  demos: {
-    id: 'demos',
-    title: 'Demos',
-    order: 999,
-    color: 'emerald'
   }
 };
 

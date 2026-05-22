@@ -3,8 +3,12 @@ import ParticipantsHeader from "./ParticipantsHeader";
 import ParticipantsFilters from "./ParticipantsFilters";
 import ParticipantsStats from "./ParticipantsStats";
 import ParticipantsGrid from "./ParticipantsGrid";
+import ParticipantsListView from "./ParticipantsListView";
+import ParticipantsTableView from "./ParticipantsTableView";
 import participantsService from "@/services/participantsService";
 import PageLoadingSpinner from "@/components/ui/modal/types/system/PageLoadingSpinner";
+import CatalogViewBar from "@/components/common/CatalogViewBar";
+import useModuleViewMode from "@/hooks/useModuleViewMode";
 import logger from "@/utils/logger";
 
 const participantsLog = logger.scope("participants");
@@ -60,6 +64,7 @@ const Participants = () => {
     status: "",
     emailMode: "",
   });
+  const [viewMode, setViewMode] = useModuleViewMode();
 
   const loadParticipants = useCallback(async () => {
     setIsLoading(true);
@@ -119,12 +124,37 @@ const Participants = () => {
         onClearFilters={handleClearFilters}
       />
       <ParticipantsStats stats={stats} />
-      <ParticipantsGrid
-        participants={filteredParticipants}
-        hasFilters={hasFilters}
-        onUpdated={handleUpdated}
-        onDeleted={handleDeleted}
+      <CatalogViewBar
+        count={filteredParticipants.length}
+        singularLabel="participante"
+        pluralLabel="participantes"
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
       />
+      {viewMode === "base" ? (
+        <ParticipantsGrid
+          participants={filteredParticipants}
+          hasFilters={hasFilters}
+          onUpdated={handleUpdated}
+          onDeleted={handleDeleted}
+        />
+      ) : null}
+      {viewMode === "list" ? (
+        <ParticipantsListView
+          participants={filteredParticipants}
+          hasFilters={hasFilters}
+          onUpdated={handleUpdated}
+          onDeleted={handleDeleted}
+        />
+      ) : null}
+      {viewMode === "table" ? (
+        <ParticipantsTableView
+          participants={filteredParticipants}
+          hasFilters={hasFilters}
+          onUpdated={handleUpdated}
+          onDeleted={handleDeleted}
+        />
+      ) : null}
     </div>
   );
 };

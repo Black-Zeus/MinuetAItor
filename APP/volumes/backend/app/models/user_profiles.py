@@ -37,6 +37,7 @@ class UserProfile(Base):
     ui_density = Column(String(20), nullable=True)
     ui_animations = Column(Boolean, nullable=True)
     sidebar_collapsed = Column(Boolean, nullable=True)
+    default_module_view = Column(String(20), nullable=True)
 
     user = relationship(
         "User",

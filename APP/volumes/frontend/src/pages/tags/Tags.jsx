@@ -10,10 +10,21 @@ import TagsHeader  from "./TagsHeader";
 import TagsFilters from "./TagsFilters";
 import TagsStats   from "./TagsStats";
 import TagsGrid    from "./TagsGrid";
+import TagsListView from "./TagsListView";
+import TagsTableView from "./TagsTableView";
+import TagsGroupedByCategory from "./TagsGroupedByCategory";
 import PageLoadingSpinner from "@/components/ui/modal/types/system/PageLoadingSpinner";
+import CatalogViewBar from "@/components/common/CatalogViewBar";
+import useModuleViewMode from "@/hooks/useModuleViewMode";
 
 import logger from "@/utils/logger";
 const tagLog = logger.scope("tags");
+const VIEW_OPTIONS = [
+  { id: "base", label: "Base" },
+  { id: "list", label: "Listado" },
+  { id: "table", label: "Tabla" },
+  { id: "category", label: "Por categoría" },
+];
 
 // ─── Stats ────────────────────────────────────────────────────────────────────
 
@@ -67,6 +78,7 @@ const Tags = () => {
     status:     "",
     categoryId: "",
   });
+  const [viewMode, setViewMode] = useModuleViewMode(["base", "list", "table", "category"]);
 
   // ─── Carga inicial ──────────────────────────────────────────────────────────
 
@@ -163,13 +175,54 @@ const Tags = () => {
 
       <TagsStats stats={stats} />
 
-      <TagsGrid
-        tags={filteredTags}
-        categories={categories}
-        onUpdated={handleUpdated}
-        onDeleted={handleDeleted}
-        hasFilters={!!(filters.search || filters.status || filters.categoryId)}
+      <CatalogViewBar
+        count={filteredTags.length}
+        singularLabel="tag"
+        pluralLabel="tags"
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        options={VIEW_OPTIONS}
       />
+
+      {viewMode === "base" ? (
+        <TagsGrid
+          tags={filteredTags}
+          categories={categories}
+          onUpdated={handleUpdated}
+          onDeleted={handleDeleted}
+          hasFilters={!!(filters.search || filters.status || filters.categoryId)}
+        />
+      ) : null}
+
+      {viewMode === "list" ? (
+        <TagsListView
+          tags={filteredTags}
+          categories={categories}
+          onUpdated={handleUpdated}
+          onDeleted={handleDeleted}
+          hasFilters={!!(filters.search || filters.status || filters.categoryId)}
+        />
+      ) : null}
+
+      {viewMode === "table" ? (
+        <TagsTableView
+          tags={filteredTags}
+          categories={categories}
+          onUpdated={handleUpdated}
+          onDeleted={handleDeleted}
+          hasFilters={!!(filters.search || filters.status || filters.categoryId)}
+        />
+      ) : null}
+
+      {viewMode === "category" ? (
+        <TagsGroupedByCategory
+          tags={filteredTags}
+          categories={categories}
+          onUpdated={handleUpdated}
+          onDeleted={handleDeleted}
+          hasFilters={!!(filters.search || filters.status || filters.categoryId)}
+        />
+      ) : null}
     </div>
   );
 };

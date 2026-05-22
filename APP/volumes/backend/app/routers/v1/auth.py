@@ -139,6 +139,7 @@ async def update_my_personalization_endpoint(
         density=payload.density,
         animations=payload.animations,
         sidebar_collapsed=payload.sidebar_collapsed,
+        default_module_view=payload.default_module_view,
         dashboard_widgets=normalized_widgets,
         actor_user_id=session.user_id,
     )
