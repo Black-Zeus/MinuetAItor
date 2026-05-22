@@ -50,55 +50,101 @@ const FILTER_ICONS = {
 // Muestra el ciclo de vida debajo de los filtros como referencia visual
 // ====================================
 const LIFECYCLE_STEPS = [
-  { id: "in-progress",    label: "En procesamiento",  color: "text-[#1e3a8a] dark:text-blue-400"     },
-  { id: "ready-for-edit", label: "Listo para editar",  color: "text-orange-500 dark:text-orange-400" },
-  { id: "pending",        label: "En edición",         color: "text-yellow-500 dark:text-yellow-400" },
-  { id: "preview",        label: "En revisión",        color: "text-indigo-600 dark:text-indigo-400" },
-  { id: "completed",      label: "Completado",         color: "text-green-600 dark:text-green-400"   },
+  {
+    id: "in-progress",
+    label: "En procesamiento",
+    tone: "text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/20",
+  },
+  {
+    id: "ready-for-edit",
+    label: "Listo para editar",
+    tone: "text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-500/10 border-orange-200 dark:border-orange-500/20",
+  },
+  {
+    id: "pending",
+    label: "En edición",
+    tone: "text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20",
+  },
+  {
+    id: "preview",
+    label: "En revisión",
+    tone: "text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-500/10 border-indigo-200 dark:border-indigo-500/20",
+  },
+  {
+    id: "completed",
+    label: "Completado",
+    tone: "text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20",
+  },
 ];
 
 const StatusLifecycle = () => (
   <div className="mt-4 pt-4 border-t border-secondary-200 dark:border-secondary-700/60 transition-theme">
-    <p className={`text-xs font-semibold uppercase tracking-wide ${TXT_META} mb-3 transition-theme`}>
-      Ciclo de vida
-    </p>
+    <div className="flex flex-col gap-3">
+      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.45fr)_minmax(280px,0.9fr)_minmax(320px,1fr)] gap-3 items-stretch">
+        <div className="rounded-2xl border border-secondary-200 dark:border-secondary-700/60 bg-secondary-50/70 dark:bg-secondary-900/20 px-4 pt-3 pb-1 transition-theme">
+          <div className="grid min-h-[74px] grid-rows-[auto_1fr] gap-0.5">
+            <p className={`text-[11px] font-semibold uppercase tracking-wide ${TXT_META} transition-theme`}>
+              Flujo normal
+            </p>
 
-    <div className="flex items-center flex-wrap gap-2">
+            <div className="flex items-start pt-0.5">
+              <div className="flex flex-wrap items-center gap-2">
+                {LIFECYCLE_STEPS.map((step, index) => (
+                  <React.Fragment key={step.id}>
+                    <span
+                      className={`inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-semibold ${step.tone} transition-theme`}
+                    >
+                      {step.label}
+                    </span>
+                    {index < LIFECYCLE_STEPS.length - 1 && (
+                      <Icon
+                        name="FaArrowRight"
+                        className="text-[10px] text-gray-300 dark:text-gray-600 shrink-0"
+                      />
+                    )}
+                  </React.Fragment>
+                ))}
+              </div>
+            </div>
 
-      {/* Flujo principal: paso a paso con flechas */}
-      {LIFECYCLE_STEPS.map((step, index) => (
-        <React.Fragment key={step.id}>
-          <span className={`text-xs font-medium ${step.color} transition-theme`}>
-            {step.label}
-          </span>
-          {index < LIFECYCLE_STEPS.length - 1 && (
-            <Icon
-              name="FaArrowRight"
-              className="text-[10px] text-gray-300 dark:text-gray-600 shrink-0"
-            />
-          )}
-        </React.Fragment>
-      ))}
+          </div>
+        </div>
 
-      {/* Separador */}
-      <span className="mx-2 text-gray-200 dark:text-gray-700 text-sm font-light">|</span>
+        <div className="rounded-2xl border border-red-200 dark:border-red-500/20 bg-red-50/80 dark:bg-red-500/10 px-4 pt-3 pb-1 transition-theme">
+          <div className="grid min-h-[74px] grid-rows-[auto_1fr] gap-0.5">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-red-700 dark:text-red-300 transition-theme">
+              <span className="inline-flex items-center gap-2">
+                <Icon name="FaBan" className="text-[11px] text-red-500 dark:text-red-400 shrink-0" />
+                Cancelado
+              </span>
+            </p>
+            <div className="flex items-start pt-0.5">
+              <p className={`text-xs ${TXT_META} transition-theme`}>
+                Puede anularse cuando ya no corresponde continuar el flujo.
+              </p>
+            </div>
+          </div>
+        </div>
 
-      {/* Cancelado */}
-      <div className="flex items-center gap-1.5">
-        <Icon name="FaBan" className="text-[10px] text-red-400 dark:text-red-500 shrink-0" />
-        <span className="text-xs font-medium text-red-500 dark:text-red-400 transition-theme">Cancelado</span>
-        <span className={`text-xs ${TXT_META} transition-theme`}>— cualquier estado activo puede cancelarse</span>
+        <div className="rounded-2xl border border-rose-200 dark:border-rose-500/20 bg-rose-50/80 dark:bg-rose-500/10 px-4 pt-3 pb-1 transition-theme">
+          <div className="grid min-h-[74px] grid-rows-[auto_1fr] gap-0.5">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-rose-700 dark:text-rose-300 transition-theme">
+              <span className="inline-flex items-center gap-2">
+                <Icon
+                  name="FaTriangleExclamation"
+                  className="text-[11px] text-rose-500 dark:text-rose-400 shrink-0"
+                />
+                Fallo IA / Error de proceso
+              </span>
+            </p>
+            <div className="flex items-start pt-0.5">
+              <p className={`text-xs ${TXT_META} transition-theme`}>
+                Requieren revisión y, según el caso, permiten reproceso o anulación.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
-
-      <span className="mx-2 text-gray-200 dark:text-gray-700 text-sm font-light">|</span>
-
-      {/* Fallo IA / Error proceso */}
-      <div className="flex items-center gap-1.5">
-        <Icon name="FaTriangleExclamation" className="text-[10px] text-rose-400 dark:text-rose-500 shrink-0" />
-        <span className="text-xs font-medium text-rose-500 dark:text-rose-400 transition-theme">Fallo IA / Error proceso</span>
-        <span className={`text-xs ${TXT_META} transition-theme`}>— estados de error, requieren revisión</span>
-      </div>
-
     </div>
   </div>
 );
