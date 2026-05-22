@@ -11,11 +11,22 @@ import TeamsHeader  from "./TeamsHeader";
 import TeamsFilters from "./TeamsFilters";
 import TeamsStats   from "./TeamsStats";
 import TeamsGrid    from "./TeamsGrid";
+import TeamsListView from "./TeamsListView";
+import TeamsTableView from "./TeamsTableView";
+import TeamsGroupedByPosition from "./TeamsGroupedByPosition";
 
 import PageLoadingSpinner from "@/components/ui/modal/types/system/PageLoadingSpinner";
+import CatalogViewBar from "@/components/common/CatalogViewBar";
+import useModuleViewMode from "@/hooks/useModuleViewMode";
 
 import logger from "@/utils/logger";
 const teamsLog = logger.scope("teams");
+const VIEW_OPTIONS = [
+  { id: "base", label: "Base" },
+  { id: "list", label: "Listado" },
+  { id: "table", label: "Tabla" },
+  { id: "position", label: "Por cargo" },
+];
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -44,6 +55,7 @@ const Teams = () => {
   });
 
   const [sortBy, setSortBy] = useState("name-asc");
+  const [viewMode, setViewMode] = useModuleViewMode(["base", "list", "table", "position"]);
 
   // ── 1. Carga inicial ──────────────────────────────────────────────────────
 
@@ -159,14 +171,52 @@ const Teams = () => {
 
       <TeamsStats stats={stats} />
 
-      <TeamsGrid
-        users={filteredUsers}
-        sortBy={sortBy}
-        onSortChange={handleSortChange}
-        hasFilters={hasFilters}
-        onUpdated={handleUpdated}
-        onDeleted={handleDeleted}
+      <CatalogViewBar
+        count={filteredUsers.length}
+        singularLabel="usuario"
+        pluralLabel="usuarios"
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        options={VIEW_OPTIONS}
       />
+
+      {viewMode === "base" ? (
+        <TeamsGrid
+          users={filteredUsers}
+          sortBy={sortBy}
+          onSortChange={handleSortChange}
+          hasFilters={hasFilters}
+          onUpdated={handleUpdated}
+          onDeleted={handleDeleted}
+        />
+      ) : null}
+
+      {viewMode === "list" ? (
+        <TeamsListView
+          users={filteredUsers}
+          hasFilters={hasFilters}
+          onUpdated={handleUpdated}
+          onDeleted={handleDeleted}
+        />
+      ) : null}
+
+      {viewMode === "table" ? (
+        <TeamsTableView
+          users={filteredUsers}
+          hasFilters={hasFilters}
+          onUpdated={handleUpdated}
+          onDeleted={handleDeleted}
+        />
+      ) : null}
+
+      {viewMode === "position" ? (
+        <TeamsGroupedByPosition
+          users={filteredUsers}
+          hasFilters={hasFilters}
+          onUpdated={handleUpdated}
+          onDeleted={handleDeleted}
+        />
+      ) : null}
     </div>
   );
 };

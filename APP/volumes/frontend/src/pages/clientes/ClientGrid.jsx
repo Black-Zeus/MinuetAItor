@@ -5,6 +5,7 @@
 
 import React, { useMemo, useState } from "react";
 import Icon from "@/components/ui/icon/iconManager";
+import CollapsibleSection from "@/components/common/CollapsibleSection";
 import ClientCard from "./ClientCard";
 
 const TXT_TITLE = "text-gray-900 dark:text-white";
@@ -39,85 +40,6 @@ const Grid = ({ clients, onUpdate, onDelete }) => (
     ))}
   </div>
 );
-
-/**
- * Panel colapsable (acordeón)
- * - Header clickeable
- * - Contenido se muestra/oculta
- */
-const CollapsibleSection = ({
-  title,
-  subtitle,
-  icon,
-  count,
-  isOpen,
-  onToggle,
-  children,
-}) => {
-  // Usa chevrons si existen; si no, no rompe (IconManager podría warn si no está)
-  const ChevronIcon = isOpen ? "FaChevronUp" : "FaChevronDown";
-
-  return (
-    <section className="border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 transition-theme">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="
-          w-full flex items-center justify-between gap-4
-          px-5 py-4
-          hover:bg-gray-50 dark:hover:bg-gray-700/40
-          rounded-xl
-          transition-theme
-        "
-        aria-expanded={isOpen}
-      >
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="inline-flex items-center justify-center w-10 h-10 bg-gray-100 dark:bg-gray-700 rounded-full flex-shrink-0">
-            <Icon name={icon} className={`${TXT_META} w-5 h-5`} />
-          </div>
-
-          <div className="min-w-0 text-left">
-            <div className="flex items-center gap-2 min-w-0">
-              <h3 className={`text-base font-semibold ${TXT_TITLE} truncate transition-theme`}>
-                {title}
-              </h3>
-
-              {Number.isFinite(count) ? (
-                <span
-                  className="
-                    px-2 py-0.5 rounded-full text-xs font-medium
-                    bg-gray-100 dark:bg-gray-700
-                    text-gray-700 dark:text-gray-200
-                    flex-shrink-0
-                  "
-                  title="Cantidad"
-                >
-                  {count}
-                </span>
-              ) : null}
-            </div>
-
-            {subtitle ? (
-              <p className={`${TXT_META} text-sm truncate`}>{subtitle}</p>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 flex-shrink-0">
-          {/* Fallback: si el icono no existe, al menos muestra texto */}
-          <span className={`${TXT_META} text-xs`}>{isOpen ? "Ocultar" : "Mostrar"}</span>
-          <Icon name={ChevronIcon} className={`${TXT_META} w-4 h-4`} />
-        </div>
-      </button>
-
-      {isOpen ? (
-        <div className="px-5 pb-5 pt-1">
-          {children}
-        </div>
-      ) : null}
-    </section>
-  );
-};
 
 const ClientGrid = ({
   clients = [],

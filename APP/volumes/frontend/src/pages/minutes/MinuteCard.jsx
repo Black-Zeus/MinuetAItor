@@ -12,7 +12,7 @@ const TXT_META  = "text-gray-500 dark:text-gray-400";
 // ============================================================
 // STATUS CONFIG — 9 estados según record_statuses en BD
 // ============================================================
-const STATUS_CONFIG = {
+export const STATUS_CONFIG = {
   "in-progress": {
     label:     "En procesamiento",
     icon:      "spinner",
@@ -68,7 +68,7 @@ const getStatusCfg = (status) => STATUS_CONFIG?.[status] ?? STATUS_CONFIG["proce
 // ============================================================
 // HELPERS — filename
 // ============================================================
-const buildMinuteFilename = (subject, dateMeeting) => {
+export const buildMinuteFilename = (subject, dateMeeting) => {
   const rawTitle = String(subject ?? "minuta").trim() || "minuta";
   const safeTitle =
     rawTitle
@@ -175,7 +175,7 @@ const CancelModalContent = ({ minuteId, onConfirm }) => {
   );
 };
 
-const showConfirmCancelModal = ({ minuteId, onConfirm }) => {
+export const showConfirmCancelModal = ({ minuteId, onConfirm }) => {
   ModalManager.custom({
     title:      "Anular minuta",
     size:       "small",
@@ -549,10 +549,14 @@ const CardFooter = ({ minute, onStatusChange, onReprocess }) => {
 // ============================================================
 // COMPONENTE PRINCIPAL
 // ============================================================
-const MinuteCard = ({ minute, onStatusChange, onReprocess }) => {
+export const getMinuteStatusConfig = (minute) => {
   const rawStatus      = String(minute?.status ?? "in-progress");
   const visualStatus   = rawStatus === "in-progress" && minute?.can_reprocess ? "processing-error" : rawStatus;
-  const statusConfig   = getStatusCfg(visualStatus);
+  return getStatusCfg(visualStatus);
+};
+
+const MinuteCard = ({ minute, onStatusChange, onReprocess }) => {
+  const statusConfig = getMinuteStatusConfig(minute);
 
   return (
     <div className="bg-surface rounded-2xl border border-secondary-200 dark:border-secondary-700/60 dark:ring-1 dark:ring-white/5 transition-all duration-200 shadow-card hover:shadow-card-hover hover:-translate-y-0.5 hover:border-primary-500 dark:hover:border-primary-400 h-full flex flex-col">

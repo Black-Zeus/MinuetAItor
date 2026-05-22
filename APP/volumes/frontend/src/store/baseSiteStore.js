@@ -13,7 +13,7 @@ import { persist, createJSONStorage } from "zustand/middleware";
 
 // ─── Defaults ─────────────────────────────────────────────────────────────────
 const SIDEBAR_DEFAULT = { collapsed: false, activeModule: null };
-const UI_DEFAULT      = { density: "comfortable", animations: true };
+const UI_DEFAULT      = { density: "comfortable", animations: true, defaultModuleView: "base" };
 
 const WIDGETS_DEFAULT = {
   stats:                    { enabled: true, order: 1, category: "resumen"  },
@@ -33,6 +33,17 @@ const normalizeTheme = (theme) =>
 
 const normalizeDensity = (density) =>
   ["compact", "comfortable"].includes(density) ? density : "comfortable";
+
+const normalizeDefaultModuleView = (value) =>
+  ["base", "list", "table"].includes(value) ? value : "base";
+
+const isDemoPath = (path) => String(path ?? "").startsWith("/demo/");
+
+const normalizeSidebarActiveModule = (activeModule) =>
+  activeModule === "demos" ? null : activeModule ?? null;
+
+const sanitizeNavigationHistory = (entries = []) =>
+  (Array.isArray(entries) ? entries : []).filter((entry) => !isDemoPath(entry?.path));
 
 const mergeWidgetsWithDefaults = (widgetsInput = {}) => {
   const mergedWidgets = { ...WIDGETS_DEFAULT };
@@ -118,7 +129,7 @@ const useBaseSiteStore = create(
       setSidebarCollapsed: (collapsed) =>
         set((s) => ({ sidebar: { ...s.sidebar, collapsed: !!collapsed } })),
       setActiveModule: (activeModule) =>
-        set((s) => ({ sidebar: { ...s.sidebar, activeModule } })),
+        set((s) => ({ sidebar: { ...s.sidebar, activeModule: normalizeSidebarActiveModule(activeModule) } })),
 
       // ── Navigation history ────────────────────────────────────────────────
       // Registra las últimas NAV_HISTORY_MAX páginas visitadas.
@@ -126,11 +137,11 @@ const useBaseSiteStore = create(
       // Entries: { name, path, icon, ts }
       addToNavigationHistory: ({ name, path, icon, meta = null }) =>
         set((s) => {
-          if (!path) return s;
+          if (!path || isDemoPath(path)) return s;
           const entry = { name, path, icon: icon ?? null, ts: Date.now(), meta: meta ?? null };
           const next  = [
             entry,
-            ...s.navigationHistory.filter((h) => h.path !== path), // sin duplicados
+            ...sanitizeNavigationHistory(s.navigationHistory).filter((h) => h.path !== path), // sin duplicados
           ].slice(0, NAV_HISTORY_MAX);
           return { navigationHistory: next };
         }),
@@ -146,7 +157,7 @@ const useBaseSiteStore = create(
             h.path === path
               ? { ...h, name: name ?? h.name, meta: meta ? { ...h.meta, ...meta } : h.meta }
               : h
-          ),
+          ).filter((entry) => !isDemoPath(entry?.path)),
         })),
 
       // ── UI ─────────────────────────────────────────────────────────────────
@@ -156,6 +167,10 @@ const useBaseSiteStore = create(
       },
       setAnimations: (animations) =>
         set((s) => ({ ui: { ...s.ui, animations: !!animations } })),
+      setDefaultModuleView: (defaultModuleView) =>
+        set((s) => ({
+          ui: { ...s.ui, defaultModuleView: normalizeDefaultModuleView(defaultModuleView) },
+        })),
 
       // ── Dashboard widgets ──────────────────────────────────────────────────
       toggleWidget: (key) =>
@@ -237,6 +252,11 @@ const useBaseSiteStore = create(
             animations: Boolean(
               personalization?.animations ?? s.ui?.animations
             ),
+            defaultModuleView: normalizeDefaultModuleView(
+              personalization?.defaultModuleView ??
+              personalization?.default_module_view ??
+              s.ui?.defaultModuleView
+            ),
           },
           dashboard: {
             ...s.dashboard,
@@ -253,6 +273,7 @@ const useBaseSiteStore = create(
           density: normalizeDensity(state.ui?.density),
           animations: Boolean(state.ui?.animations),
           sidebarCollapsed: Boolean(state.sidebar?.collapsed),
+          defaultModuleView: normalizeDefaultModuleView(state.ui?.defaultModuleView),
           dashboardWidgets: buildDashboardWidgetsPayload(state.dashboard?.widgets ?? {}),
         };
       },
@@ -272,10 +293,10 @@ const useBaseSiteStore = create(
         theme:     state.theme,
         accent:    state.accent,
         language:  state.language,
-        sidebar:   state.sidebar,
+        sidebar:   { collapsed: Boolean(state.sidebar?.collapsed) },
         ui:        state.ui,
         dashboard:         state.dashboard,
-        navigationHistory: state.navigationHistory,
+        navigationHistory: sanitizeNavigationHistory(state.navigationHistory),
       }),
 
       // merge recibe directamente el objeto de partialize (flat)
@@ -290,13 +311,16 @@ const useBaseSiteStore = create(
           language: s.language ?? initialState.language,
           sidebar: {
             collapsed:    s.sidebar?.collapsed    ?? false,
-            activeModule: s.sidebar?.activeModule ?? null,
+            activeModule: normalizeSidebarActiveModule(s.sidebar?.activeModule),
           },
           ui: {
             density:    normalizeDensity(s.ui?.density ?? "comfortable"),
             animations: s.ui?.animations ?? true,
+            defaultModuleView: normalizeDefaultModuleView(
+              s.ui?.defaultModuleView ?? UI_DEFAULT.defaultModuleView
+            ),
           },
-          navigationHistory: Array.isArray(s.navigationHistory) ? s.navigationHistory : [],
+          navigationHistory: sanitizeNavigationHistory(s.navigationHistory),
           dashboard: {
             widgets: mergeWidgetsWithDefaults(s.dashboard?.widgets ?? {}),
             layout: {
@@ -325,6 +349,7 @@ export const siteSelectors = {
   ui:                 (s) => s.ui,
   density:            (s) => s.ui?.density ?? "comfortable",
   animations:         (s) => s.ui?.animations ?? true,
+  defaultModuleView:  (s) => normalizeDefaultModuleView(s.ui?.defaultModuleView),
   dashboard:          (s) => s.dashboard,
   widgets:            (s) => s.dashboard?.widgets ?? {},
   layout:             (s) => s.dashboard?.layout ?? LAYOUT_DEFAULT,

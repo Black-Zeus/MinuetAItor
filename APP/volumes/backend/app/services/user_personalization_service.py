@@ -13,9 +13,11 @@ DEFAULT_THEME = "light"
 DEFAULT_DENSITY = "comfortable"
 DEFAULT_ANIMATIONS = True
 DEFAULT_SIDEBAR_COLLAPSED = False
+DEFAULT_MODULE_VIEW = "base"
 
 ALLOWED_THEMES = {"light", "dark", "system"}
 ALLOWED_DENSITIES = {"comfortable", "compact"}
+ALLOWED_MODULE_VIEWS = {"base", "list", "table"}
 
 DEFAULT_WIDGETS: list[dict[str, Any]] = [
     {"code": "stats", "enabled": True, "sort_order": 1},
@@ -41,6 +43,11 @@ def _normalize_density(value: str | None) -> str:
 
 def _load_profile(db: Session, user_id: str) -> UserProfile | None:
     return db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
+
+
+def _normalize_default_module_view(value: str | None) -> str:
+    normalized = str(value or "").strip().lower()
+    return normalized if normalized in ALLOWED_MODULE_VIEWS else DEFAULT_MODULE_VIEW
 
 
 def _ensure_profile(db: Session, user_id: str) -> UserProfile:
@@ -136,6 +143,9 @@ def get_user_personalization(db: Session, user_id: str) -> dict[str, Any]:
             if getattr(profile, "sidebar_collapsed", None) is None
             else profile.sidebar_collapsed
         ),
+        "default_module_view": _normalize_default_module_view(
+            getattr(profile, "default_module_view", None)
+        ),
         "dashboard_widgets": _build_dashboard_widgets(db, user_id),
     }
 
@@ -148,6 +158,7 @@ def update_user_personalization(
     density: str | None,
     animations: bool | None,
     sidebar_collapsed: bool | None,
+    default_module_view: str | None,
     dashboard_widgets: list[dict[str, Any]] | None,
     actor_user_id: str | None = None,
 ) -> dict[str, Any]:
@@ -161,6 +172,8 @@ def update_user_personalization(
         profile.ui_animations = bool(animations)
     if sidebar_collapsed is not None:
         profile.sidebar_collapsed = bool(sidebar_collapsed)
+    if default_module_view is not None:
+        profile.default_module_view = _normalize_default_module_view(default_module_view)
 
     if dashboard_widgets:
         catalog = _load_widget_catalog(db)

@@ -86,6 +86,12 @@ const DENSITY_OPTIONS = [
   { value: "compact", label: "Compacta", icon: "FaTableCellsLarge" },
 ];
 
+const MODULE_VIEW_OPTIONS = [
+  { value: "base", label: "Base", icon: "FaGrip" },
+  { value: "list", label: "Listado", icon: "FaList" },
+  { value: "table", label: "Tabla", icon: "FaTable" },
+];
+
 const enrichWidget = (key, storeWidget) => ({
   ...storeWidget,
   ...(WIDGET_META[key] ?? { label: key, icon: "FaSquare", description: "" }),
@@ -230,11 +236,13 @@ const UserProfileCustomization = () => {
   const density = useBaseSiteStore((s) => s.ui?.density ?? "comfortable");
   const animations = useBaseSiteStore((s) => s.ui?.animations ?? true);
   const sidebarCollapsed = useBaseSiteStore((s) => s.sidebar?.collapsed ?? false);
+  const defaultModuleView = useBaseSiteStore((s) => s.ui?.defaultModuleView ?? "base");
 
   const setTheme = useBaseSiteStore((s) => s.setTheme);
   const setDensity = useBaseSiteStore((s) => s.setDensity);
   const setAnimations = useBaseSiteStore((s) => s.setAnimations);
   const setSidebarCollapsed = useBaseSiteStore((s) => s.setSidebarCollapsed);
+  const setDefaultModuleView = useBaseSiteStore((s) => s.setDefaultModuleView);
   const setWidgetEnabled = useBaseSiteStore((s) => s.setWidgetEnabled);
   const enableAllWidgets = useBaseSiteStore((s) => s.enableAllWidgets);
   const disableAllWidgets = useBaseSiteStore((s) => s.disableAllWidgets);
@@ -321,6 +329,11 @@ const UserProfileCustomization = () => {
 
   const handleSidebarCollapsedChange = (value) => {
     setSidebarCollapsed(value);
+    schedulePersist();
+  };
+
+  const handleDefaultModuleViewChange = (value) => {
+    setDefaultModuleView(value);
     schedulePersist();
   };
 
@@ -429,6 +442,24 @@ const UserProfileCustomization = () => {
                   />
                 ))}
               </div>
+            </div>
+
+            <div>
+              <p className={`mb-2 text-xs font-semibold uppercase tracking-[0.08em] ${TXT_META}`}>Vista predeterminada de catálogos</p>
+              <div className="flex flex-wrap gap-2">
+                {MODULE_VIEW_OPTIONS.map((option) => (
+                  <ChoiceChip
+                    key={option.value}
+                    active={defaultModuleView === option.value}
+                    icon={option.icon}
+                    label={option.label}
+                    onClick={() => handleDefaultModuleViewChange(option.value)}
+                  />
+                ))}
+              </div>
+              <p className={`mt-2 text-xs ${TXT_META}`}>
+                Se aplicará al entrar a clientes, proyectos, equipos, participantes, etiquetas, perfiles AI y minutas. Si cambias la vista dentro del módulo, ese cambio solo durará mientras estés ahí.
+              </p>
             </div>
           </div>
         </PreferenceTile>

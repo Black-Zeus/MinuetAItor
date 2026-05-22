@@ -16,7 +16,11 @@ import ClientHeader from './ClientHeader';
 import ClientFilters from './ClientFilters';
 import ClientStats from './ClientStats';
 import ClientGrid from './ClientGrid';
+import ClientListView from './ClientListView';
+import ClientTableView from './ClientTableView';
 import PageLoadingSpinner from '@/components/ui/modal/types/system/PageLoadingSpinner';
+import CatalogViewBar from '@/components/common/CatalogViewBar';
+import useModuleViewMode from '@/hooks/useModuleViewMode';
 
 import logger from '@/utils/logger';
 
@@ -35,6 +39,7 @@ const Client = () => {
   });
 
   const [sortBy, setSortBy] = useState('recent');
+  const [viewMode, setViewMode] = useModuleViewMode();
 
   // ─── Loader (API) ───────────────────────────────────────────────────────────
 
@@ -185,12 +190,40 @@ const Client = () => {
 
       <ClientStats stats={stats} />
 
-      <ClientGrid
-        clients={filteredClients}
-        onUpdate={handleUpdateClient}
-        onDelete={handleDeleteClient}
-        hasFilters={hasFilters}
+      <CatalogViewBar
+        count={filteredClients.length}
+        singularLabel="cliente"
+        pluralLabel="clientes"
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
       />
+
+      {viewMode === 'base' ? (
+        <ClientGrid
+          clients={filteredClients}
+          onUpdate={handleUpdateClient}
+          onDelete={handleDeleteClient}
+          hasFilters={hasFilters}
+        />
+      ) : null}
+
+      {viewMode === 'list' ? (
+        <ClientListView
+          clients={filteredClients}
+          onUpdate={handleUpdateClient}
+          onDelete={handleDeleteClient}
+          hasFilters={hasFilters}
+        />
+      ) : null}
+
+      {viewMode === 'table' ? (
+        <ClientTableView
+          clients={filteredClients}
+          onUpdate={handleUpdateClient}
+          onDelete={handleDeleteClient}
+          hasFilters={hasFilters}
+        />
+      ) : null}
 
       {/* Si tienes UI de sort, conéctala a setSortBy */}
       {/* <SortSelector value={sortBy} onChange={setSortBy} /> */}

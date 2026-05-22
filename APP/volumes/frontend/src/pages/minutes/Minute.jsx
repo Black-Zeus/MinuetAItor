@@ -5,16 +5,21 @@ import MinutesHeader from "./MinutesHeader";
 import MinutesFilters from "./MinutesFilters";
 import MinutesResults from "./MinutesResults";
 import MinuteCard from "./MinuteCard";
+import MinuteListRow from "./MinuteListRow";
+import MinutesTableView from "./MinutesTableView";
+import MinutesGroupedByClient from "./MinutesGroupedByClient";
 import MinutesPagination from "./MinutesPagination";
 import PageLoadingSpinner from "@/components/ui/modal/types/system/PageLoadingSpinner";
 import { toastInfo } from "@/components/common/toast/toastHelpers";
 import useAbortableRequestScope from "@/hooks/useAbortableRequestScope";
+import useModuleViewMode from "@/hooks/useModuleViewMode";
 
 import { listMinutes, reprocessMinute, transitionMinute } from "@/services/minutesService";
 import useMinuteNotificationStore from "@/store/minuteNotificationStore";
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 const PAGE_SIZE = 12;
+const GROUPED_VIEW_PAGE_SIZE = 5000;
 
 const EMPTY_FILTERS = {
   status: "",
@@ -55,6 +60,8 @@ const Minutes = () => {
 
   // ── Paginación ───────────────────────────────────────────────────────────
   const [currentPage, setCurrentPage] = useState(1);
+  const [viewMode, setViewMode] = useModuleViewMode(["base", "list", "table", "client"]);
+  const isGroupedByClientView = viewMode === "client";
 
   // ── Filtros reactivos ─────────────────────────────────────────────────────
   const [filters, setFilters] = useState({ ...EMPTY_FILTERS });
@@ -68,10 +75,12 @@ const Minutes = () => {
     setError(null);
 
     try {
-      const skip = (page - 1) * PAGE_SIZE;
+      const normalizedPage = isGroupedByClientView ? 1 : page;
+      const limit = isGroupedByClientView ? GROUPED_VIEW_PAGE_SIZE : PAGE_SIZE;
+      const skip = isGroupedByClientView ? 0 : (normalizedPage - 1) * PAGE_SIZE;
       const data = await listMinutes({
         skip,
-        limit:         PAGE_SIZE,
+        limit,
         status_filter: filters.status     || null,
         client_id:     filters.client_id  || null,
         project_id:    filters.project_id || null,
@@ -92,7 +101,7 @@ const Minutes = () => {
         setIsRefreshing(false);
       }
     }
-  }, [requestScope]);
+  }, [isGroupedByClientView, requestScope]);
 
   // ── Carga inicial ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -165,12 +174,18 @@ const Minutes = () => {
   const { clients, projects } = useMemo(() => extractOptions(minutes), [minutes]);
 
   // ─── Paginación ───────────────────────────────────────────────────────────
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const totalPages = isGroupedByClientView ? 1 : Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const handlePageChange = (page) => {
     if (page < 1 || page > totalPages) return;
     setCurrentPage(page);
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleViewModeChange = (nextMode) => {
+    if (nextMode === viewMode) return;
+    setCurrentPage(1);
+    setViewMode(nextMode);
   };
 
   // ─── Render ───────────────────────────────────────────────────────────────
@@ -201,6 +216,8 @@ const Minutes = () => {
         currentPage={currentPage}
         totalPages={totalPages}
         pageSize={PAGE_SIZE}
+        viewMode={viewMode}
+        onViewModeChange={handleViewModeChange}
       />
 
       {/* Error state */}
@@ -222,17 +239,55 @@ const Minutes = () => {
       {/* Grid */}
       {!error && minutes.length > 0 && (
         <>
-          <div className={`grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 mb-8 transition-opacity duration-200
-            ${isRefreshing ? "opacity-50 pointer-events-none" : "opacity-100"}`}>
-            {minutes.map((minute) => (
-              <MinuteCard
-                key={minute.id}
-                minute={minute}
+          {viewMode === "base" ? (
+            <div
+              className={`mb-8 grid grid-cols-1 gap-6 transition-opacity duration-200 lg:grid-cols-2 xl:grid-cols-3 ${
+                isRefreshing ? "opacity-50 pointer-events-none" : "opacity-100"
+              }`}
+            >
+              {minutes.map((minute) => (
+                <MinuteCard
+                  key={minute.id}
+                  minute={minute}
+                  onStatusChange={handleStatusChange}
+                  onReprocess={handleReprocess}
+                />
+              ))}
+            </div>
+          ) : null}
+
+          {viewMode === "list" ? (
+            <div className={`mb-8 space-y-4 transition-opacity duration-200 ${isRefreshing ? "opacity-50 pointer-events-none" : "opacity-100"}`}>
+              {minutes.map((minute) => (
+                <MinuteListRow
+                  key={minute.id}
+                  minute={minute}
+                  onStatusChange={handleStatusChange}
+                  onReprocess={handleReprocess}
+                />
+              ))}
+            </div>
+          ) : null}
+
+          {viewMode === "table" ? (
+            <MinutesTableView
+              minutes={minutes}
+              onStatusChange={handleStatusChange}
+              onReprocess={handleReprocess}
+              isRefreshing={isRefreshing}
+            />
+          ) : null}
+
+          {viewMode === "client" ? (
+            <div className="mb-8">
+              <MinutesGroupedByClient
+                minutes={minutes}
                 onStatusChange={handleStatusChange}
                 onReprocess={handleReprocess}
+                isRefreshing={isRefreshing}
               />
-            ))}
-          </div>
+            </div>
+          ) : null}
 
           {totalPages > 1 && (
             <MinutesPagination

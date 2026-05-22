@@ -10,11 +10,22 @@ import ProjectHeader  from './ProjectHeader';
 import ProjectFilters from './ProjectFilters';
 import ProjectStats   from './ProjectStats';
 import ProjectGrid    from './ProjectGrid';
+import ProjectListView from './ProjectListView';
+import ProjectTableView from './ProjectTableView';
+import ProjectsGroupedByClient from './ProjectsGroupedByClient';
 import PageLoadingSpinner from '@/components/ui/modal/types/system/PageLoadingSpinner';
 import useAbortableRequestScope from '@/hooks/useAbortableRequestScope';
+import CatalogViewBar from '@/components/common/CatalogViewBar';
+import useModuleViewMode from '@/hooks/useModuleViewMode';
 
 import logger from '@/utils/logger';
 const projectLog = logger.scope("project");
+const VIEW_OPTIONS = [
+  { id: "base", label: "Base" },
+  { id: "list", label: "Listado" },
+  { id: "table", label: "Tabla" },
+  { id: "client", label: "Por cliente" },
+];
 
 // ─── Stats ────────────────────────────────────────────────────────────────────
 
@@ -62,6 +73,7 @@ const Project = () => {
   const [clientCatalog,    setClientCatalog]    = useState([]);
   const [isLoading,        setIsLoading]        = useState(true);
   const [stats,            setStats]            = useState({ total: 0, activos: 0, inactivos: 0, totalMinutas: 0 });
+  const [viewMode, setViewMode] = useModuleViewMode(["base", "list", "table", "client"]);
 
   const [filters, setFilters] = useState({
     search:   '',
@@ -174,13 +186,54 @@ const Project = () => {
 
       <ProjectStats stats={stats} />
 
-      <ProjectGrid
-        projects={filteredProjects}
-        clientCatalog={clientCatalog}
-        onUpdated={handleUpdated}
-        onDeleted={handleDeleted}
-        hasFilters={hasFilters}
+      <CatalogViewBar
+        count={filteredProjects.length}
+        singularLabel="proyecto"
+        pluralLabel="proyectos"
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        options={VIEW_OPTIONS}
       />
+
+      {viewMode === 'base' ? (
+        <ProjectGrid
+          projects={filteredProjects}
+          clientCatalog={clientCatalog}
+          onUpdated={handleUpdated}
+          onDeleted={handleDeleted}
+          hasFilters={hasFilters}
+        />
+      ) : null}
+
+      {viewMode === 'list' ? (
+        <ProjectListView
+          projects={filteredProjects}
+          clientCatalog={clientCatalog}
+          onUpdated={handleUpdated}
+          onDeleted={handleDeleted}
+          hasFilters={hasFilters}
+        />
+      ) : null}
+
+      {viewMode === 'table' ? (
+        <ProjectTableView
+          projects={filteredProjects}
+          clientCatalog={clientCatalog}
+          onUpdated={handleUpdated}
+          onDeleted={handleDeleted}
+          hasFilters={hasFilters}
+        />
+      ) : null}
+
+      {viewMode === 'client' ? (
+        <ProjectsGroupedByClient
+          projects={filteredProjects}
+          clientCatalog={clientCatalog}
+          onUpdated={handleUpdated}
+          onDeleted={handleDeleted}
+          hasFilters={hasFilters}
+        />
+      ) : null}
     </div>
   );
 };

@@ -9,6 +9,7 @@ const normalizePersonalization = (payload = {}) => ({
   density: String(payload?.density || "comfortable"),
   animations: Boolean(payload?.animations ?? true),
   sidebarCollapsed: Boolean(payload?.sidebarCollapsed ?? payload?.sidebar_collapsed ?? false),
+  defaultModuleView: String(payload?.defaultModuleView ?? payload?.default_module_view ?? "base"),
   dashboardWidgets: Array.isArray(payload?.dashboardWidgets ?? payload?.dashboard_widgets)
     ? (payload?.dashboardWidgets ?? payload?.dashboard_widgets).map((item) => ({
         code: String(item?.code || "").trim(),
@@ -45,6 +46,7 @@ const personalizationService = {
         density: payload?.density,
         animations: Boolean(payload?.animations),
         sidebarCollapsed: Boolean(payload?.sidebarCollapsed),
+        defaultModuleView: payload?.defaultModuleView,
         dashboardWidgets: Array.isArray(payload?.dashboardWidgets)
           ? payload.dashboardWidgets.map((item) => ({
               code: String(item?.code || "").trim(),
