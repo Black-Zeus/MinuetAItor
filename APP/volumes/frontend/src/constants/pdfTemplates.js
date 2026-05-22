@@ -29,6 +29,13 @@ export const PDF_TEMPLATE_OPTIONS = [
       "Acta institucional con fuerte énfasis en resoluciones, acuerdos formales y cierre de aprobación.",
     thumb: "building",
   },
+  {
+    id: "opc_05",
+    name: "Minuta Clásica",
+    description:
+      "Formato clásico de servicio con lectura tabular, participantes por columna y alcances detallados con una presentación más fresca.",
+    thumb: "fileLines",
+  },
 ];
 
 export const getPdfTemplateMeta = (templateId) =>

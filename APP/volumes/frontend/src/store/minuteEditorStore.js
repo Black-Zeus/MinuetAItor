@@ -51,6 +51,21 @@ const uid = () => Math.random().toString(16).slice(2) + Date.now().toString(16);
 
 const deepClone = (obj) => JSON.parse(JSON.stringify(obj));
 
+const asArray = (value) => (Array.isArray(value) ? value : []);
+const DEFAULT_SIGNATURE_NOTE =
+  "Se deja constancia de la revisión y conformidad con los acuerdos y compromisos documentados en esta minuta.";
+const DEFAULT_FOOTER_BAR_NOTE = "Proyecto / sesión";
+
+const resolveDefaultFooterBarNote = ({ subject = "", project = "" } = {}) => {
+  const cleanSubject = String(subject ?? "").trim();
+  if (cleanSubject) return cleanSubject;
+
+  const cleanProject = String(project ?? "").trim();
+  if (cleanProject) return `${cleanProject} / sesión`;
+
+  return DEFAULT_FOOTER_BAR_NOTE;
+};
+
 // ============================================================
 // DIFF / SNAPSHOT UTILITIES
 // ============================================================
@@ -61,6 +76,7 @@ const deepClone = (obj) => JSON.parse(JSON.stringify(obj));
 const buildComparableState = (s) => ({
   // Info general
   client:      s.meetingInfo?.client      ?? "",
+  project:     s.meetingInfo?.project     ?? "",
   subject:     s.meetingInfo?.subject     ?? "",
   meetingDate: s.meetingInfo?.meetingDate ?? "",
   location:    s.meetingInfo?.location    ?? "",
@@ -109,6 +125,7 @@ const diffComparable = (base, curr) => {
   // Info general y horarios
   const simpleFields = [
     ["Información", "client"],
+    ["Información", "project"],
     ["Información", "subject"],
     ["Información", "meetingDate"],
     ["Información", "location"],
@@ -193,7 +210,7 @@ const diffComparable = (base, curr) => {
 
   // PDF format
   if (base.pdfFormat && curr.pdfFormat) {
-    const sheets = ["coverPage", "summarySheet", "versionControl", "signaturePage"];
+    const sheets = ["coverPage", "summarySheet", "versionControl", "signaturePage", "footerBar"];
     for (const sh of sheets) {
       push("Formato PDF", `${sh}.enabled`,
         base.pdfFormat?.[sh]?.enabled ? "true" : "false",
@@ -206,6 +223,16 @@ const diffComparable = (base, curr) => {
         safeStr(curr.pdfFormat?.coverPage?.[f]),
       );
     }
+    for (const f of ["note", "align"]) {
+      push("Formato PDF > Pie de página", f,
+        safeStr(base.pdfFormat?.footerBar?.[f]),
+        safeStr(curr.pdfFormat?.footerBar?.[f]),
+      );
+    }
+    push("Formato PDF > Firmas / Aprobación", "note",
+      safeStr(base.pdfFormat?.signaturePage?.note),
+      safeStr(curr.pdfFormat?.signaturePage?.note),
+    );
   }
 
   return changes;
@@ -347,6 +374,7 @@ export const mapIAResponseToEditorState = (iaResponse) => {
   // --- Información de la reunión ---
   const meetingInfo = {
     client:      generalInfo?.client ?? inputInfo?.projectInfo?.client ?? "",
+    project:     generalInfo?.project ?? inputInfo?.projectInfo?.project ?? "",
     subject:     generalInfo?.subject ?? inputMeetingInfo?.title ?? "",
     meetingDate: generalInfo?.meetingDate ?? inputMeetingInfo?.scheduledDate ?? "",
     location:    fallbackLocation,
@@ -363,7 +391,7 @@ export const mapIAResponseToEditorState = (iaResponse) => {
 
   // --- Participantes: unificar las 3 listas con tipo + id ---
   const mapParticipantList = (list, type) =>
-    (list ?? []).map((p) => ({
+    asArray(list).map((p) => ({
       id:       uid(),
       fullName: p.fullName,
       initials: p.initials ?? (p.fullName?.slice(0, 2).toUpperCase() ?? ""),
@@ -375,10 +403,10 @@ export const mapIAResponseToEditorState = (iaResponse) => {
       participantEmails: [],
     }));
 
-  const invitedNames = new Set((participants?.invited ?? []).map((p) => p.fullName));
+  const invitedNames = new Set(asArray(participants?.invited).map((p) => p.fullName));
   const participantList = [
-    ...mapParticipantList(participants?.invited ?? [], "invited"),
-    ...(participants?.attendees ?? [])
+    ...mapParticipantList(participants?.invited, "invited"),
+    ...asArray(participants?.attendees)
       .filter((p) => !invitedNames.has(p.fullName))
       .map((p) => ({
         id:       uid(),
@@ -391,17 +419,17 @@ export const mapIAResponseToEditorState = (iaResponse) => {
         participantEmailId: null,
         participantEmails: [],
       })),
-    ...mapParticipantList(participants?.copyRecipients ?? [], "copy"),
+    ...mapParticipantList(participants?.copyRecipients, "copy"),
   ];
 
   // --- Alcance ---
-  const scopeSections = (scope?.sections ?? []).map((s) => ({
+  const scopeSections = asArray(scope?.sections).map((s) => ({
     id:        s.sectionId,
     title:     s.sectionTitle,
     type:      s.sectionType,
     summary:   s.content?.summary ?? "",
-    topicsList: (s.content?.topicsList ?? []).map((t) => ({ id: uid(), text: t })),
-    details:    (s.content?.details ?? []).map((d) => ({
+    topicsList: asArray(s.content?.topicsList).map((t) => ({ id: uid(), text: t })),
+    details:    asArray(s.content?.details).map((d) => ({
       id:          uid(),
       label:       d.label,
       description: d.description,
@@ -409,7 +437,7 @@ export const mapIAResponseToEditorState = (iaResponse) => {
   }));
 
   // --- Acuerdos ---
-  const agreementList = (agreements?.items ?? []).map((a) => ({
+  const agreementList = asArray(agreements?.items).map((a) => ({
     id:          uid(),
     agreementId: a.agreementId,
     subject:     a.subject,
@@ -420,7 +448,7 @@ export const mapIAResponseToEditorState = (iaResponse) => {
   }));
 
   // --- Requerimientos ---
-  const requirementList = (requirements?.items ?? []).map((r) => ({
+  const requirementList = asArray(requirements?.items).map((r) => ({
     id:            uid(),
     requirementId: r.requirementId,
     entity:        r.entity,
@@ -431,7 +459,7 @@ export const mapIAResponseToEditorState = (iaResponse) => {
   }));
 
   // --- Tags IA (solo eliminar) ---
-  const aiTags = (aiSuggestedTags ?? []).map((t) => ({
+  const aiTags = asArray(aiSuggestedTags).map((t) => ({
     id:          uid(),
     name:        t.name,
     description: t.description,
@@ -440,19 +468,19 @@ export const mapIAResponseToEditorState = (iaResponse) => {
 
   // --- Tags usuario ---
   // userProvidedTags puede ser array de strings O de objetos {code, name, description}
-  const userTags = (inputInfo?.userProvidedTags ?? []).map((t) => ({
+  const userTags = asArray(inputInfo?.userProvidedTags).map((t) => ({
     id:     uid(),
     name:   typeof t === "object" ? (t?.name ?? t?.code ?? "") : String(t ?? ""),
     origin: "user",
   })).filter((t) => t.name.trim() !== "");
 
   // --- Próximas reuniones ---
-  const upcomingList = (upcomingMeetings?.items ?? []).map((m) => ({
+  const upcomingList = asArray(upcomingMeetings?.items).map((m) => ({
     id:            uid(),
     meetingId:     m.meetingId,
     scheduledDate: m.scheduledDate,
     agenda:        m.agenda,
-    attendees:     m.attendees ?? [],
+    attendees:     asArray(m.attendees),
   }));
 
   // --- Metadata (bloqueada) ---
@@ -475,8 +503,8 @@ export const mapIAResponseToEditorState = (iaResponse) => {
       version:        "v1.0",
       publishedAt:    new Date().toISOString(),
       publishedBy:    fallbackPreparedBy || "Sistema",
-      observation:    "Publicación inicial generada desde IA.",
-      changesSummary: "Versión original sin modificaciones.",
+      observation:    "Procesamiento inicial de la minuta.",
+      changesSummary: "Versión base generada para revisión y toma de requerimientos.",
     },
   ];
 
@@ -492,7 +520,15 @@ export const mapIAResponseToEditorState = (iaResponse) => {
     },
     summarySheet:   { enabled: false },
     versionControl: { enabled: false },
-    signaturePage:  { enabled: false, signatories: [] },
+    signaturePage:  { enabled: false, signatories: [], note: DEFAULT_SIGNATURE_NOTE },
+    footerBar:      {
+      enabled: false,
+      note:    resolveDefaultFooterBarNote({
+        subject: generalInfo?.subject ?? inputMeetingInfo?.title ?? "",
+        project: inputInfo?.projectInfo?.project ?? "",
+      }),
+      align: "left",
+    },
   };
 
   return {
@@ -533,10 +569,11 @@ export const mapDraftToEditorState = (draft) => {
   // Asegurar que los ids de los items sean únicos en esta sesión.
   // Los ids del draft pueden ser strings de sesiones anteriores, lo reasignamos
   // para evitar colisiones en el reconciler de React.
-  const reId = (list) => (list ?? []).map((item) => ({ ...item, id: uid() }));
+  const reId = (list) => asArray(list).map((item) => ({ ...item, id: uid() }));
 
   const meetingInfo = {
     client:      draft.meetingInfo?.client      ?? "",
+    project:     draft.meetingInfo?.project     ?? "",
     subject:     draft.meetingInfo?.subject     ?? "",
     meetingDate: draft.meetingInfo?.meetingDate ?? "",
     location:    draft.meetingInfo?.location    ?? "",
@@ -559,7 +596,7 @@ export const mapDraftToEditorState = (draft) => {
     title: item.title ?? "",
   }));
 
-  const scopeSections = (draft.scopeSections ?? []).map((sec) => ({
+  const scopeSections = asArray(draft.scopeSections).map((sec) => ({
     ...sec,
     id:        sec.id    ?? uid(),
     topicsList: reId(sec.topicsList),
@@ -575,7 +612,7 @@ export const mapDraftToEditorState = (draft) => {
   const metadataLocked = draft.metadataLocked ?? {};
   const additionalNote = draft.additionalNote ?? "";
 
-  const timeline = (draft.timeline ?? []).map((entry) => ({
+  const timeline = asArray(draft.timeline).map((entry) => ({
     ...entry,
     id: entry.id ?? uid(),
   }));
@@ -584,7 +621,7 @@ export const mapDraftToEditorState = (draft) => {
     template: draft.pdfFormat?.template ?? DEFAULT_PDF_TEMPLATE,
     coverPage: {
       enabled:     draft.pdfFormat?.coverPage?.enabled     ?? false,
-      projectName: draft.pdfFormat?.coverPage?.projectName ?? "",
+      projectName: draft.pdfFormat?.coverPage?.projectName ?? draft.meetingInfo?.project ?? "",
       minuteTitle: draft.pdfFormat?.coverPage?.minuteTitle ?? "",
       preparedBy:  draft.pdfFormat?.coverPage?.preparedBy  ?? "",
       footerNote:  draft.pdfFormat?.coverPage?.footerNote  ?? "",
@@ -594,6 +631,15 @@ export const mapDraftToEditorState = (draft) => {
     signaturePage: {
       enabled:     draft.pdfFormat?.signaturePage?.enabled ?? false,
       signatories: reId(draft.pdfFormat?.signaturePage?.signatories),
+      note:        draft.pdfFormat?.signaturePage?.note ?? DEFAULT_SIGNATURE_NOTE,
+    },
+    footerBar: {
+      enabled: draft.pdfFormat?.footerBar?.enabled ?? false,
+      note:    draft.pdfFormat?.footerBar?.note ?? resolveDefaultFooterBarNote({
+        subject: draft.meetingInfo?.subject ?? "",
+        project: draft.meetingInfo?.project ?? "",
+      }),
+      align:   draft.pdfFormat?.footerBar?.align === "center" ? "center" : "left",
     },
   };
 
@@ -624,6 +670,7 @@ const EMPTY_STATE = {
 
   meetingInfo: {
     client:      "",
+    project:     "",
     subject:     "",
     meetingDate: "",
     location:    "",
@@ -666,7 +713,8 @@ const EMPTY_STATE = {
     coverPage:      { enabled: false, projectName: "", minuteTitle: "", preparedBy: "", footerNote: "" },
     summarySheet:   { enabled: false },
     versionControl: { enabled: false },
-    signaturePage:  { enabled: false, signatories: [] },
+    signaturePage:  { enabled: false, signatories: [], note: DEFAULT_SIGNATURE_NOTE },
+    footerBar:      { enabled: false, note: DEFAULT_FOOTER_BAR_NOTE, align: "left" },
   },
 
   // Snapshot baseline para diff y rollback
@@ -1292,6 +1340,24 @@ const useMinuteEditorStore = create((set, get) => ({
       pdfFormat: {
         ...s.pdfFormat,
         coverPage: { ...s.pdfFormat.coverPage, [field]: value },
+      },
+      isDirty: true,
+    })),
+
+  updateFooterBar: (field, value) =>
+    set((s) => ({
+      pdfFormat: {
+        ...s.pdfFormat,
+        footerBar: { ...s.pdfFormat.footerBar, [field]: value },
+      },
+      isDirty: true,
+    })),
+
+  updateSignaturePage: (field, value) =>
+    set((s) => ({
+      pdfFormat: {
+        ...s.pdfFormat,
+        signaturePage: { ...s.pdfFormat.signaturePage, [field]: value },
       },
       isDirty: true,
     })),

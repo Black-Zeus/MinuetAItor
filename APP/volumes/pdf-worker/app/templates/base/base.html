@@ -230,6 +230,115 @@
       font-size: 11px;
     }
 
+    .runtime-page {
+      display: flex;
+      flex-direction: column;
+      min-height: calc(297mm - 30mm);
+    }
+
+    .runtime-page-footer {
+      margin-top: auto;
+      padding-top: 10px;
+      border-top: 1px solid var(--line);
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 10px;
+      align-items: end;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .runtime-page-footer.is-left .runtime-page-footer-text {
+      grid-column: 1;
+      text-align: left;
+    }
+
+    .runtime-page-footer.is-center .runtime-page-footer-text {
+      grid-column: 2;
+      text-align: center;
+    }
+
+    .runtime-page-footer-number {
+      grid-column: 3;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .runtime-page-footer-text {
+      min-height: 1em;
+    }
+
+    .runtime-cover-panel {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .runtime-cover-head {
+      padding: 22px 26px;
+      background: linear-gradient(180deg,#f7faff 0%,#eef3fc 100%);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .runtime-cover-kicker {
+      margin: 0 0 8px 0;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--primary);
+      font-weight: 700;
+    }
+
+    .runtime-cover-title {
+      margin: 0;
+      font-size: 28px;
+      line-height: 1.16;
+      color: var(--primary-dark);
+      font-weight: 700;
+    }
+
+    .runtime-cover-subtitle {
+      margin: 8px 0 0 0;
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    .runtime-cover-body {
+      padding: 18px 24px 22px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px 24px;
+    }
+
+    .runtime-cover-item {
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .runtime-cover-item-label {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .runtime-cover-item-value {
+      font-size: 14px;
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .runtime-cover-footer {
+      padding: 12px 24px 18px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
     /* ── Info grid (ficha de documento) ─────────────────────── */
     .info-grid-doc {
       display: grid;

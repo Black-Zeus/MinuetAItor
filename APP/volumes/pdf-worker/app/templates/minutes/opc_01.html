@@ -79,10 +79,13 @@
 
 /* Signature grid */
 .signature-grid      { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; margin-top: 28px; }
+.signature-grid.count-1 { grid-template-columns: minmax(280px, 360px); justify-content: center; }
+.signature-grid.count-2 { grid-template-columns: repeat(2, minmax(260px, 1fr)); }
 .signature-box       { min-height: 120px; border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; justify-content: flex-end; }
-.signature-line      { border-top: 1px solid var(--line-strong); margin-top: 40px; padding-top: 8px; }
-.signature-name      { font-weight: 700; color: var(--text); }
-.signature-role      { font-size: 12px; color: var(--muted); }
+.signature-line      { border-top: 1px solid var(--line-strong); margin-top: 40px; padding-top: 8px; text-align: center; }
+.signature-name      { font-weight: 700; color: var(--text); text-align: center; }
+.signature-role      { font-size: 12px; color: var(--muted); text-align: center; }
+.signature-note      { margin-top: 16px; font-size: 11.5px; color: var(--muted); text-align: center; line-height: 1.55; }
 .footer-legend       { margin-top: 14px; font-size: 11.5px; color: var(--muted); }
 
 /* Timeline */
@@ -92,10 +95,30 @@
 
 {% block content %}
 <div class="document">
+  {% set cover_page = pdf_format.cover_page if pdf_format is defined and pdf_format.cover_page is defined else {} %}
+  {% set cover_project = cover_page.project_name | default('', true) or general_info.project | default('—', true) %}
+  {% set cover_title = cover_page.minute_title | default('', true) or general_info.subject %}
+  {% set cover_prepared_by = cover_page.prepared_by | default('', true) or general_info.prepared_by %}
+  {% set pager = namespace(page=0, total=2) %}
+  {% if pdf_format is not defined or pdf_format.cover_page is not defined or pdf_format.cover_page.enabled %}{% set pager.total = pager.total + 1 %}{% endif %}
+  {% if pdf_format is not defined or pdf_format.summary_sheet is not defined or pdf_format.summary_sheet.enabled %}{% set pager.total = pager.total + 1 %}{% endif %}
+  {% if pdf_format is defined and pdf_format.version_control is defined and pdf_format.version_control.enabled %}{% set pager.total = pager.total + 1 %}{% endif %}
+  {% if pdf_format is defined and pdf_format.signature_page is defined and pdf_format.signature_page.enabled %}{% set pager.total = pager.total + 1 %}{% endif %}
+
+  {% macro render_footer(page_number, total_pages) %}
+    {% set footer_bar = pdf_format.footer_bar if pdf_format is defined and pdf_format.footer_bar is defined else {} %}
+    {% if footer_bar and footer_bar.enabled %}
+    <div class="runtime-page-footer {{ 'is-center' if footer_bar.align == 'center' else 'is-left' }}">
+      <div class="runtime-page-footer-text">{{ footer_bar.note | default('') }}</div>
+      <div class="runtime-page-footer-number">Página {{ page_number }} de {{ total_pages }}</div>
+    </div>
+    {% endif %}
+  {% endmacro %}
 
   {# ── HOJA OPCIONAL: PORTADA ────────────────────────────── #}
   {% if pdf_format is not defined or pdf_format.cover_page is not defined or pdf_format.cover_page.enabled %}
-  <section class="page">
+  {% set pager.page = pager.page + 1 %}
+  <section class="page runtime-page">
     <div class="cover-page">
       <div class="cover-top">
         <div class="logo-box">Logo Cliente</div>
@@ -105,8 +128,8 @@
         <div class="cover-card">
           <div class="cover-header">
             <p class="cover-kicker">Documento de sesión</p>
-            <h1 class="cover-title">{{ general_info.subject }}</h1>
-            <p class="cover-subtitle">{{ general_info.client }} · {{ general_info.meeting_date }}</p>
+            <h1 class="cover-title">{{ cover_title }}</h1>
+            <p class="cover-subtitle">{{ general_info.client }}{% if cover_project and cover_project != '—' %} · {{ cover_project }}{% endif %} · {{ general_info.meeting_date }}</p>
           </div>
           <div class="cover-body">
             <div class="cover-item">
@@ -115,11 +138,11 @@
             </div>
             <div class="cover-item">
               <span class="label">Proyecto</span>
-              <span class="value">{{ general_info.project | default('—') }}</span>
+              <span class="value">{{ cover_project }}</span>
             </div>
             <div class="cover-item">
               <span class="label">Título de la minuta</span>
-              <span class="value">{{ general_info.subject }}</span>
+              <span class="value">{{ cover_title }}</span>
             </div>
             <div class="cover-item">
               <span class="label">Fecha de reunión</span>
@@ -127,7 +150,7 @@
             </div>
             <div class="cover-item">
               <span class="label">Elaborado por</span>
-              <span class="value">{{ general_info.prepared_by }}</span>
+              <span class="value">{{ cover_prepared_by }}</span>
             </div>
             <div class="cover-item">
               <span class="label">Versión</span>
@@ -140,13 +163,13 @@
         </div>
       </div>
     </div>
-    <div class="page-number">Página 1</div>
   </section>
   {% endif %}
 
   {# ── HOJA OPCIONAL: CARÁTULA / FICHA ───────────────────── #}
   {% if pdf_format is not defined or pdf_format.summary_sheet is not defined or pdf_format.summary_sheet.enabled %}
-  <section class="page">
+  {% set pager.page = pager.page + 1 %}
+  <section class="page runtime-page">
     <div class="doc-header">
       <div>
         <h1 class="doc-title">Carátula / Ficha de Documento</h1>
@@ -164,11 +187,11 @@
           <th class="field">Cliente</th>
           <td colspan="2">{{ general_info.client }}</td>
           <th class="field">Proyecto</th>
-          <td colspan="2">{{ general_info.project | default('—') }}</td>
+          <td colspan="2">{{ cover_project }}</td>
         </tr>
         <tr>
           <th class="field">Título</th>
-          <td colspan="2">{{ general_info.subject }}</td>
+          <td colspan="2">{{ cover_title }}</td>
           <th class="field">Versión</th>
           <td colspan="2">{{ version_label | default('v1.0') }}</td>
         </tr>
@@ -182,16 +205,18 @@
           <th class="field">Lugar / Plataforma</th>
           <td colspan="2">{{ general_info.location | default('—') }}</td>
           <th class="field">Elaborado por</th>
-          <td colspan="2">{{ general_info.prepared_by }}</td>
+          <td colspan="2">{{ cover_prepared_by }}</td>
         </tr>
       </tbody>
     </table>
     <div class="footer-legend">Nota: en caso de no utilizar esta hoja, puede desactivarse desde la configuración del PDF.</div>
+    {{ render_footer(pager.page, pager.total) }}
   </section>
   {% endif %}
 
   {# ── MINUTA PRINCIPAL ───────────────────────────────────── #}
-  <section class="page">
+  {% set pager.page = pager.page + 1 %}
+  <section class="page runtime-page">
     <div class="doc-header">
       <div>
         <h1 class="doc-title">Minuta de Reunión</h1>
@@ -301,8 +326,14 @@
     </div>
     {% endif %}
 
+    {{ render_footer(pager.page, pager.total) }}
+  </section>
+
+  {% set pager.page = pager.page + 1 %}
+  <section class="page runtime-page">
+
     {# 3. Alcances #}
-    <section class="pdf-section pdf-section--new-page">
+    <section class="pdf-section">
     <div class="pdf-section-header">
       <h2 class="section-title">3. Alcances</h2>
       <div class="section-note">Cuerpo principal de la minuta, estructurado desde la salida semántica de la IA.</div>
@@ -455,11 +486,13 @@
     {% endif %}
     </section>
 
+    {{ render_footer(pager.page, pager.total) }}
   </section>
 
   {# ── HOJA OPCIONAL: CONTROL DE VERSIONES ───────────────── #}
   {% if pdf_format is defined and pdf_format.version_control is defined and pdf_format.version_control.enabled %}
-  <section class="page">
+  {% set pager.page = pager.page + 1 %}
+  <section class="page runtime-page">
     <div class="doc-header">
       <div>
         <h1 class="doc-title">Control de Versiones</h1>
@@ -502,12 +535,14 @@
         {% endif %}
       </tbody>
     </table>
+    {{ render_footer(pager.page, pager.total) }}
   </section>
   {% endif %}
 
   {# ── HOJA OPCIONAL: FIRMAS / APROBACIÓN ────────────────── #}
   {% if pdf_format is defined and pdf_format.signature_page is defined and pdf_format.signature_page.enabled %}
-  <section class="page">
+  {% set pager.page = pager.page + 1 %}
+  <section class="page runtime-page">
     <div class="doc-header">
       <div>
         <h1 class="doc-title">Firmas / Aprobación</h1>
@@ -518,9 +553,10 @@
         <div>Fecha: {{ general_info.meeting_date }}</div>
       </div>
     </div>
-    <div class="signature-grid">
-      {% if pdf_format.signature_page.signatories is defined and pdf_format.signature_page.signatories | length > 0 %}
-        {% for sig in pdf_format.signature_page.signatories %}
+    {% set signatories = pdf_format.signature_page.signatories if (pdf_format.signature_page.signatories is defined and pdf_format.signature_page.signatories | length > 0) else participants.attendees %}
+    <div class="signature-grid count-{{ signatories | length if signatories | length > 0 else 1 }}">
+      {% if signatories | length > 0 %}
+        {% for sig in signatories %}
         <div class="signature-box">
           <div class="signature-line">
             <div class="signature-name">{{ sig.full_name }}</div>
@@ -529,18 +565,18 @@
         </div>
         {% endfor %}
       {% else %}
-        {# Fallback: usar asistentes #}
-        {% for person in participants.attendees %}
         <div class="signature-box">
           <div class="signature-line">
-            <div class="signature-name">{{ person.full_name }}</div>
-            <div class="signature-role">Asistente</div>
+            <div class="signature-name">Sin firmantes definidos</div>
+            <div class="signature-role">Pendiente de asignación</div>
           </div>
         </div>
-        {% endfor %}
       {% endif %}
     </div>
-    <div class="footer-legend">Esta hoja puede mantenerse visible sólo cuando el flujo documental requiera firma o aprobación formal.</div>
+    {% if pdf_format.signature_page.note | default('') %}
+    <div class="signature-note">{{ pdf_format.signature_page.note }}</div>
+    {% endif %}
+    {{ render_footer(pager.page, pager.total) }}
   </section>
   {% endif %}
 

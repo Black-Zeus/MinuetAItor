@@ -155,13 +155,13 @@ const SheetToggleCard = ({ title, description, icon, enabled, onToggle, children
         type="button"
         onClick={onToggle}
         disabled={isReadOnly}
-        className={`relative w-12 h-6 rounded-full transition-colors duration-200 focus:outline-none
+        className={`relative shrink-0 flex-none w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none
           ${enabled ? 'bg-primary-500' : 'bg-gray-300 dark:bg-gray-600'}
           ${isReadOnly ? 'opacity-50 cursor-not-allowed' : ''}`}
         aria-label={enabled ? 'Desactivar' : 'Activar'}
       >
-        <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200
-          ${enabled ? 'translate-x-7' : 'translate-x-1'}`}
+        <span className={`absolute left-0.5 top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200
+          ${enabled ? 'translate-x-5' : 'translate-x-0'}`}
         />
       </button>
     </div>
@@ -274,8 +274,9 @@ const VersionControlConfig = () => {
 };
 
 const SignaturePageConfig = ({ isReadOnly = false }) => {
-  const { pdfFormat, addSignatory, updateSignatory, deleteSignatory } = useMinuteEditorStore();
+  const { pdfFormat, addSignatory, updateSignatory, deleteSignatory, updateSignaturePage } = useMinuteEditorStore();
   const signatories = pdfFormat.signaturePage.signatories;
+  const signatureNote = pdfFormat.signaturePage.note ?? '';
 
   const openForm = (existing = null) => {
     let draft = existing ? { ...existing } : { fullName: '', role: '', area: '' };
@@ -332,6 +333,23 @@ const SignaturePageConfig = ({ isReadOnly = false }) => {
         )}
       </div>
 
+      <div>
+        <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 uppercase tracking-wider transition-theme">
+          Glosa bajo las firmas
+        </label>
+        <textarea
+          rows={3}
+          value={signatureNote}
+          disabled={isReadOnly}
+          onChange={(e) => updateSignaturePage('note', e.target.value)}
+          placeholder="Ej: Se visa la presente minuta en señal de conformidad con su contenido y acuerdos registrados."
+          className="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm text-gray-900 dark:text-gray-100 transition-theme focus:outline-none focus:ring-2 focus:ring-primary-500/40 disabled:opacity-60 disabled:cursor-not-allowed"
+        />
+        <p className="mt-2 text-xs text-gray-500 dark:text-gray-400 transition-theme">
+          Este texto aparecerá bajo los cuadros de firma en la hoja de aprobación.
+        </p>
+      </div>
+
       {signatories.length === 0 ? (
         <p className="text-xs text-gray-400 dark:text-gray-600 italic transition-theme">Sin firmantes aún.</p>
       ) : (
@@ -354,6 +372,50 @@ const SignaturePageConfig = ({ isReadOnly = false }) => {
   );
 };
 
+const FooterBarConfig = ({ isReadOnly = false }) => {
+  const { pdfFormat, updateFooterBar } = useMinuteEditorStore();
+  const cfg = pdfFormat.footerBar ?? { note: '', align: 'left' };
+
+  return (
+    <div className="space-y-4">
+      <p className="text-xs text-gray-500 dark:text-gray-400 transition-theme">
+        Agrega una frase fija al pie del documento y muestra la paginación como "Página X de Y".
+      </p>
+
+      <div className="grid grid-cols-12 gap-4">
+        <div className="col-span-12 md:col-span-8">
+          <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 uppercase tracking-wider transition-theme">
+            Texto del pie de página
+          </label>
+          <input
+            type="text"
+            value={cfg.note ?? ''}
+            disabled={isReadOnly}
+            onChange={(e) => updateFooterBar('note', e.target.value)}
+            placeholder="Ej: Documento para uso interno del proyecto"
+            className="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm text-gray-900 dark:text-gray-100 transition-theme focus:outline-none focus:ring-2 focus:ring-primary-500/40 disabled:opacity-60 disabled:cursor-not-allowed"
+          />
+        </div>
+
+        <div className="col-span-12 md:col-span-4">
+          <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 uppercase tracking-wider transition-theme">
+            Posición del texto
+          </label>
+          <select
+            value={cfg.align === 'center' ? 'center' : 'left'}
+            disabled={isReadOnly}
+            onChange={(e) => updateFooterBar('align', e.target.value === 'center' ? 'center' : 'left')}
+            className="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm text-gray-900 dark:text-gray-100 transition-theme focus:outline-none focus:ring-2 focus:ring-primary-500/40 disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <option value="left">Izquierda</option>
+            <option value="center">Centro</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ─────────────────────────────────────────────────────────────
 // Definición de hojas
 // ─────────────────────────────────────────────────────────────
@@ -363,6 +425,7 @@ const PDF_SHEETS = [
   { key: 'summarySheet',   title: 'Carátula / Ficha',     description: 'Tabla resumen de la minuta: cliente, proyecto, versión, fecha, estado.',  icon: 'clipboardList', ConfigComponent: SummarySheetConfig },
   { key: 'versionControl', title: 'Control de Versiones', description: 'Historial de versiones del documento generado desde la Línea de Tiempo.', icon: 'history',       ConfigComponent: VersionControlConfig },
   { key: 'signaturePage',  title: 'Firmas / Aprobación',  description: 'Hoja con cuadros de firma para los participantes clave.',                 icon: 'pen',           ConfigComponent: SignaturePageConfig },
+  { key: 'footerBar',      title: 'Pie de página',        description: 'Frase opcional en el pie y numeración de páginas X de Y.',                icon: 'layout',        ConfigComponent: FooterBarConfig },
 ];
 
 // ─────────────────────────────────────────────────────────────

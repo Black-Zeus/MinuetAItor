@@ -116,7 +116,8 @@ def _normalize(data: dict) -> dict:
             "cover_page":      {"enabled": True,  "subtitle": ""},
             "summary_sheet":   {"enabled": True},
             "version_control": {"enabled": True},
-            "signature_page":  {"enabled": False},
+            "signature_page":  {"enabled": False, "note": ""},
+            "footer_bar":      {"enabled": False, "note": "", "align": "left"},
         }),
     }
 
@@ -257,8 +258,8 @@ def download_pdf(output_key: str, local_path: str):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--template",  default="opc_01",
-                        choices=["opc_01", "opc_02", "opc_03", "opc_04",
-                                 "standard", "executive", "technical", "governance"])
+                        choices=["opc_01", "opc_02", "opc_03", "opc_04", "opc_05",
+                                 "standard", "executive", "technical", "governance", "classic"])
     parser.add_argument("--watermark", action="store_true")
     parser.add_argument("--all",       action="store_true",
                         help="Prueba los 4 templates en secuencia")
@@ -267,7 +268,7 @@ if __name__ == "__main__":
     # Cargar datos desde output.json — detiene si no existe
     data = load_output_json()
 
-    templates = ["opc_01", "opc_02", "opc_03", "opc_04"] if args.all else [args.template]
+    templates = ["opc_01", "opc_02", "opc_03", "opc_04", "opc_05"] if args.all else [args.template]
 
     if args.all:
         print(f"\n📋 Generando todos los templates")

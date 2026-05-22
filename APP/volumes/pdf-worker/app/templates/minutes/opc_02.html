@@ -41,6 +41,39 @@
 .participant-row:last-child { border-bottom: none; }
 .participant-name     { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .participant-initials { text-align: center; font-weight: 700; color: var(--primary-dark); background: var(--primary-soft); border-radius: 999px; padding: 3px 0; }
+.participants-grid .participant-box-head { text-align: center; }
+.participants-grid .participant-box-body { text-align: center; }
+.signature-grid { display: grid; grid-template-columns: repeat(2, minmax(260px, 320px)); justify-content: center; gap: 18px; margin-top: 16px; }
+.signature-grid.count-1 { grid-template-columns: minmax(280px, 360px); }
+.signature-grid.count-2 { grid-template-columns: repeat(2, minmax(260px, 320px)); }
+.signature-card {
+  min-height: 164px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: #fff;
+  padding: 18px 20px 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+.signature-line {
+  border-top: 1px solid var(--line-strong);
+  padding-top: 12px;
+  text-align: center;
+}
+.signature-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--primary-dark);
+  text-align: center;
+}
+.signature-role {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+}
+.signature-note { margin-top: 16px; font-size: 11.5px; color: var(--muted); text-align: center; line-height: 1.55; }
 
 /* Scope items */
 .scope-item           { border: 1px solid var(--line); border-radius: 14px; margin-bottom: 14px; overflow: hidden; background: #fff; }
@@ -66,254 +99,284 @@
 {% endblock %}
 
 {% block content %}
-<div class="page">
+<div class="document">
+  {% set cover = cover_context if cover_context is defined and cover_context else {} %}
+  {% set cover_page = pdf_format.cover_page if pdf_format is defined and pdf_format.cover_page is defined else {} %}
+  {% set cover_project = cover_page.project_name | default('', true) or general_info.project | default('—', true) %}
+  {% set cover_title = cover_page.minute_title | default('', true) or general_info.subject %}
+  {% set cover_prepared_by = cover_page.prepared_by | default('', true) or general_info.prepared_by %}
+  {% set pager = namespace(page=0, total=3) %}
+  {% if pdf_format is not defined or pdf_format.cover_page is not defined or pdf_format.cover_page.enabled %}{% set pager.total = pager.total + 1 %}{% endif %}
+  {% if pdf_format is not defined or pdf_format.summary_sheet is not defined or pdf_format.summary_sheet.enabled %}{% set pager.total = pager.total + 1 %}{% endif %}
+  {% if pdf_format is defined and pdf_format.version_control is defined and pdf_format.version_control.enabled %}{% set pager.total = pager.total + 1 %}{% endif %}
+  {% if pdf_format is defined and pdf_format.signature_page is defined and pdf_format.signature_page.enabled %}{% set pager.total = pager.total + 1 %}{% endif %}
 
-  {# Header shell #}
-  <section class="header-shell">
-    <div class="header-top">
-      <div class="header-title">
-        <h1>{{ general_info.subject }}</h1>
-        <p>{{ general_info.client }}{% if general_info.project is defined and general_info.project %} · {{ general_info.project }}{% endif %}</p>
+  {% macro render_footer(page_number, total_pages) %}
+    {% set footer_bar = pdf_format.footer_bar if pdf_format is defined and pdf_format.footer_bar is defined else {} %}
+    {% if footer_bar and footer_bar.enabled %}
+    <div class="runtime-page-footer {{ 'is-center' if footer_bar.align == 'center' else 'is-left' }}">
+      <div class="runtime-page-footer-text">{{ footer_bar.note | default('') }}</div>
+      <div class="runtime-page-footer-number">Página {{ page_number }} de {{ total_pages }}</div>
+    </div>
+    {% endif %}
+  {% endmacro %}
+
+  {% if pdf_format is not defined or pdf_format.cover_page is not defined or pdf_format.cover_page.enabled %}
+  {% set pager.page = pager.page + 1 %}
+  <section class="page runtime-page">
+    <div class="runtime-cover-panel">
+      <div class="runtime-cover-head">
+        <p class="runtime-cover-kicker">Documento ejecutivo</p>
+        <h1 class="runtime-cover-title">{{ cover_title }}</h1>
+        <p class="runtime-cover-subtitle">{{ general_info.client }}{% if cover_project and cover_project != '—' %} · {{ cover_project }}{% endif %} · {{ general_info.meeting_date }}</p>
       </div>
-      <div class="header-meta">
-        <div>Cliente: <strong>{{ general_info.client }}</strong></div>
-        <div>Fecha: <strong>{{ general_info.meeting_date }}</strong></div>
-        {% if general_info.location %}
-        <div class="meta-pill">{{ general_info.location }}</div>
-        {% endif %}
+      <div class="runtime-cover-body">
+        <div class="runtime-cover-item"><span class="runtime-cover-item-label">Cliente</span><span class="runtime-cover-item-value">{{ general_info.client }}</span></div>
+        <div class="runtime-cover-item"><span class="runtime-cover-item-label">Proyecto</span><span class="runtime-cover-item-value">{{ cover_project }}</span></div>
+        <div class="runtime-cover-item"><span class="runtime-cover-item-label">Elaborado por</span><span class="runtime-cover-item-value">{{ cover_prepared_by }}</span></div>
+        <div class="runtime-cover-item"><span class="runtime-cover-item-label">Versión</span><span class="runtime-cover-item-value">{{ version_label | default('v1.0') }}</span></div>
+      </div>
+      <div class="runtime-cover-footer">
+        {{ pdf_format.cover_page.subtitle | default('Documento base para revisión ejecutiva.') if pdf_format is defined and pdf_format.cover_page is defined else 'Documento base para revisión ejecutiva.' }}
       </div>
     </div>
+  </section>
+  {% endif %}
 
-    <div class="header-body">
-      <div class="info-grid">
-        <div class="info-cell info-label">Cliente</div>
-        <div class="info-cell info-value span-2">{{ general_info.client }}</div>
-        <div class="info-cell info-label">Preparado por</div>
-        <div class="info-cell info-value span-2 info-row-end">{{ general_info.prepared_by }}</div>
+  {% if pdf_format is not defined or pdf_format.summary_sheet is not defined or pdf_format.summary_sheet.enabled %}
+  {% set pager.page = pager.page + 1 %}
+  <section class="page runtime-page">
+    <div class="doc-header">
+      <div>
+        <h1 class="section-title">Carátula / Ficha</h1>
+        <p class="section-note">Resumen de control documental para circulación y revisión.</p>
+      </div>
+    </div>
+    <div class="info-grid-doc">
+      <div class="info-item-doc"><div class="info-label-doc">Cliente</div><div class="info-value-doc">{{ general_info.client }}</div></div>
+      <div class="info-item-doc"><div class="info-label-doc">Proyecto</div><div class="info-value-doc">{{ general_info.project | default('—') }}</div></div>
+      <div class="info-item-doc"><div class="info-label-doc">Fecha reunión</div><div class="info-value-doc">{{ general_info.meeting_date }}</div></div>
+      <div class="info-item-doc"><div class="info-label-doc">Versión</div><div class="info-value-doc">{{ version_label | default('v1.0') }}</div></div>
+    </div>
+    {{ render_footer(pager.page, pager.total) }}
+  </section>
+  {% endif %}
 
-        <div class="info-cell info-label">Tema(s)</div>
-        <div class="info-cell info-value span-5 info-row-end">{{ general_info.subject }}</div>
-
-        <div class="info-cell info-label">Fecha reunión</div>
-        <div class="info-cell info-value">{{ general_info.meeting_date }}</div>
-        <div class="info-cell info-label">Lugar</div>
-        <div class="info-cell info-value">{{ general_info.location | default('—') }}</div>
-        <div class="info-cell info-label">Versión</div>
-        <div class="info-cell info-value info-row-end">{{ version_label | default('v1.0') }}</div>
-
-        <div class="info-cell info-label">Inicio programado</div>
-        <div class="info-cell info-value">{{ general_info.scheduled_start_time | default('—') }}</div>
-        <div class="info-cell info-label">Término programado</div>
-        <div class="info-cell info-value">{{ general_info.scheduled_end_time | default('—') }}</div>
-        <div class="info-cell info-label">Inicio real</div>
-        <div class="info-cell info-value info-row-end">{{ general_info.actual_start_time | default('—') }}</div>
+  {% set pager.page = pager.page + 1 %}
+  <section class="page runtime-page">
+    <section class="header-shell">
+      <div class="header-top">
+        <div class="header-title">
+          <h1>{{ cover_title }}</h1>
+          <p>{{ general_info.client }}{% if cover_project and cover_project != '—' %} · {{ cover_project }}{% endif %}</p>
+        </div>
+        <div class="header-meta">
+          <div>Cliente: <strong>{{ general_info.client }}</strong></div>
+          <div>Fecha: <strong>{{ general_info.meeting_date }}</strong></div>
+          {% if general_info.location %}
+          <div class="meta-pill">{{ general_info.location }}</div>
+          {% endif %}
+        </div>
       </div>
 
-      {% if ai_tags is defined and ai_tags | length > 0 %}
-      <div class="tag-wrap">
-        {% for tag in ai_tags %}
-        <span class="tag-chip">{{ tag.name }}</span>
+      <div class="header-body">
+        <div class="info-grid">
+          <div class="info-cell info-label">Cliente</div>
+          <div class="info-cell info-value span-2">{{ general_info.client }}</div>
+          <div class="info-cell info-label">Preparado por</div>
+          <div class="info-cell info-value span-2 info-row-end">{{ general_info.prepared_by }}</div>
+
+          <div class="info-cell info-label">Tema(s)</div>
+          <div class="info-cell info-value span-5 info-row-end">{{ cover_title }}</div>
+
+          <div class="info-cell info-label">Fecha reunión</div>
+          <div class="info-cell info-value">{{ general_info.meeting_date }}</div>
+          <div class="info-cell info-label">Lugar</div>
+          <div class="info-cell info-value">{{ general_info.location | default('—') }}</div>
+          <div class="info-cell info-label">Versión</div>
+          <div class="info-cell info-value info-row-end">{{ version_label | default('v1.0') }}</div>
+
+          <div class="info-cell info-label">Inicio programado</div>
+          <div class="info-cell info-value">{{ general_info.scheduled_start_time | default('—') }}</div>
+          <div class="info-cell info-label">Término programado</div>
+          <div class="info-cell info-value">{{ general_info.scheduled_end_time | default('—') }}</div>
+          <div class="info-cell info-label">Inicio real</div>
+          <div class="info-cell info-value info-row-end">{{ general_info.actual_start_time | default('—') }}</div>
+        </div>
+
+        {% if ai_tags is defined and ai_tags | length > 0 %}
+        <div class="tag-wrap">
+          {% for tag in ai_tags %}
+          <span class="tag-chip">{{ tag.name }}</span>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+    </section>
+
+    <div class="pdf-section-header">
+      <h2 class="section-title">Participantes</h2>
+    </div>
+    <div class="participants-grid">
+      <section class="participant-box">
+        <div class="participant-box-head">Invitados</div>
+        <div class="participant-box-body">
+          {% for p in participants.invited %}
+          <div class="participant-row"><div class="participant-name">{{ p.full_name }}</div><div class="participant-initials">{{ p.initials }}</div></div>
+          {% else %}
+          <div style="color:var(--muted);font-style:italic;font-size:12px">Sin invitados</div>
+          {% endfor %}
+        </div>
+      </section>
+      <section class="participant-box">
+        <div class="participant-box-head">Asistentes</div>
+        <div class="participant-box-body">
+          {% for p in participants.attendees %}
+          <div class="participant-row"><div class="participant-name">{{ p.full_name }}</div><div class="participant-initials">{{ p.initials }}</div></div>
+          {% else %}
+          <div style="color:var(--muted);font-style:italic;font-size:12px">Sin asistentes</div>
+          {% endfor %}
+        </div>
+      </section>
+      <section class="participant-box">
+        <div class="participant-box-head">Copia minuta</div>
+        <div class="participant-box-body">
+          {% for p in participants.copy_recipients %}
+          <div class="participant-row"><div class="participant-name">{{ p.full_name }}</div><div class="participant-initials">{{ p.initials }}</div></div>
+          {% else %}
+          <div style="color:var(--muted);font-style:italic;font-size:12px">Sin destinatarios en copia</div>
+          {% endfor %}
+        </div>
+      </section>
+    </div>
+    {{ render_footer(pager.page, pager.total) }}
+  </section>
+
+  {% set pager.page = pager.page + 1 %}
+  <section class="page runtime-page">
+    <div class="pdf-section-header">
+      <h2 class="section-title">Alcances</h2>
+    </div>
+    {% for section in scope.sections %}
+    <section class="scope-item">
+      <div class="scope-item-head">
+        <div class="scope-item-title-wrap">
+          <h3 class="scope-item-title">{{ section.section_title }}</h3>
+          <div class="scope-item-code">{{ section.section_id }}</div>
+        </div>
+        <div class="scope-item-type">{{ section.section_type }}</div>
+      </div>
+      <div class="scope-summary">{{ section.content.summary }}</div>
+      {% if section.section_type == 'introduction' and section.content.topics_list is defined and section.content.topics_list | length > 0 %}
+      <div class="scope-subblock">
+        <div class="scope-subtitle">Temas incluidos</div>
+        <ul class="clean-list">
+          {% for topic in section.content.topics_list %}<li>{{ topic }}</li>{% endfor %}
+        </ul>
+      </div>
+      {% elif section.content.details is defined and section.content.details | length > 0 %}
+      <div class="detail-grid">
+        {% for detail in section.content.details %}
+        <div class="detail-card"><div class="detail-label">{{ detail.label }}</div><div class="detail-body">{{ detail.description }}</div></div>
         {% endfor %}
       </div>
       {% endif %}
-    </div>
+    </section>
+    {% endfor %}
+    {{ render_footer(pager.page, pager.total) }}
   </section>
 
-  {# Participantes #}
-  <section class="pdf-section pdf-section--keep pdf-section--new-page">
-  <div class="pdf-section-header">
-    <h2 class="section-title">Participantes</h2>
-  </div>
-  <div class="participants-grid">
-    <section class="participant-box">
-      <div class="participant-box-head">Invitados</div>
-      <div class="participant-box-body">
-        {% for p in participants.invited %}
-        <div class="participant-row">
-          <div class="participant-name">{{ p.full_name }}</div>
-          <div class="participant-initials">{{ p.initials }}</div>
-        </div>
-        {% else %}
-        <div style="color:var(--muted);font-style:italic;font-size:12px">Sin invitados</div>
+  {% set pager.page = pager.page + 1 %}
+  <section class="page runtime-page">
+    {% if agreements["items"] | length > 0 %}
+    <table class="modern-table">
+      <caption class="section-table-caption"><h2 class="section-title">Acuerdos</h2></caption>
+      <thead><tr><th class="w-20">Asunto</th><th>Detalle</th><th class="w-16">Responsable</th><th class="w-12">Vencimiento</th><th class="w-12">Estado</th></tr></thead>
+      <tbody>
+        {% for item in agreements["items"] %}
+        <tr><td>{{ item.subject }}</td><td>{{ item.body }}</td><td>{{ item.responsible | default('No definido') }}</td><td>{{ item.due_date | default('No definido') }}</td><td>{{ item.status | default('pending') }}</td></tr>
         {% endfor %}
-      </div>
-    </section>
-
-    <section class="participant-box">
-      <div class="participant-box-head">Asistentes</div>
-      <div class="participant-box-body">
-        {% for p in participants.attendees %}
-        <div class="participant-row">
-          <div class="participant-name">{{ p.full_name }}</div>
-          <div class="participant-initials">{{ p.initials }}</div>
-        </div>
-        {% endfor %}
-      </div>
-    </section>
-
-    <section class="participant-box">
-      <div class="participant-box-head">Copia minuta</div>
-      <div class="participant-box-body">
-        {% for p in participants.copy_recipients %}
-        <div class="participant-row">
-          <div class="participant-name">{{ p.full_name }}</div>
-          <div class="participant-initials">{{ p.initials }}</div>
-        </div>
-        {% else %}
-        <div style="color:var(--muted);font-style:italic;font-size:12px">Sin destinatarios en copia</div>
-        {% endfor %}
-      </div>
-    </section>
-  </div>
-  </section>
-
-  {# Alcances #}
-  <section class="pdf-section pdf-section--new-page">
-  <div class="pdf-section-header">
-    <h2 class="section-title">Alcances</h2>
-  </div>
-
-  {% for section in scope.sections %}
-  <section class="scope-item">
-    <div class="scope-item-head">
-      <div class="scope-item-title-wrap">
-        <h3 class="scope-item-title">{{ section.section_title }}</h3>
-        <div class="scope-item-code">{{ section.section_id }}</div>
-      </div>
-      <div class="scope-item-type">{{ section.section_type }}</div>
-    </div>
-    <div class="scope-summary">{{ section.content.summary }}</div>
-
-    {% if section.section_type == 'introduction' and section.content.topics_list is defined and section.content.topics_list | length > 0 %}
-    <div class="scope-subblock">
-      <div class="scope-subtitle">Temas incluidos</div>
-      <ul class="clean-list">
-        {% for topic in section.content.topics_list %}
-        <li>{{ topic }}</li>
-        {% endfor %}
-      </ul>
-    </div>
-    {% elif section.content.details is defined and section.content.details | length > 0 %}
-    <div class="detail-grid">
-      {% for detail in section.content.details %}
-      <div class="detail-card">
-        <div class="detail-label">{{ detail.label }}</div>
-        <div class="detail-body">{{ detail.description }}</div>
-      </div>
-      {% endfor %}
-    </div>
+      </tbody>
+    </table>
     {% endif %}
-  </section>
-  {% endfor %}
+
+    {% if requirements["items"] | length > 0 %}
+    <table class="modern-table">
+      <caption class="section-table-caption"><h2 class="section-title">Requerimientos</h2></caption>
+      <thead><tr><th class="w-20">Entidad</th><th>Detalle</th><th class="w-16">Responsable</th><th class="w-12">Prioridad</th><th class="w-12">Estado</th></tr></thead>
+      <tbody>
+        {% for item in requirements["items"] %}
+        <tr><td>{{ item.entity }}</td><td>{{ item.body }}</td><td>{{ item.responsible | default('No definido') }}</td><td>{{ item.priority | default('medium') }}</td><td>{{ item.status | default('open') }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+
+    {% if upcoming_meetings is defined and upcoming_meetings["items"] | length > 0 %}
+    <table class="modern-table">
+      <caption class="section-table-caption"><h2 class="section-title">Próximas reuniones</h2></caption>
+      <thead><tr><th class="w-16">Fecha</th><th>Agenda</th><th class="w-20">Asistentes</th></tr></thead>
+      <tbody>
+        {% for item in upcoming_meetings["items"] %}
+        <tr><td>{{ item.scheduled_date | default('—') }}</td><td>{{ item.agenda }}</td><td>{{ item.attendees | join(', ') if item.attendees else '—' }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+    {{ render_footer(pager.page, pager.total) }}
   </section>
 
-  {# Acuerdos #}
-  <section class="pdf-section pdf-section--new-page">
-  {% if agreements["items"] | length > 0 %}
-  <table class="modern-table">
-    <caption class="section-table-caption">
-      <h2 class="section-title">Acuerdos</h2>
-    </caption>
-    <thead>
-      <tr>
-        <th class="w-20">Asunto</th>
-        <th>Detalle</th>
-        <th class="w-16">Responsable</th>
-        <th class="w-12">Vencimiento</th>
-        <th class="w-12">Estado</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for item in agreements["items"] %}
-      <tr>
-        <td>{{ item.subject }}</td>
-        <td>{{ item.body }}</td>
-        <td>{{ item.responsible | default('No definido') }}</td>
-        <td>{{ item.due_date | default('No definido') }}</td>
-        <td><span class="badge status-{{ item.status | default('pending') }}">{{ item.status | default('pending') }}</span></td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  {% else %}
-  <div class="pdf-section-header">
-    <h2 class="section-title">Acuerdos</h2>
-  </div>
-  <div class="empty-state">No hay acuerdos registrados.</div>
+  {% if pdf_format is defined and pdf_format.version_control is defined and pdf_format.version_control.enabled %}
+  {% set pager.page = pager.page + 1 %}
+  <section class="page runtime-page">
+    <div class="pdf-section-header"><h2 class="section-title">Control de Versiones</h2></div>
+    <table class="modern-table">
+      <thead><tr><th class="w-16">Versión</th><th class="w-16">Fecha</th><th class="w-20">Autor</th><th>Descripción</th></tr></thead>
+      <tbody>
+        {% if pdf_format.version_control.entries is defined %}
+          {% for entry in pdf_format.version_control.entries %}
+          <tr><td>{{ entry.version }}</td><td>{{ entry.date }}</td><td>{{ entry.author }}</td><td>{{ entry.description }}</td></tr>
+          {% endfor %}
+        {% else %}
+          <tr><td>{{ version_label | default('v1.0') }}</td><td>{{ general_info.meeting_date }}</td><td>{{ general_info.prepared_by }}</td><td>Versión generada por MinuetAItor.</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+    {{ render_footer(pager.page, pager.total) }}
+  </section>
   {% endif %}
-  </section>
 
-  {# Requerimientos #}
-  <section class="pdf-section pdf-section--new-page">
-  {% if requirements["items"] | length > 0 %}
-  <table class="modern-table">
-    <caption class="section-table-caption">
-      <h2 class="section-title">Requerimientos</h2>
-    </caption>
-    <thead>
-      <tr>
-        <th class="w-20">Entidad</th>
-        <th>Detalle</th>
-        <th class="w-16">Responsable</th>
-        <th class="w-12">Prioridad</th>
-        <th class="w-12">Estado</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for item in requirements["items"] %}
-      <tr>
-        <td>{{ item.entity }}</td>
-        <td>{{ item.body }}</td>
-        <td>{{ item.responsible | default('No definido') }}</td>
-        <td><span class="badge priority-{{ item.priority | default('medium') }}">{{ item.priority | default('medium') }}</span></td>
-        <td><span class="badge status-{{ item.status | default('open') }}">{{ item.status | default('open') }}</span></td>
-      </tr>
+  {% if pdf_format is defined and pdf_format.signature_page is defined and pdf_format.signature_page.enabled %}
+  {% set pager.page = pager.page + 1 %}
+  <section class="page runtime-page">
+    <div class="pdf-section-header"><h2 class="section-title">Firmas / Aprobación</h2></div>
+    {% set signatories = pdf_format.signature_page.signatories if pdf_format.signature_page.signatories is defined and pdf_format.signature_page.signatories | length > 0 else participants.attendees %}
+    <div class="signature-grid count-{{ signatories | length if signatories | length > 0 else 1 }}">
+      {% if signatories | length > 0 %}
+      {% for sig in signatories %}
+      <section class="signature-card">
+        <div style="min-height:84px;"></div>
+        <div class="signature-line">
+          <div class="signature-name">{{ sig.full_name }}</div>
+          <div class="signature-role">{{ sig.role | default('Asistente') }}</div>
+        </div>
+      </section>
       {% endfor %}
-    </tbody>
-  </table>
-  {% else %}
-  <div class="pdf-section-header">
-    <h2 class="section-title">Requerimientos</h2>
-  </div>
-  <div class="empty-state">No hay requerimientos registrados.</div>
-  {% endif %}
+      {% else %}
+      <section class="signature-card">
+        <div style="min-height:84px;"></div>
+        <div class="signature-line">
+          <div class="signature-name">Sin firmantes definidos</div>
+          <div class="signature-role">Pendiente de asignación</div>
+        </div>
+      </section>
+      {% endif %}
+    </div>
+    {% if pdf_format.signature_page.note | default('') %}
+    <div class="signature-note">{{ pdf_format.signature_page.note }}</div>
+    {% endif %}
+    {{ render_footer(pager.page, pager.total) }}
   </section>
-
-  {# Próximas reuniones #}
-  <section class="pdf-section pdf-section--new-page">
-  {% if upcoming_meetings is defined and upcoming_meetings["items"] | length > 0 %}
-  <table class="modern-table">
-    <caption class="section-table-caption">
-      <h2 class="section-title">Próximas reuniones</h2>
-    </caption>
-    <thead>
-      <tr>
-        <th class="w-16">Fecha</th>
-        <th>Agenda</th>
-        <th class="w-20">Asistentes</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for item in upcoming_meetings["items"] %}
-      <tr>
-        <td>{{ item.scheduled_date | default('—') }}</td>
-        <td>{{ item.agenda }}</td>
-        <td>{{ item.attendees | join(', ') if item.attendees else '—' }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  {% else %}
-  <div class="pdf-section-header">
-    <h2 class="section-title">Próximas reuniones</h2>
-  </div>
-  <div class="empty-state">No hay próximas reuniones registradas.</div>
   {% endif %}
-  </section>
-
-  <div class="footer-note">
-    <span>{{ general_info.client }} · Generado por MinuetAItor · {{ version_label | default('v1.0') }}</span>
-    <span>{{ general_info.meeting_date }}</span>
-  </div>
 </div>
 {% endblock %}
