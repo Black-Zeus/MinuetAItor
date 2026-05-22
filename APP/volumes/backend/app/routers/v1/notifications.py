@@ -8,6 +8,8 @@ from sqlalchemy.orm import Session
 from db.session import get_db
 from schemas.auth import UserSession
 from schemas.notifications import (
+    NotificationBulkReadStateRequest,
+    NotificationBulkReadStateResponse,
     NotificationClearRequest,
     NotificationClearResponse,
     NotificationHideResponse,
@@ -34,6 +36,7 @@ from services.notification_center_service import (
     list_notifications,
     mark_all_notifications_as_read,
     mark_notification_as_read,
+    update_notifications_read_state,
 )
 from services.notification_preferences_service import (
     get_user_notification_preferences,
@@ -181,6 +184,24 @@ async def mark_read_endpoint(
     session: UserSession = Depends(current_user_dep),
 ):
     return await mark_notification_as_read(db, session, notification_id)
+
+
+@router.post(
+    "/read-state",
+    response_model=NotificationBulkReadStateResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def update_notifications_read_state_endpoint(
+    payload: NotificationBulkReadStateRequest,
+    db: Session = Depends(get_db),
+    session: UserSession = Depends(current_user_dep),
+):
+    return await update_notifications_read_state(
+        db,
+        session,
+        notification_ids=payload.notification_ids,
+        is_read=payload.is_read,
+    )
 
 
 @router.post(

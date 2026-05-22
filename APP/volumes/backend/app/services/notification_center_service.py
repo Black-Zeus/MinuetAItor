@@ -287,6 +287,75 @@ async def mark_notification_as_read(db: Session, session: UserSession, notificat
     }
 
 
+async def update_notifications_read_state(
+    db: Session,
+    session: UserSession,
+    *,
+    notification_ids: list[str] | None = None,
+    is_read: bool,
+) -> dict:
+    visible_ids = _dedupe_notification_ids(notification_ids)
+    if not visible_ids:
+        return {
+            "updated": 0,
+            "message": "No se recibieron notificaciones para actualizar.",
+            "unread_count": get_unread_notifications_count(db, session.user_id),
+            "notification_ids": [],
+            "is_read": bool(is_read),
+        }
+
+    rows = (
+        db.query(NotificationRecipient)
+        .filter(
+            NotificationRecipient.user_id == session.user_id,
+            NotificationRecipient.is_hidden.is_(False),
+            NotificationRecipient.notification_id.in_(visible_ids),
+        )
+        .all()
+    )
+
+    now = utc_now_db()
+    updated_ids: list[str] = []
+    updated = 0
+
+    for row in rows:
+        target_id = str(row.notification_id)
+        if bool(row.is_read) == bool(is_read):
+            updated_ids.append(target_id)
+            continue
+
+        row.is_read = bool(is_read)
+        row.read_at = now if is_read else None
+        updated_ids.append(target_id)
+        updated += 1
+
+    if updated:
+        db.commit()
+
+    unread_count = get_unread_notifications_count(db, session.user_id)
+    event_name = "notifications_read_state_updated"
+    if updated_ids:
+        await publish_notification_event(
+            session.user_id,
+            event_name,
+            {
+                "updated": updated,
+                "notification_ids": updated_ids,
+                "is_read": bool(is_read),
+                "read_at": _iso(now) if is_read else None,
+                "unread_count": unread_count,
+            },
+        )
+
+    return {
+        "updated": updated,
+        "message": "Notificaciones actualizadas." if updated_ids else "No se encontraron notificaciones para actualizar.",
+        "unread_count": unread_count,
+        "notification_ids": updated_ids,
+        "is_read": bool(is_read),
+    }
+
+
 async def mark_all_notifications_as_read(db: Session, session: UserSession) -> dict:
     now = utc_now_db()
     rows = (
