@@ -20,6 +20,7 @@ class OrganizationSettingsRequest(BaseModel):
     email: str | None = Field(None, max_length=254)
     phone: str | None = Field(None, max_length=30)
     website: str | None = Field(None, max_length=500)
+    public_base_url: str | None = Field(None, max_length=500, alias="publicBaseUrl")
     address: str | None = Field(None, max_length=400)
     country: str | None = Field(None, max_length=120)
     region: str | None = Field(None, max_length=120)
@@ -47,6 +48,7 @@ class OrganizationSettingsResponse(BaseModel):
     email: str | None = None
     phone: str | None = None
     website: str | None = None
+    public_base_url: str | None = Field(None, serialization_alias="publicBaseUrl")
     address: str | None = None
     country: str | None = None
     region: str | None = None

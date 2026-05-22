@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import logging
 import os
@@ -29,6 +30,7 @@ from models.user_project_acl import UserProjectACL, UserProjectPermission
 from schemas.sendmail import InlineAsset
 from services.email_branding_service import build_email_branding_bundle
 from services.email_queue import queue_templated_email
+from services.organization_settings_service import get_organization_public_base_url
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +56,23 @@ class PasswordResetTokenData:
     request_ua: str
 
 
+@dataclass(frozen=True)
+class MinuteEmailRecipientItem:
+    name: str
+    email: str | None
+    kind: str
+    reason: str | None = None
+
+
+@dataclass(frozen=True)
+class MinuteEmailDeliveryPlan:
+    to: list[str]
+    cc: list[str]
+    sent_items: list[MinuteEmailRecipientItem]
+    skipped_items: list[MinuteEmailRecipientItem]
+    fallback_used: bool
+
+
 def _utcnow() -> datetime:
     return utc_now()
 
@@ -66,12 +85,15 @@ def _env(name: str, default: str) -> str:
     return value or default
 
 
-def _frontend_base_url() -> str:
+def _frontend_base_url(db: Session | None = None) -> str:
+    configured = get_organization_public_base_url(db)
+    if configured:
+        return configured
     return _env("FRONTEND_BASE_URL", _env("APP_BASE_URL", "http://localhost:5173")).rstrip("/")
 
 
-def _login_url() -> str:
-    return _env("FRONTEND_LOGIN_URL", f"{_frontend_base_url()}/login")
+def _login_url(db: Session | None = None) -> str:
+    return _env("FRONTEND_LOGIN_URL", f"{_frontend_base_url(db)}/login")
 
 
 def _support_name() -> str:
@@ -168,23 +190,23 @@ def _password_reset_otp_key(otp_code: str) -> str:
     return f"{PASSWORD_TOKEN_PREFIX}:otp:{otp_code}"
 
 
-def _minute_url(record_id: str) -> str:
-    return f"{_frontend_base_url()}/minutes/view/{record_id}"
+def _minute_url(record_id: str, db: Session | None = None) -> str:
+    return f"{_frontend_base_url(db)}/minutes/view/{record_id}"
 
 
-def _minute_edit_url(record_id: str) -> str:
-    return f"{_frontend_base_url()}/minutes/process/{record_id}"
+def _minute_edit_url(record_id: str, db: Session | None = None) -> str:
+    return f"{_frontend_base_url(db)}/minutes/process/{record_id}"
 
 
-def _reset_url(token: str) -> str:
+def _reset_url(token: str, db: Session | None = None) -> str:
     configured = _env("FRONTEND_RESET_PASSWORD_URL", "")
     if configured:
         return configured.format(token=token) if "{token}" in configured else configured
-    return f"{_frontend_base_url()}/reset-password?token={token}"
+    return f"{_frontend_base_url(db)}/reset-password?token={token}"
 
 
-def _access_url(scope: str, scope_id: str) -> str:
-    base = _frontend_base_url()
+def _access_url(scope: str, scope_id: str, db: Session | None = None) -> str:
+    base = _frontend_base_url(db)
     if scope == "project":
         return f"{base}/projects"
     if scope == "client":
@@ -233,6 +255,7 @@ def _record_with_relations(db: Session, record_id: str) -> Record | None:
             joinedload(Record.project).joinedload(Project.client),
             joinedload(Record.prepared_by_user).joinedload(User.profile),
             joinedload(Record.created_by_user),
+            joinedload(Record.updated_by_user),
             joinedload(Record.ai_profile).joinedload(AiProfile.category),
             joinedload(Record.status),
         )
@@ -347,7 +370,287 @@ def _recipient_emails_from_content(
     return _clean_list(to), _clean_list(cc)
 
 
-def _minute_pdf_attachment(record_id: str, *, published: bool = False) -> dict[str, str] | None:
+def _notification_recipient_user_ids(record: Record, actor_user_id: str | None = None) -> list[str]:
+    return _dedupe_preserve(
+        [
+            str(actor_user_id or "").strip(),
+            str(getattr(record, "updated_by", "") or "").strip(),
+            str(getattr(record, "prepared_by_user_id", "") or "").strip(),
+        ]
+    )
+
+
+def _responsible_email_item(record: Record) -> MinuteEmailRecipientItem | None:
+    prepared_by = getattr(record, "prepared_by_user", None)
+    prepared_email = _safe_email(getattr(prepared_by, "email", None))
+    if prepared_email:
+        return MinuteEmailRecipientItem(
+            name=_user_display_name(prepared_by),
+            email=prepared_email,
+            kind="owner",
+            reason="Fallback sin destinatarios principales",
+        )
+
+    created_by = getattr(record, "created_by_user", None)
+    created_email = _safe_email(getattr(created_by, "email", None))
+    if created_email:
+        return MinuteEmailRecipientItem(
+            name=_user_display_name(created_by),
+            email=created_email,
+            kind="owner",
+            reason="Fallback sin destinatarios principales",
+        )
+    return None
+
+
+def _responsible_notification_email_plan(record: Record) -> MinuteEmailDeliveryPlan:
+    candidates = [
+        ("owner", getattr(record, "prepared_by_user", None), "Responsable elaborador"),
+        ("creator", getattr(record, "created_by_user", None), "Responsable creador"),
+        ("editor", getattr(record, "updated_by_user", None), "Responsable editor"),
+    ]
+
+    to: list[str] = []
+    sent_items: list[MinuteEmailRecipientItem] = []
+    seen_emails: set[str] = set()
+
+    for kind, user, role_label in candidates:
+        email = _safe_email(getattr(user, "email", None))
+        if not email:
+            continue
+        normalized = email.casefold()
+        if normalized in seen_emails:
+            continue
+        seen_emails.add(normalized)
+        to.append(email)
+        sent_items.append(
+            MinuteEmailRecipientItem(
+                name=_user_display_name(user),
+                email=email,
+                kind=kind,
+                reason=role_label,
+            )
+        )
+
+    fallback_used = False
+    if not to:
+        fallback_item = _responsible_email_item(record)
+        if fallback_item and fallback_item.email:
+            to.append(fallback_item.email)
+            sent_items.append(fallback_item)
+            fallback_used = True
+
+    return MinuteEmailDeliveryPlan(
+        to=_clean_list(to),
+        cc=[],
+        sent_items=sent_items,
+        skipped_items=[],
+        fallback_used=fallback_used,
+    )
+
+
+def _normalize_recipient_name(name: Any, email: str | None, fallback: str) -> str:
+    clean_name = str(name or "").strip()
+    if clean_name:
+        return clean_name
+    if email:
+        return email
+    return fallback
+
+
+def _build_delivery_plan_from_content(
+    record: Record,
+    content: dict[str, Any] | None,
+    *,
+    selected_ids: list[str] | None = None,
+) -> MinuteEmailDeliveryPlan:
+    payload = content if isinstance(content, dict) else {}
+    raw_participants = payload.get("participants") if isinstance(payload.get("participants"), list) else []
+    selected_lookup = {str(item).strip() for item in (selected_ids or []) if str(item).strip()}
+
+    to: list[str] = []
+    cc: list[str] = []
+    sent_items: list[MinuteEmailRecipientItem] = []
+    skipped_items: list[MinuteEmailRecipientItem] = []
+
+    for raw in raw_participants:
+        if not isinstance(raw, dict):
+            continue
+        editor_id = str(raw.get("id") or "").strip()
+        if selected_lookup and editor_id not in selected_lookup:
+            continue
+
+        email = _safe_email(raw.get("email"))
+        participant_type = str(raw.get("type") or "").strip().lower()
+        name = _normalize_recipient_name(raw.get("fullName") or raw.get("name"), email, "Participante")
+        kind = "cc" if participant_type == "copy" else "to"
+
+        if not email:
+            skipped_items.append(
+                MinuteEmailRecipientItem(
+                    name=name,
+                    email=None,
+                    kind=kind,
+                    reason="Sin correo asociado",
+                )
+            )
+            continue
+
+        if participant_type == "copy":
+            cc.append(email)
+        else:
+            to.append(email)
+
+        sent_items.append(
+            MinuteEmailRecipientItem(
+                name=name,
+                email=email,
+                kind=kind,
+            )
+        )
+
+    fallback_used = False
+    if not to:
+        fallback_item = _responsible_email_item(record)
+        if fallback_item and fallback_item.email:
+            to.append(fallback_item.email)
+            sent_items.append(fallback_item)
+            fallback_used = True
+
+    return MinuteEmailDeliveryPlan(
+        to=_clean_list(to),
+        cc=_clean_list(cc),
+        sent_items=sent_items,
+        skipped_items=skipped_items,
+        fallback_used=fallback_used,
+    )
+
+
+def _build_delivery_plan_from_version(
+    record: Record,
+    version: RecordVersion | None,
+    *,
+    include_owner_copy: bool = False,
+) -> MinuteEmailDeliveryPlan:
+    to: list[str] = []
+    cc: list[str] = []
+    sent_items: list[MinuteEmailRecipientItem] = []
+    skipped_items: list[MinuteEmailRecipientItem] = []
+
+    for participant in (version.participants or []) if version else []:
+        kind = "cc" if str(getattr(participant, "role", "") or "") == "observer" else "to"
+        email = _safe_email(getattr(participant, "email", None))
+        name = _normalize_recipient_name(getattr(participant, "display_name", None), email, "Participante")
+        if not email:
+            skipped_items.append(
+                MinuteEmailRecipientItem(
+                    name=name,
+                    email=None,
+                    kind=kind,
+                    reason="Sin correo asociado",
+                )
+            )
+            continue
+
+        if kind == "cc":
+            cc.append(email)
+        else:
+            to.append(email)
+
+        sent_items.append(
+            MinuteEmailRecipientItem(
+                name=name,
+                email=email,
+                kind=kind,
+            )
+        )
+
+    fallback_used = False
+    if include_owner_copy:
+        owner_item = _responsible_email_item(record)
+        if owner_item and owner_item.email:
+            normalized_owner_email = owner_item.email.strip().lower()
+            known_recipients = {item.strip().lower() for item in [*to, *cc] if str(item).strip()}
+            if normalized_owner_email not in known_recipients:
+                to.append(owner_item.email)
+                sent_items.append(
+                    MinuteEmailRecipientItem(
+                        name=owner_item.name,
+                        email=owner_item.email,
+                        kind="to",
+                        reason="Copia al elaborador responsable",
+                    )
+                )
+
+    if not to:
+        fallback_item = _responsible_email_item(record)
+        if fallback_item and fallback_item.email:
+            to.append(fallback_item.email)
+            sent_items.append(fallback_item)
+            fallback_used = True
+
+    return MinuteEmailDeliveryPlan(
+        to=_clean_list(to),
+        cc=_clean_list(cc),
+        sent_items=sent_items,
+        skipped_items=skipped_items,
+        fallback_used=fallback_used,
+    )
+
+
+def _serialize_delivery_items(items: list[MinuteEmailRecipientItem]) -> list[dict[str, Any]]:
+    return [
+        {
+            "name": item.name,
+            "email": item.email,
+            "kind": item.kind,
+            "reason": item.reason,
+        }
+        for item in items
+    ]
+
+
+def _format_delivery_item(item: MinuteEmailRecipientItem) -> str:
+    base = item.name
+    if item.email and item.email.casefold() != item.name.casefold():
+        base = f"{item.name} <{item.email}>"
+    elif item.email:
+        base = item.email
+    if item.reason:
+        return f"{base} ({item.reason})"
+    return base
+
+
+def _summarize_delivery_items(items: list[MinuteEmailRecipientItem], *, max_items: int = 4) -> str:
+    if not items:
+        return "ninguno"
+    labels = [_format_delivery_item(item) for item in items[:max_items]]
+    remaining = len(items) - max_items
+    if remaining > 0:
+        labels.append(f"+{remaining} más")
+    return ", ".join(labels)
+
+
+def _build_delivery_result_message(
+    *,
+    base_message: str,
+    sent_items: list[MinuteEmailRecipientItem],
+    skipped_items: list[MinuteEmailRecipientItem],
+    fallback_used: bool,
+) -> str:
+    parts = [base_message.strip()]
+    if sent_items:
+        parts.append(f"Enviado a: {_summarize_delivery_items(sent_items)}.")
+    else:
+        parts.append("No se encontraron destinatarios con correo disponible.")
+    if fallback_used:
+        parts.append("Se usó fallback al elaborador responsable.")
+    if skipped_items:
+        parts.append(f"No se envió a: {_summarize_delivery_items(skipped_items)}.")
+    return " ".join(part for part in parts if part).strip()[:1900]
+
+
+def _minute_pdf_attachment(record_id: str, *, published: bool = False) -> dict[str, Any] | None:
     bucket = "minuetaitor-published" if published else "minuetaitor-draft"
     key = f"published/{record_id}/final.pdf" if published else f"drafts/{record_id}/draft_current.pdf"
 
@@ -364,9 +667,11 @@ def _minute_pdf_attachment(record_id: str, *, published: bool = False) -> dict[s
         return None
 
     return {
-        "filename": f"minute-{record_id}.pdf",
+        "filename": f"minute-{record_id}-official.pdf" if published else f"minute-{record_id}.pdf",
         "mime_type": "application/pdf",
         "content_base64": base64.b64encode(pdf_bytes).decode("ascii"),
+        "size_bytes": len(pdf_bytes),
+        "sha256": hashlib.sha256(pdf_bytes).hexdigest(),
     }
 
 
@@ -534,8 +839,8 @@ async def enqueue_account_created_email(
         "OTP_CODE": token_data.otp_code,
         "OTP_TTL_MINUTES": token_data.ttl_minutes,
         "OTP_EXPIRES_AT": _format_dt(token_data.expires_at),
-        "RESET_URL": _reset_url(token_data.token),
-        "LOGIN_URL": _login_url(),
+        "RESET_URL": _reset_url(token_data.token, db),
+        "LOGIN_URL": _login_url(db),
         "REQUEST_ID": token_data.request_id,
         "REQUEST_ORIGIN": token_data.request_origin,
         "REQUEST_IP": token_data.request_ip,
@@ -582,8 +887,8 @@ async def enqueue_recover_password_email(
         "OTP_CODE": token_data.otp_code,
         "OTP_TTL_MINUTES": token_data.ttl_minutes,
         "OTP_EXPIRES_AT": _format_dt(token_data.expires_at),
-        "RESET_URL": _reset_url(token_data.token),
-        "LOGIN_URL": _login_url(),
+        "RESET_URL": _reset_url(token_data.token, db),
+        "LOGIN_URL": _login_url(db),
         "REQUEST_ID": token_data.request_id,
         "REQUEST_ORIGIN": token_data.request_origin,
         "REQUEST_IP": token_data.request_ip,
@@ -629,7 +934,7 @@ async def enqueue_password_changed_email(
         "CHANGED_AT": _format_dt(_utcnow()),
         "CHANGE_REASON": change_reason or "Actualizacion de credenciales",
         "ACTOR_LABEL": actor_label or _user_display_name(user),
-        "LOGIN_URL": _login_url(),
+        "LOGIN_URL": _login_url(db),
         "REQUEST_ID": meta["request_id"],
         "REQUEST_ORIGIN": meta["request_origin"],
         "REQUEST_IP": meta["request_ip"],
@@ -655,7 +960,9 @@ async def enqueue_ai_processed_ready_email(
         return False
 
     summary, notes = _extract_summary_from_content(ai_output)
-    recipients = _recipient_emails_for_version(record, None)
+    fallback_item = _responsible_email_item(record)
+    recipients = [fallback_item.email] if fallback_item and fallback_item.email else _recipient_emails_for_version(record, None)
+    sent_items = [fallback_item] if fallback_item and fallback_item.email else []
     prepared_by = _user_display_name(record.prepared_by_user)
     profile = getattr(record, "ai_profile", None)
     version = _record_version_with_participants(db, record.active_version_id)
@@ -684,7 +991,7 @@ async def enqueue_ai_processed_ready_email(
         "AI_NOTE_1": notes[0] if len(notes) > 0 else "Revisar redaccion general.",
         "AI_NOTE_2": notes[1] if len(notes) > 1 else "Validar participantes y acuerdos.",
         "AI_NOTE_3": notes[2] if len(notes) > 2 else "Confirmar fechas y compromisos.",
-        "EDIT_URL": _minute_edit_url(record.id),
+        "EDIT_URL": _minute_edit_url(record.id, db),
         "ISSUED_AT": _format_dt(_utcnow()),
         "REQUEST_ID": str(uuid.uuid4()),
         "REQUEST_ORIGIN": "internal-worker",
@@ -698,10 +1005,18 @@ async def enqueue_ai_processed_ready_email(
         notification_context={
             "notificationType": "email.sent",
             "title": "Correo enviado",
-            "message": f'Se envió el aviso de acta procesada para "{record.title}".',
+            "message": _build_delivery_result_message(
+                base_message=f'Se envió el aviso de acta procesada para "{record.title}".',
+                sent_items=sent_items,
+                skipped_items=[],
+                fallback_used=False,
+            ),
             "level": "success",
             "tags": ["email", "minute", "sent", "minute.analysis.email.sent"],
-            "recipientUserIds": [str(getattr(actor_user, "id", "") or record.prepared_by_user_id)],
+            "recipientUserIds": _notification_recipient_user_ids(
+                record,
+                str(getattr(actor_user, "id", "") or record.prepared_by_user_id),
+            ),
             "scopeType": "record",
             "scopeId": record.id,
             "actionUrl": f"/minutes/process/{record.id}",
@@ -710,6 +1025,9 @@ async def enqueue_ai_processed_ready_email(
                 "recordId": record.id,
                 "emailTemplateId": "ai_processed_ready_for_manual_review",
                 "recipientEmails": recipients,
+                "sentRecipients": _serialize_delivery_items(sent_items),
+                "skippedRecipients": [],
+                "fallbackUsed": False,
             },
         },
     )
@@ -731,14 +1049,10 @@ async def enqueue_minute_review_email(
     if not record:
         return False
     version = _record_version_with_participants(db, record.active_version_id)
-    to_recipients, cc_recipients = _recipient_emails_from_content(
+    delivery_plan = _build_delivery_plan_from_content(
+        record,
         content,
         selected_ids=selected_participant_ids,
-    )
-    recipients = (
-        to_recipients
-        if selected_participant_ids
-        else (to_recipients or _recipient_emails_for_version(record, version))
     )
 
     summary, points = _extract_summary_from_content(content)
@@ -761,7 +1075,7 @@ async def enqueue_minute_review_email(
         "MINUTE_ID": record.id,
         "MINUTE_VERSION": getattr(version, "version_num", record.latest_version_num or 1),
         "APPROVAL_DAYS": _approval_days(),
-        "MINUTE_URL": _minute_url(record.id),
+        "MINUTE_URL": _minute_url(record.id, db),
         "ISSUED_AT": _format_dt(_utcnow()),
         "REQUEST_ID": str(uuid.uuid4()),
         "REQUEST_ORIGIN": "minutes.transition.pending-preview",
@@ -769,8 +1083,8 @@ async def enqueue_minute_review_email(
         "CUSTOM_MESSAGE": normalized_note or "",
     }
     return await _safe_queue_template(
-        to=recipients,
-        cc=cc_recipients,
+        to=delivery_plan.to,
+        cc=delivery_plan.cc,
         template_id="sendMinute",
         context=context,
         subject=subject,
@@ -778,10 +1092,15 @@ async def enqueue_minute_review_email(
         notification_context={
             "notificationType": "email.sent",
             "title": "Correo enviado",
-            "message": (
-                f'Se envió la minuta "{record.title}" a revisión.'
-                if not published_pdf
-                else f'Se envió la minuta "{record.title}" a sus destinatarios.'
+            "message": _build_delivery_result_message(
+                base_message=(
+                    f'Se envió la minuta "{record.title}" a revisión.'
+                    if not published_pdf
+                    else f'Se envió la minuta "{record.title}" a sus destinatarios.'
+                ),
+                sent_items=delivery_plan.sent_items,
+                skipped_items=delivery_plan.skipped_items,
+                fallback_used=delivery_plan.fallback_used,
             ),
             "level": "success",
             "tags": [
@@ -790,18 +1109,24 @@ async def enqueue_minute_review_email(
                 "sent",
                 "minute.review.email.sent" if not published_pdf else "minute.publication.email.sent",
             ],
-            "recipientUserIds": [str(actor_user_id or record.updated_by or record.prepared_by_user_id)],
+            "recipientUserIds": _notification_recipient_user_ids(
+                record,
+                str(actor_user_id or record.updated_by or record.prepared_by_user_id),
+            ),
             "scopeType": "record",
             "scopeId": record.id,
-            "actionUrl": _minute_url(record.id) if published_pdf else _minute_edit_url(record.id),
+            "actionUrl": _minute_url(record.id, db) if published_pdf else _minute_edit_url(record.id, db),
             "actorUserId": str(actor_user_id or record.updated_by or record.prepared_by_user_id),
             "metadata": {
                 "recordId": record.id,
                 "emailTemplateId": "sendMinute",
                 "publishedPdf": bool(published_pdf),
                 "attachPdf": bool(attach_pdf),
-                "recipientEmails": recipients,
-                "ccEmails": cc_recipients,
+                "recipientEmails": delivery_plan.to,
+                "ccEmails": delivery_plan.cc,
+                "sentRecipients": _serialize_delivery_items(delivery_plan.sent_items),
+                "skippedRecipients": _serialize_delivery_items(delivery_plan.skipped_items),
+                "fallbackUsed": delivery_plan.fallback_used,
             },
         },
     )
@@ -812,8 +1137,9 @@ async def enqueue_minute_officialized_email(db: Session, record_id: str, *, acto
     if not record:
         return False
     version = _record_version_with_participants(db, record.active_version_id)
-    recipients = _recipient_emails_for_version(record, version)
+    delivery_plan = _build_delivery_plan_from_version(record, version, include_owner_copy=True)
     approvers = [p.display_name for p in (version.participants or []) if p.role == "required"] if version else []
+    attachment = _minute_pdf_attachment(record_id, published=True)
 
     context = {
         "MEETING_TITLE": record.title,
@@ -825,34 +1151,133 @@ async def enqueue_minute_officialized_email(db: Session, record_id: str, *, acto
         "APPROVAL_DAYS": _approval_days(),
         "APPROVERS_INLINE": ", ".join(approvers[:8]) if approvers else _user_display_name(record.prepared_by_user),
         "DOCUMENT_HASH_ALGO": "sha256",
-        "DOCUMENT_HASH": "-",
-        "ATTACHMENT_NAME": f"minute-{record.id}-official.pdf",
+        "DOCUMENT_HASH": attachment.get("sha256", "-") if attachment else "-",
+        "ATTACHMENT_NAME": attachment["filename"] if attachment else f"minute-{record.id}-official.pdf",
         "ATTACHMENT_TYPE": "PDF",
-        "ATTACHMENT_SIZE": "-",
-        "MINUTE_URL": _minute_url(record.id),
+        "ATTACHMENT_SIZE": _human_size(attachment.get("size_bytes")) if attachment else "-",
+        "MINUTE_URL": _minute_url(record.id, db),
         "ISSUED_AT": _format_dt(_utcnow()),
         "REQUEST_ID": str(uuid.uuid4()),
         "ACTOR_USER": _user_display_name(actor_user) if actor_user else _user_display_name(record.prepared_by_user),
     }
     return await _safe_queue_template(
-        to=recipients,
+        to=delivery_plan.to,
+        cc=delivery_plan.cc,
         template_id="minute_officialized_approved",
         context=context,
+        attachments=[attachment] if attachment else None,
         notification_context={
             "notificationType": "email.sent",
             "title": "Correo enviado",
-            "message": f'Se envió la minuta oficializada "{record.title}".',
+            "message": _build_delivery_result_message(
+                base_message=f'Se envió la minuta oficializada "{record.title}".',
+                sent_items=delivery_plan.sent_items,
+                skipped_items=delivery_plan.skipped_items,
+                fallback_used=delivery_plan.fallback_used,
+            ),
             "level": "success",
             "tags": ["email", "minute", "sent", "minute.officialized.email.sent"],
-            "recipientUserIds": [str(getattr(actor_user, "id", "") or record.updated_by or record.prepared_by_user_id)],
+            "recipientUserIds": _notification_recipient_user_ids(
+                record,
+                str(getattr(actor_user, "id", "") or record.updated_by or record.prepared_by_user_id),
+            ),
             "scopeType": "record",
             "scopeId": record.id,
-            "actionUrl": _minute_url(record.id),
+            "actionUrl": _minute_url(record.id, db),
             "actorUserId": str(getattr(actor_user, "id", "") or record.updated_by or record.prepared_by_user_id),
             "metadata": {
                 "recordId": record.id,
                 "emailTemplateId": "minute_officialized_approved",
-                "recipientEmails": recipients,
+                "recipientEmails": delivery_plan.to,
+                "ccEmails": delivery_plan.cc,
+                "sentRecipients": _serialize_delivery_items(delivery_plan.sent_items),
+                "skippedRecipients": _serialize_delivery_items(delivery_plan.skipped_items),
+                "fallbackUsed": delivery_plan.fallback_used,
+                "attachPdf": bool(attachment),
+            },
+        },
+    )
+
+
+async def enqueue_minute_guest_observation_email(
+    db: Session,
+    record_id: str,
+    *,
+    observation_id: int,
+    record_version_id: str,
+    author_name: str | None,
+    author_email: str | None,
+    observation_body: str,
+) -> bool:
+    record = _record_with_relations(db, record_id)
+    if not record:
+        return False
+
+    version = _record_version_with_participants(db, record.active_version_id)
+    delivery_plan = _responsible_notification_email_plan(record)
+    if not delivery_plan.to:
+        return False
+
+    branding = build_email_branding_bundle(
+        db,
+        client=record.client,
+        include_organization_logo=True,
+        include_client_logo=False,
+    )
+    author_label = str(author_name or author_email or "Un invitado").strip()
+    version_label = f'v{getattr(version, "version_num", record.latest_version_num or 1)}'
+
+    context = {
+        **branding.context,
+        "MINUTE_TITLE": record.title,
+        "MINUTE_ID": record.id,
+        "CLIENT_NAME": getattr(record.client, "name", "-"),
+        "PROJECT_NAME": getattr(record.project, "name", "-"),
+        "OBSERVATION_ID": observation_id,
+        "OBSERVATION_AUTHOR": author_label,
+        "OBSERVATION_AUTHOR_EMAIL": author_email or "-",
+        "OBSERVATION_BODY": str(observation_body or "").strip() or "-",
+        "OBSERVATION_CREATED_AT": _format_dt(_utcnow()),
+        "MINUTE_VERSION": version_label,
+        "MINUTE_EDIT_URL": _minute_edit_url(record.id, db),
+        "ISSUED_AT": _format_dt(_utcnow()),
+        "REQUEST_ID": str(uuid.uuid4()),
+    }
+    return await _safe_queue_template(
+        to=delivery_plan.to,
+        template_id="minute_guest_observation_received",
+        context=context,
+        inline_assets=branding.inline_assets,
+        notification_context={
+            "notificationType": "email.sent",
+            "title": "Correo enviado",
+            "message": _build_delivery_result_message(
+                base_message=f'Se envió el aviso de observación invitada para "{record.title}".',
+                sent_items=delivery_plan.sent_items,
+                skipped_items=delivery_plan.skipped_items,
+                fallback_used=delivery_plan.fallback_used,
+            ),
+            "level": "success",
+            "tags": ["email", "minute", "observation", "sent", "minute.observation.email.sent"],
+            "recipientUserIds": _notification_recipient_user_ids(
+                record,
+                str(record.prepared_by_user_id or record.updated_by or record.created_by),
+            ),
+            "scopeType": "record",
+            "scopeId": record.id,
+            "actionUrl": _minute_edit_url(record.id, db),
+            "actorUserId": str(record.prepared_by_user_id or record.updated_by or record.created_by),
+            "metadata": {
+                "recordId": record.id,
+                "recordVersionId": record_version_id,
+                "observationId": observation_id,
+                "emailTemplateId": "minute_guest_observation_received",
+                "recipientEmails": delivery_plan.to,
+                "sentRecipients": _serialize_delivery_items(delivery_plan.sent_items),
+                "skippedRecipients": _serialize_delivery_items(delivery_plan.skipped_items),
+                "fallbackUsed": delivery_plan.fallback_used,
+                "authorEmail": author_email,
+                "authorName": author_name,
             },
         },
     )
@@ -943,7 +1368,7 @@ async def enqueue_confidential_client_acl_notifications(
     target_email = _safe_email(getattr(acl.user, "email", None))
     owner_name = _user_display_name(actor)
     access_scope = "Cliente"
-    access_url = _access_url("client", client_id)
+    access_url = _access_url("client", client_id, db)
     request_id = str(uuid.uuid4())
 
     base_context = {
@@ -1072,7 +1497,7 @@ async def enqueue_confidential_project_acl_notifications(
     target_email = _safe_email(getattr(acl.user, "email", None))
     owner_name = _user_display_name(actor)
     access_scope = "Proyecto"
-    access_url = _access_url("project", project_id)
+    access_url = _access_url("project", project_id, db)
     request_id = str(uuid.uuid4())
 
     base_context = {
@@ -1218,7 +1643,7 @@ async def enqueue_pending_publication_reminders(db: Session) -> int:
             "OWNER_USER": _user_display_name(record.prepared_by_user or record.created_by_user),
             "LAST_UPDATED_AT": _format_dt(record.updated_at),
             "RECOMMENDED_ACTION": "Revisar y publicar la minuta pendiente.",
-            "MINUTE_DRAFT_URL": _minute_url(record.id),
+            "MINUTE_DRAFT_URL": _minute_url(record.id, db),
             "ISSUED_AT": _format_dt(_utcnow()),
             "REQUEST_ID": str(uuid.uuid4()),
             "REMINDER_RULE": f"stale-minute>{DEFAULT_REMINDER_HOURS}h",

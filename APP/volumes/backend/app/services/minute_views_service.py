@@ -35,8 +35,8 @@ from schemas.minute_observations import (
     MinuteObservationResolveResponse,
 )
 from services.notification_center_service import create_in_app_notification
-from services.email_queue import queue_templated_email
 from services.minutes_service import get_minute_detail, get_minute_versions
+from services.notification_service import enqueue_minute_guest_observation_email
 from utils.device import get_device_string
 from utils.network import get_client_ip
 
@@ -478,6 +478,24 @@ async def create_minute_view_observation(
                 observation.id,
                 notify_exc,
             )
+
+    try:
+        await enqueue_minute_guest_observation_email(
+            db,
+            record.id,
+            observation_id=int(observation.id),
+            record_version_id=str(observation.record_version_id),
+            author_name=observation.author_name,
+            author_email=observation.author_email,
+            observation_body=observation.body,
+        )
+    except Exception as email_exc:
+        logger.warning(
+            "No se pudo encolar correo de observación visitante | record=%s obs=%s err=%s",
+            record.id,
+            observation.id,
+            email_exc,
+        )
 
     return MinuteViewObservationCreateResponse(
         message="La observación fue registrada sobre la versión actual de la minuta.",

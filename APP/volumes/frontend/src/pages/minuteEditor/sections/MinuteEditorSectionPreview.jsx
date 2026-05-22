@@ -28,7 +28,7 @@ const Badge = ({ label, color = 'gray' }) => {
   );
 };
 
-const ConfirmSendContent = ({ recipientCount, subject, attachPdf, onConfirm, onCancel, sending }) => (
+const ConfirmSendContent = ({ recipientCount, subject, attachPdf, fallbackToOwner, onConfirm, onCancel, sending }) => (
   <div className="flex flex-col gap-5">
     <div className="flex items-start gap-4">
       <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary-50 transition-theme dark:bg-primary-900/20">
@@ -51,6 +51,12 @@ const ConfirmSendContent = ({ recipientCount, subject, attachPdf, onConfirm, onC
         <Icon name="users" className="shrink-0 text-gray-400" />
         <span>{recipientCount} destinatario{recipientCount !== 1 ? 's' : ''} seleccionados</span>
       </div>
+      {fallbackToOwner ? (
+        <div className="flex items-center gap-3 text-sm text-amber-700 transition-theme dark:text-amber-300">
+          <Icon name="triangleExclamation" className="shrink-0 text-amber-500" />
+          <span>Si no hay destinatarios principales con correo, se enviará al elaborador responsable.</span>
+        </div>
+      ) : null}
       <div className="flex items-center gap-3 text-sm text-gray-700 transition-theme dark:text-gray-300">
         <Icon name={attachPdf ? 'fileLines' : 'ban'} className={attachPdf ? 'text-primary-500' : 'text-gray-400'} />
         <span>{attachPdf ? 'PDF adjunto incluido' : 'Sin PDF adjunto'}</span>
@@ -117,6 +123,7 @@ const EmailForm = ({ recordId, recordStatus, isReadOnly }) => {
   const selectedParticipants = participants.filter((participant) => participant.email && selected.has(participant.id));
   const directRecipientCount = selectedParticipants.filter((participant) => participant.type !== 'copy').length;
   const recipientCount = selectedParticipants.length;
+  const fallbackToOwner = directRecipientCount === 0;
   const toList = participants.filter((participant) => participant.type !== 'copy');
   const ccList = participants.filter((participant) => participant.type === 'copy');
   const canEditSendOptions = !sending && (!isReadOnly || SEND_ALLOWED_STATUSES.has(recordStatus));
@@ -138,10 +145,10 @@ const EmailForm = ({ recordId, recordStatus, isReadOnly }) => {
         return;
       }
 
-      if (directRecipientCount === 0) {
+      if (recipientCount === 0 && selectableParticipants.length > 0) {
         ModalManager.error({
           title: 'Destinatarios incompletos',
-          message: 'Selecciona al menos un destinatario principal con correo válido antes de enviar.',
+          message: 'Selecciona al menos un destinatario con correo válido antes de enviar.',
         });
         return;
       }
@@ -177,10 +184,10 @@ const EmailForm = ({ recordId, recordStatus, isReadOnly }) => {
       return;
     }
 
-    if (recipientCount === 0 || directRecipientCount === 0) {
+    if (recipientCount === 0 && selectableParticipants.length > 0) {
       ModalManager.error({
         title: 'Destinatarios incompletos',
-        message: 'Selecciona al menos un destinatario principal con correo válido antes de enviar.',
+        message: 'Selecciona al menos un destinatario con correo válido antes de enviar.',
       });
       return;
     }
@@ -194,6 +201,7 @@ const EmailForm = ({ recordId, recordStatus, isReadOnly }) => {
           recipientCount={recipientCount}
           subject={subject}
           attachPdf={attachPdf}
+          fallbackToOwner={fallbackToOwner}
           sending={sending}
           onCancel={() => ModalManager.closeAll?.()}
           onConfirm={executeSend}

@@ -38,43 +38,56 @@ async def handle_email_job(job: JobEnvelope) -> None:
     to = _normalize_recipients(payload.get("to"))
     cc = _normalize_recipients(payload.get("cc"))
     bcc = _normalize_recipients(payload.get("bcc"))
-    if not to:
-        raise ValueError("El campo 'to' es requerido para enviar email")
-
     subject = str(payload.get("subject") or "Notificacion MinuetAItor")
     email_type = str(payload.get("email_type") or "html").lower()
     reply_to = payload.get("reply_to")
     body = str(payload.get("body") or "")
     inline_assets = payload.get("inline_assets") or []
     attachments = payload.get("attachments") or []
-
-    logger.info(
-        "Enviando email | to=%s cc=%s bcc=%s subject=%s job_id=%s attempt=%d template_id=%s",
-        to,
-        cc,
-        bcc,
-        subject,
-        job.job_id,
-        job.attempt,
-        payload.get("template_id"),
-    )
+    notification_context = payload.get("notification_context")
 
     loop = asyncio.get_running_loop()
-    await loop.run_in_executor(
-        None,
-        _send_email_sync,
-        to,
-        cc,
-        bcc,
-        subject,
-        body,
-        email_type,
-        reply_to,
-        inline_assets,
-        attachments,
-    )
+    try:
+        if not to:
+            raise ValueError("El campo 'to' es requerido para enviar email")
 
-    notification_context = payload.get("notification_context")
+        logger.info(
+            "Enviando email | to=%s cc=%s bcc=%s subject=%s job_id=%s attempt=%d template_id=%s",
+            to,
+            cc,
+            bcc,
+            subject,
+            job.job_id,
+            job.attempt,
+            payload.get("template_id"),
+        )
+
+        await loop.run_in_executor(
+            None,
+            _send_email_sync,
+            to,
+            cc,
+            bcc,
+            subject,
+            body,
+            email_type,
+            reply_to,
+            inline_assets,
+            attachments,
+        )
+    except Exception as exc:
+        await _notify_email_failure(
+            loop=loop,
+            job=job,
+            payload=payload,
+            subject=subject,
+            to=to,
+            cc=cc,
+            bcc=bcc,
+            error=exc,
+        )
+        raise
+
     if isinstance(notification_context, dict) and notification_context:
         try:
             await loop.run_in_executor(None, ingest_notification, notification_context)
@@ -87,6 +100,184 @@ async def handle_email_job(job: JobEnvelope) -> None:
             )
 
     logger.info("Email enviado | to=%s subject=%s", to, subject)
+
+
+async def _notify_email_failure(
+    *,
+    loop: asyncio.AbstractEventLoop,
+    job: JobEnvelope,
+    payload: dict[str, Any],
+    subject: str,
+    to: list[str],
+    cc: list[str],
+    bcc: list[str],
+    error: Exception,
+) -> None:
+    notification = _build_email_failure_notification(
+        job=job,
+        payload=payload,
+        subject=subject,
+        to=to,
+        cc=cc,
+        bcc=bcc,
+        error=error,
+    )
+    if not notification:
+        return
+
+    try:
+        await loop.run_in_executor(None, ingest_notification, notification)
+    except Exception as notify_exc:
+        logger.warning(
+            "No se pudo registrar notificación de error de email | job_id=%s subject=%s err=%s",
+            job.job_id,
+            subject,
+            notify_exc,
+        )
+
+
+def _build_email_failure_notification(
+    *,
+    job: JobEnvelope,
+    payload: dict[str, Any],
+    subject: str,
+    to: list[str],
+    cc: list[str],
+    bcc: list[str],
+    error: Exception,
+) -> dict[str, Any] | None:
+    base = payload.get("notification_context")
+    if not isinstance(base, dict) or not base:
+        return None
+
+    original_tags = [str(tag or "").strip() for tag in (base.get("tags") or []) if str(tag or "").strip()]
+    failed_tags = _failure_tags_from_success_tags(original_tags)
+    metadata = dict(base.get("metadata") or {})
+    metadata.update(
+        {
+            "emailSubject": subject,
+            "jobId": job.job_id,
+            "queue": job.queue,
+            "attempt": job.attempt,
+            "recipientEmails": to,
+            "ccEmails": cc,
+            "bccEmails": bcc,
+            "error": str(error)[:1000],
+            "originalNotificationType": base.get("notificationType") or base.get("notification_type"),
+        }
+    )
+
+    return {
+        **base,
+        "notificationType": "email.failed",
+        "title": "Error al enviar correo",
+        "message": _failure_message_from_payload(base.get("message"), metadata, subject),
+        "level": "error",
+        "tags": failed_tags,
+        "metadata": metadata,
+    }
+
+
+def _failure_tags_from_success_tags(tags: list[str]) -> list[str]:
+    clean: list[str] = []
+    seen: set[str] = set()
+
+    def append(tag: str) -> None:
+        value = str(tag or "").strip()
+        if not value:
+            return
+        key = value.casefold()
+        if key in seen:
+            return
+        seen.add(key)
+        clean.append(value)
+
+    for tag in tags:
+        if tag == "sent":
+            append("failed")
+        elif tag.endswith(".sent"):
+            append(f"{tag[:-5]}.failed")
+        else:
+            append(tag)
+
+    append("email")
+    append("failed")
+    return clean
+
+
+def _failure_message_from_payload(original_message: Any, metadata: dict[str, Any], subject: str) -> str:
+    sent_items = _normalize_delivery_items(metadata.get("sentRecipients"))
+    skipped_items = _normalize_delivery_items(metadata.get("skippedRecipients"))
+    fallback_used = bool(metadata.get("fallbackUsed"))
+
+    if sent_items or skipped_items:
+        parts = [f'No se pudo enviar el correo "{subject}".']
+        if sent_items:
+            parts.append(f"Se intentó enviar a: {_summarize_delivery_items(sent_items)}.")
+        if fallback_used:
+            parts.append("Estaba considerado el fallback al elaborador responsable.")
+        if skipped_items:
+            parts.append(f"No se consideró a: {_summarize_delivery_items(skipped_items)}.")
+        return " ".join(parts)[:1900]
+
+    return _failure_message_from_success_message(original_message, subject)
+
+
+def _failure_message_from_success_message(original_message: Any, subject: str) -> str:
+    message = str(original_message or "").strip()
+    if message:
+        replacements = (
+            ("Se envió", "No se pudo enviar"),
+            ("se envió", "no se pudo enviar"),
+            ("Correo enviado", "Error al enviar correo"),
+        )
+        updated = message
+        for source, target in replacements:
+            updated = updated.replace(source, target)
+        if updated != message:
+            return updated
+
+    return f'No se pudo enviar el correo "{subject}".'
+
+
+def _normalize_delivery_items(value: Any) -> list[dict[str, str]]:
+    if not isinstance(value, list):
+        return []
+    items: list[dict[str, str]] = []
+    for raw in value:
+        if not isinstance(raw, dict):
+            continue
+        items.append(
+            {
+                "name": str(raw.get("name") or "").strip(),
+                "email": str(raw.get("email") or "").strip(),
+                "reason": str(raw.get("reason") or "").strip(),
+            }
+        )
+    return [item for item in items if item["name"] or item["email"] or item["reason"]]
+
+
+def _summarize_delivery_items(items: list[dict[str, str]], *, max_items: int = 4) -> str:
+    if not items:
+        return "ninguno"
+
+    labels: list[str] = []
+    for item in items[:max_items]:
+        name = item.get("name") or ""
+        email = item.get("email") or ""
+        reason = item.get("reason") or ""
+        if name and email and name.casefold() != email.casefold():
+            label = f"{name} <{email}>"
+        else:
+            label = email or name or "Destinatario"
+        if reason:
+            label = f"{label} ({reason})"
+        labels.append(label)
+
+    remaining = len(items) - max_items
+    if remaining > 0:
+        labels.append(f"+{remaining} más")
+    return ", ".join(labels)
 
 
 def _send_email_sync(

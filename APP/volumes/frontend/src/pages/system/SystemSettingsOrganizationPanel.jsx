@@ -24,6 +24,7 @@ const INITIAL_ORGANIZATION_DRAFT = {
   email: "",
   phone: "",
   website: "",
+  publicBaseUrl: "",
   address: "",
   country: "",
   region: "",
@@ -52,6 +53,7 @@ const toDraftShape = (payload) => ({
   email: String(payload?.email || ""),
   phone: String(payload?.phone || ""),
   website: String(payload?.website || ""),
+  publicBaseUrl: String(payload?.publicBaseUrl || payload?.public_base_url || ""),
   address: String(payload?.address || ""),
   country: String(payload?.country || ""),
   region: String(payload?.region || ""),
@@ -329,6 +331,7 @@ export const OrganizationPanel = () => {
         email: draft.email,
         phone: draft.phone,
         website: draft.website,
+        publicBaseUrl: draft.publicBaseUrl,
         address: draft.address,
         country: draft.country,
         region: draft.region,
@@ -631,6 +634,17 @@ export const OrganizationPanel = () => {
                 value={draft.website}
                 onChange={(event) => updateDraft("website", event.target.value)}
                 placeholder="https://www.organizacion.cl"
+              />
+            </MaintenanceField>
+
+            <MaintenanceField
+              label="URL pública de la plataforma"
+              hint="Se usa en enlaces de correos, minutas y accesos externos. Usa la URL final publicada, por ejemplo https://minutas.tudominio.cl."
+            >
+              <MaintenanceInput
+                value={draft.publicBaseUrl}
+                onChange={(event) => updateDraft("publicBaseUrl", event.target.value)}
+                placeholder="https://minutas.tudominio.cl"
               />
             </MaintenanceField>
 

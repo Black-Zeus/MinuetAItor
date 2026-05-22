@@ -7,6 +7,11 @@ const unwrap = (res) => {
   return data?.result ?? data;
 };
 
+const normalizeBaseUrl = (value) => {
+  const text = String(value ?? "").trim();
+  return text ? text.replace(/\/+$/, "") : "";
+};
+
 const organizationSettingsService = {
   async getConfig() {
     const res = await axiosInstance.get(BASE);
@@ -14,7 +19,10 @@ const organizationSettingsService = {
   },
 
   async update(payload) {
-    const res = await axiosInstance.put(BASE, payload);
+    const res = await axiosInstance.put(BASE, {
+      ...payload,
+      publicBaseUrl: normalizeBaseUrl(payload?.publicBaseUrl),
+    });
     return unwrap(res);
   },
 

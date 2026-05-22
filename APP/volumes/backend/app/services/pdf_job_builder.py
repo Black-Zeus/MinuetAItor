@@ -135,6 +135,7 @@ def build_pdf_job(record: Any, trigger_config: Dict[str, Any]) -> Dict[str, Any]
             version_id=version_id,
             output_key=output_key,
         ),
+        "post_publish_email": _build_post_publish_email_payload(record, trigger_config),
     }
 
     envelope = {
@@ -552,6 +553,7 @@ def build_pdf_job_from_draft(
             version_id=version_id,
             output_key=output_key,
         ),
+        "post_publish_email": _build_post_publish_email_payload(record, trigger_config),
     }
 
     return {
@@ -708,6 +710,22 @@ def _build_pdf_notification_payload(
             "outputKey": output_key,
             "trigger": trigger_config.get("trigger"),
         },
+    }
+
+
+def _build_post_publish_email_payload(record: Any, trigger_config: Dict[str, Any]) -> Dict[str, Any]:
+    is_published = str(trigger_config.get("minio_bucket")) == "minuetaitor-published"
+    project = getattr(record, "project", None)
+    enabled = bool(is_published and getattr(project, "auto_send_on_completed", False))
+    actor_user_id = str(
+        getattr(record, "updated_by", None)
+        or getattr(record, "prepared_by_user_id", None)
+        or getattr(record, "created_by", None)
+        or ""
+    ).strip() or None
+    return {
+        "enabled": enabled,
+        "actor_user_id": actor_user_id,
     }
 
 

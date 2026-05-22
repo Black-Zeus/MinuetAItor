@@ -29,7 +29,7 @@ Payload esperado (JobEnvelope.payload):
 """
 from __future__ import annotations
 
-from core.backend_client import ingest_notification
+from core.backend_client import ingest_notification, trigger_officialized_email
 from core.job          import JobEnvelope
 from core.logging_config import get_logger
 from core.minio_client import get_minio
@@ -115,6 +115,13 @@ async def handle_minute_pdf(job: JobEnvelope) -> None:
         "PDF subido a MinIO | bucket=%s key=%s bytes=%d",
         bucket, output_key, len(pdf_bytes),
     )
+
+    post_publish_email = payload.get("post_publish_email")
+    if isinstance(post_publish_email, dict) and post_publish_email.get("enabled"):
+        await trigger_officialized_email(
+            record_id=record_id,
+            actor_user_id=str(post_publish_email.get("actor_user_id") or "").strip() or None,
+        )
 
     notification = payload.get("notification")
     if isinstance(notification, dict) and notification:

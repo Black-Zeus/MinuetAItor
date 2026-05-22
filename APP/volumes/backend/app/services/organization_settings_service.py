@@ -35,6 +35,7 @@ DEFAULT_VALUES = {
     "email": None,
     "phone": None,
     "website": None,
+    "public_base_url": None,
     "address": None,
     "country": None,
     "region": None,
@@ -59,6 +60,7 @@ EXPECTED_ORGANIZATION_SETTINGS_COLUMNS = {
     "email",
     "phone",
     "website",
+    "public_base_url",
     "address",
     "country",
     "region",
@@ -108,7 +110,8 @@ def ensure_organization_settings_schema_access(db: Session) -> None:
         raise BadRequestException(
             "La configuración de organización quedó desfasada respecto del código actual. "
             "Aplica los scripts SQL 20260521_1400_schema_organization_settings.sql y "
-            "20260521_1410_alter_organization_settings_media.sql antes de usar este módulo."
+            "20260521_1410_alter_organization_settings_media.sql y "
+            "20260522_1459_alter_organization_settings_public_base_url.sql antes de usar este módulo."
         )
 
 
@@ -154,6 +157,13 @@ def _clean_text(value: object, max_length: int | None = None) -> str | None:
     return text or None
 
 
+def _clean_public_base_url(value: object) -> str | None:
+    text = _clean_text(value, 500)
+    if not text:
+        return None
+    return text.rstrip("/")
+
+
 def _get_singleton(db: Session, *, actor_user_id: str | None = None) -> OrganizationSetting:
     _require_schema(db)
     obj = _base_query(db).filter(OrganizationSetting.id == ORGANIZATION_SETTINGS_SINGLETON_ID).first()
@@ -188,6 +198,7 @@ def _build_response(obj: OrganizationSetting) -> dict:
         "email": obj.email,
         "phone": obj.phone,
         "website": obj.website,
+        "public_base_url": obj.public_base_url,
         "address": obj.address,
         "country": obj.country,
         "region": obj.region,
@@ -226,6 +237,7 @@ def update_organization_settings(
     obj.email = _clean_text(body.email, 254)
     obj.phone = _clean_text(body.phone, 30)
     obj.website = _clean_text(body.website, 500)
+    obj.public_base_url = _clean_public_base_url(body.public_base_url)
     obj.address = _clean_text(body.address, 400)
     obj.country = _clean_text(body.country, 120)
     obj.region = _clean_text(body.region, 120)
@@ -296,3 +308,13 @@ def delete_organization_banner(
 def read_organization_banner_content(db: Session) -> tuple[bytes, str]:
     obj = _get_singleton(db)
     return read_organization_banner(obj)
+
+
+def get_organization_public_base_url(db: Session | None) -> str | None:
+    if db is None:
+        return None
+    try:
+        obj = _get_singleton(db)
+    except Exception:
+        return None
+    return _clean_public_base_url(getattr(obj, "public_base_url", None))

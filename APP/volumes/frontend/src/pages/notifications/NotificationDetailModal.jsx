@@ -41,6 +41,25 @@ const levelMeta = {
   },
 };
 
+const normalizeRecipientList = (value) =>
+  Array.isArray(value)
+    ? value
+        .map((item) => ({
+          name: String(item?.name || "").trim(),
+          email: String(item?.email || "").trim(),
+          kind: String(item?.kind || "").trim(),
+          reason: String(item?.reason || "").trim(),
+        }))
+        .filter((item) => item.name || item.email || item.reason)
+    : [];
+
+const formatRecipientLine = (item = {}) => {
+  const label = item.name && item.email && item.name.toLowerCase() !== item.email.toLowerCase()
+    ? `${item.name} <${item.email}>`
+    : item.email || item.name || "Destinatario";
+  return item.reason ? `${label} (${item.reason})` : label;
+};
+
 const NotificationDetailModal = ({ notificationId, initialNotification = null, onNavigate }) => {
   const [detail, setDetail] = useState(initialNotification ? normalizeNotificationItem(initialNotification) : null);
   const [isLoading, setIsLoading] = useState(!initialNotification);
@@ -96,6 +115,15 @@ const NotificationDetailModal = ({ notificationId, initialNotification = null, o
   }, [detail, markReadLocal, notificationId]);
 
   const meta = useMemo(() => levelMeta[detail?.level] || levelMeta.info, [detail?.level]);
+  const sentRecipients = useMemo(
+    () => normalizeRecipientList(detail?.metadata?.sentRecipients),
+    [detail?.metadata?.sentRecipients]
+  );
+  const skippedRecipients = useMemo(
+    () => normalizeRecipientList(detail?.metadata?.skippedRecipients),
+    [detail?.metadata?.skippedRecipients]
+  );
+  const fallbackUsed = Boolean(detail?.metadata?.fallbackUsed);
 
   return (
     <div className="flex flex-col bg-transparent">
@@ -151,6 +179,53 @@ const NotificationDetailModal = ({ notificationId, initialNotification = null, o
               <div className="text-sm leading-7 text-gray-700 dark:text-gray-200">
                 {detail?.message || "Sin contenido adicional."}
               </div>
+
+              {sentRecipients.length || skippedRecipients.length || fallbackUsed ? (
+                <div className="border-t border-gray-200/80 pt-4 dark:border-gray-700">
+                  <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                    Resultado del envío
+                  </p>
+                  <div className="space-y-4">
+                    {sentRecipients.length ? (
+                      <div>
+                        <p className="mb-2 text-sm font-semibold text-gray-900 dark:text-gray-100">Enviado a</p>
+                        <div className="space-y-2">
+                          {sentRecipients.map((item, index) => (
+                            <div
+                              key={`${item.email || item.name || "sent"}-${index}`}
+                              className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-200"
+                            >
+                              {formatRecipientLine(item)}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {skippedRecipients.length ? (
+                      <div>
+                        <p className="mb-2 text-sm font-semibold text-gray-900 dark:text-gray-100">No enviado a</p>
+                        <div className="space-y-2">
+                          {skippedRecipients.map((item, index) => (
+                            <div
+                              key={`${item.email || item.name || "skipped"}-${index}`}
+                              className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200"
+                            >
+                              {formatRecipientLine(item)}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {fallbackUsed ? (
+                      <div className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-800 dark:border-sky-900/40 dark:bg-sky-950/20 dark:text-sky-200">
+                        Se utilizó fallback al elaborador responsable porque no había destinatarios principales con correo.
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
 
               {Array.isArray(detail?.tags) && detail.tags.length > 0 ? (
                 <div className="border-t border-gray-200/80 pt-4 dark:border-gray-700">

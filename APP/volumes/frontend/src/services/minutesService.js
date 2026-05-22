@@ -162,16 +162,22 @@ export const previewMinutePdfBlob = async (recordId, content) => {
 };
 
 /**
- * GET /v1/minutes/{record_id}/attachments/{sha256}
+ * GET /v1/minutes/{record_id}/attachments?sha256=...&fileName=...
  *
  * Retorna el adjunto de entrada real asociado a la minuta como Blob.
  *
  * @param {string} recordId
- * @param {string} sha256
+ * @param {string|null} sha256
+ * @param {string|null} fileName
  * @returns {Promise<Blob>}
  */
-export const getMinuteAttachmentBlob = async (recordId, sha256) => {
-  const res = await api.get(`${BASE}/${recordId}/attachments/${sha256}`, {
+export const getMinuteAttachmentBlob = async (recordId, sha256 = null, fileName = null) => {
+  const params = {};
+  if (sha256) params.sha256 = sha256;
+  if (fileName) params.fileName = fileName;
+
+  const res = await api.get(`${BASE}/${recordId}/attachments`, {
+    params,
     responseType: "blob",
   });
   return res.data;

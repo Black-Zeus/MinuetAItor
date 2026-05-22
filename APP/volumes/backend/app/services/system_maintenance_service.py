@@ -24,6 +24,7 @@ from schemas.system_maintenance import (
 )
 from services.email_queue import queue_templated_email
 from services.notification_center_service import create_in_app_notification
+from services.organization_settings_service import get_organization_public_base_url
 from services.system_maintenance_events_service import publish_maintenance_event
 from services.system_queue_catalog import QUEUE_DEFINITIONS
 
@@ -270,12 +271,15 @@ def _save_queue_monitor_state(obj: SystemMaintenanceSetting, state: dict) -> Non
     obj.queue_monitor_state_json = json.dumps(state or {}, ensure_ascii=False)
 
 
-def _queue_dashboard_url() -> str:
-    base = str(
-        os.environ.get("FRONTEND_BASE_URL")
-        or os.environ.get("APP_BASE_URL")
-        or "http://localhost:5173"
-    ).rstrip("/")
+def _queue_dashboard_url(db: Session | None = None) -> str:
+    base = (
+        get_organization_public_base_url(db)
+        or str(
+            os.environ.get("FRONTEND_BASE_URL")
+            or os.environ.get("APP_BASE_URL")
+            or "http://localhost:5173"
+        ).rstrip("/")
+    )
     return f"{base}/settings/system"
 
 
@@ -296,7 +300,14 @@ def _build_queue_alert_copy(definition: dict, *, size: int, warning_threshold: i
     )
 
 
-def _build_queue_alert_mail_context(definition: dict, *, size: int, warning_threshold: int, detected_at: datetime) -> dict:
+def _build_queue_alert_mail_context(
+    definition: dict,
+    *,
+    size: int,
+    warning_threshold: int,
+    detected_at: datetime,
+    db: Session | None = None,
+) -> dict:
     return {
         "QUEUE_LABEL": definition["label"],
         "QUEUE_NAME": definition["queue"],
@@ -305,7 +316,7 @@ def _build_queue_alert_mail_context(definition: dict, *, size: int, warning_thre
         "CURRENT_SIZE": size,
         "WARNING_THRESHOLD": warning_threshold,
         "DETECTED_AT": detected_at.astimezone(ZoneInfo(SCHEDULER_TIMEZONE)).strftime("%d/%m/%Y %H:%M"),
-        "SYSTEM_MODULE_URL": _queue_dashboard_url(),
+        "SYSTEM_MODULE_URL": _queue_dashboard_url(db),
     }
 
 
@@ -315,6 +326,7 @@ def _build_queue_recovery_mail_context(
     size: int,
     warning_threshold: int,
     recovered_at: datetime,
+    db: Session | None = None,
 ) -> dict:
     return {
         "QUEUE_LABEL": definition["label"],
@@ -324,7 +336,7 @@ def _build_queue_recovery_mail_context(
         "CURRENT_SIZE": size,
         "WARNING_THRESHOLD": warning_threshold,
         "RECOVERED_AT": recovered_at.astimezone(ZoneInfo(SCHEDULER_TIMEZONE)).strftime("%d/%m/%Y %H:%M"),
-        "SYSTEM_MODULE_URL": _queue_dashboard_url(),
+        "SYSTEM_MODULE_URL": _queue_dashboard_url(db),
     }
 
 
@@ -377,7 +389,7 @@ async def _notify_queue_threshold_exceeded(
         role_codes=["ADMIN"],
         scope_type="system_queue",
         scope_id=definition["queue"],
-        action_url=_queue_dashboard_url(),
+        action_url=_queue_dashboard_url(db),
         metadata={
             "queue": definition["queue"],
             "queue_label": definition["label"],
@@ -400,6 +412,7 @@ async def _notify_queue_threshold_exceeded(
                 size=size,
                 warning_threshold=warning_threshold,
                 detected_at=detected_at,
+                db=db,
             ),
             subject=f"Alerta operativa · {definition['label']} superó umbral",
         )
@@ -436,7 +449,7 @@ async def _notify_queue_threshold_recovered(
         role_codes=["ADMIN"],
         scope_type="system_queue",
         scope_id=definition["queue"],
-        action_url=_queue_dashboard_url(),
+        action_url=_queue_dashboard_url(db),
         metadata={
             "queue": definition["queue"],
             "queue_label": definition["label"],
@@ -460,6 +473,7 @@ async def _notify_queue_threshold_recovered(
                 size=size,
                 warning_threshold=warning_threshold,
                 recovered_at=recovered_at,
+                db=db,
             ),
             subject=f"Normalización operativa · {definition['label']} volvió a nivel normal",
         )
