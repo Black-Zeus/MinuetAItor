@@ -24,15 +24,19 @@ Claves del payload (enviadas por el backend en TX1):
 from __future__ import annotations
 
 import asyncio
+import base64
 import hashlib
 import json
 import re
+import socket
+import ssl
+import urllib.error
+import urllib.request
 import uuid
 from datetime import datetime, time, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-import openai
 from minio import Minio
 
 from core.backend_client import (
@@ -316,11 +320,15 @@ def _resolve_runtime_ai_provider() -> dict[str, Any]:
     provider = get_active_ai_provider_config()
     provider_type = str(provider.get("provider_type") or "").strip()
     provider_family = str(provider.get("provider_family") or "").strip() or "generic"
+    execution_adapter = str(provider.get("execution_adapter") or provider_family or "openai_compatible").strip() or "openai_compatible"
     model_name = str(provider.get("model_name") or "").strip()
     auth_type = str(provider.get("auth_type") or "").strip() or "none"
     base_url = str(provider.get("base_url") or "").strip()
     timeout_seconds = int(provider.get("timeout_seconds") or settings.AI_PROVIDER_TIMEOUT_FALLBACK)
     token = str(provider.get("token") or "").strip() or None
+    username = str(provider.get("username") or "").strip() or None
+    password = str(provider.get("password") or "").strip() or None
+    custom_headers = provider.get("custom_headers") or {}
 
     if not provider_type:
         raise NonRetryableMinuteError("La configuración AI activa no informó un provider_type válido")
@@ -328,127 +336,292 @@ def _resolve_runtime_ai_provider() -> dict[str, Any]:
         raise NonRetryableMinuteError("La configuración AI activa no informó un modelo válido")
     if not base_url:
         raise NonRetryableMinuteError("La configuración AI activa no informó una base_url válida")
-    if provider_family != "openai_compatible":
+    if provider_family not in {"openai_compatible", "anthropic", "ollama", "generic"}:
         raise NonRetryableMinuteError(
             f"La familia de proveedor '{provider_family}' aún no está soportada por el worker de minutas. "
-            "Por ahora solo se admite 'openai_compatible'."
+            "Familias soportadas: openai_compatible, anthropic, ollama y generic."
         )
-    if auth_type not in {"api_key", "none"}:
+    if execution_adapter not in {"openai_compatible", "anthropic", "ollama"}:
         raise NonRetryableMinuteError(
-            f"El auth_type '{auth_type}' aún no está soportado por el worker de minutas para proveedores openai_compatible."
+            f"El adapter de ejecución '{execution_adapter}' aún no está soportado por el worker de minutas."
+        )
+    if auth_type not in {"api_key", "none", "basic", "custom_headers"}:
+        raise NonRetryableMinuteError(
+            f"El auth_type '{auth_type}' aún no está soportado por el worker de minutas."
         )
     if auth_type == "api_key" and not token:
         raise NonRetryableMinuteError("La configuración AI activa requiere token/API key, pero no entregó credencial usable")
+    if auth_type == "basic" and (not username or not password):
+        raise NonRetryableMinuteError("La configuración AI activa requiere usuario y password para auth basic")
+    if auth_type == "custom_headers" and not custom_headers:
+        raise NonRetryableMinuteError("La configuración AI activa usa custom_headers, pero no entregó headers efectivos")
 
     return {
         "provider_type": provider_type,
         "provider_family": provider_family,
+        "execution_adapter": execution_adapter,
         "model_name": model_name,
         "auth_type": auth_type,
         "base_url": base_url.rstrip("/"),
         "timeout_seconds": timeout_seconds if timeout_seconds > 0 else settings.AI_PROVIDER_TIMEOUT_FALLBACK,
         "token": token,
-        "custom_headers": provider.get("custom_headers") or {},
+        "username": username,
+        "password": password,
+        "custom_headers": custom_headers,
     }
 
 
 # ── Llamada a proveedor IA ───────────────────────────────────────────────────
 
-def _call_openai_sync(
-    provider_config: dict[str, Any],
-    prompt: str,
-    files: list[dict],
-    ai_input: dict,
-) -> tuple[dict, str, int, int]:
-    """
-    Llama al proveedor IA compatible con OpenAI de forma sincrona.
+def _build_user_message(ai_input: dict, files: list[dict]) -> str:
+    sections = [
+        "# Contexto de la reunion",
+        f"```json\n{json.dumps(ai_input, ensure_ascii=False, indent=2)}\n```",
+    ]
 
-    files: lista de { fileName, content (bytes), mimeType }
-    Retorna (parsed_output, run_id, tokens_in, tokens_out).
-    """
-    extra_headers = provider_config.get("custom_headers") or {}
-    if extra_headers:
-        logger.warning(
-            "La configuración AI activa incluye custom_headers; el worker actual no los aplica en el cliente openai_compatible"
-        )
-
-    client = openai.OpenAI(
-        api_key=provider_config.get("token") or "not-needed",
-        base_url=provider_config["base_url"],
-        timeout=provider_config["timeout_seconds"],
-    )
-
-    content_parts: list[Any] = []
-
-    # Schema de entrada como contexto
-    content_parts.append({
-        "type": "text",
-        "text": (
-            "# Contexto de la reunion\n"
-            f"```json\n{json.dumps(ai_input, ensure_ascii=False, indent=2)}\n```"
-        ),
-    })
-
-    # Archivos como texto inline
     for f in files:
-        raw = f["content"]   # bytes
+        raw = f["content"]
         try:
-            text = raw.decode("utf-8") if isinstance(raw, bytes) else raw
+            text = raw.decode("utf-8") if isinstance(raw, bytes) else str(raw)
         except UnicodeDecodeError:
             text = raw.decode("latin-1", errors="replace")
+        sections.append(f"# Archivo: {f['fileName']}\n\n{text}")
 
-        # <- clave correcta: 'fileName' (camelCase)
-        content_parts.append({
-            "type": "text",
-            "text": f"# Archivo: {f['fileName']}\n\n{text}",
-        })
+    return "\n\n".join(sections)
 
-    total_chars = sum(len(str(p)) for p in content_parts)
-    logger.info(
-        "Llamando a proveedor IA | provider=%s model=%s archivos=%d partes=%d chars~%d",
-        provider_config["provider_type"], provider_config["model_name"], len(files), len(content_parts), total_chars,
-    )
+
+def _build_provider_headers(provider_config: dict[str, Any]) -> dict[str, str]:
+    headers = {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+    }
+
+    custom_headers = provider_config.get("custom_headers") or {}
+    for key, value in custom_headers.items():
+        clean_key = str(key or "").strip()
+        clean_value = str(value or "").strip()
+        if clean_key and clean_value:
+            headers[clean_key] = clean_value
+
+    auth_type = provider_config.get("auth_type")
+    token = provider_config.get("token")
+    username = provider_config.get("username")
+    password = provider_config.get("password")
+    provider_family = provider_config.get("provider_family")
+
+    if auth_type == "api_key" and token:
+        if provider_family == "anthropic":
+            headers["x-api-key"] = str(token)
+            headers.setdefault("anthropic-version", "2023-06-01")
+        else:
+            headers["Authorization"] = f"Bearer {token}"
+    elif auth_type == "basic" and username and password:
+        raw_value = f"{username}:{password}".encode("utf-8")
+        headers["Authorization"] = f"Basic {base64.b64encode(raw_value).decode('utf-8')}"
+
+    if provider_family == "anthropic":
+        headers.setdefault("anthropic-version", "2023-06-01")
+
+    return headers
+
+
+def _http_json_request(url: str, headers: dict[str, str], body: dict[str, Any], timeout_seconds: int) -> dict[str, Any]:
+    payload = json.dumps(body, ensure_ascii=False).encode("utf-8")
+    request = urllib.request.Request(url, data=payload, headers=headers, method="POST")
+    context = ssl.create_default_context() if url.startswith("https://") else None
 
     try:
-        resp = client.chat.completions.create(
-            model=provider_config["model_name"],
-            max_tokens=settings.AI_MAX_TOKENS,
-            messages=[
-                {"role": "system", "content": prompt},
-                {"role": "user",   "content": content_parts},
-            ],
-            response_format={"type": "json_object"},
+        with urllib.request.urlopen(request, timeout=timeout_seconds, context=context) as response:
+            raw_body = response.read().decode("utf-8")
+            return json.loads(raw_body) if raw_body else {}
+    except urllib.error.HTTPError as exc:
+        raw_body = exc.read().decode("utf-8", errors="replace")
+        logger.error("Proveedor IA respondió HTTP %s | url=%s body=%s", exc.code, url, raw_body[:500])
+        if exc.code in {408, 429} or 500 <= exc.code <= 599:
+            raise RuntimeError(f"Proveedor IA respondió con error temporal HTTP {exc.code}")
+        raise NonRetryableMinuteError(
+            f"Proveedor IA respondió HTTP {exc.code}: {raw_body[:300]}",
+            record_status="processing-error",
         )
-    except Exception as e:
-        logger.error("Error en llamada a OpenAI: %s", e)
-        raise
+    except urllib.error.URLError as exc:
+        logger.error("No se pudo conectar al proveedor IA | url=%s error=%s", url, exc.reason)
+        raise RuntimeError(f"No se pudo conectar al proveedor IA: {exc.reason}")
+    except (TimeoutError, socket.timeout) as exc:
+        logger.error("Timeout comunicando con proveedor IA | url=%s error=%s", url, exc)
+        raise RuntimeError(f"Timeout comunicando con proveedor IA: {exc}")
+    except json.JSONDecodeError as exc:
+        raise NonRetryableMinuteError(f"Proveedor IA devolvió JSON inválido: {exc}", record_status="processing-error")
 
-    raw_text = resp.choices[0].message.content or ""
 
-    try:
-        parsed = json.loads(raw_text)
-    except json.JSONDecodeError as e:
-        logger.error("JSON invalido de OpenAI: %s...", raw_text[:200])
-        raise NonRetryableMinuteError(f"IA retornó JSON inválido: {e}", record_status="llm-failed")
+def _extract_text_from_openai_like_response(payload: dict[str, Any]) -> str:
+    choices = payload.get("choices") or []
+    if not choices:
+        return ""
+    message = (choices[0] or {}).get("message") or {}
+    content = message.get("content")
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts: list[str] = []
+        for item in content:
+            if isinstance(item, dict):
+                text = str(item.get("text") or "").strip()
+                if text:
+                    parts.append(text)
+        return "\n".join(parts)
+    return ""
 
-    # Validar estructura minima esperada
+
+def _extract_text_from_anthropic_response(payload: dict[str, Any]) -> str:
+    content = payload.get("content") or []
+    if isinstance(content, list):
+        parts: list[str] = []
+        for item in content:
+            if isinstance(item, dict) and str(item.get("type") or "") == "text":
+                text = str(item.get("text") or "").strip()
+                if text:
+                    parts.append(text)
+        return "\n".join(parts)
+    return ""
+
+
+def _validate_llm_payload(parsed: dict[str, Any]) -> None:
     required = ["scope", "agreements", "requirements", "upcomingMeetings"]
-    missing  = [k for k in required if k not in parsed]
+    missing = [k for k in required if k not in parsed]
     if missing:
         raise NonRetryableMinuteError(
             f"Respuesta de IA incompleta. Faltantes: {missing}",
             record_status="llm-failed",
         )
 
-    usage      = resp.usage
-    tokens_in  = getattr(usage, "prompt_tokens",     0) if usage else 0
-    tokens_out = getattr(usage, "completion_tokens", 0) if usage else 0
 
-    logger.info(
-        "OpenAI OK | run_id=%s tokens_in=%d tokens_out=%d",
-        resp.id, tokens_in, tokens_out,
+def _parse_ai_json_output(raw_text: str) -> dict[str, Any]:
+    try:
+        parsed = json.loads(raw_text)
+    except json.JSONDecodeError as exc:
+        logger.error("JSON inválido de IA: %s...", raw_text[:200])
+        raise NonRetryableMinuteError(f"IA retornó JSON inválido: {exc}", record_status="llm-failed")
+
+    if not isinstance(parsed, dict):
+        raise NonRetryableMinuteError("La IA no devolvió un objeto JSON válido", record_status="llm-failed")
+
+    _validate_llm_payload(parsed)
+    return parsed
+
+
+def _call_openai_compatible_sync(
+    provider_config: dict[str, Any],
+    prompt: str,
+    user_message: str,
+) -> tuple[dict, str, int, int]:
+    url = f"{provider_config['base_url']}/chat/completions"
+    payload = {
+        "model": provider_config["model_name"],
+        "max_tokens": settings.AI_MAX_TOKENS,
+        "messages": [
+            {"role": "system", "content": prompt},
+            {"role": "user", "content": user_message},
+        ],
+        "response_format": {"type": "json_object"},
+    }
+    response = _http_json_request(url, _build_provider_headers(provider_config), payload, provider_config["timeout_seconds"])
+    raw_text = _extract_text_from_openai_like_response(response)
+    parsed = _parse_ai_json_output(raw_text)
+    usage = response.get("usage") or {}
+    return (
+        parsed,
+        str(response.get("id") or f"{provider_config['provider_type']}:{uuid.uuid4()}"),
+        int(usage.get("prompt_tokens") or 0),
+        int(usage.get("completion_tokens") or 0),
     )
-    return parsed, resp.id, tokens_in, tokens_out
+
+
+def _call_ollama_sync(
+    provider_config: dict[str, Any],
+    prompt: str,
+    user_message: str,
+) -> tuple[dict, str, int, int]:
+    url = f"{provider_config['base_url']}/api/chat"
+    payload = {
+        "model": provider_config["model_name"],
+        "stream": False,
+        "format": "json",
+        "messages": [
+            {"role": "system", "content": prompt},
+            {"role": "user", "content": user_message},
+        ],
+        "options": {
+            "num_predict": settings.AI_MAX_TOKENS,
+        },
+    }
+    response = _http_json_request(url, _build_provider_headers(provider_config), payload, provider_config["timeout_seconds"])
+    raw_text = str(((response.get("message") or {}).get("content")) or "")
+    parsed = _parse_ai_json_output(raw_text)
+    return (
+        parsed,
+        str(response.get("created_at") or f"ollama:{uuid.uuid4()}"),
+        int(response.get("prompt_eval_count") or 0),
+        int(response.get("eval_count") or 0),
+    )
+
+
+def _call_anthropic_sync(
+    provider_config: dict[str, Any],
+    prompt: str,
+    user_message: str,
+) -> tuple[dict, str, int, int]:
+    url = f"{provider_config['base_url']}/messages"
+    payload = {
+        "model": provider_config["model_name"],
+        "max_tokens": settings.AI_MAX_TOKENS,
+        "system": prompt,
+        "messages": [
+            {
+                "role": "user",
+                "content": [{"type": "text", "text": user_message}],
+            }
+        ],
+    }
+    response = _http_json_request(url, _build_provider_headers(provider_config), payload, provider_config["timeout_seconds"])
+    raw_text = _extract_text_from_anthropic_response(response)
+    parsed = _parse_ai_json_output(raw_text)
+    usage = response.get("usage") or {}
+    return (
+        parsed,
+        str(response.get("id") or f"anthropic:{uuid.uuid4()}"),
+        int(usage.get("input_tokens") or 0),
+        int(usage.get("output_tokens") or 0),
+    )
+
+
+def _call_ai_provider_sync(
+    provider_config: dict[str, Any],
+    prompt: str,
+    files: list[dict],
+    ai_input: dict,
+) -> tuple[dict, str, int, int]:
+    user_message = _build_user_message(ai_input, files)
+    logger.info(
+        "Llamando a proveedor IA | family=%s adapter=%s provider=%s model=%s archivos=%d chars~%d",
+        provider_config["provider_family"],
+        provider_config["execution_adapter"],
+        provider_config["provider_type"],
+        provider_config["model_name"],
+        len(files),
+        len(user_message),
+    )
+
+    adapter = provider_config["execution_adapter"]
+    if adapter == "openai_compatible":
+        return _call_openai_compatible_sync(provider_config, prompt, user_message)
+    if adapter == "ollama":
+        return _call_ollama_sync(provider_config, prompt, user_message)
+    if adapter == "anthropic":
+        return _call_anthropic_sync(provider_config, prompt, user_message)
+
+    raise NonRetryableMinuteError(
+        f"El adapter de ejecución '{adapter}' aún no tiene implementación en el worker.",
+    )
 
 
 # ── TX2 sincrona (para ejecutar en executor) ─────────────────────────────────
@@ -487,7 +660,7 @@ def _execute_tx2_sync(payload: dict) -> tuple[str, str, int, int, str, str]:
     prompt = _load_agent_prompt(profile, additional_notes)
 
     # 3. Llamar al proveedor IA configurado
-    ai_output, run_id, tokens_in, tokens_out = _call_openai_sync(provider_config, prompt, files, ai_input)
+    ai_output, run_id, tokens_in, tokens_out = _call_ai_provider_sync(provider_config, prompt, files, ai_input)
 
     # 4. Trace
     _trace_write(
@@ -607,6 +780,25 @@ async def handle_minutes_job(job: JobEnvelope) -> None:
     except Exception as exc:
         error = str(exc)
         logger.error("TX2 fallida | tx=%s error=%s", tx_id, error, exc_info=True)
+        if job.attempt >= settings.MAX_RETRIES:
+            try:
+                await asyncio.to_thread(
+                    report_minute_failure,
+                    tx_id,
+                    rec_id,
+                    payload.get("requested_by_id", ""),
+                    error,
+                    record_status="processing-error",
+                    source="worker_retry_exhausted",
+                )
+                failure_reported = True
+                logger.warning("Fallo final reportado al backend tras agotar reintentos | tx=%s", tx_id)
+            except Exception as report_exc:
+                logger.error(
+                    "No se pudo reportar fallo final al backend tras agotar reintentos | tx=%s err=%s",
+                    tx_id,
+                    report_exc,
+                )
         raise
 
     finally:

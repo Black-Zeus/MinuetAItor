@@ -14,16 +14,31 @@ from pydantic import BaseModel, EmailStr, Field, field_validator, model_validato
 
 class InlineAsset(BaseModel):
     cid: str
-    path: str
+    path: str | None = None
+    content_base64: str | None = Field(default=None, serialization_alias="contentBase64")
     mime_type: str | None = Field(default=None, serialization_alias="mimeType")
 
-    @field_validator("cid", "path")
+    @field_validator("cid")
     @classmethod
     def validate_non_empty(cls, v: str) -> str:
         value = v.strip()
         if not value:
             raise ValueError("El valor no puede estar vacío")
         return value
+
+    @field_validator("path", "content_base64")
+    @classmethod
+    def validate_optional_text(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        value = v.strip()
+        return value or None
+
+    @model_validator(mode="after")
+    def validate_source(self) -> "InlineAsset":
+        if not self.path and not self.content_base64:
+            raise ValueError("InlineAsset requiere 'path' o 'content_base64'")
+        return self
 
 
 class EmailAttachment(BaseModel):

@@ -41,6 +41,7 @@
  */
 
 import { create } from "zustand";
+import { DEFAULT_PDF_TEMPLATE } from "@/constants/pdfTemplates";
 
 // ============================================================
 // HELPERS
@@ -481,7 +482,7 @@ export const mapIAResponseToEditorState = (iaResponse) => {
 
   // --- Defaults PDF format ---
   const pdfFormat = {
-    template: "opc_01",
+    template: iaResponse?.pdfFormat?.template ?? DEFAULT_PDF_TEMPLATE,
     coverPage: {
       enabled:     false,
       projectName: inputInfo?.projectInfo?.project ?? "",
@@ -580,7 +581,7 @@ export const mapDraftToEditorState = (draft) => {
   }));
 
   const pdfFormat = {
-    template: draft.pdfFormat?.template ?? "opc_01",
+    template: draft.pdfFormat?.template ?? DEFAULT_PDF_TEMPLATE,
     coverPage: {
       enabled:     draft.pdfFormat?.coverPage?.enabled     ?? false,
       projectName: draft.pdfFormat?.coverPage?.projectName ?? "",
@@ -661,7 +662,7 @@ const EMPTY_STATE = {
   timeline: [],
 
   pdfFormat: {
-    template:       "opc_01",
+    template:       DEFAULT_PDF_TEMPLATE,
     coverPage:      { enabled: false, projectName: "", minuteTitle: "", preparedBy: "", footerNote: "" },
     summarySheet:   { enabled: false },
     versionControl: { enabled: false },

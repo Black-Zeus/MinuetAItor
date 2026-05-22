@@ -1,6 +1,7 @@
 import axiosInstance from "@/services/axiosInterceptor";
 
 const BASE = "/v1/ai-provider-configs";
+const RESILIENT_READ_CONFIG = { timeout: 8000, _transientRetry: true };
 
 const unwrap = (res) => {
   const data = res?.data ?? {};
@@ -16,12 +17,15 @@ const normalizeListResult = (payload) => {
 };
 
 const aiProviderConfigService = {
-  async list({ skip = 0, limit = 100, isActive = null, providerType = null, search = "" } = {}) {
+  async list(
+    { skip = 0, limit = 100, isActive = null, providerType = null, search = "" } = {},
+    requestConfig = {}
+  ) {
     const payload = { skip, limit };
     if (isActive !== null) payload.is_active = isActive;
     if (providerType) payload.provider_type = providerType;
     if (String(search || "").trim()) payload.search = String(search).trim();
-    const res = await axiosInstance.post(`${BASE}/list`, payload);
+    const res = await axiosInstance.post(`${BASE}/list`, payload, { ...RESILIENT_READ_CONFIG, ...requestConfig });
     return normalizeListResult(unwrap(res));
   },
 
@@ -30,8 +34,8 @@ const aiProviderConfigService = {
     return unwrap(res);
   },
 
-  async getCatalog() {
-    const res = await axiosInstance.get(`${BASE}/catalog`);
+  async getCatalog(requestConfig = {}) {
+    const res = await axiosInstance.get(`${BASE}/catalog`, { ...RESILIENT_READ_CONFIG, ...requestConfig });
     return Array.isArray(res?.data?.result) ? res.data.result : Array.isArray(res?.data) ? res.data : [];
   },
 

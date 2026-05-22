@@ -26,6 +26,7 @@ class Project(Base, TimestampMixin):
     auto_send_on_preview = Column(Boolean, nullable=False, default=False)
     auto_send_on_completed = Column(Boolean, nullable=False, default=False)
     avatar_object_id = Column(String(36), ForeignKey("objects.id"), nullable=True)
+    pdf_template_override = Column(String(40), nullable=True)
 
     created_by = Column(String(36), ForeignKey("users.id"), nullable=True)
     updated_by = Column(String(36), ForeignKey("users.id"), nullable=True)

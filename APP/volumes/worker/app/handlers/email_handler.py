@@ -298,10 +298,34 @@ def _attach_inline_assets(msg: EmailMessage, inline_assets: list[dict[str, Any]]
     for asset in inline_assets:
         cid = str(asset.get("cid") or "").strip()
         path_value = str(asset.get("path") or "").strip()
+        content_base64 = str(asset.get("content_base64") or "").strip()
         mime_type = str(asset.get("mime_type") or "").strip()
 
-        if not cid or not path_value:
+        if not cid or (not path_value and not content_base64):
             logger.warning("Inline asset ignorado por datos incompletos | asset=%s", asset)
+            continue
+
+        if not mime_type:
+            if path_value:
+                guessed_mime, _ = mimetypes.guess_type(Path(path_value).name)
+                mime_type = guessed_mime or "application/octet-stream"
+            else:
+                mime_type = "application/octet-stream"
+
+        maintype, subtype = mime_type.split("/", 1) if "/" in mime_type else ("application", "octet-stream")
+
+        if content_base64:
+            try:
+                asset_content = base64.b64decode(content_base64)
+            except Exception:
+                logger.warning("Inline asset ignorado por base64 inválido | cid=%s", cid)
+                continue
+            html_part.add_related(
+                asset_content,
+                maintype=maintype,
+                subtype=subtype,
+                cid=f"<{cid}>",
+            )
             continue
 
         asset_path = Path(path_value)
@@ -309,11 +333,6 @@ def _attach_inline_assets(msg: EmailMessage, inline_assets: list[dict[str, Any]]
             logger.warning("Inline asset no encontrado | cid=%s path=%s", cid, asset_path)
             continue
 
-        if not mime_type:
-            guessed_mime, _ = mimetypes.guess_type(asset_path.name)
-            mime_type = guessed_mime or "application/octet-stream"
-
-        maintype, subtype = mime_type.split("/", 1)
         with asset_path.open("rb") as fh:
             html_part.add_related(
                 fh.read(),

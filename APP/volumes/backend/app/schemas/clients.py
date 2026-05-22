@@ -2,9 +2,11 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
+
+PdfTemplateId = Literal["opc_01", "opc_02", "opc_03", "opc_04"]
 
 
 # ── Referencia de usuario (sin cambios) ───────────────────────────────────────
@@ -48,6 +50,7 @@ class ClientCreateRequest(BaseModel):
     # Gobernanza
     is_confidential: bool = False
     is_active:       bool = True
+    default_pdf_template: Optional[PdfTemplateId] = Field(None, alias="defaultPdfTemplate")
 
     model_config = {"populate_by_name": True}
 
@@ -81,6 +84,7 @@ class ClientUpdateRequest(BaseModel):
     # Gobernanza
     is_confidential: Optional[bool] = None
     is_active:       Optional[bool] = None
+    default_pdf_template: Optional[PdfTemplateId] = Field(None, alias="defaultPdfTemplate")
 
     model_config = {"populate_by_name": True}
 
@@ -139,6 +143,7 @@ class ClientResponse(BaseModel):
     # Gobernanza
     is_confidential: bool = Field(..., serialization_alias="isConfidential")
     is_active:       bool = Field(..., serialization_alias="isActive")
+    default_pdf_template: Optional[PdfTemplateId] = Field(None, serialization_alias="defaultPdfTemplate")
 
     # Auditoría
     created_at: Optional[datetime] = Field(None, serialization_alias="createdAt")

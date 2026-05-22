@@ -8,6 +8,7 @@ from pathlib import Path
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from core.config import settings
 from core.datetime_utils import assume_utc, utc_now, utc_now_db
 from models.ai_profiles import AiProfile
 from models.minute_transaction import MinuteTransaction
@@ -24,7 +25,7 @@ from services.minutes import storage as minute_storage
 
 logger = logging.getLogger(__name__)
 
-STALE_PROCESSING_MINUTES = 30
+STALE_PROCESSING_MINUTES = max(1, int(getattr(settings, "minutes_stale_processing_minutes", 10) or 10))
 
 
 def _now_utc() -> datetime:

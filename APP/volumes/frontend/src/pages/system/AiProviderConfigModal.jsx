@@ -1116,7 +1116,7 @@ const AiProviderConfigModal = ({
                 label="Timeout (segundos)"
                 required
                 error={errors.timeoutSeconds}
-                hint="Tiempo máximo para validación, prueba de conexión y sincronización de modelos. No afecta todavía el procesamiento real de minutas."
+                hint="Tiempo máximo para validación, sincronización de modelos y llamadas reales del worker cuando esta integración esté activa en el procesamiento de minutas."
               >
                 <input
                   type="number"

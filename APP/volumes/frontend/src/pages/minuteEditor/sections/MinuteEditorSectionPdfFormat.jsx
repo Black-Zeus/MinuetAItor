@@ -9,35 +9,10 @@
 import React from 'react';
 import Icon from '@components/ui/icon/iconManager';
 import ModalManager from '@components/ui/modal';
+import { DEFAULT_PDF_TEMPLATE, PDF_TEMPLATE_OPTIONS, getPdfTemplateMeta } from '@/constants/pdfTemplates';
 import useMinuteEditorStore from '@/store/minuteEditorStore';
 import { previewMinutePdfBlob } from '@/services/minutesService';
 import { openPdfViewer } from '@/components/ui/pdf/PdfViewerModal';
-
-// ─────────────────────────────────────────────────────────────
-// Templates reales del pdf-worker
-// IDs = claves en TEMPLATE_MAP de handlers/minute_pdf.py
-// ─────────────────────────────────────────────────────────────
-
-const PDF_TEMPLATES = [
-  {
-    id:          'opc_01',
-    name:        'Corporativa Completa',
-    description: 'Documento formal multipágina con portada, carátula de ficha técnica, secciones de contenido y página de firmas opcionales. Ideal para reuniones de proyecto con alta formalidad.',
-    thumb:       'layout',
-  },
-  {
-    id:          'opc_02',
-    name:        'Ejecutiva Moderna',
-    description: 'Diseño moderno y compacto con encabezado degradado azul. Grid de participantes en 3 columnas y tarjetas de sección con badges de tipo. Sin portada — directo al contenido.',
-    thumb:       'briefcase',
-  },
-  {
-    id:          'opc_04',
-    name:        'Gobernanza / Comité',
-    description: 'Acta de comité con estructura formal: portada con código COM-YYYYMMDD, resumen de resoluciones numeradas y grilla de firmas para aprobación institucional.',
-    thumb:       'building',
-  },
-];
 
 const buildPreviewFilename = (meetingInfo = {}) => {
   const rawTitle = String(meetingInfo.subject ?? 'minuta').trim() || 'minuta';
@@ -62,7 +37,7 @@ const buildPreviewFilename = (meetingInfo = {}) => {
 
 const TemplateSelector = ({ recordId, selectedId, onChange, isReadOnly }) => {
   const { meetingInfo, getExportPayload } = useMinuteEditorStore();
-  const selected = PDF_TEMPLATES.find(t => t.id === selectedId) ?? PDF_TEMPLATES[0];
+  const selected = getPdfTemplateMeta(selectedId);
   const [isGeneratingPreview, setIsGeneratingPreview] = React.useState(false);
 
   const openPreview = async () => {
@@ -100,7 +75,7 @@ const TemplateSelector = ({ recordId, selectedId, onChange, isReadOnly }) => {
           disabled={isReadOnly}
           className="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm text-gray-900 dark:text-gray-100 transition-theme focus:outline-none focus:ring-2 focus:ring-primary-500/40 disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          {PDF_TEMPLATES.map(t => (
+          {PDF_TEMPLATE_OPTIONS.map(t => (
             <option key={t.id} value={t.id}>{t.name}</option>
           ))}
         </select>
@@ -396,7 +371,7 @@ const PDF_SHEETS = [
 
 const MinuteEditorSectionPdfFormat = ({ recordId, isReadOnly = false }) => {
   const { pdfFormat, togglePdfSheet, setPdfTemplate } = useMinuteEditorStore();
-  const selectedTemplate = pdfFormat.template ?? 'opc_01';
+  const selectedTemplate = pdfFormat.template ?? DEFAULT_PDF_TEMPLATE;
   const enabledCount = PDF_SHEETS.filter(s => pdfFormat[s.key]?.enabled).length;
 
   return (

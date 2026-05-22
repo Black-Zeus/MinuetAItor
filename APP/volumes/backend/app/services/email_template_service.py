@@ -179,7 +179,7 @@ def _get_env() -> Environment:
     return _env
 
 
-def _default_context() -> dict[str, str]:
+def _default_context() -> dict[str, Any]:
     app_name = os.environ.get("APP_NAME") or os.environ.get("FRONTEND_NAME") or "MinuetAItor"
     app_version = os.environ.get("APP_VERSION")
     if not app_version:
@@ -195,6 +195,13 @@ def _default_context() -> dict[str, str]:
         "DEVELOPER_EMAIL": developer_email,
         "DEVELOPER_NAME": developer_name,
         "TZ": tz_name,
+        "APP_LOGO_CID": DEFAULT_LOGO_CID,
+        "HAS_APP_LOGO": True,
+        "ORGANIZATION_NAME": app_name,
+        "ORGANIZATION_LOGO_CID": "organization-logo",
+        "HAS_ORGANIZATION_LOGO": False,
+        "CLIENT_LOGO_CID": "client-logo",
+        "HAS_CLIENT_LOGO": False,
     }
 
 

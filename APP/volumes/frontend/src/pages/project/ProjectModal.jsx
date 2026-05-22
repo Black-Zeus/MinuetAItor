@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import Icon from "@/components/ui/icon/iconManager";
 import { ModalManager } from "@/components/ui/modal";
 import { toastError, toastSuccess } from "@/components/common/toast/toastHelpers";
+import { DEFAULT_PDF_TEMPLATE, PDF_TEMPLATE_OPTIONS, getPdfTemplateLabel } from "@/constants/pdfTemplates";
 import clientService from "@/services/clientService";
 import projectService from "@/services/projectService";
 
@@ -44,6 +45,8 @@ const normalizeProject = (data = {}) => {
     isConfidential: Boolean(data.isConfidential ?? data.is_confidential ?? false),
     autoSendOnPreview: Boolean(data.autoSendOnPreview ?? data.auto_send_on_preview ?? false),
     autoSendOnCompleted: Boolean(data.autoSendOnCompleted ?? data.auto_send_on_completed ?? false),
+    pdfTemplateOverride: data.pdfTemplateOverride ?? data.pdf_template_override ?? "",
+    resolvedPdfTemplate: data.resolvedPdfTemplate ?? data.resolved_pdf_template ?? DEFAULT_PDF_TEMPLATE,
     createdAt: data.createdAt ?? data.created_at ?? "",
   };
 };
@@ -337,6 +340,8 @@ const ProjectModal = ({
         id,
         company: name,
         isConfidential: Boolean(client?.isConfidential ?? client?.is_confidential ?? false),
+        defaultPdfTemplate:
+          client?.defaultPdfTemplate ?? client?.default_pdf_template ?? DEFAULT_PDF_TEMPLATE,
       });
     });
 
@@ -345,6 +350,7 @@ const ProjectModal = ({
         id: String(formData.clientId),
         company: formData.clientName || "Cliente actual",
         isConfidential: false,
+        defaultPdfTemplate: DEFAULT_PDF_TEMPLATE,
       });
     }
 
@@ -355,6 +361,8 @@ const ProjectModal = ({
     if (!formData.clientId) return null;
     return clientOptions.find((client) => client.id === String(formData.clientId)) || null;
   }, [clientOptions, formData.clientId]);
+  const inheritedPdfTemplate = selectedClient?.defaultPdfTemplate || DEFAULT_PDF_TEMPLATE;
+  const effectivePdfTemplate = formData.pdfTemplateOverride || inheritedPdfTemplate;
 
   const closeModal = () => {
     try {
@@ -779,6 +787,79 @@ const ProjectModal = ({
                       )}
                     </Field>
                   </div>
+
+                  <div className="md:col-span-2">
+                    <Field label="Template PDF del proyecto" hint="Hereda o sobrescribe">
+                      {isView ? (
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                          <ReadValue
+                            value={
+                              formData.pdfTemplateOverride
+                                ? "Propio del proyecto"
+                                : selectedClient
+                                  ? "Heredado del cliente"
+                                  : "Heredado del sistema"
+                            }
+                          />
+                          <ReadValue value={getPdfTemplateLabel(effectivePdfTemplate)} />
+                        </div>
+                      ) : (
+                        <div className="space-y-3 rounded-xl border border-slate-200/80 bg-white px-4 py-4 dark:border-slate-700/80 dark:bg-slate-900/50">
+                          <label className="flex items-start gap-3">
+                            <input
+                              type="radio"
+                              name="pdf-template-mode"
+                              checked={!formData.pdfTemplateOverride}
+                              onChange={() => handleChange("pdfTemplateOverride", "")}
+                              className="mt-1 h-4 w-4 border-gray-300"
+                            />
+                            <div>
+                              <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                Heredar template
+                              </div>
+                              <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                Usará {getPdfTemplateLabel(inheritedPdfTemplate)} desde{" "}
+                                {selectedClient ? `el cliente ${selectedClient.company}` : "el estándar del sistema"}.
+                              </div>
+                            </div>
+                          </label>
+
+                          <label className="flex items-start gap-3">
+                            <input
+                              type="radio"
+                              name="pdf-template-mode"
+                              checked={Boolean(formData.pdfTemplateOverride)}
+                              onChange={() =>
+                                handleChange("pdfTemplateOverride", formData.pdfTemplateOverride || DEFAULT_PDF_TEMPLATE)
+                              }
+                              className="mt-1 h-4 w-4 border-gray-300"
+                            />
+                            <div className="w-full">
+                              <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                Usar template propio
+                              </div>
+                              <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                Sobrescribe la configuración heredada solo para este proyecto.
+                              </div>
+                              {formData.pdfTemplateOverride ? (
+                                <select
+                                  value={formData.pdfTemplateOverride}
+                                  onChange={(e) => handleChange("pdfTemplateOverride", e.target.value)}
+                                  className={cn(fieldClass(), "mt-3")}
+                                >
+                                  {PDF_TEMPLATE_OPTIONS.map((template) => (
+                                    <option key={template.id} value={template.id}>
+                                      {template.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              ) : null}
+                            </div>
+                          </label>
+                        </div>
+                      )}
+                    </Field>
+                  </div>
                 </div>
 
                 {selectedClient && !isView ? (
@@ -907,6 +988,20 @@ const ProjectModal = ({
                     value={formData.projectStatus === "activo" ? "Activo" : "Inactivo"}
                   />
                   <SummaryItem label="Cliente" value={selectedClient?.company || formData.clientName} />
+                  <SummaryItem
+                    label="Template PDF efectivo"
+                    value={getPdfTemplateLabel(effectivePdfTemplate)}
+                  />
+                  <SummaryItem
+                    label="Origen del template"
+                    value={
+                      formData.pdfTemplateOverride
+                        ? "Propio del proyecto"
+                        : selectedClient
+                          ? "Heredado del cliente"
+                          : "Heredado del sistema"
+                    }
+                  />
                   <SummaryItem
                     label="Confidencial"
                     value={formData.isConfidential ? "Sí" : "No"}

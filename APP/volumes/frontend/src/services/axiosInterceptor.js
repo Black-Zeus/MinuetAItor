@@ -40,6 +40,8 @@ const notify = {
   info: async (msg) => (await loadToast()).showInfoToast?.(msg),
 };
 
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 // ─── Token Adapter — única fuente: authStore ─────────────────────────────────
 const TokenAdapter = {
   get access() {
@@ -80,6 +82,8 @@ const axiosInstance = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
+const TRANSIENT_RETRY_DELAY_MS = 450;
+
 // ─── Cola anti-colisión ──────────────────────────────────────────────────────
 let isRefreshing = false;
 let failedQueue = [];
@@ -107,6 +111,20 @@ const isAccessTokenExpiringSoon = (token, minTTLSeconds) => {
   const exp = decodeExp(token);
   if (!exp) return true;
   return exp - Math.floor(Date.now() / 1000) <= minTTLSeconds;
+};
+
+const shouldRetryTransientRequest = (config, error) => {
+  if (!config?._transientRetry || config?._transientRetried) return false;
+
+  const isTimeoutError =
+    error?.code === "ECONNABORTED" ||
+    String(error?.message || "").toLowerCase().includes("timeout");
+
+  const isNetworkError =
+    error?.code === "ERR_NETWORK" ||
+    String(error?.message || "").toLowerCase().includes("network error");
+
+  return !error?.response && (isTimeoutError || isNetworkError);
 };
 
 // ─── Refresh ─────────────────────────────────────────────────────────────────
@@ -252,6 +270,25 @@ axiosInstance.interceptors.response.use(
     const originalRequest = error.config;
     if (originalRequest?.metadata?.startTime) {
       originalRequest.metadata.endTime = new Date();
+    }
+
+    if (axios.isCancel?.(error) || error?.code === "ERR_CANCELED") {
+      axiosLog.debug("Request cancelled", {
+        url: originalRequest?.url,
+        method: originalRequest?.method,
+      });
+      return Promise.reject(error);
+    }
+
+    if (shouldRetryTransientRequest(originalRequest, error)) {
+      originalRequest._transientRetried = true;
+      axiosLog.warn("Transient network error, retrying request once", {
+        url: originalRequest?.url,
+        method: originalRequest?.method,
+        timeout: originalRequest?.timeout,
+      });
+      await delay(TRANSIENT_RETRY_DELAY_MS);
+      return axiosInstance(originalRequest);
     }
 
     axiosLog.group(

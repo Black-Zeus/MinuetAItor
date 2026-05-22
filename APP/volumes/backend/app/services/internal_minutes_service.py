@@ -49,6 +49,7 @@ from services.minute_participants_service import (
 )
 from services.notification_center_service import create_in_app_notification
 from services.notification_service import enqueue_ai_processed_ready_email
+from services.pdf_template_resolver import ensure_pdf_template_in_content, resolve_pdf_template_for_record
 
 logger = logging.getLogger(__name__)
 
@@ -101,7 +102,12 @@ def _get_status_id(db: Session, code: str) -> int:
     return obj.id
 
 
-def _build_canonical_ai_output(ai_output: dict, ai_input_schema: dict, derived_fields: dict | None = None) -> dict:
+def _build_canonical_ai_output(
+    ai_output: dict,
+    ai_input_schema: dict,
+    derived_fields: dict | None = None,
+    resolved_pdf_template: str | None = None,
+) -> dict:
     """
     Normaliza el JSON canónico persistido por el backend.
 
@@ -123,6 +129,7 @@ def _build_canonical_ai_output(ai_output: dict, ai_input_schema: dict, derived_f
         if derived_actual_end_time:
             general_info["actualEndTime"] = derived_actual_end_time
 
+    ensure_pdf_template_in_content(canonical, resolved_pdf_template or "")
     return canonical
 
 
@@ -355,10 +362,12 @@ def _execute_tx2(db: Session, body: MinuteCommitRequest) -> str:
     version_status_id = cat.get("version_status_id") or _get_catalog_id(db, VersionStatus, VERSION_STATUS_SNAPSHOT)
 
     # ── Subir outputs a MinIO ─────────────────────────────────────────────────
+    resolved_pdf_template = resolve_pdf_template_for_record(record)
     canonical_output = _build_canonical_ai_output(
         body.ai_output,
         body.ai_input_schema,
         body.derived_fields,
+        resolved_pdf_template,
     )
 
     out_bytes = json.dumps(body.ai_output, ensure_ascii=False, indent=2).encode("utf-8")

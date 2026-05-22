@@ -30,6 +30,7 @@ const toApiPayload = (formData) => ({
   notes: formData.notes ?? null,
   tags: formData.tags ?? null,
   is_confidential: Boolean(formData.isConfidential),
+  default_pdf_template: formData.defaultPdfTemplate || null,
 });
 
 const NewClient = ({ onCreated }) => {

@@ -1,9 +1,11 @@
 # schemas/projects.py
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
+
+PdfTemplateId = Literal["opc_01", "opc_02", "opc_03", "opc_04"]
 
 
 class UserRefResponse(BaseModel):
@@ -29,6 +31,7 @@ class ProjectCreateRequest(BaseModel):
     is_active: bool = True
     auto_send_on_preview: bool = False
     auto_send_on_completed: bool = False
+    pdf_template_override: PdfTemplateId | None = Field(None, alias="pdfTemplateOverride")
 
     model_config = {"populate_by_name": True}
 
@@ -48,6 +51,7 @@ class ProjectUpdateRequest(BaseModel):
     is_active: bool | None = None
     auto_send_on_preview: bool | None = None
     auto_send_on_completed: bool | None = None
+    pdf_template_override: PdfTemplateId | None = Field(None, alias="pdfTemplateOverride")
 
     model_config = {"populate_by_name": True}
 
@@ -89,6 +93,8 @@ class ProjectResponse(BaseModel):
     is_active: bool = Field(..., serialization_alias="isActive")
     auto_send_on_preview: bool = Field(False, serialization_alias="autoSendOnPreview")
     auto_send_on_completed: bool = Field(False, serialization_alias="autoSendOnCompleted")
+    pdf_template_override: PdfTemplateId | None = Field(None, serialization_alias="pdfTemplateOverride")
+    resolved_pdf_template: PdfTemplateId = Field(..., serialization_alias="resolvedPdfTemplate")
 
     created_at: str = Field(..., serialization_alias="createdAt")
     updated_at: str | None = Field(None, serialization_alias="updatedAt")
