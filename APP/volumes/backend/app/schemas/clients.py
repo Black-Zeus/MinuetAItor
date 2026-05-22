@@ -6,7 +6,7 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
-PdfTemplateId = Literal["opc_01", "opc_02", "opc_03", "opc_04"]
+PdfTemplateId = Literal["opc_01", "opc_02", "opc_03", "opc_04", "opc_05"]
 
 
 # ── Referencia de usuario (sin cambios) ───────────────────────────────────────

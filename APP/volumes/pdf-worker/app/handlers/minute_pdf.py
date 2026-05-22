@@ -44,11 +44,13 @@ TEMPLATE_MAP: dict[str, str] = {
     "opc_02":    "minutes/opc_02.html",
     "opc_03":    "minutes/opc_03.html",
     "opc_04":    "minutes/opc_04.html",
+    "opc_05":    "minutes/opc_05.html",
     # Aliases legibles
     "standard":   "minutes/opc_01.html",
     "executive":  "minutes/opc_02.html",
     "technical":  "minutes/opc_03.html",
     "governance": "minutes/opc_04.html",
+    "classic":    "minutes/opc_05.html",
 }
 
 DEFAULT_TEMPLATE = "minutes/opc_01.html"

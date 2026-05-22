@@ -1,0 +1,958 @@
+{% extends "base/base.html" %}
+
+{# ============================================================
+   minutes/opc_05.html — Minuta Clásica
+   Base visual: 20260305_Servicios.html
+   Intención: conservar el lenguaje tabular clásico de minuta
+   de servicio, pero con una paleta más viva y menos gris.
+============================================================ #}
+
+{% block extra_styles %}
+/* ── OPC_05: Minuta Clásica ──────────────────────────────── */
+
+:root {
+  --classic-ink: #1f2d3d;
+  --classic-accent: #6a7f95;
+  --classic-accent-dark: #46596d;
+  --classic-accent-soft: #eceff3;
+  --classic-gold-soft: #f3efe5;
+  --classic-surface: #ffffff;
+  --classic-surface-2: #f2f3f5;
+  --classic-line: #bfc8d1;
+  --classic-line-strong: #9daab6;
+}
+
+.classic-cover {
+  min-height: calc(297mm - 30mm);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+.classic-cover-logo-strip {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 28px;
+  margin-bottom: 30px;
+}
+
+.classic-cover-hero {
+  border: 1px solid var(--classic-line);
+  border-radius: 4px;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.classic-cover-top {
+  padding: 18px 20px 16px;
+  background: #5a6d80;
+  color: #ffffff;
+}
+
+.classic-cover-org {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.15;
+  font-weight: 700;
+}
+
+.classic-cover-doc {
+  margin: 6px 0 0 0;
+  font-size: 11px;
+  letter-spacing: 0.9px;
+  text-transform: uppercase;
+  opacity: 0.84;
+  font-weight: 700;
+}
+
+.classic-cover-logos {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  flex-shrink: 0;
+}
+
+.classic-logo-box {
+  width: 250px;
+  height: 250px;
+  border: 1px solid var(--classic-line);
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+}
+
+.classic-logo-box img {
+  max-width: 100%;
+  max-height: 100%;
+  display: block;
+}
+
+.classic-logo-fallback {
+  text-align: center;
+  font-size: 16px;
+  line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--classic-accent-dark);
+  opacity: 0.82;
+  font-weight: 700;
+}
+
+.classic-kicker {
+  margin: 0 0 10px 0;
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  opacity: 0.82;
+  font-weight: 700;
+}
+
+.classic-cover-title {
+  margin: 0;
+  font-size: 31px;
+  line-height: 1.1;
+  font-weight: 800;
+}
+
+.classic-cover-subtitle {
+  margin: 10px 0 0 0;
+  font-size: 14px;
+  line-height: 1.5;
+  opacity: 0.94;
+}
+
+.classic-cover-summary {
+  margin: 12px 0 0 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(255,255,255,0.24);
+  background: rgba(255,255,255,0.08);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.classic-cover-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  padding: 0;
+}
+
+.classic-cover-item {
+  border-right: 1px solid var(--classic-line);
+  border-bottom: 1px solid var(--classic-line);
+  padding: 12px 14px 11px;
+  background: #ffffff;
+}
+
+.classic-cover-item .label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.classic-cover-item .value {
+  color: var(--classic-ink);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.classic-cover-footer {
+  margin-top: auto;
+  padding: 14px 4px 0;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: right;
+}
+
+.classic-page {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(297mm - 30mm);
+}
+
+.classic-page-footer {
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid var(--classic-line);
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  align-items: end;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.classic-page-footer-text {
+  min-height: 1em;
+}
+
+.classic-page-footer.is-left .classic-page-footer-text {
+  grid-column: 1;
+  text-align: left;
+}
+
+.classic-page-footer.is-center .classic-page-footer-text {
+  grid-column: 2;
+  text-align: center;
+}
+
+.classic-page-footer-number {
+  grid-column: 3;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.classic-title {
+  margin: 0 0 16px 0;
+  padding: 12px 14px;
+  border-radius: 4px;
+  border: 1px solid var(--classic-line);
+  background: var(--classic-surface-2);
+}
+
+.classic-title h1 {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.12;
+  color: var(--classic-ink);
+  font-weight: 700;
+}
+
+.classic-title p {
+  margin: 8px 0 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.classic-panel {
+  border: 1px solid var(--classic-line);
+  border-radius: 4px;
+  overflow: hidden;
+  background: #fff;
+  margin-bottom: 16px;
+}
+
+.classic-band {
+  padding: 8px 12px;
+  background: var(--classic-accent-soft);
+  border-bottom: 1px solid var(--classic-line);
+  color: var(--classic-accent-dark);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.classic-meta-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0;
+}
+
+.classic-meta-table col.label-col {
+  width: 16%;
+}
+
+.classic-meta-table col.value-col {
+  width: 34%;
+}
+
+.classic-meta-table td,
+.classic-meta-table th {
+  border: 1px solid var(--classic-line);
+  padding: 10px 11px;
+  vertical-align: top;
+}
+
+.classic-meta-table th {
+  width: 16%;
+  background: var(--classic-surface-2);
+  color: var(--classic-accent-dark);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  font-weight: 800;
+}
+
+.classic-initials {
+  text-align: center;
+  font-weight: 700;
+  color: var(--classic-accent-dark);
+  background: transparent;
+  padding: 0;
+}
+
+.classic-empty {
+  color: var(--muted);
+  font-style: italic;
+  font-size: 12px;
+}
+
+.classic-scope-card {
+  border: 1px solid var(--classic-line);
+  border-radius: 4px;
+  overflow: hidden;
+  background: #fff;
+  margin-bottom: 14px;
+}
+
+.classic-scope-head {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 0;
+}
+
+.classic-scope-title {
+  padding: 12px 14px;
+  background: var(--classic-accent-soft);
+  border-right: 1px solid var(--classic-line);
+}
+
+.classic-scope-title h3 {
+  margin: 0;
+  color: var(--classic-ink);
+  font-size: 14px;
+  line-height: 1.25;
+  font-weight: 700;
+}
+
+.classic-scope-title .meta {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.classic-scope-content {
+  padding: 12px 14px 14px;
+}
+
+.classic-scope-summary {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.classic-subband {
+  margin: 12px 0 10px;
+  padding: 7px 10px;
+  border-radius: 0;
+  background: var(--classic-surface-2);
+  border: 1px solid var(--classic-line);
+  color: var(--classic-ink);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 800;
+}
+
+.classic-bullets {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.classic-bullets li {
+  margin: 6px 0;
+}
+
+.classic-detail-list {
+  margin: 10px 0 0 0;
+  padding-left: 18px;
+}
+
+.classic-detail-list li {
+  margin: 7px 0;
+}
+
+.classic-detail-label {
+  color: var(--classic-accent-dark);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.classic-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid var(--classic-line);
+  border-radius: 0;
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+
+.classic-table th,
+.classic-table td {
+  border: 1px solid var(--classic-line);
+  padding: 10px 11px;
+  vertical-align: top;
+  word-break: break-word;
+}
+
+.classic-table thead th {
+  background: #eef2f5;
+  color: var(--classic-accent-dark);
+  font-size: 11px;
+  line-height: 1.3;
+  text-transform: uppercase;
+  letter-spacing: 0.45px;
+  font-weight: 800;
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
+.classic-footer {
+  margin-top: 18px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--classic-line-strong);
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.classic-signature-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(260px, 320px));
+  justify-content: center;
+  gap: 22px;
+  margin-top: 24px;
+}
+
+.classic-signature-grid.count-1 {
+  grid-template-columns: minmax(280px, 360px);
+}
+
+.classic-signature-grid.count-2 {
+  grid-template-columns: repeat(2, minmax(260px, 320px));
+}
+
+.classic-signature-box {
+  min-height: 118px;
+  border: 1px solid var(--classic-line);
+  border-radius: 2px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  background: #ffffff;
+}
+
+.classic-signature-line {
+  border-top: 1px solid var(--classic-line-strong);
+  padding-top: 8px;
+  text-align: center;
+}
+
+.classic-signature-name {
+  color: var(--classic-ink);
+  font-weight: 800;
+  text-align: center;
+}
+
+.classic-signature-role {
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+.classic-signature-note {
+  margin-top: 18px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+{% endblock %}
+
+{% block content %}
+<div class="document">
+  {% set cover = cover_context if cover_context is defined and cover_context else {} %}
+  {% set cover_page = pdf_format.cover_page if pdf_format is defined and pdf_format.cover_page is defined else {} %}
+  {% set cover_project = cover_page.project_name | default('', true) or general_info.project | default('—', true) %}
+  {% set cover_title = cover_page.minute_title | default('', true) or general_info.subject %}
+  {% set pager = namespace(page=0, total=0) %}
+  {% if pdf_format is not defined or pdf_format.cover_page is not defined or pdf_format.cover_page.enabled %}{% set pager.total = pager.total + 1 %}{% endif %}
+  {% if pdf_format is not defined or pdf_format.summary_sheet is not defined or pdf_format.summary_sheet.enabled %}{% set pager.total = pager.total + 1 %}{% endif %}
+  {% set pager.total = pager.total + 1 %}
+  {% set pager.total = pager.total + 1 %}
+  {% set pager.total = pager.total + 1 %}
+  {% if pdf_format is defined and pdf_format.version_control is defined and pdf_format.version_control.enabled %}{% set pager.total = pager.total + 1 %}{% endif %}
+  {% if pdf_format is defined and pdf_format.signature_page is defined and pdf_format.signature_page.enabled %}{% set pager.total = pager.total + 1 %}{% endif %}
+
+  {% macro render_footer(page_number, total_pages) %}
+    {% set footer_bar = pdf_format.footer_bar if pdf_format is defined and pdf_format.footer_bar is defined else {} %}
+    {% if footer_bar and footer_bar.enabled %}
+    <div class="classic-page-footer {{ 'is-center' if footer_bar.align == 'center' else 'is-left' }}">
+      <div class="classic-page-footer-text">{{ footer_bar.note | default('') }}</div>
+      <div class="classic-page-footer-number">Pagina {{ page_number }} de {{ total_pages }}</div>
+    </div>
+    {% endif %}
+  {% endmacro %}
+
+  {% if pdf_format is not defined or pdf_format.cover_page is not defined or pdf_format.cover_page.enabled %}
+  {% set pager.page = pager.page + 1 %}
+  <section class="page classic-page">
+    <div class="classic-cover">
+      <div class="classic-cover-logo-strip">
+        <div class="classic-cover-logos">
+          <div class="classic-logo-box">
+            {% if cover.get("organization_logo_data_uri") %}
+            <img src="{{ cover.get("organization_logo_data_uri") }}" alt="Logo organizacion" />
+            {% else %}
+            <div class="classic-logo-fallback">Logo<br />Empresa</div>
+            {% endif %}
+          </div>
+          <div class="classic-logo-box">
+            {% if cover.get("client_logo_data_uri") %}
+            <img src="{{ cover.get("client_logo_data_uri") }}" alt="Logo cliente" />
+            {% else %}
+            <div class="classic-logo-fallback">Logo<br />Cliente</div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      <div class="classic-cover-hero">
+        <div class="classic-cover-top">
+          <h2 class="classic-cover-org">{{ cover.get("organization_name", "MinuetAItor") }}</h2>
+          <p class="classic-cover-doc">Minuta de reunion · informe de seguimiento</p>
+          <h1 class="classic-cover-title">{{ cover_title }}</h1>
+          <p class="classic-cover-subtitle">
+            {{ general_info.client }}{% if cover_project and cover_project != '—' %} · {{ cover_project }}{% endif %} · {{ general_info.meeting_date }}
+          </p>
+          {% if cover.get("brief_summary") %}
+          <div class="classic-cover-summary">
+            {{ cover.get("brief_summary") }}
+          </div>
+          {% endif %}
+        </div>
+        <div class="classic-cover-grid">
+          <div class="classic-cover-item"><span class="label">Cliente</span><span class="value">{{ general_info.client }}</span></div>
+          <div class="classic-cover-item"><span class="label">Proyecto</span><span class="value">{{ cover_project }}</span></div>
+          <div class="classic-cover-item"><span class="label">Fecha de reunion</span><span class="value">{{ general_info.meeting_date }}</span></div>
+          <div class="classic-cover-item"><span class="label">Version</span><span class="value">{{ version_label | default('v1.0') }}</span></div>
+        </div>
+      </div>
+      <div class="classic-cover-footer">
+        {{ pdf_format.cover_page.subtitle | default('Documento base para revision y seguimiento.') if pdf_format is defined and pdf_format.cover_page is defined else 'Documento base para revision y seguimiento.' }}
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if pdf_format is not defined or pdf_format.summary_sheet is not defined or pdf_format.summary_sheet.enabled %}
+  {% set pager.page = pager.page + 1 %}
+  <section class="page classic-page">
+    <div class="classic-title">
+      <h1>Ficha de Documento</h1>
+      <p>Resumen ejecutivo de identificacion para control documental y circulacion del acta.</p>
+    </div>
+
+    <div class="classic-panel">
+      <div class="classic-band">Resumen documental</div>
+      <table class="classic-meta-table">
+        <colgroup>
+          <col class="label-col" />
+          <col class="value-col" />
+          <col class="label-col" />
+          <col class="value-col" />
+        </colgroup>
+        <tbody>
+          <tr>
+            <th>Cliente</th>
+            <td>{{ general_info.client }}</td>
+            <th>Proyecto</th>
+            <td>{{ general_info.project | default('—') }}</td>
+          </tr>
+          <tr>
+            <th>Documento</th>
+            <td>Minuta de reunion</td>
+            <th>Version</th>
+            <td>{{ version_label | default('v1.0') }}</td>
+          </tr>
+          <tr>
+            <th>Fecha</th>
+            <td>{{ general_info.meeting_date }}</td>
+            <th>Estado</th>
+            <td>{{ 'Borrador' if options is defined and options.watermark else 'Emitida' }}</td>
+          </tr>
+          <tr>
+            <th>Categoria</th>
+            <td colspan="3">Acta de seguimiento y control documental de reunion</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    {{ render_footer(pager.page, pager.total) }}
+  </section>
+  {% endif %}
+
+  {% set pager.page = pager.page + 1 %}
+  <section class="page classic-page">
+    <div class="classic-title">
+      <h1>Minuta de Reunion</h1>
+      <p>{{ general_info.client }}{% if general_info.project %} · {{ general_info.project }}{% endif %} · {{ general_info.meeting_date }}</p>
+    </div>
+
+    <div class="classic-panel">
+      <div class="classic-band">Informacion general</div>
+      <table class="classic-meta-table">
+        <colgroup>
+          <col class="label-col" />
+          <col class="value-col" />
+          <col class="label-col" />
+          <col class="value-col" />
+        </colgroup>
+        <tbody>
+          <tr>
+            <th>Tema(s)</th>
+            <td colspan="3">{{ general_info.subject }}</td>
+          </tr>
+          <tr>
+            <th>Elaborador</th>
+            <td colspan="3">{{ general_info.prepared_by }}</td>
+          </tr>
+          <tr>
+            <th>Lugar</th>
+            <td>{{ general_info.location | default('—') }}</td>
+            <th>Fecha reunion</th>
+            <td>{{ general_info.meeting_date }}</td>
+          </tr>
+          <tr>
+            <th>Inicio</th>
+            <td>{{ general_info.scheduled_start_time | default('—') }}</td>
+            <th>Inicio real</th>
+            <td>{{ general_info.actual_start_time | default('—') }}</td>
+          </tr>
+          <tr>
+            <th>Termino</th>
+            <td>{{ general_info.scheduled_end_time | default('—') }}</td>
+            <th>Termino real</th>
+            <td>{{ general_info.actual_end_time | default('—') }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="classic-panel">
+      <div class="classic-band">Participantes</div>
+      {% set max_rows = [
+        participants.invited | length,
+        participants.attendees | length,
+        participants.copy_recipients | length
+      ] | max %}
+      <table class="classic-table" style="margin-bottom:0;">
+        <thead>
+          <tr>
+            <th colspan="2">Invitados</th>
+            <th colspan="2">Asistentes</th>
+            <th colspan="2">Copia Minuta</th>
+          </tr>
+          <tr>
+            <th>Nombre</th><th style="width:7%">Abr.</th>
+            <th>Nombre</th><th style="width:7%">Abr.</th>
+            <th>Nombre</th><th style="width:7%">Abr.</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for i in range(max_rows) %}
+          {% set inv = participants.invited[i] if i < participants.invited | length else None %}
+          {% set att = participants.attendees[i] if i < participants.attendees | length else None %}
+          {% set cc = participants.copy_recipients[i] if i < participants.copy_recipients | length else None %}
+          <tr>
+            <td>{{ inv.full_name if inv else '' }}</td>
+            <td class="classic-initials">{{ inv.initials if inv else '' }}</td>
+            <td>{{ att.full_name if att else '' }}</td>
+            <td class="classic-initials">{{ att.initials if att else '' }}</td>
+            <td>{{ cc.full_name if cc else '' }}</td>
+            <td class="classic-initials">{{ cc.initials if cc else '' }}</td>
+          </tr>
+          {% endfor %}
+          {% if max_rows == 0 %}
+          <tr>
+            <td colspan="6" class="classic-empty">Sin participantes registrados.</td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if ai_tags is defined and ai_tags | length > 0 %}
+    <div class="tag-list">
+      {% for tag in ai_tags %}
+      <span class="tag">{{ tag.name }}</span>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {{ render_footer(pager.page, pager.total) }}
+  </section>
+
+  {% set pager.page = pager.page + 1 %}
+  <section class="page classic-page">
+    <div class="classic-title">
+      <h1>Alcances</h1>
+      <p>Desarrollo de la reunion estructurado por bloques, materias y observaciones relevantes.</p>
+    </div>
+
+    {% for section in scope.sections %}
+    <section class="classic-scope-card">
+      <div class="classic-scope-head">
+        <div class="classic-scope-title">
+          <h3>{{ section.section_title }}</h3>
+          <div class="meta">{{ section.section_id }} · {{ section.section_type }}</div>
+        </div>
+        <div class="classic-scope-content">
+          <p class="classic-scope-summary">{{ section.content.summary }}</p>
+
+          {% if section.section_type == 'introduction' and section.content.topics_list is defined and section.content.topics_list | length > 0 %}
+          <div class="classic-subband">Temas considerados</div>
+          <ol class="clean-list">
+            {% for topic in section.content.topics_list %}
+            <li>{{ topic }}</li>
+            {% endfor %}
+          </ol>
+          {% elif section.content.details is defined and section.content.details | length > 0 %}
+          <ul class="classic-detail-list">
+            {% for detail in section.content.details %}
+            <li>
+              {% if detail.label %}<span class="classic-detail-label">{{ detail.label }}:</span> {% endif %}{{ detail.description }}
+            </li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+        </div>
+      </div>
+    </section>
+    {% endfor %}
+    {{ render_footer(pager.page, pager.total) }}
+  </section>
+
+  {% set pager.page = pager.page + 1 %}
+  <section class="page classic-page">
+    {% if agreements["items"] | length > 0 %}
+    <table class="classic-table">
+      <caption class="section-table-caption">
+        <h2 class="section-title">Acuerdos</h2>
+        <div class="section-note">Compromisos acordados durante la sesion y su responsable asociado.</div>
+      </caption>
+      <thead>
+        <tr>
+          <th style="width:24%">Asunto</th>
+          <th>Detalle</th>
+          <th style="width:16%">Responsable</th>
+          <th style="width:16%">Fecha limite</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in agreements["items"] %}
+        {% set agreement_status = (item.status | default('pending') | lower) %}
+        <tr>
+          <td>
+            {{ item.subject }}
+            <br />
+            <span class="muted">
+              (
+              {{
+                {
+                  'pending': 'Pendiente',
+                  'open': 'Abierto',
+                  'in_progress': 'En proceso',
+                  'in-progress': 'En proceso',
+                  'done': 'Completado',
+                  'completed': 'Completado',
+                  'closed': 'Cerrado',
+                  'cancelled': 'Cancelado',
+                  'canceled': 'Cancelado',
+                }.get(agreement_status, item.status | default('Pendiente'))
+              }}
+              )
+            </span>
+          </td>
+          <td>{{ item.body }}</td>
+          <td>{{ item.responsible | default('No definido') }}</td>
+          <td>{{ item.due_date | default('No definido') }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="pdf-section-header">
+      <h2 class="section-title">Acuerdos</h2>
+    </div>
+    <div class="empty-state">No hay acuerdos registrados.</div>
+    {% endif %}
+
+    {% if requirements["items"] | length > 0 %}
+    <table class="classic-table">
+      <caption class="section-table-caption">
+        <h2 class="section-title">Requerimientos</h2>
+        <div class="section-note">Solicitudes, dependencias o necesidades levantadas durante la reunion.</div>
+      </caption>
+      <thead>
+        <tr>
+          <th style="width:18%">Entidad</th>
+          <th>Detalle</th>
+          <th style="width:15%">Responsable</th>
+          <th style="width:11%">Prioridad</th>
+          <th style="width:11%">Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in requirements["items"] %}
+        <tr>
+          <td>{{ item.entity }}</td>
+          <td>{{ item.body }}</td>
+          <td>{{ item.responsible | default('No definido') }}</td>
+          {% set requirement_priority = (item.priority | default('medium') | lower) %}
+          <td>
+            {{
+              {
+                'low': 'Baja',
+                'medium': 'Media',
+                'high': 'Alta',
+                'critical': 'Critica',
+              }.get(requirement_priority, item.priority | default('Media'))
+            }}
+          </td>
+          {% set requirement_status = (item.status | default('open') | lower) %}
+          <td>
+            {{
+              {
+                'pending': 'Pendiente',
+                'open': 'Abierto',
+                'in_progress': 'En proceso',
+                'in-progress': 'En proceso',
+                'done': 'Completado',
+                'completed': 'Completado',
+                'closed': 'Cerrado',
+                'cancelled': 'Cancelado',
+                'canceled': 'Cancelado',
+              }.get(requirement_status, item.status | default('Abierto'))
+            }}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="pdf-section-header">
+      <h2 class="section-title">Requerimientos</h2>
+    </div>
+    <div class="empty-state">No hay requerimientos registrados.</div>
+    {% endif %}
+
+    {% if upcoming_meetings is defined and upcoming_meetings["items"] | length > 0 %}
+    <table class="classic-table">
+      <caption class="section-table-caption">
+        <h2 class="section-title">Proximas reuniones</h2>
+      </caption>
+      <thead>
+        <tr>
+          <th style="width:16%">Fecha</th>
+          <th>Agenda</th>
+          <th style="width:24%">Asistentes</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in upcoming_meetings["items"] %}
+        <tr>
+          <td>{{ item.scheduled_date | default('—') }}</td>
+          <td>{{ item.agenda }}</td>
+          <td>{{ item.attendees | join(', ') if item.attendees else '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+    {{ render_footer(pager.page, pager.total) }}
+  </section>
+
+  {% if pdf_format is defined and pdf_format.version_control is defined and pdf_format.version_control.enabled %}
+  {% set pager.page = pager.page + 1 %}
+  <section class="page classic-page">
+    <div class="classic-title">
+      <h1>Control de Versiones</h1>
+      <p>Historial documental para seguimiento, revision y trazabilidad del contenido emitido.</p>
+    </div>
+    <table class="classic-table">
+      <thead>
+        <tr>
+          <th style="width:14%">Version</th>
+          <th style="width:14%">Fecha</th>
+          <th style="width:22%">Autor</th>
+          <th>Descripcion</th>
+          <th style="width:14%">Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if pdf_format.version_control.entries is defined %}
+          {% for entry in pdf_format.version_control.entries %}
+          <tr>
+            <td>{{ entry.version }}</td>
+            <td>{{ entry.date }}</td>
+            <td>{{ entry.author }}</td>
+            <td>{{ entry.description }}</td>
+            <td>{{ entry.status }}</td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td>{{ version_label | default('v1.0') }}</td>
+            <td>{{ general_info.meeting_date }}</td>
+            <td>{{ general_info.prepared_by }}</td>
+            <td>Version emitida desde el flujo documental de la minuta.</td>
+            <td>{{ 'Borrador' if options is defined and options.watermark else 'Emitida' }}</td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+    {{ render_footer(pager.page, pager.total) }}
+  </section>
+  {% endif %}
+
+  {% if pdf_format is defined and pdf_format.signature_page is defined and pdf_format.signature_page.enabled %}
+  {% set pager.page = pager.page + 1 %}
+  <section class="page classic-page">
+    <div class="classic-title">
+      <h1>Firmas / Aprobacion</h1>
+      <p>Espacio reservado para validacion formal del documento y cierre del circuito documental.</p>
+    </div>
+    {% set signature_signatories = pdf_format.signature_page.signatories if (pdf_format.signature_page.signatories is defined and pdf_format.signature_page.signatories | length > 0) else participants.attendees %}
+    <div class="classic-signature-grid count-{{ signature_signatories | length if signature_signatories | length > 0 else 1 }}">
+      {% if signature_signatories | length > 0 %}
+        {% for sig in signature_signatories %}
+        <div class="classic-signature-box">
+          <div class="classic-signature-line">
+            <div class="classic-signature-name">{{ sig.full_name }}</div>
+            <div class="classic-signature-role">{{ sig.role }}</div>
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="classic-signature-box">
+          <div class="classic-signature-line">
+            <div class="classic-signature-name">Sin firmantes definidos</div>
+            <div class="classic-signature-role">Pendiente de asignacion</div>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+    <p class="classic-signature-note">
+      {{
+        pdf_format.signature_page.note
+        | default('')
+      }}
+    </p>
+    {{ render_footer(pager.page, pager.total) }}
+  </section>
+  {% endif %}
+
+</div>
+{% endblock %}

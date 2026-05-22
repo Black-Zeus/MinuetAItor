@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 DEFAULT_PDF_TEMPLATE = "opc_01"
-SUPPORTED_PDF_TEMPLATES = ("opc_01", "opc_02", "opc_03", "opc_04")
+SUPPORTED_PDF_TEMPLATES = ("opc_01", "opc_02", "opc_03", "opc_04", "opc_05")
 
 
 def normalize_pdf_template(value: Any, fallback: str = DEFAULT_PDF_TEMPLATE) -> str:

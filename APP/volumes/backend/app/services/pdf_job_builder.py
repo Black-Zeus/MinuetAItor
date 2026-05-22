@@ -17,11 +17,20 @@ Triggers soportados:
 
 from __future__ import annotations
 
+import base64
 import json
 import logging
 import uuid
 from typing import Any, Dict, List
 
+from sqlalchemy.orm import object_session
+
+from core.exceptions import BadRequestException
+from services.clients_service import read_client_logo_content
+from services.organization_settings_service import (
+    get_organization_settings,
+    read_organization_logo_content,
+)
 from services.pdf_template_resolver import DEFAULT_PDF_TEMPLATE, resolve_pdf_template_for_record
 
 logger = logging.getLogger(__name__)
@@ -101,6 +110,8 @@ def build_pdf_job(record: Any, trigger_config: Dict[str, Any]) -> Dict[str, Any]
         },
         "data": {
             "pdf_metadata":      pdf_metadata,
+            "pdf_format":        _map_pdf_format_from_ia_response(ia_response),
+            "cover_context":     _build_cover_context(record, ia_response),
             "general_info":      _map_general_info(ia_response.get("generalInfo", {})),
             "participants":      _map_participants(ia_response.get("participants", {})),
             "scope":             _map_scope(ia_response.get("scope", {})),
@@ -384,6 +395,82 @@ def _format_date(value: Any) -> str:
     return value.isoformat()[:10]
 
 
+def _build_cover_context(record: Any, ia_response: Dict[str, Any]) -> Dict[str, Any]:
+    db = object_session(record)
+
+    organization_name = "MinuetAItor"
+    organization_logo_data_uri = None
+    client_logo_data_uri = None
+
+    if db is not None:
+        try:
+            org = get_organization_settings(db)
+            organization_name = org.get("name") or organization_name
+        except Exception:
+            pass
+
+        try:
+            logo_bytes, logo_content_type = read_organization_logo_content(db)
+            organization_logo_data_uri = _to_data_uri(logo_bytes, logo_content_type)
+        except (BadRequestException, Exception):
+            organization_logo_data_uri = None
+
+        try:
+            client_logo_bytes, client_logo_content_type = read_client_logo_content(db, str(record.client_id))
+            client_logo_data_uri = _to_data_uri(client_logo_bytes, client_logo_content_type)
+        except Exception:
+            client_logo_data_uri = None
+
+    return {
+        "organization_name": organization_name,
+        "organization_logo_data_uri": organization_logo_data_uri,
+        "client_logo_data_uri": client_logo_data_uri,
+        "brief_summary": _resolve_brief_summary(record, ia_response),
+    }
+
+
+def _to_data_uri(content: bytes | None, content_type: str | None) -> str | None:
+    if not content:
+        return None
+    mime_type = (content_type or "application/octet-stream").strip() or "application/octet-stream"
+    encoded = base64.b64encode(content).decode("ascii")
+    return f"data:{mime_type};base64,{encoded}"
+
+
+def _resolve_brief_summary(record: Any, ia_response: Dict[str, Any]) -> str:
+    intro_snippet = str(getattr(record, "intro_snippet", "") or "").strip()
+    if intro_snippet:
+        return intro_snippet
+
+    sections = (((ia_response or {}).get("scope") or {}).get("sections") or [])
+    for section in sections:
+        if not isinstance(section, dict):
+            continue
+        content = section.get("content") or {}
+        summary = str(content.get("summary", "") or "").strip()
+        if summary:
+            return summary
+
+    subject = (((ia_response or {}).get("generalInfo") or {}).get("subject") or "")
+    return str(subject or "").strip()
+
+
+def _build_cover_context_from_draft(record: Any, draft_content: Dict[str, Any]) -> Dict[str, Any]:
+    pseudo_ia_response = {
+        "generalInfo": {
+            "subject": ((draft_content or {}).get("meetingInfo") or {}).get("subject", ""),
+        },
+        "scope": {
+            "sections": [
+                {"content": {"summary": section.get("summary", "")}}
+                for section in ((draft_content or {}).get("scopeSections") or [])
+                if isinstance(section, dict)
+            ],
+        },
+    }
+    return _build_cover_context(record, pseudo_ia_response)
+
+
 # ---------------------------------------------------------------------------
 # Builder desde draft (formato editor)
 # Usado cuando el contenido ya está en formato del store (draft_current.json).
@@ -437,6 +524,8 @@ def build_pdf_job_from_draft(
         },
         "data": {
             "pdf_metadata":      pdf_metadata,
+            "pdf_format":        _map_pdf_format_from_draft(draft_content),
+            "cover_context":     _build_cover_context_from_draft(record, draft_content),
             "general_info":      _map_general_info_from_draft(draft_content),
             "participants":      _map_participants_from_draft(draft_content),
             "scope":             _map_scope_from_draft(draft_content),
@@ -471,6 +560,97 @@ def build_pdf_job_from_draft(
         "queue":   "queue:pdf",
         "attempt": 1,
         "payload": payload,
+    }
+
+
+def _map_pdf_format_from_ia_response(ia_response: Dict[str, Any]) -> Dict[str, Any]:
+    raw = ia_response.get("pdfFormat") if isinstance(ia_response, dict) else None
+    return _map_pdf_format_common(raw, timeline_entries=None)
+
+
+def _map_pdf_format_from_draft(draft_content: Dict[str, Any]) -> Dict[str, Any]:
+    raw = draft_content.get("pdfFormat") if isinstance(draft_content, dict) else None
+    timeline_entries = draft_content.get("timeline") if isinstance(draft_content, dict) else None
+    mapped = _map_pdf_format_common(raw, timeline_entries=timeline_entries)
+    meeting_info = draft_content.get("meetingInfo") if isinstance(draft_content, dict) else {}
+    if isinstance(meeting_info, dict):
+        if not str(mapped.get("cover_page", {}).get("project_name", "") or "").strip():
+            mapped["cover_page"]["project_name"] = str(meeting_info.get("project", "") or "").strip()
+        if not str(mapped.get("cover_page", {}).get("minute_title", "") or "").strip():
+            mapped["cover_page"]["minute_title"] = str(meeting_info.get("subject", "") or "").strip()
+        if not str(mapped.get("cover_page", {}).get("prepared_by", "") or "").strip():
+            mapped["cover_page"]["prepared_by"] = str(meeting_info.get("preparedBy", "") or "").strip()
+    return mapped
+
+
+def _map_pdf_format_common(
+    raw_pdf_format: Dict[str, Any] | None,
+    timeline_entries: Any = None,
+) -> Dict[str, Any]:
+    raw = raw_pdf_format if isinstance(raw_pdf_format, dict) else {}
+
+    cover = raw.get("coverPage") if isinstance(raw.get("coverPage"), dict) else {}
+    summary = raw.get("summarySheet") if isinstance(raw.get("summarySheet"), dict) else {}
+    version = raw.get("versionControl") if isinstance(raw.get("versionControl"), dict) else {}
+    signature = raw.get("signaturePage") if isinstance(raw.get("signaturePage"), dict) else {}
+    footer = raw.get("footerBar") if isinstance(raw.get("footerBar"), dict) else {}
+
+    entries: list[Dict[str, Any]] = []
+    if isinstance(timeline_entries, list):
+      for entry in timeline_entries:
+        if not isinstance(entry, dict):
+            continue
+        entries.append(
+            {
+                "version": entry.get("version", ""),
+                "date": str(entry.get("publishedAt", "")).strip()[:10],
+                "author": entry.get("publishedBy", ""),
+                "description": entry.get("observation") or entry.get("changesSummary") or "",
+                "status": "Emitida",
+            }
+        )
+
+    signatories: list[Dict[str, Any]] = []
+    raw_signatories = signature.get("signatories")
+    if isinstance(raw_signatories, list):
+        for sig in raw_signatories:
+            if not isinstance(sig, dict):
+                continue
+            signatories.append(
+                {
+                    "full_name": sig.get("fullName", ""),
+                    "role": " · ".join(
+                        [part for part in [sig.get("role", ""), sig.get("area", "")] if str(part).strip()]
+                    ),
+                }
+            )
+
+    return {
+        "template": raw.get("template"),
+        "cover_page": {
+            "enabled": bool(cover.get("enabled", False)),
+            "project_name": cover.get("projectName", ""),
+            "minute_title": cover.get("minuteTitle", ""),
+            "prepared_by": cover.get("preparedBy", ""),
+            "subtitle": cover.get("footerNote", ""),
+        },
+        "summary_sheet": {
+            "enabled": bool(summary.get("enabled", False)),
+        },
+        "version_control": {
+            "enabled": bool(version.get("enabled", False)),
+            "entries": entries,
+        },
+        "signature_page": {
+            "enabled": bool(signature.get("enabled", False)),
+            "signatories": signatories,
+            "note": str(signature.get("note", "")).strip(),
+        },
+        "footer_bar": {
+            "enabled": bool(footer.get("enabled", False)),
+            "note": str(footer.get("note", "")).strip(),
+            "align": "center" if str(footer.get("align", "")).strip().lower() == "center" else "left",
+        },
     }
 
 

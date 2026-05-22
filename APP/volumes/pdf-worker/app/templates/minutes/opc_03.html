@@ -1,12 +1,12 @@
 {% extends "base/base.html" %}
 
 {# ============================================================
-   minutes/opc_04.html — Gobernanza / Comité
-   Origen: opc_04_b.html + minuta_opc_04.css
+   minutes/opc_03.html — Gobernanza / Comité
+   Origen: opc_03_b.html + minuta_opc_03.css
 ============================================================ #}
 
 {% block extra_styles %}
-/* ── OPC_04: Gobernanza / Comité ──────────────────────────── */
+/* ── OPC_03: Gobernanza / Comité ──────────────────────────── */
 :root {
   --governance-color: #1a4b8c;
   --governance-bg:    #f8fbff;
@@ -43,20 +43,78 @@ h3 { font-size: 15px; color: var(--governance-color); margin-bottom: 10px; }
 
 /* Signatures */
 .signatures { margin-top: 40px; display: grid; grid-template-columns: repeat(2,1fr); gap: 30px; }
-.signature-box-gov { border-top: 1px solid #2d2d2d; padding-top: 10px; margin-top: 20px; }
-.signature-name-gov { font-weight: 600; color: var(--governance-color); }
-.signature-role-gov { font-size: 11px; color: #666; margin-top: 3px; }
+.signatures.count-1 { grid-template-columns: minmax(280px, 360px); justify-content: center; }
+.signatures.count-2 { grid-template-columns: repeat(2, minmax(260px, 1fr)); }
+.signature-box-gov { border-top: 1px solid #2d2d2d; padding-top: 10px; margin-top: 20px; text-align: center; }
+.signature-name-gov { font-weight: 600; color: var(--governance-color); text-align: center; }
+.signature-role-gov { font-size: 11px; color: #666; margin-top: 3px; text-align: center; }
+.signature-note-gov { margin-top: 16px; font-size: 11.5px; color: #666; text-align: center; line-height: 1.55; }
 {% endblock %}
 
 {% block content %}
 <div class="document">
+  {% set cover = cover_context if cover_context is defined and cover_context else {} %}
+  {% set cover_page = pdf_format.cover_page if pdf_format is defined and pdf_format.cover_page is defined else {} %}
+  {% set cover_project = cover_page.project_name | default('', true) or general_info.project | default('Comité de Dirección', true) %}
+  {% set cover_title = cover_page.minute_title | default('', true) or general_info.subject %}
+  {% set cover_prepared_by = cover_page.prepared_by | default('', true) or general_info.prepared_by %}
+  {% set intro = scope.sections | selectattr('section_type','eq','introduction') | first | default(None) %}
+  {% set pager = namespace(page=0, total=4) %}
+  {% if pdf_format is not defined or pdf_format.cover_page is not defined or pdf_format.cover_page.enabled %}{% set pager.total = pager.total + 1 %}{% endif %}
+  {% if pdf_format is not defined or pdf_format.summary_sheet is not defined or pdf_format.summary_sheet.enabled %}{% set pager.total = pager.total + 1 %}{% endif %}
+  {% if pdf_format is defined and pdf_format.version_control is defined and pdf_format.version_control.enabled %}{% set pager.total = pager.total + 1 %}{% endif %}
+  {% if pdf_format is defined and pdf_format.signature_page is defined and pdf_format.signature_page.enabled %}{% set pager.total = pager.total + 1 %}{% endif %}
 
-  {# ── PÁGINA 1: CARÁTULA DE COMITÉ ──────────────────────── #}
-  <div class="page">
+  {% macro render_footer(page_number, total_pages) %}
+    {% set footer_bar = pdf_format.footer_bar if pdf_format is defined and pdf_format.footer_bar is defined else {} %}
+    {% if footer_bar and footer_bar.enabled %}
+    <div class="runtime-page-footer {{ 'is-center' if footer_bar.align == 'center' else 'is-left' }}">
+      <div class="runtime-page-footer-text">{{ footer_bar.note | default('') }}</div>
+      <div class="runtime-page-footer-number">Página {{ page_number }} de {{ total_pages }}</div>
+    </div>
+    {% endif %}
+  {% endmacro %}
+
+  {% if pdf_format is not defined or pdf_format.cover_page is not defined or pdf_format.cover_page.enabled %}
+  {% set pager.page = pager.page + 1 %}
+  <section class="page runtime-page">
+    <div class="runtime-cover-panel">
+      <div class="runtime-cover-head">
+        <p class="runtime-cover-kicker">Documento de comité</p>
+        <h1 class="runtime-cover-title">{{ cover_title }}</h1>
+        <p class="runtime-cover-subtitle">{{ general_info.client }}{% if cover_project %} · {{ cover_project }}{% endif %} · {{ general_info.meeting_date }}</p>
+      </div>
+      <div class="runtime-cover-body">
+        <div class="runtime-cover-item"><span class="runtime-cover-item-label">Cliente</span><span class="runtime-cover-item-value">{{ general_info.client }}</span></div>
+        <div class="runtime-cover-item"><span class="runtime-cover-item-label">Proyecto</span><span class="runtime-cover-item-value">{{ cover_project }}</span></div>
+        <div class="runtime-cover-item"><span class="runtime-cover-item-label">Elaborado por</span><span class="runtime-cover-item-value">{{ cover_prepared_by }}</span></div>
+        <div class="runtime-cover-item"><span class="runtime-cover-item-label">Versión</span><span class="runtime-cover-item-value">{{ version_label | default('v1.0') }}</span></div>
+      </div>
+      <div class="runtime-cover-footer">{{ pdf_format.cover_page.subtitle | default('Documento para seguimiento formal del comité.') if pdf_format is defined and pdf_format.cover_page is defined else 'Documento para seguimiento formal del comité.' }}</div>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if pdf_format is not defined or pdf_format.summary_sheet is not defined or pdf_format.summary_sheet.enabled %}
+  {% set pager.page = pager.page + 1 %}
+  <section class="page runtime-page">
+    <h2>Carátula / Ficha documental</h2>
+    <div class="info-grid-doc">
+      <div class="info-item-doc"><div class="info-label-doc">Cliente</div><div class="info-value-doc">{{ general_info.client }}</div></div>
+      <div class="info-item-doc"><div class="info-label-doc">Proyecto</div><div class="info-value-doc">{{ general_info.project | default('—') }}</div></div>
+      <div class="info-item-doc"><div class="info-label-doc">Fecha reunión</div><div class="info-value-doc">{{ general_info.meeting_date }}</div></div>
+      <div class="info-item-doc"><div class="info-label-doc">Elaborado por</div><div class="info-value-doc">{{ general_info.prepared_by }}</div></div>
+    </div>
+    {{ render_footer(pager.page, pager.total) }}
+  </section>
+  {% endif %}
+
+  {% set pager.page = pager.page + 1 %}
+  <section class="page runtime-page">
     <div class="company-header">
       <div class="company-logo">
         {{ general_info.client | upper }}
-        <span>{{ general_info.project | default('Comité de Dirección') }}</span>
+        <span>{{ cover_project }}</span>
       </div>
       <div class="document-code">
         <strong>{{ general_info.document_code | default('COM-' ~ general_info.meeting_date | replace('-','')) }}</strong>
@@ -65,290 +123,136 @@ h3 { font-size: 15px; color: var(--governance-color); margin-bottom: 10px; }
       </div>
     </div>
 
-    <h1>{{ general_info.subject }}</h1>
-    <div class="subtitle">Comité de Gobernanza · {{ general_info.project | default('') }}</div>
+    <h1>{{ cover_title }}</h1>
+    <div class="subtitle">Comité de Gobernanza · {{ cover_project }}</div>
 
     <div class="info-grid-doc">
-      <div class="info-item-doc">
-        <div class="info-label-doc">Cliente</div>
-        <div class="info-value-doc">{{ general_info.client }}</div>
-      </div>
-      <div class="info-item-doc">
-        <div class="info-label-doc">Proyecto</div>
-        <div class="info-value-doc">{{ general_info.project | default('—') }}</div>
-      </div>
-      <div class="info-item-doc">
-        <div class="info-label-doc">Fecha reunión</div>
-        <div class="info-value-doc">{{ general_info.meeting_date }}</div>
-      </div>
-      <div class="info-item-doc">
-        <div class="info-label-doc">Elaborado por</div>
-        <div class="info-value-doc">{{ general_info.prepared_by }}</div>
-      </div>
+      <div class="info-item-doc"><div class="info-label-doc">Cliente</div><div class="info-value-doc">{{ general_info.client }}</div></div>
+      <div class="info-item-doc"><div class="info-label-doc">Proyecto</div><div class="info-value-doc">{{ general_info.project | default('—') }}</div></div>
+      <div class="info-item-doc"><div class="info-label-doc">Fecha reunión</div><div class="info-value-doc">{{ general_info.meeting_date }}</div></div>
+      <div class="info-item-doc"><div class="info-label-doc">Elaborado por</div><div class="info-value-doc">{{ general_info.prepared_by }}</div></div>
     </div>
 
     <div style="margin:30px 0;">
       <h2>Información de la sesión</h2>
       <table>
-        <tr>
-          <th width="20%">Concepto</th>
-          <th width="40%">Programado</th>
-          <th width="40%">Real</th>
-        </tr>
-        <tr>
-          <td>Horario</td>
-          <td>{{ general_info.scheduled_start_time | default('—') }} – {{ general_info.scheduled_end_time | default('—') }}</td>
-          <td>{{ general_info.actual_start_time | default('—') }} – {{ general_info.actual_end_time | default('—') }}</td>
-        </tr>
-        <tr>
-          <td>Plataforma</td>
-          <td colspan="2">{{ general_info.location | default('—') }}</td>
-        </tr>
+        <tr><th width="20%">Concepto</th><th width="40%">Programado</th><th width="40%">Real</th></tr>
+        <tr><td>Horario</td><td>{{ general_info.scheduled_start_time | default('—') }} – {{ general_info.scheduled_end_time | default('—') }}</td><td>{{ general_info.actual_start_time | default('—') }} – {{ general_info.actual_end_time | default('—') }}</td></tr>
+        <tr><td>Plataforma</td><td colspan="2">{{ general_info.location | default('—') }}</td></tr>
       </table>
     </div>
 
-    {# Objetivo de la sesión: sección introduction #}
-    {% set intro = scope.sections | selectattr('section_type','eq','introduction') | first | default(None) %}
     {% if intro %}
-    <div class="resolution-box">
-      <strong>🎯 OBJETIVO DE LA SESIÓN</strong>
-      {{ intro.content.summary }}
-    </div>
+    <div class="resolution-box"><strong>🎯 OBJETIVO DE LA SESIÓN</strong>{{ intro.content.summary }}</div>
     {% endif %}
+    {{ render_footer(pager.page, pager.total) }}
+  </section>
 
-    <div class="footer-note">
-      <span>{{ general_info.client }} · Documento de gobernanza</span>
-    </div>
-  </div>
-
-  {# ── PÁGINA 2: PARTICIPANTES Y AGENDA ───────────────────── #}
-  <div class="page">
-    <section class="pdf-section pdf-section--keep">
-    <div class="pdf-section-header">
-      <h2>Participantes del comité</h2>
-    </div>
+  {% set pager.page = pager.page + 1 %}
+  <section class="page runtime-page">
+    <div class="pdf-section-header"><h2>Participantes del comité</h2></div>
     <table>
-      <thead>
-        <tr>
-          <th width="33%">Invitados</th>
-          <th width="33%">Asistentes</th>
-          <th width="34%">Copia</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>
-            {% for p in participants.invited %}{{ p.full_name }} ({{ p.initials }}){% if not loop.last %}<br>{% endif %}{% else %}—{% endfor %}
-          </td>
-          <td>
-            {% for p in participants.attendees %}<strong>{{ p.full_name }} ({{ p.initials }})</strong>{% if not loop.last %}<br>{% endif %}{% endfor %}
-          </td>
-          <td>
-            {% for p in participants.copy_recipients %}{{ p.full_name }} ({{ p.initials }}){% if not loop.last %}<br>{% endif %}{% else %}—{% endfor %}
-          </td>
-        </tr>
-      </tbody>
+      <thead><tr><th width="33%">Invitados</th><th width="33%">Asistentes</th><th width="34%">Copia</th></tr></thead>
+      <tbody><tr>
+        <td>{% for p in participants.invited %}{{ p.full_name }} ({{ p.initials }}){% if not loop.last %}<br>{% endif %}{% else %}—{% endfor %}</td>
+        <td>{% for p in participants.attendees %}<strong>{{ p.full_name }} ({{ p.initials }})</strong>{% if not loop.last %}<br>{% endif %}{% else %}—{% endfor %}</td>
+        <td>{% for p in participants.copy_recipients %}{{ p.full_name }} ({{ p.initials }}){% if not loop.last %}<br>{% endif %}{% else %}—{% endfor %}</td>
+      </tr></tbody>
     </table>
-    </section>
-
-    {# Agenda + participación #}
     {% if intro %}
     <div class="agenda-grid" style="margin-top:30px">
-      <div>
-        <h3 style="margin-top:0">📋 Agenda principal</h3>
-        <ul>
-          {% for topic in intro.content.topics_list | default([]) %}
-          <li>{{ topic }}</li>
-          {% endfor %}
-        </ul>
-      </div>
+      <div><h3 style="margin-top:0">📋 Agenda principal</h3><ul>{% for topic in intro.content.topics_list | default([]) %}<li>{{ topic }}</li>{% endfor %}</ul></div>
       <div>
         <h3 style="margin-top:0">📊 Participación</h3>
         <p><strong>Asistentes efectivos:</strong> {{ participants.attendees | length }}</p>
         <p><strong>Invitados:</strong> {{ participants.invited | length }}</p>
         <p><strong>Copia:</strong> {{ participants.copy_recipients | length }}</p>
-        {% if ai_tags is defined and ai_tags | length > 0 %}
-        <div class="tag-list" style="margin-top:10px">
-          {% for tag in ai_tags %}
-          <span class="tag">{{ tag.name }}</span>
-          {% endfor %}
-        </div>
-        {% endif %}
       </div>
     </div>
     {% endif %}
-
     <h2 style="margin-top:35px">Alcances de la sesión</h2>
-
     {% for section in scope.sections %}
     {% if section.section_type != 'introduction' %}
     <div class="scope-block">
-      <div class="scope-header">
-        <span class="scope-title-gov">{{ section.section_title }}</span>
-        <span class="scope-tag">{{ section.section_id }}</span>
-      </div>
+      <div class="scope-header"><span class="scope-title-gov">{{ section.section_title }}</span><span class="scope-tag">{{ section.section_id }}</span></div>
       <div class="scope-summary">{{ section.content.summary }}</div>
-      {% if section.content.details is defined %}
-        {% for detail in section.content.details %}
-        <div class="detail-item">
-          <span class="detail-label">{{ detail.label }}:</span> {{ detail.description }}
-        </div>
-        {% endfor %}
-      {% endif %}
+      {% if section.content.details is defined %}{% for detail in section.content.details %}<div class="detail-item"><span class="detail-label">{{ detail.label }}:</span> {{ detail.description }}</div>{% endfor %}{% endif %}
     </div>
     {% endif %}
     {% endfor %}
+    {{ render_footer(pager.page, pager.total) }}
+  </section>
 
-    <div class="footer-note"><span>Documento para revisión del comité</span></div>
-  </div>
-
-  {# ── PÁGINA 3: RESOLUCIONES Y ACUERDOS ──────────────────── #}
-  <div class="page">
+  {% set pager.page = pager.page + 1 %}
+  <section class="page runtime-page">
     <h2>Resoluciones del comité</h2>
-
     {% for item in agreements["items"] %}
-    <div class="resolution-box">
-      <strong>{{ '✅' if item.status == 'completed' else '⚠️' }} RESOLUCIÓN {{ loop.index | string | zfill(3) }}/{{ general_info.meeting_date[:4] }}</strong>
-      {{ item.body }}
-    </div>
+    <div class="resolution-box"><strong>{{ '✅' if item.status == 'completed' else '⚠️' }} RESOLUCIÓN {{ loop.index | string | zfill(3) }}/{{ general_info.meeting_date[:4] }}</strong>{{ item.body }}</div>
     {% else %}
     <div class="empty-state">No hay resoluciones registradas.</div>
     {% endfor %}
-
-    <div class="pdf-section-header">
-      <h2 style="margin-top:35px">Acuerdos formales</h2>
-    </div>
-
     {% if agreements["items"] | length > 0 %}
-    <table>
-      <thead>
-        <tr>
-          <th width="18%">Asunto</th>
-          <th width="42%">Detalle</th>
-          <th width="15%">Responsable</th>
-          <th width="15%">Vencimiento</th>
-          <th width="10%">Estado</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for item in agreements["items"] %}
-        <tr>
-          <td><strong>{{ item.subject }}</strong></td>
-          <td>{{ item.body }}</td>
-          <td>{{ item.responsible | default('—') }}</td>
-          <td>{{ item.due_date | default('No definido') }}</td>
-          <td><span class="badge status-{{ item.status | default('pending') }}">{{ item.status | default('pending') }}</span></td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    <div class="pdf-section-header"><h2 style="margin-top:35px">Acuerdos formales</h2></div>
+    <table><thead><tr><th width="18%">Asunto</th><th width="42%">Detalle</th><th width="15%">Responsable</th><th width="15%">Vencimiento</th><th width="10%">Estado</th></tr></thead><tbody>{% for item in agreements["items"] %}<tr><td><strong>{{ item.subject }}</strong></td><td>{{ item.body }}</td><td>{{ item.responsible | default('—') }}</td><td>{{ item.due_date | default('No definido') }}</td><td>{{ item.status | default('pending') }}</td></tr>{% endfor %}</tbody></table>
     {% endif %}
-
     {% if requirements["items"] | length > 0 %}
-    <div class="pdf-section-header">
-      <h2 style="margin-top:35px">Requerimientos formales</h2>
-    </div>
-    <table>
-      <thead>
-        <tr>
-          <th width="18%">Entidad</th>
-          <th width="47%">Detalle</th>
-          <th width="15%">Prioridad</th>
-          <th width="20%">Estado</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for item in requirements["items"] %}
-        <tr>
-          <td>{{ item.entity }}</td>
-          <td>{{ item.body }}</td>
-          <td><span class="badge priority-{{ item.priority | default('medium') }}">{{ item.priority | default('medium') }}</span></td>
-          <td><span class="badge status-{{ item.status | default('open') }}">{{ item.status | default('open') }}</span></td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    <div class="pdf-section-header"><h2 style="margin-top:35px">Requerimientos formales</h2></div>
+    <table><thead><tr><th width="18%">Entidad</th><th width="47%">Detalle</th><th width="15%">Prioridad</th><th width="20%">Estado</th></tr></thead><tbody>{% for item in requirements["items"] %}<tr><td>{{ item.entity }}</td><td>{{ item.body }}</td><td>{{ item.priority | default('medium') }}</td><td>{{ item.status | default('open') }}</td></tr>{% endfor %}</tbody></table>
     {% endif %}
+    {{ render_footer(pager.page, pager.total) }}
+  </section>
 
-    <div class="footer-note"><span>Los acuerdos tienen carácter vinculante</span></div>
-  </div>
-
-  {# ── PÁGINA 4: PRÓXIMAS REUNIONES Y FIRMAS ───────────────── #}
-  <div class="page">
+  {% set pager.page = pager.page + 1 %}
+  <section class="page runtime-page">
     {% if upcoming_meetings is defined and upcoming_meetings["items"] | length > 0 %}
     <section class="pdf-section">
-    <div class="pdf-section-header">
-      <h2>Próximas instancias de gobernanza</h2>
-    </div>
-    <table>
-      <thead>
-        <tr>
-          <th width="18%">Fecha</th>
-          <th width="52%">Agenda</th>
-          <th width="30%">Asistentes requeridos</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for item in upcoming_meetings["items"] %}
-        <tr>
-          <td>{{ item.scheduled_date | default('—') }}</td>
-          <td>{{ item.agenda }}</td>
-          <td>{{ item.attendees | join(', ') if item.attendees else '—' }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+      <div class="pdf-section-header"><h2>Próximas instancias de gobernanza</h2></div>
+      <table><thead><tr><th width="18%">Fecha</th><th width="52%">Agenda</th><th width="30%">Asistentes requeridos</th></tr></thead><tbody>{% for item in upcoming_meetings["items"] %}<tr><td>{{ item.scheduled_date | default('—') }}</td><td>{{ item.agenda }}</td><td>{{ item.attendees | join(', ') if item.attendees else '—' }}</td></tr>{% endfor %}</tbody></table>
     </section>
     {% endif %}
+    {{ render_footer(pager.page, pager.total) }}
+  </section>
 
-    <h2 style="margin-top:35px">Firmas y conformidad</h2>
-    <div class="subtitle" style="margin-bottom:30px">
-      Los abajo firmantes, en calidad de miembros del comité, validan las resoluciones y acuerdos contenidos en la presente minuta.
-    </div>
+  {% if pdf_format is defined and pdf_format.version_control is defined and pdf_format.version_control.enabled %}
+  {% set pager.page = pager.page + 1 %}
+  <section class="page runtime-page">
+    <h2>Control de versiones</h2>
+    <table><thead><tr><th width="30%">Versión</th><th width="30%">Fecha</th><th width="40%">Descripción</th></tr></thead><tbody>{% if pdf_format.version_control.entries is defined %}{% for entry in pdf_format.version_control.entries %}<tr><td>{{ entry.version }}</td><td>{{ entry.date }}</td><td>{{ entry.description }}</td></tr>{% endfor %}{% else %}<tr><td>{{ version_label | default('v1.0') }}</td><td>{{ general_info.meeting_date }}</td><td>Versión aprobada.</td></tr>{% endif %}</tbody></table>
+    {{ render_footer(pager.page, pager.total) }}
+  </section>
+  {% endif %}
 
-    <div class="signatures">
-      {% set signatories = pdf_format.signature_page.signatories if (pdf_format is defined and pdf_format.signature_page is defined and pdf_format.signature_page.signatories is defined and pdf_format.signature_page.signatories | length > 0) else participants.attendees %}
+  {% if pdf_format is defined and pdf_format.signature_page is defined and pdf_format.signature_page.enabled %}
+  {% set pager.page = pager.page + 1 %}
+  <section class="page runtime-page">
+    <h2>Firmas y conformidad</h2>
+    {% set signatories = pdf_format.signature_page.signatories if (pdf_format.signature_page.signatories is defined and pdf_format.signature_page.signatories | length > 0) else participants.attendees %}
+    <div class="signatures count-{{ signatories | length if signatories | length > 0 else 1 }}">
+      {% if signatories | length > 0 %}
       {% for sig in signatories %}
       <div>
         <div class="signature-box-gov">
           <div class="signature-name-gov">{{ sig.full_name }}</div>
           <div class="signature-role-gov">{{ sig.role | default('Asistente') }}</div>
         </div>
-        <div style="margin-top:10px;font-size:11px;color:#999">Firma: ___________________</div>
+        <div style="margin-top:10px;font-size:11px;color:#999;text-align:center">Firma: ___________________</div>
       </div>
       {% endfor %}
+      {% else %}
+      <div>
+        <div class="signature-box-gov">
+          <div class="signature-name-gov">Sin firmantes definidos</div>
+          <div class="signature-role-gov">Pendiente de asignación</div>
+        </div>
+        <div style="margin-top:10px;font-size:11px;color:#999;text-align:center">Firma: ___________________</div>
+      </div>
+      {% endif %}
     </div>
-
-    {# Control de versiones inline #}
-    {% if pdf_format is defined and pdf_format.version_control is defined and pdf_format.version_control.enabled %}
-    <div style="margin-top:60px;background:#f8fafc;padding:15px;">
-      <table style="margin:0;background:white;">
-        <tr>
-          <th width="30%">Versión</th>
-          <th width="30%">Fecha</th>
-          <th width="40%">Descripción</th>
-        </tr>
-        {% if pdf_format.version_control.entries is defined %}
-          {% for entry in pdf_format.version_control.entries %}
-          <tr>
-            <td>{{ entry.version }}</td>
-            <td>{{ entry.date }}</td>
-            <td>{{ entry.description }}</td>
-          </tr>
-          {% endfor %}
-        {% else %}
-        <tr>
-          <td><strong>{{ version_label | default('v1.0') }}</strong></td>
-          <td>{{ general_info.meeting_date }}</td>
-          <td><strong>{{ 'Borrador' if options is defined and options.watermark else 'Versión aprobada' }}</strong></td>
-        </tr>
-        {% endif %}
-      </table>
-    </div>
+    {% if pdf_format.signature_page.note | default('') %}
+    <div class="signature-note-gov">{{ pdf_format.signature_page.note }}</div>
     {% endif %}
-
-    <div class="footer-note"><span>Archivar en carpeta de gobernanza del proyecto</span></div>
-  </div>
-
+    {{ render_footer(pager.page, pager.total) }}
+  </section>
+  {% endif %}
 </div>
 {% endblock %}
