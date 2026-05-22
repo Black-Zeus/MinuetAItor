@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import Optional
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -19,20 +20,14 @@ logger = logging.getLogger(__name__)
 def get_minute_attachment_blob(
     db: Session,
     record_id: str,
-    sha256: str,
+    sha256: str | None = None,
+    file_name: str | None = None,
 ) -> tuple[bytes, str, str]:
-    obj = (
-        db.query(Object)
-        .join(RecordArtifact, RecordArtifact.object_id == Object.id)
-        .filter(
-            RecordArtifact.record_id == record_id,
-            RecordArtifact.deleted_at.is_(None),
-            Object.deleted_at.is_(None),
-            Object.sha256 == sha256,
-            Object.object_key.like(f"{record_id}/inputs/%"),
-        )
-        .order_by(RecordArtifact.created_at.desc())
-        .first()
+    obj = _resolve_attachment_object(
+        db=db,
+        record_id=record_id,
+        sha256=sha256,
+        file_name=file_name,
     )
 
     if not obj:
@@ -40,7 +35,7 @@ def get_minute_attachment_blob(
             status_code=404,
             detail={
                 "error": "attachment_not_found",
-                "message": "No se encontro el adjunto solicitado para esta minuta.",
+                "message": "No se encontró el adjunto solicitado para esta minuta.",
             },
         )
 
@@ -68,6 +63,40 @@ def get_minute_attachment_blob(
     filename = Path(obj.object_key).name or f"{sha256}.bin"
     mime_type = obj.content_type or "application/octet-stream"
     return file_bytes, mime_type, filename
+
+
+def _resolve_attachment_object(
+    *,
+    db: Session,
+    record_id: str,
+    sha256: str | None = None,
+    file_name: str | None = None,
+) -> Optional[Object]:
+    clean_sha = str(sha256 or "").strip().lower()
+    clean_file_name = Path(str(file_name or "").strip()).name
+
+    base_query = (
+        db.query(Object)
+        .join(RecordArtifact, RecordArtifact.object_id == Object.id)
+        .filter(
+            RecordArtifact.record_id == record_id,
+            RecordArtifact.deleted_at.is_(None),
+            Object.deleted_at.is_(None),
+            Object.object_key.like(f"{record_id}/inputs/%"),
+        )
+        .order_by(RecordArtifact.created_at.desc())
+    )
+
+    if clean_sha:
+        candidate = base_query.filter(Object.sha256 == clean_sha).first()
+        if candidate:
+            return candidate
+
+    if clean_file_name:
+        suffix = f"/{clean_file_name}"
+        return base_query.filter(Object.object_key.like(f"%{suffix}")).first()
+
+    return None
 
 
 def list_minute_input_attachments(db: Session, record_id: str) -> list[dict[str, str]]:
@@ -104,4 +133,3 @@ def list_minute_input_attachments(db: Session, record_id: str) -> list[dict[str,
         )
 
     return attachments
-

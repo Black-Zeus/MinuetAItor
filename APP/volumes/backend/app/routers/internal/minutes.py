@@ -21,9 +21,15 @@ from schemas.internal_minutes import (
     MinuteCommitResponse,
     MinuteFailRequest,
     MinuteFailResponse,
+    MinuteOfficializedEmailRequest,
+    MinuteOfficializedEmailResponse,
 )
 from services.ai_provider_configs_service import get_active_ai_provider_runtime_config
-from services.internal_minutes_service import commit_minute_tx2, fail_minute_tx2
+from services.internal_minutes_service import (
+    commit_minute_tx2,
+    enqueue_officialized_email_after_pdf_ready,
+    fail_minute_tx2,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -95,3 +101,25 @@ def active_provider_endpoint(
     db: Session = Depends(get_db),
 ) -> ActiveAIProviderConfigResponse:
     return get_active_ai_provider_runtime_config(db)
+
+
+@router.post(
+    "/send-officialized-email",
+    response_model=MinuteOfficializedEmailResponse,
+    status_code=status.HTTP_200_OK,
+    summary="[INTERNO] Encolar correo de minuta oficializada",
+    description=(
+        "Se usa desde el pdf-worker una vez que el PDF final ya quedó disponible, "
+        "para garantizar que el correo de oficialización salga con adjunto real."
+    ),
+)
+async def send_officialized_email_endpoint(
+    body: MinuteOfficializedEmailRequest,
+    db: Session = Depends(get_db),
+) -> MinuteOfficializedEmailResponse:
+    logger.info(
+        "Solicitud interna de correo oficializado | record=%s actor=%s",
+        body.record_id,
+        body.actor_user_id,
+    )
+    return await enqueue_officialized_email_after_pdf_ready(db, body)

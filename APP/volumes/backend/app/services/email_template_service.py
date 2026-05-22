@@ -65,6 +65,13 @@ TEMPLATE_DEFINITIONS: dict[str, EmailTemplateDefinition] = {
         description="Confirma que la minuta ya fue aprobada y oficializada.",
         default_subject="Minuta oficializada y aprobada",
     ),
+    "minute_guest_observation_received": EmailTemplateDefinition(
+        template_id="minute_guest_observation_received",
+        filename="minute_guest_observation_received.html",
+        title="Observación de invitado recibida",
+        description="Avisa al responsable que un invitado dejó una observación en la minuta.",
+        default_subject="Nueva observacion de invitado en minuta {{ MINUTE_ID }}",
+    ),
     "minute_view_otp": EmailTemplateDefinition(
         template_id="minute_view_otp",
         filename="minute_view_otp.html",

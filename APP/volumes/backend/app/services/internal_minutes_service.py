@@ -41,14 +41,20 @@ from models.record_versions import RecordVersion
 from models.records import Record
 from models.user import User
 from models.version_statuses import VersionStatus
-from schemas.internal_minutes import MinuteCommitRequest, MinuteCommitResponse
-from schemas.internal_minutes import MinuteFailRequest, MinuteFailResponse
+from schemas.internal_minutes import (
+    MinuteCommitRequest,
+    MinuteCommitResponse,
+    MinuteFailRequest,
+    MinuteFailResponse,
+    MinuteOfficializedEmailRequest,
+    MinuteOfficializedEmailResponse,
+)
 from services.minute_participants_service import (
     build_version_participants_from_content,
     persist_record_version_participants,
 )
 from services.notification_center_service import create_in_app_notification
-from services.notification_service import enqueue_ai_processed_ready_email
+from services.notification_service import enqueue_ai_processed_ready_email, enqueue_minute_officialized_email
 from services.pdf_template_resolver import ensure_pdf_template_in_content, resolve_pdf_template_for_record
 
 logger = logging.getLogger(__name__)
@@ -131,6 +137,34 @@ def _build_canonical_ai_output(
 
     ensure_pdf_template_in_content(canonical, resolved_pdf_template or "")
     return canonical
+
+
+async def enqueue_officialized_email_after_pdf_ready(
+    db: Session,
+    body: MinuteOfficializedEmailRequest,
+) -> MinuteOfficializedEmailResponse:
+    actor_user = None
+    if body.actor_user_id:
+        actor_user = (
+            db.query(User)
+            .filter(User.id == body.actor_user_id, User.deleted_at.is_(None))
+            .first()
+        )
+
+    queued = await enqueue_minute_officialized_email(
+        db,
+        body.record_id,
+        actor_user=actor_user,
+    )
+    return MinuteOfficializedEmailResponse(
+        record_id=body.record_id,
+        queued=queued,
+        message=(
+            "Correo de minuta oficializada encolado correctamente."
+            if queued
+            else "No fue posible encolar el correo de minuta oficializada."
+        ),
+    )
 
 
 def _extract_intro_snippet(ai_output: dict) -> str | None:

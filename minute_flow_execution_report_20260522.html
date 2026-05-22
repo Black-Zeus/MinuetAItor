@@ -1,0 +1,541 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reporte Flujo Minuta 2026-05-22</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --surface: #ffffff;
+      --ink: #16202b;
+      --muted: #617286;
+      --line: #d8e1ea;
+      --ok-bg: #e8f7ee;
+      --ok-fg: #1f7a45;
+      --warn-bg: #fff4df;
+      --warn-fg: #8a5a00;
+      --err-bg: #fde8e8;
+      --err-fg: #aa2e2e;
+      --info-bg: #e8f0ff;
+      --info-fg: #2956b2;
+      --accent: #0f4c81;
+      --accent-soft: #e7f1fb;
+      --shadow: 0 12px 32px rgba(17, 30, 46, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      background: linear-gradient(180deg, #eef4fb 0%, var(--bg) 240px);
+      color: var(--ink);
+      line-height: 1.45;
+    }
+
+    .page {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 32px 20px 56px;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, #0f3d66 0%, #174d81 58%, #296aa5 100%);
+      color: #fff;
+      border-radius: 24px;
+      padding: 28px 30px;
+      box-shadow: var(--shadow);
+    }
+
+    .hero h1 {
+      margin: 0 0 8px;
+      font-size: 32px;
+      line-height: 1.1;
+    }
+
+    .hero p {
+      margin: 0;
+      max-width: 900px;
+      color: rgba(255, 255, 255, 0.9);
+    }
+
+    .meta-grid,
+    .summary-grid {
+      display: grid;
+      gap: 16px;
+      margin-top: 22px;
+    }
+
+    .meta-grid {
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+
+    .summary-grid {
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 18px 18px 16px;
+      box-shadow: var(--shadow);
+    }
+
+    .hero .meta {
+      background: rgba(255, 255, 255, 0.09);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 16px;
+      padding: 14px 16px;
+    }
+
+    .label {
+      display: block;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    .hero .label {
+      color: rgba(255, 255, 255, 0.72);
+    }
+
+    .value {
+      font-size: 15px;
+      font-weight: 600;
+      word-break: break-word;
+    }
+
+    .hero .value {
+      color: #fff;
+    }
+
+    section {
+      margin-top: 26px;
+    }
+
+    h2 {
+      margin: 0 0 12px;
+      font-size: 24px;
+      color: #11263d;
+    }
+
+    h3 {
+      margin: 0 0 10px;
+      font-size: 18px;
+      color: #17324f;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      margin-right: 6px;
+      margin-bottom: 6px;
+    }
+
+    .ok { background: var(--ok-bg); color: var(--ok-fg); }
+    .warn { background: var(--warn-bg); color: var(--warn-fg); }
+    .err { background: var(--err-bg); color: var(--err-fg); }
+    .info { background: var(--info-bg); color: var(--info-fg); }
+
+    .note {
+      padding: 14px 16px;
+      border-left: 4px solid var(--accent);
+      background: var(--accent-soft);
+      border-radius: 12px;
+      color: #17324f;
+    }
+
+    .data-table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    table.data-table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 880px;
+    }
+
+    table.data-table caption {
+      caption-side: top;
+      text-align: left;
+      padding: 18px 18px 8px;
+      font-weight: 700;
+      color: #17324f;
+    }
+
+    table.data-table th,
+    table.data-table td {
+      border-top: 1px solid var(--line);
+      padding: 12px 14px;
+      text-align: left;
+      vertical-align: top;
+      font-size: 14px;
+    }
+
+    table.data-table thead th {
+      border-top: 0;
+      background: #f7fafc;
+      color: #21384e;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    code {
+      font-family: "SFMono-Regular", Consolas, monospace;
+      background: #f2f6fa;
+      border: 1px solid #dce6f1;
+      padding: 1px 6px;
+      border-radius: 7px;
+      font-size: 0.92em;
+    }
+
+    ul.flat {
+      margin: 0;
+      padding-left: 18px;
+    }
+
+    ul.flat li + li {
+      margin-top: 6px;
+    }
+
+    .footer {
+      margin-top: 24px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="hero">
+      <h1>Reporte de Ejecución de Flujo de Minuta</h1>
+      <p>
+        Volcado de la última ejecución end-to-end realizada el <strong>2026-05-22</strong> contra el backend real de MinuetAItor.
+        El objetivo fue recorrer el ciclo de vida de una minuta, disparar correos, campanitas y una anotación pública de invitado.
+      </p>
+
+      <div class="meta-grid">
+        <div class="meta">
+          <span class="label">Record ID</span>
+          <span class="value">093d8341-66c0-4968-806c-a699e216fe56</span>
+        </div>
+        <div class="meta">
+          <span class="label">Transaction ID</span>
+          <span class="value">36c0bb3b-f29e-4ecd-ade6-93fb2537d8bf</span>
+        </div>
+        <div class="meta">
+          <span class="label">Título</span>
+          <span class="value">Reunión de seguimiento semanal</span>
+        </div>
+        <div class="meta">
+          <span class="label">Secuencia de estados</span>
+          <span class="value">ready-for-edit → pending → preview → completed</span>
+        </div>
+      </div>
+    </header>
+
+    <section>
+      <h2>Resumen Ejecutivo</h2>
+      <div class="summary-grid">
+        <div class="card">
+          <h3>Qué funcionó</h3>
+          <div class="pill ok">Generación OK</div>
+          <div class="pill ok">Campanitas OK</div>
+          <div class="pill ok">Correos OK</div>
+          <div class="pill ok">OTP público OK</div>
+          <div class="pill ok">Observación invitado OK</div>
+          <p>El flujo principal respondió correctamente por API y dejó evidencia real en notificaciones y Mailpit.</p>
+        </div>
+        <div class="card">
+          <h3>Incidencias</h3>
+          <div class="pill warn">Sin campanita al encolar</div>
+          <div class="pill warn">Sin auto-mail en preview</div>
+          <div class="pill err">Mail oficializada sin PDF final</div>
+          <p>La mayor brecha funcional sigue siendo el correo de oficialización, que se envía sin adjunto PDF final real.</p>
+        </div>
+        <div class="card">
+          <h3>Desvíos del flujo normal</h3>
+          <div class="pill info">Ajuste temporal de proyecto</div>
+          <div class="pill info">Participante público temporal</div>
+          <p>Para cubrir el flujo completo, se habilitó temporalmente <code>auto_send_on_completed</code> y se inyectó un invitado temporal con email para probar OTP y observación pública.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Flujo Correcto Esperado</h2>
+      <div class="note">
+        Flujo editorial principal validado: <strong>generar minuta → terminar IA → editar → pasar a revisión → enviar correo de revisión → publicar → enviar correo de oficialización</strong>.
+        Flujo público validado: <strong>solicitar OTP → verificar OTP → crear observación de invitado</strong>.
+      </div>
+    </section>
+
+    <section>
+      <h2>Tabla de Ejecución</h2>
+      <div class="data-table-wrap">
+        <table class="data-table">
+          <caption>Pasos ejecutados, campanitas observadas y correos emitidos</caption>
+          <thead>
+            <tr>
+              <th>Paso</th>
+              <th>Descripción breve</th>
+              <th>Resultado / estado</th>
+              <th>Campanita</th>
+              <th>Mail</th>
+              <th>Comentario</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>1</td>
+              <td>Se creó una minuta nueva desde <code>mini_transcripcion.txt</code> y <code>mini_resumen.txt</code>.</td>
+              <td><span class="pill ok">API 202</span> solicitud encolada</td>
+              <td><span class="pill warn">No detectada</span></td>
+              <td><span class="pill warn">No aplica</span></td>
+              <td>No apareció una campanita específica para “petición encolada”.</td>
+            </tr>
+            <tr>
+              <td>2</td>
+              <td>Terminó el procesamiento IA y la minuta quedó lista para edición.</td>
+              <td><span class="pill ok">ready-for-edit</span></td>
+              <td><span class="pill ok">minute.analysis.completed</span></td>
+              <td><span class="pill ok">Sí</span> <code>Minuta procesada por IA lista para revision</code></td>
+              <td>Correo enviado al elaborador por fallback: <code>admin@minuetaitor.local</code>.</td>
+            </tr>
+            <tr>
+              <td>3</td>
+              <td>Se pasó manualmente de <code>ready-for-edit</code> a <code>pending</code>.</td>
+              <td><span class="pill ok">pending</span></td>
+              <td><span class="pill ok">minute.status.changed</span></td>
+              <td><span class="pill warn">No</span></td>
+              <td>Transición editorial correcta, sin correo asociado.</td>
+            </tr>
+            <tr>
+              <td>4</td>
+              <td>Se pasó manualmente de <code>pending</code> a <code>preview</code>.</td>
+              <td><span class="pill ok">preview</span></td>
+              <td><span class="pill ok">minute.status.preview</span></td>
+              <td><span class="pill warn">No automático</span></td>
+              <td>El proyecto tenía <code>auto_send_on_preview=false</code>.</td>
+            </tr>
+            <tr>
+              <td>5</td>
+              <td>Se forzó el correo de revisión desde <code>/send-email</code>.</td>
+              <td><span class="pill ok">preview</span></td>
+              <td><span class="pill ok">minute.review.email.sent</span></td>
+              <td><span class="pill ok">Sí</span> <code>Codex Review Flow 093d8341-66c0-4968-806c-a699e216fe56</code></td>
+              <td>Correo emitido con adjunto PDF y fallback al elaborador.</td>
+            </tr>
+            <tr>
+              <td>6</td>
+              <td>Se habilitó temporalmente <code>auto_send_on_completed</code> y se publicó la minuta.</td>
+              <td><span class="pill ok">completed</span></td>
+              <td><span class="pill ok">minute.publication.completed</span></td>
+              <td><span class="pill ok">Sí</span> <code>Minuta oficializada y aprobada</code></td>
+              <td>El backend reportó <code>autoEmailQueued=true</code>.</td>
+            </tr>
+            <tr>
+              <td>7</td>
+              <td>Se agregó un invitado temporal con email para probar vista pública.</td>
+              <td><span class="pill info">Asistencia técnica</span></td>
+              <td><span class="pill warn">No aplica</span></td>
+              <td><span class="pill warn">No</span></td>
+              <td>No es un paso de usuario final; se usó para habilitar OTP real.</td>
+            </tr>
+            <tr>
+              <td>8</td>
+              <td>Se solicitó OTP público sobre la minuta publicada.</td>
+              <td><span class="pill ok">OTP emitido</span></td>
+              <td><span class="pill warn">No interna</span></td>
+              <td><span class="pill ok">Sí</span> <code>Codigo de acceso para revisar la minuta 093d8341-66c0-4968-806c-a699e216fe56</code></td>
+              <td>Correo enviado a <code>invitado.093d8341@example.com</code>.</td>
+            </tr>
+            <tr>
+              <td>9</td>
+              <td>Se verificó OTP y se abrió sesión visitante.</td>
+              <td><span class="pill ok">Sesión visitante OK</span></td>
+              <td><span class="pill warn">No</span></td>
+              <td><span class="pill warn">No</span></td>
+              <td>Flujo público operativo.</td>
+            </tr>
+            <tr>
+              <td>10</td>
+              <td>El invitado creó una observación pública en la versión actual.</td>
+              <td><span class="pill ok">Observación creada</span></td>
+              <td><span class="pill ok">minute.observation.created</span></td>
+              <td><span class="pill warn">No</span></td>
+              <td>Se generó la campanita interna para el responsable.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2>Tabla de Notificaciones Observadas</h2>
+      <div class="data-table-wrap">
+        <table class="data-table">
+          <caption>Campanitas confirmadas por la última ejecución</caption>
+          <thead>
+            <tr>
+              <th>Tag / tipo</th>
+              <th>Título</th>
+              <th>Nivel</th>
+              <th>Mensaje observado</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>minute.analysis.completed</code></td>
+              <td>Acta procesada</td>
+              <td><span class="pill ok">success</span></td>
+              <td>La minuta terminó correctamente y quedó lista para edición.</td>
+            </tr>
+            <tr>
+              <td><code>minute.analysis.email.sent</code></td>
+              <td>Correo enviado</td>
+              <td><span class="pill ok">success</span></td>
+              <td>Se envió el aviso de acta procesada al elaborador por fallback.</td>
+            </tr>
+            <tr>
+              <td><code>minute.status.changed</code></td>
+              <td>Estado de minuta actualizado</td>
+              <td><span class="pill info">info</span></td>
+              <td>Cambio de <code>ready-for-edit</code> a <code>pending</code>.</td>
+            </tr>
+            <tr>
+              <td><code>minute.status.preview</code></td>
+              <td>Minuta enviada a revisión</td>
+              <td><span class="pill info">info</span></td>
+              <td>Cambio a estado <code>preview</code>.</td>
+            </tr>
+            <tr>
+              <td><code>minute.review.email.sent</code></td>
+              <td>Correo enviado</td>
+              <td><span class="pill ok">success</span></td>
+              <td>Se envió la minuta a revisión, con fallback al elaborador.</td>
+            </tr>
+            <tr>
+              <td><code>minute.publication.completed</code></td>
+              <td>Minuta publicada</td>
+              <td><span class="pill ok">success</span></td>
+              <td>La minuta quedó publicada como versión final.</td>
+            </tr>
+            <tr>
+              <td><code>minute.officialized.email.sent</code></td>
+              <td>Correo enviado</td>
+              <td><span class="pill ok">success</span></td>
+              <td>Se envió la minuta oficializada al elaborador responsable.</td>
+            </tr>
+            <tr>
+              <td><code>minute.observation.created</code></td>
+              <td>Nueva observación de invitado</td>
+              <td><span class="pill info">info</span></td>
+              <td>Invitado Flujo Codex dejó una observación en la minuta.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2>Tabla de Correos Observados</h2>
+      <div class="data-table-wrap">
+        <table class="data-table">
+          <caption>Correos capturados en Mailpit durante la ejecución</caption>
+          <thead>
+            <tr>
+              <th>Asunto</th>
+              <th>Destinatario</th>
+              <th>Adjuntos</th>
+              <th>Resultado</th>
+              <th>Observación</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>Minuta procesada por IA lista para revision</code></td>
+              <td><code>admin@minuetaitor.local</code></td>
+              <td>1</td>
+              <td><span class="pill ok">Entregado</span></td>
+              <td>Template de IA listo para revisión. Salió por fallback al elaborador.</td>
+            </tr>
+            <tr>
+              <td><code>Codex Review Flow 093d8341-66c0-4968-806c-a699e216fe56</code></td>
+              <td><code>admin@minuetaitor.local</code></td>
+              <td>2</td>
+              <td><span class="pill ok">Entregado</span></td>
+              <td>Correo de revisión con PDF y logo inline.</td>
+            </tr>
+            <tr>
+              <td><code>Minuta oficializada y aprobada</code></td>
+              <td><code>admin@minuetaitor.local</code></td>
+              <td>1</td>
+              <td><span class="pill warn">Entregado con brecha</span></td>
+              <td>Solo se observó el logo inline. No apareció el PDF final como adjunto real.</td>
+            </tr>
+            <tr>
+              <td><code>Codigo de acceso para revisar la minuta 093d8341-66c0-4968-806c-a699e216fe56</code></td>
+              <td><code>invitado.093d8341@example.com</code></td>
+              <td>1</td>
+              <td><span class="pill ok">Entregado</span></td>
+              <td>OTP público válido y verificable. Se extrajo el código <code>458401</code>.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2>Puntos que Funcionaron</h2>
+      <div class="card">
+        <ul class="flat">
+          <li>La generación de minuta respondió bien y completó TX2 sin error.</li>
+          <li>La transición por todos los estados editoriales funcionó correctamente.</li>
+          <li>Las campanitas clave sí se generaron para fin de IA, cambio de estado, revisión, publicación y observación pública.</li>
+          <li>Los correos de IA lista, revisión y OTP público se entregaron correctamente y con contenido útil.</li>
+          <li>El flujo público de invitado funcionó de punta a punta: OTP, verificación y observación.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section>
+      <h2>Puntos con Error o Brecha</h2>
+      <div class="card">
+        <ul class="flat">
+          <li>No se observó una campanita para el simple encolado inicial de la solicitud de generación.</li>
+          <li>El paso <code>pending → preview</code> no envió correo automático porque el proyecto tenía <code>auto_send_on_preview=false</code>. No es bug, pero sí explica la ausencia de mail.</li>
+          <li>El correo de oficialización sigue saliendo sin el PDF final adjunto; eso es la principal inconsistencia funcional detectada.</li>
+          <li>El OTP y la observación pública requirieron un invitado temporal con email, creado por API administrativa, porque el flujo normal de esa minuta no traía invitados con correo listos para usar.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section>
+      <h2>Notas Metodológicas</h2>
+      <div class="card">
+        <ul class="flat">
+          <li>La ejecución se hizo por HTTP contra el backend real, no por manipulación directa de base de datos ni por edición manual de archivos internos.</li>
+          <li>Hubo dos apoyos administrativos para cubrir el circuito completo: activar temporalmente <code>auto_send_on_completed</code> y crear un participante temporal para la vista pública.</li>
+          <li>El proyecto fue restaurado al final con <code>auto_send_on_completed=false</code>.</li>
+        </ul>
+      </div>
+    </section>
+
+    <p class="footer">
+      Archivo generado por Codex a partir de la última ejecución consolidada en <code>/tmp/minute_full_flow_report.json</code>.
+    </p>
+  </div>
+</body>
+</html>

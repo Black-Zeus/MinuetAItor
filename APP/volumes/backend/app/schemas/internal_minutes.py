@@ -133,6 +133,22 @@ class MinuteFailResponse(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class MinuteOfficializedEmailRequest(BaseModel):
+    record_id: str = Field(..., alias="recordId", description="ID del record/minuta")
+    actor_user_id: str | None = Field(None, alias="actorUserId", description="Usuario responsable que dispara el envío")
+
+    model_config = {"populate_by_name": True}
+
+
+class MinuteOfficializedEmailResponse(BaseModel):
+    ok: bool = True
+    record_id: str = Field(..., alias="recordId")
+    queued: bool
+    message: str
+
+    model_config = {"populate_by_name": True}
+
+
 class MinuteCommitErrorResponse(BaseModel):
     """
     Respuesta de error — el worker usa esto para decidir si reintenta.

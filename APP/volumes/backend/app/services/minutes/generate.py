@@ -20,6 +20,7 @@ from services.minutes import constants as minute_constants
 from services.minutes import queue as minute_queue
 from services.minutes import sanitizers as minute_sanitizers
 from services.minutes import storage as minute_storage
+from services.notification_center_service import create_in_app_notification
 
 logger = logging.getLogger(__name__)
 
@@ -252,6 +253,60 @@ async def generate_minute(
         await minute_queue.enqueue_job(minute_constants.QUEUE_MINUTES, job_payload)
     except Exception as exc:
         logger.error("[minutes] No se pudo encolar el job: %s", exc)
+        try:
+            await create_in_app_notification(
+                db,
+                notification_type="minute.request.queue_failed",
+                title="Solicitud de minuta con error de cola",
+                message=(
+                    f'Se registró la minuta "{record.title}", pero ocurrió un error al '
+                    "enviarla a procesamiento."
+                ),
+                level="error",
+                tags=["minute", "request", "failed", "minute.request.queue_failed"],
+                recipient_user_ids=[requested_by_id],
+                scope_type="record",
+                scope_id=record_id,
+                action_url=f"/minutes/view/{record_id}",
+                actor_user_id=requested_by_id,
+                metadata={
+                    "recordId": record_id,
+                    "transactionId": transaction_id,
+                },
+            )
+        except Exception as notify_exc:
+            logger.warning(
+                "[minutes] No se pudo crear notificación de error de cola | record=%s err=%s",
+                record_id,
+                notify_exc,
+            )
+    else:
+        try:
+            await create_in_app_notification(
+                db,
+                notification_type="minute.request.queued",
+                title="Solicitud de minuta encolada",
+                message=(
+                    f'Se registró la minuta "{record.title}" y quedó en cola para procesamiento.'
+                ),
+                level="info",
+                tags=["minute", "request", "queued", "minute.request.queued"],
+                recipient_user_ids=[requested_by_id],
+                scope_type="record",
+                scope_id=record_id,
+                action_url=f"/minutes/view/{record_id}",
+                actor_user_id=requested_by_id,
+                metadata={
+                    "recordId": record_id,
+                    "transactionId": transaction_id,
+                },
+            )
+        except Exception as notify_exc:
+            logger.warning(
+                "[minutes] No se pudo crear notificación de cola | record=%s err=%s",
+                record_id,
+                notify_exc,
+            )
 
     return MinuteGenerateResponse(
         transaction_id=transaction_id,

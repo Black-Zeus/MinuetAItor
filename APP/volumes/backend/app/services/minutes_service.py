@@ -56,7 +56,7 @@ from services.minutes.attachments import (
     get_minute_attachment_blob as get_minute_attachment_blob_use_case,
     list_minute_input_attachments as list_minute_input_attachments_use_case,
 )
-from services.notification_service import enqueue_minute_officialized_email, enqueue_minute_review_email
+from services.notification_service import enqueue_minute_review_email
 logger = logging.getLogger(__name__)
 
 # ─── Constantes de catálogo ───────────────────────────────────────────────────
@@ -214,9 +214,15 @@ def _load_minute_list_summary(minio, record_id: str, status_code: str, version_n
 def get_minute_attachment_blob(
     db: Session,
     record_id: str,
-    sha256: str,
+    sha256: str | None = None,
+    file_name: str | None = None,
 ) -> tuple[bytes, str, str]:
-    return get_minute_attachment_blob_use_case(db=db, record_id=record_id, sha256=sha256)
+    return get_minute_attachment_blob_use_case(
+        db=db,
+        record_id=record_id,
+        sha256=sha256,
+        file_name=file_name,
+    )
 
     """
     Retorna el binario real de un adjunto de entrada asociado a una minuta.
@@ -1015,7 +1021,7 @@ async def transition_minute(
 
     auto_email_queued = False
     if current_status_code == RECORD_STATUS_PENDING and target_status == RECORD_STATUS_PREVIEW and auto_send_on_preview:
-        await enqueue_minute_review_email(
+        auto_email_queued = await enqueue_minute_review_email(
             db,
             record_id,
             content=draft_content,
@@ -1025,10 +1031,7 @@ async def transition_minute(
             attach_pdf=review_email.attach_pdf if review_email else True,
             actor_user_id=actor_user_id,
         )
-        auto_email_queued = True
     elif current_status_code == RECORD_STATUS_PREVIEW and target_status == RECORD_STATUS_COMPLETED and auto_send_on_completed:
-        actor_user = db.query(User).filter(User.id == actor_user_id, User.deleted_at.is_(None)).first()
-        await enqueue_minute_officialized_email(db, record_id, actor_user=actor_user)
         auto_email_queued = True
 
     try:
@@ -1140,7 +1143,7 @@ async def send_minute_email(
             },
         )
 
-    await enqueue_minute_review_email(
+    email_queued = await enqueue_minute_review_email(
         db,
         record_id,
         content=snapshot_content,
@@ -1151,6 +1154,17 @@ async def send_minute_email(
         published_pdf=current_status_code == RECORD_STATUS_COMPLETED,
         actor_user_id=actor_user_id,
     )
+    if not email_queued:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "email_not_queued",
+                "message": (
+                    "No fue posible preparar el correo de la minuta. "
+                    "Verifica que el elaborador o los participantes tengan un correo asociado."
+                ),
+            },
+        )
 
     logger.info("[minutes] Envío manual email | record=%s status=%s actor=%s", record_id, current_status_code, actor_user_id)
 

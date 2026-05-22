@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="x-apple-disable-message-reformatting">
   <meta name="format-detection" content="telephone=no,address=no,email=no,date=no,url=no">
-  <title>Minuta disponible para revisión</title>
+  <title>Nueva observación de invitado</title>
 
   <!--[if mso]>
     <style type="text/css">
@@ -16,7 +16,7 @@
 
 <body style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#1f2937;">
   <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">
-    La minuta fue procesada correctamente y se encuentra disponible para revisión manual.
+    Se recibió una nueva observación de invitado sobre una minuta.
   </div>
 
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f4f6f8;margin:0;padding:0;">
@@ -56,7 +56,7 @@
 
                   <td align="right" valign="middle">
                     <span style="display:inline-block;padding:6px 12px;border-radius:999px;background:#eef2ff;color:#3730a3;font-size:12px;font-weight:700;">
-                      Revisión requerida
+                      Observación
                     </span>
                   </td>
                 </tr>
@@ -67,18 +67,12 @@
           <tr>
             <td style="padding:30px 28px 12px 28px;">
               <h1 style="margin:0;font-size:22px;line-height:30px;color:#111827;font-weight:700;">
-                Minuta procesada y disponible para revisión
+                Nueva observación de invitado
               </h1>
 
               <p style="margin:14px 0 0 0;font-size:14px;line-height:22px;color:#374151;">
-                La minuta asociada a la reunión
-                <strong>{{ MEETING_TITLE }}</strong>
-                fue procesada correctamente y quedó disponible como borrador para validación manual.
-              </p>
-
-              <p style="margin:12px 0 0 0;font-size:14px;line-height:22px;color:#374151;">
-                Antes de continuar con el flujo de publicación, aprobación o envío a participantes,
-                se recomienda revisar el contenido generado y confirmar que la información registrada sea correcta.
+                <strong>{{ OBSERVATION_AUTHOR }}</strong> dejó una nueva observación sobre la minuta
+                <strong>{{ MINUTE_TITLE }}</strong>.
               </p>
 
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"
@@ -86,7 +80,7 @@
                 <tr>
                   <td style="padding:18px 18px;">
                     <div style="font-size:12px;line-height:16px;color:#6b7280;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:12px;">
-                      Información de la minuta
+                      Detalle de la observación
                     </div>
 
                     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
@@ -95,29 +89,29 @@
                           <strong style="color:#111827;">Cliente:</strong> {{ CLIENT_NAME }}
                         </td>
                       </tr>
-
                       <tr>
                         <td style="font-size:13px;line-height:20px;color:#374151;padding:4px 0;">
                           <strong style="color:#111827;">Proyecto:</strong> {{ PROJECT_NAME }}
                         </td>
                       </tr>
-
                       <tr>
                         <td style="font-size:13px;line-height:20px;color:#374151;padding:4px 0;">
-                          <strong style="color:#111827;">Reunión:</strong> {{ MEETING_TITLE }}
+                          <strong style="color:#111827;">Versión:</strong> {{ MINUTE_VERSION }}
                         </td>
                       </tr>
-
                       <tr>
                         <td style="font-size:13px;line-height:20px;color:#374151;padding:4px 0;">
-                          <strong style="color:#111827;">Fecha de reunión:</strong> {{ MEETING_DATETIME }} ({{ TZ }})
+                          <strong style="color:#111827;">Autor:</strong> {{ OBSERVATION_AUTHOR }}
                         </td>
                       </tr>
-
                       <tr>
                         <td style="font-size:13px;line-height:20px;color:#374151;padding:4px 0;">
-                          <strong style="color:#111827;">Perfil IA:</strong> {{ AI_PROFILE_NAME }}
-                          <span style="color:#6b7280;">({{ AI_PROFILE_CATEGORY }})</span>
+                          <strong style="color:#111827;">Correo:</strong> {{ OBSERVATION_AUTHOR_EMAIL }}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="font-size:13px;line-height:20px;color:#374151;padding:4px 0;">
+                          <strong style="color:#111827;">Fecha:</strong> {{ OBSERVATION_CREATED_AT }} ({{ TZ }})
                         </td>
                       </tr>
                     </table>
@@ -127,33 +121,18 @@
 
               <div style="margin-top:20px;padding:18px 18px;border-left:4px solid #2563eb;background:#eff6ff;border-radius:10px;">
                 <div style="font-size:14px;line-height:20px;color:#111827;font-weight:700;">
-                  Acción requerida
+                  Contenido recibido
                 </div>
 
-                <p style="margin:8px 0 0 0;font-size:13px;line-height:21px;color:#374151;">
-                  Se requiere validar el contenido de la minuta antes de continuar con el flujo correspondiente.
-                  La revisión debe confirmar que la información generada sea consistente con lo tratado en la reunión.
+                <p style="margin:8px 0 0 0;font-size:13px;line-height:21px;color:#374151;white-space:pre-wrap;">
+                  {{ OBSERVATION_BODY }}
                 </p>
-              </div>
-
-              <div style="margin-top:18px;padding:18px 18px;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;">
-                <div style="font-size:14px;line-height:20px;color:#111827;font-weight:700;">
-                  Puntos sugeridos para validar
-                </div>
-
-                <ul style="margin:10px 0 0 18px;padding:0;font-size:13px;line-height:21px;color:#374151;">
-                  <li>{{ AI_NOTE_1 }}</li>
-                  <li>{{ AI_NOTE_2 }}</li>
-                  <li>{{ AI_NOTE_3 }}</li>
-                  <li>Acuerdos, compromisos y responsables asignados.</li>
-                  <li>Fechas comprometidas, nombres propios y contenido sensible.</li>
-                </ul>
               </div>
 
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:26px;">
                 <tr>
                   <td align="center">
-                    <a href="{{ EDIT_URL }}"
+                    <a href="{{ MINUTE_EDIT_URL }}"
                        target="_blank"
                        rel="noopener"
                        style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;font-size:14px;line-height:18px;font-weight:700;padding:13px 22px;border-radius:10px;">
@@ -168,7 +147,7 @@
               </p>
 
               <div style="margin:8px auto 0 auto;max-width:520px;padding:10px 12px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;font-size:12px;line-height:18px;color:#374151;word-break:break-all;text-align:center;">
-                {{ EDIT_URL }}
+                {{ MINUTE_EDIT_URL }}
               </div>
 
               <p style="margin:16px 0 0 0;font-size:11px;line-height:16px;color:#9ca3af;">

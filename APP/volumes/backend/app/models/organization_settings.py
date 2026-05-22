@@ -19,6 +19,7 @@ class OrganizationSetting(Base):
     email = Column(String(254), nullable=True)
     phone = Column(String(30), nullable=True)
     website = Column(String(500), nullable=True)
+    public_base_url = Column(String(500), nullable=True)
     address = Column(String(400), nullable=True)
     country = Column(String(120), nullable=True)
     region = Column(String(120), nullable=True)

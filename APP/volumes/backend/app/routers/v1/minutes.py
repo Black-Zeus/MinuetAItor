@@ -177,6 +177,31 @@ async def pdf_preview_endpoint(
 
 
 @router.get(
+    "/{record_id}/attachments",
+    status_code = status.HTTP_200_OK,
+    summary     = "Sirve un adjunto de entrada por hash o nombre de archivo",
+)
+def attachment_query_endpoint(
+    record_id: str,
+    sha256: str | None = Query(None),
+    file_name: str | None = Query(None, alias="fileName"),
+    db: Session = Depends(get_db),
+    session: UserSession = Depends(current_user_dep),
+):
+    file_bytes, mime_type, filename = get_minute_attachment_blob(
+        db=db,
+        record_id=record_id,
+        sha256=sha256,
+        file_name=file_name,
+    )
+    return Response(
+        content=file_bytes,
+        media_type=mime_type,
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
+
+
+@router.get(
     "/{record_id}/attachments/{sha256}",
     status_code = status.HTTP_200_OK,
     summary     = "Sirve un adjunto de entrada real asociado a la minuta",
@@ -191,6 +216,7 @@ def attachment_endpoint(
         db=db,
         record_id=record_id,
         sha256=sha256,
+        file_name=None,
     )
     return Response(
         content=file_bytes,

@@ -40,6 +40,22 @@ const isTextMime = (mime = '') => mime.startsWith('text/') || [
 const isImageMime = (mime = '') => mime.startsWith('image/');
 const isPdfMime = (mime = '') => mime === 'application/pdf';
 
+const extractBlobErrorMessage = async (error, fallbackMessage) => {
+  const fallback = fallbackMessage || 'No se pudo cargar el adjunto.';
+  const data = error?.response?.data;
+  if (!(data instanceof Blob)) {
+    return error?.response?.data?.detail?.message || fallback;
+  }
+
+  try {
+    const text = await data.text();
+    const parsed = JSON.parse(text);
+    return parsed?.detail?.message || parsed?.message || fallback;
+  } catch {
+    return fallback;
+  }
+};
+
 const ReadonlyField = ({ label, value, mono = false }) => (
   <div className="col-span-12 md:col-span-6">
     <div className="rounded-xl bg-gray-50/80 px-4 py-3 transition-theme dark:bg-gray-900/30">
@@ -102,7 +118,11 @@ const AttachmentPreviewContent = ({ recordId, attachment }) => {
         setTextContent('');
         setBlobUrl('');
 
-        const blob = await getMinuteAttachmentBlob(recordId, attachment.sha256);
+        const blob = await getMinuteAttachmentBlob(
+          recordId,
+          attachment.sha256 || null,
+          attachment.fileName || null
+        );
         if (!isMounted) return;
 
         if (isTextMime(attachment.mimeType)) {
@@ -115,7 +135,7 @@ const AttachmentPreviewContent = ({ recordId, attachment }) => {
         }
       } catch (err) {
         if (!isMounted) return;
-        setError(err?.response?.data?.detail?.message || 'No se pudo cargar el adjunto.');
+        setError(await extractBlobErrorMessage(err, 'No se pudo cargar el adjunto.'));
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -127,21 +147,25 @@ const AttachmentPreviewContent = ({ recordId, attachment }) => {
       isMounted = false;
       if (currentUrl) URL.revokeObjectURL(currentUrl);
     };
-  }, [attachment.mimeType, attachment.sha256, recordId]);
+  }, [attachment.fileName, attachment.mimeType, attachment.sha256, recordId]);
 
   const handleDownload = async () => {
     try {
-      const blob = await getMinuteAttachmentBlob(recordId, attachment.sha256);
+      const blob = await getMinuteAttachmentBlob(
+        recordId,
+        attachment.sha256 || null,
+        attachment.fileName || null
+      );
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       link.download = attachment.fileName || 'adjunto';
       link.click();
       URL.revokeObjectURL(url);
-    } catch {
+    } catch (err) {
       ModalManager.warning({
         title: 'Descarga no disponible',
-        message: 'No fue posible descargar el adjunto en este momento.',
+        message: await extractBlobErrorMessage(err, 'No fue posible descargar el adjunto en este momento.'),
       });
     }
   };
