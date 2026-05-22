@@ -41,6 +41,24 @@ from services.minutes.sanitizers import (
 from services.minutes.storage import read_json
 
 
+def _looks_like_ai_output(content: object) -> bool:
+    if not isinstance(content, dict):
+        return False
+
+    if "generalInfo" in content or "scope" in content or "inputInfo" in content:
+        return True
+
+    participants = content.get("participants")
+    agreements = content.get("agreements")
+    requirements = content.get("requirements")
+    upcoming_meetings = content.get("upcomingMeetings")
+
+    return any(
+        isinstance(candidate, dict)
+        for candidate in (participants, agreements, requirements, upcoming_meetings)
+    )
+
+
 def _load_minute_list_summary(record_id: str, status_code: str, version_num: int) -> Optional[str]:
     if status_code == RECORD_STATUS_READY:
         content = read_json(BUCKET_JSON, f"{record_id}/schema_output_v1.json")
@@ -118,7 +136,7 @@ def get_minute_detail(db: Session, record_id: str) -> MinuteDetailResponse:
         content = read_json(BUCKET_DRAFT, f"{record_id}/draft_current.json")
         if content is not None:
             content = ensure_pdf_template_in_content(content, resolve_pdf_template_for_record(record))
-            content_type = "draft"
+            content_type = "ai_output" if _looks_like_ai_output(content) else "draft"
         else:
             content = read_json(BUCKET_JSON, f"{record_id}/schema_output_v1.json")
             content = ensure_pdf_template_in_content(content, resolve_pdf_template_for_record(record))
