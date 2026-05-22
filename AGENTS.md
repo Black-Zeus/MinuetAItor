@@ -39,6 +39,15 @@ Restricciones obligatorias:
 - No renombrar tablas, rutas, variables de entorno o colas sin revisar referencias cruzadas.
 - No usar seeds para parchear problemas de negocio que en realidad exigen cambio de esquema o servicio.
 
+## Compatibilidad legacy
+- Salvo instruccion explicita del usuario, no asumir que toda mejora debe preservar compatibilidad con datos, payloads o estructuras legacy.
+- Si el entorno esta en fase de desarrollo y la persistencia puede recrearse, priorizar una implementacion limpia sobre adaptar manualmente datos historicos.
+- Solo invertir tiempo en normalizacion, migracion o compatibilidad retroactiva cuando:
+  - el usuario lo pida explicitamente
+  - exista un requisito operativo real de conservar datos previos
+  - romper compatibilidad afecte flujos activos que no puedan recrearse
+- Si decides no cubrir legacy, dejarlo claro en la entrega final para que el usuario sepa que el cambio aplica desde la nueva estructura hacia adelante.
+
 ## Arquitectura resumida
 
 ### Backend
