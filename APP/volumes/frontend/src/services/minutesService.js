@@ -31,7 +31,7 @@ export const listMinutes = async ({
   mine_as_preparer = false,
   mine_as_participant = false,
   exclude_mine_as_preparer = false,
-} = {}) => {
+} = {}, requestConfig = {}) => {
   const params = { skip, limit };
   if (q)             params.q             = q;
   if (status_filter) params.status_filter = status_filter;
@@ -41,7 +41,7 @@ export const listMinutes = async ({
   if (mine_as_participant)      params.mine_as_participant = true;
   if (exclude_mine_as_preparer) params.exclude_mine_as_preparer = true;
 
-  const res = await api.get(BASE, { params });
+  const res = await api.get(BASE, { params, ...requestConfig });
   return unwrap(res);
 };
 

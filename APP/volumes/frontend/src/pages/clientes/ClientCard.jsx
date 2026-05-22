@@ -54,6 +54,7 @@ const ClientCard = ({ id, summary = null, onUpdated, onDeleted }) => {
 
     // Gobernanza
     is_confidential: Boolean(formData.isConfidential),
+    default_pdf_template: formData.defaultPdfTemplate || null,
   });
 
   // ─── Carga de detalle on-demand ───────────────────────────────────────────

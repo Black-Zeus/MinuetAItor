@@ -11,6 +11,7 @@ import ProjectFilters from './ProjectFilters';
 import ProjectStats   from './ProjectStats';
 import ProjectGrid    from './ProjectGrid';
 import PageLoadingSpinner from '@/components/ui/modal/types/system/PageLoadingSpinner';
+import useAbortableRequestScope from '@/hooks/useAbortableRequestScope';
 
 import logger from '@/utils/logger';
 const projectLog = logger.scope("project");
@@ -55,6 +56,7 @@ const applyLocalFilters = (list, filters) => {
 // ─── Componente ───────────────────────────────────────────────────────────────
 
 const Project = () => {
+  const requestScope = useAbortableRequestScope();
   const [projects,         setProjects]         = useState([]);
   const [filteredProjects, setFilteredProjects] = useState([]);
   const [clientCatalog,    setClientCatalog]    = useState([]);
@@ -70,13 +72,17 @@ const Project = () => {
   // ─── Carga inicial ──────────────────────────────────────────────────────────
 
   const loadAll = useCallback(async () => {
+    const projectsRequest = requestScope.createRequestConfig();
+    const clientsRequest = requestScope.createRequestConfig();
     setIsLoading(true);
     try {
       // Carga en paralelo
       const [projectsResult, clientsResult] = await Promise.all([
-        projectService.list({ isActive: null }),
-        clientService.list({ isActive: true, limit: 200 }),
+        projectService.list({ isActive: null }, projectsRequest),
+        clientService.list({ isActive: true, limit: 200 }, clientsRequest),
       ]);
+
+      if (requestScope.wasAborted(projectsRequest.signal) || requestScope.wasAborted(clientsRequest.signal)) return;
 
       const pList = projectsResult.items ?? [];
       const cList = clientsResult.items  ?? [];
@@ -87,11 +93,14 @@ const Project = () => {
       setClientCatalog(cList);
 
     } catch (err) {
+      if (requestScope.wasAborted(projectsRequest.signal) || requestScope.wasAborted(clientsRequest.signal)) return;
       projectLog.error('[Project] Error cargando datos:', err);
     } finally {
-      setIsLoading(false);
+      if (!requestScope.wasAborted(projectsRequest.signal) && !requestScope.wasAborted(clientsRequest.signal)) {
+        setIsLoading(false);
+      }
     }
-  }, []);
+  }, [requestScope]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
 

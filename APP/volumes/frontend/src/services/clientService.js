@@ -67,9 +67,9 @@ export const clientService = {
    * POST /v1/clients/list
    * @returns { items, total, skip, limit }
    */
-  async list({ skip = 0, limit = 50, isActive = true, filters = {} } = {}) {
+  async list({ skip = 0, limit = 50, isActive = true, filters = {} } = {}, requestConfig = {}) {
     const payload = buildListPayload({ skip, limit, isActive, filters });
-    const res = await axiosInstance.post(`${BASE}/list`, payload);
+    const res = await axiosInstance.post(`${BASE}/list`, payload, requestConfig);
     const result = unwrap(res);
     return normalizeListResult(result);
   },

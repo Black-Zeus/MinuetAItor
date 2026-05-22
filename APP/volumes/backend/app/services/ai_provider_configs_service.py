@@ -137,6 +137,21 @@ def _provider_models_response_format(provider_type: str | None) -> str:
     return str(_provider_definition(provider_type).get("models_response_format") or _provider_family(provider_type)).strip() or "generic"
 
 
+def _provider_execution_adapter(provider_type: str | None) -> str:
+    """
+    Normaliza el protocolo de inferencia que entiende el worker.
+
+    `custom` hoy cae en la familia `generic`, pero esa familia todavía no expone
+    un selector explícito de protocolo conversacional. Mientras ese selector no
+    exista, el worker debe tratar `generic` como `openai_compatible`, que es el
+    contrato más amplio y estable dentro de los proveedores mantenidos.
+    """
+    family = _provider_family(provider_type)
+    if family in {"openai_compatible", "anthropic", "ollama"}:
+        return family
+    return "openai_compatible"
+
+
 def _build_response_dict(obj: AiProviderConfig) -> dict[str, Any]:
     token = read_secret(obj.token_secret)
     password = read_secret(obj.password_secret)
@@ -175,6 +190,7 @@ def _build_runtime_response_dict(obj: AiProviderConfig) -> dict[str, Any]:
         "name": obj.name,
         "provider_type": obj.provider_type,
         "provider_family": _provider_family(obj.provider_type),
+        "execution_adapter": _provider_execution_adapter(obj.provider_type),
         "base_url": obj.base_url,
         "model_name": obj.model_name,
         "auth_type": obj.auth_type,
@@ -625,6 +641,21 @@ def _discover_model_options(values: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _discover_model_options_from_payload(
+    values: dict[str, Any],
+    *,
+    payload: Any,
+    endpoint_used: str | None,
+) -> dict[str, Any]:
+    items = _extract_model_options(values["provider_type"], payload)
+    if not items:
+        raise BadRequestException("No se encontraron modelos disponibles en el endpoint configurado")
+    return {
+        "items": items,
+        "endpoint_used": endpoint_used,
+    }
+
+
 def _validation_status_from_discovery_error(message: str) -> str:
     lowered = str(message or "").lower()
     if "credenciales" in lowered or "api key" in lowered or "token" in lowered:
@@ -638,7 +669,11 @@ def _validation_status_from_discovery_error(message: str) -> str:
     return "error"
 
 
-def _validate_selected_model(values: dict[str, Any]) -> tuple[str, str]:
+def _validate_selected_model(
+    values: dict[str, Any],
+    *,
+    discovered: dict[str, Any] | None = None,
+) -> tuple[str, str]:
     model_name = _normalize_optional_text(values.get("model_name"))
     if not model_name:
         return ("error", "Debes indicar un modelo para validar esta configuración.")
@@ -649,11 +684,12 @@ def _validate_selected_model(values: dict[str, Any]) -> tuple[str, str]:
             f"Validación correcta. Se confirmó la configuración mínima y se mantuvo el modelo '{model_name}' como valor manual.",
         )
 
-    try:
-        discovered = _discover_model_options(values)
-    except BadRequestException as exc:
-        message = str(exc)
-        return (_validation_status_from_discovery_error(message), message)
+    if discovered is None:
+        try:
+            discovered = _discover_model_options(values)
+        except BadRequestException as exc:
+            message = str(exc)
+            return (_validation_status_from_discovery_error(message), message)
 
     discovered_values = {item["value"] for item in discovered.get("items", [])}
     if model_name not in discovered_values:
@@ -671,12 +707,14 @@ def _validate_selected_model(values: dict[str, Any]) -> tuple[str, str]:
     return ("valid", f"Validación correcta. El modelo '{model_name}' está disponible.")
 
 
-def _run_remote_validation(values: dict[str, Any]) -> tuple[str, str]:
+def _run_remote_validation(values: dict[str, Any]) -> tuple[str, str, Any | None, str | None]:
     validation_url = _effective_validation_url(values)
     if not validation_url:
         return (
             "valid",
             "Configuración mínima coherente. No se definió un endpoint remoto de validación, por lo que solo se verificó la consistencia básica.",
+            None,
+            None,
         )
 
     request = Request(
@@ -690,40 +728,61 @@ def _run_remote_validation(values: dict[str, Any]) -> tuple[str, str]:
     try:
         with urlopen(request, timeout=timeout_seconds, context=context) as response:
             status_code = int(getattr(response, "status", 200))
+            raw_body = response.read().decode("utf-8")
+            payload = json.loads(raw_body) if raw_body else {}
             if 200 <= status_code < 300:
                 return (
                     "valid",
                     f"Validación correcta. El endpoint respondió satisfactoriamente en {validation_url}.",
+                    payload,
+                    validation_url,
                 )
             return (
                 "error",
                 "El proveedor respondió, pero no confirmó la configuración como válida.",
+                None,
+                validation_url,
             )
     except HTTPError as exc:
         if exc.code in {401, 403}:
-            return ("auth_error", "Las credenciales configuradas fueron rechazadas por el proveedor.")
+            return ("auth_error", "Las credenciales configuradas fueron rechazadas por el proveedor.", None, validation_url)
         if exc.code == 404:
-            return ("endpoint_unavailable", "El endpoint de validación no está disponible o no existe.")
+            return ("endpoint_unavailable", "El endpoint de validación no está disponible o no existe.", None, validation_url)
         if 500 <= exc.code <= 599:
-            return ("endpoint_unavailable", "El proveedor respondió con un error temporal del servidor.")
-        return ("error", f"La validación remota respondió con estado HTTP {exc.code}.")
+            return ("endpoint_unavailable", "El proveedor respondió con un error temporal del servidor.", None, validation_url)
+        return ("error", f"La validación remota respondió con estado HTTP {exc.code}.", None, validation_url)
     except TimeoutError:
-        return ("timeout", "La validación excedió el tiempo de espera configurado.")
+        return ("timeout", "La validación excedió el tiempo de espera configurado.", None, validation_url)
     except URLError as exc:
         reason = getattr(exc, "reason", exc)
         if isinstance(reason, socket.timeout):
-            return ("timeout", "La validación excedió el tiempo de espera configurado.")
-        return ("connection_error", _sanitize_remote_error(str(reason)))
+            return ("timeout", "La validación excedió el tiempo de espera configurado.", None, validation_url)
+        return ("connection_error", _sanitize_remote_error(str(reason)), None, validation_url)
     except (socket.gaierror, socket.timeout, OSError) as exc:
-        return ("connection_error", _sanitize_remote_error(str(exc)))
+        return ("connection_error", _sanitize_remote_error(str(exc)), None, validation_url)
+    except json.JSONDecodeError:
+        return ("error", "El endpoint de validación respondió, pero no devolvió un JSON válido.", None, validation_url)
 
 
 def _run_validation_pipeline(values: dict[str, Any]) -> tuple[str, str]:
-    status, message = _run_remote_validation(values)
+    status, message, validation_payload, validation_url = _run_remote_validation(values)
     if status != "valid":
         return status, message
 
-    model_status, model_message = _validate_selected_model(values)
+    discovered = None
+    models_url = _effective_models_url(values)
+    if validation_payload is not None and validation_url and models_url and validation_url == models_url:
+        try:
+            discovered = _discover_model_options_from_payload(
+                values,
+                payload=validation_payload,
+                endpoint_used=models_url,
+            )
+        except BadRequestException as exc:
+            message = str(exc)
+            return _validation_status_from_discovery_error(message), message
+
+    model_status, model_message = _validate_selected_model(values, discovered=discovered)
     if model_status != "valid":
         return model_status, model_message
 

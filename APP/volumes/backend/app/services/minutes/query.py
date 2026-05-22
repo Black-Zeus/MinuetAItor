@@ -32,6 +32,7 @@ from services.minutes.reprocess import (
     get_latest_minute_transaction,
     get_reprocess_eligibility,
 )
+from services.pdf_template_resolver import ensure_pdf_template_in_content, resolve_pdf_template_for_record
 from services.minutes.sanitizers import (
     calculate_duration_label,
     extract_summary_from_minute_content,
@@ -111,16 +112,20 @@ def get_minute_detail(db: Session, record_id: str) -> MinuteDetailResponse:
 
     if status_code == RECORD_STATUS_READY:
         content = read_json(BUCKET_JSON, f"{record_id}/schema_output_v1.json")
+        content = ensure_pdf_template_in_content(content, resolve_pdf_template_for_record(record))
         content_type = "ai_output"
     elif status_code == RECORD_STATUS_PENDING:
         content = read_json(BUCKET_DRAFT, f"{record_id}/draft_current.json")
         if content is not None:
+            content = ensure_pdf_template_in_content(content, resolve_pdf_template_for_record(record))
             content_type = "draft"
         else:
             content = read_json(BUCKET_JSON, f"{record_id}/schema_output_v1.json")
+            content = ensure_pdf_template_in_content(content, resolve_pdf_template_for_record(record))
             content_type = "ai_output"
     elif status_code in (RECORD_STATUS_PREVIEW, RECORD_STATUS_COMPLETED):
         content = read_json(BUCKET_JSON, f"{record_id}/schema_output_v{version_num}.json")
+        content = ensure_pdf_template_in_content(content, resolve_pdf_template_for_record(record))
         content_type = "snapshot"
 
     return MinuteDetailResponse(

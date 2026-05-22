@@ -121,7 +121,19 @@ def _normalize(data: dict) -> dict:
     }
 
 
-def _person(x: dict) -> dict:
+def _person(x) -> dict:
+    if isinstance(x, str):
+        return {
+            "full_name": x.strip(),
+            "initials": "",
+            "role": "",
+        }
+    if not isinstance(x, dict):
+        return {
+            "full_name": "",
+            "initials": "",
+            "role": "",
+        }
     return {
         "full_name": x.get("fullName", x.get("full_name", "")),
         "initials":  x.get("initials", ""),

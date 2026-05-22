@@ -22,6 +22,8 @@ import logging
 import uuid
 from typing import Any, Dict, List
 
+from services.pdf_template_resolver import DEFAULT_PDF_TEMPLATE, resolve_pdf_template_for_record
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -31,7 +33,7 @@ logger = logging.getLogger(__name__)
 PDF_TRIGGER_CONFIG: Dict[str, Dict[str, Any]] = {
     "ready-for-edit": {
         "trigger":           "post_ai_processing",
-        "template":          "opc_01",
+        "template":          DEFAULT_PDF_TEMPLATE,
         "watermark":         True,
         "paper":             "A4",
         "minio_bucket":      "minuetaitor-draft",
@@ -43,7 +45,7 @@ PDF_TRIGGER_CONFIG: Dict[str, Dict[str, Any]] = {
     # El template se sobreescribe con el valor de draft_content.pdfFormat.template.
     "pending": {
         "trigger":           "autosave",
-        "template":          "opc_01",   # fallback; se sobreescribe desde el draft
+        "template":          DEFAULT_PDF_TEMPLATE,   # fallback; se sobreescribe desde el draft
         "watermark":         True,
         "paper":             "A4",
         "minio_bucket":      "minuetaitor-draft",
@@ -53,7 +55,7 @@ PDF_TRIGGER_CONFIG: Dict[str, Dict[str, Any]] = {
     },
     "completed": {
         "trigger":           "manual_publish",
-        "template":          "opc_01",
+        "template":          DEFAULT_PDF_TEMPLATE,
         "watermark":         False,
         "paper":             "A4",
         "minio_bucket":      "minuetaitor-published",
@@ -81,6 +83,7 @@ def build_pdf_job(record: Any, trigger_config: Dict[str, Any]) -> Dict[str, Any]
     ia_response  = _load_ia_response(record_id)
     pdf_metadata = _build_pdf_metadata(record, trigger_config)
     output_key   = trigger_config["output_key_tpl"].format(record_id=record_id)
+    resolved_template = resolve_pdf_template_for_record(record)
 
     # Tags: el template los usa como variable "ai_tags" (no "ai_suggested_tags")
     ai_tags = ia_response.get("aiSuggestedTags", [])
@@ -88,7 +91,7 @@ def build_pdf_job(record: Any, trigger_config: Dict[str, Any]) -> Dict[str, Any]
     payload = {
         "record_id":        record_id,
         "version_id":       version_id,
-        "template":         trigger_config["template"],
+        "template":         resolved_template,
         "minio_output_key": output_key,
         "minio_bucket":     trigger_config["minio_bucket"],
         "version_label":    pdf_metadata["version_label"],
@@ -175,7 +178,19 @@ def _map_participants(p: Dict[str, Any]) -> Dict[str, Any]:
       attendees[].initials    → attendees[].initials
       copyRecipients[]        → copy_recipients[]
     """
-    def normalize_person(person: Dict[str, Any]) -> Dict[str, Any]:
+    def normalize_person(person: Any) -> Dict[str, Any]:
+        if isinstance(person, str):
+            return {
+                "full_name": person.strip(),
+                "initials": "",
+                "role": "",
+            }
+        if not isinstance(person, dict):
+            return {
+                "full_name": "",
+                "initials": "",
+                "role": "",
+            }
         return {
             "full_name": person.get("fullName", person.get("full_name", "")),
             "initials":  person.get("initials", ""),
@@ -404,7 +419,7 @@ def build_pdf_job_from_draft(
 
     # Template: preferir la selección del usuario en el editor
     pdf_format = draft_content.get("pdfFormat", {})
-    template   = pdf_format.get("template") or trigger_config["template"]
+    template   = pdf_format.get("template") or resolve_pdf_template_for_record(record)
 
     pdf_metadata = _build_pdf_metadata(record, trigger_config)
     output_key   = trigger_config["output_key_tpl"].format(record_id=record_id)

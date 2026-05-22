@@ -26,6 +26,8 @@ from models.records import Record
 from models.user import User
 from models.user_client_acl import UserClientAcl, UserClientAclPermission
 from models.user_project_acl import UserProjectACL, UserProjectPermission
+from schemas.sendmail import InlineAsset
+from services.email_branding_service import build_email_branding_bundle
 from services.email_queue import queue_templated_email
 
 logger = logging.getLogger(__name__)
@@ -375,6 +377,7 @@ async def _safe_queue_template(
     template_id: str,
     context: dict[str, Any],
     subject: str | None = None,
+    inline_assets: list[InlineAsset | dict[str, Any]] | None = None,
     attachments: list[dict[str, Any]] | None = None,
     notification_context: dict[str, Any] | None = None,
 ) -> bool:
@@ -390,6 +393,7 @@ async def _safe_queue_template(
             template_id=template_id,
             template_context=context,
             subject=subject,
+            inline_assets=inline_assets,
             attachments=attachments,
             notification_context=notification_context,
         )
@@ -659,8 +663,10 @@ async def enqueue_ai_processed_ready_email(
         str(ai_engine or "").strip()
         or _format_ai_engine(getattr(version, "ai_provider", None), getattr(version, "ai_model", None))
     )
+    branding = build_email_branding_bundle(db, client=record.client, include_organization_logo=True, include_client_logo=False)
 
     context = {
+        **branding.context,
         "MEETING_TITLE": record.title,
         "MEETING_DATETIME": _format_record_datetime(record),
         "CLIENT_NAME": getattr(record.client, "name", "-"),
@@ -688,6 +694,7 @@ async def enqueue_ai_processed_ready_email(
         to=recipients,
         template_id="ai_processed_ready_for_manual_review",
         context=context,
+        inline_assets=branding.inline_assets,
         notification_context={
             "notificationType": "email.sent",
             "title": "Correo enviado",

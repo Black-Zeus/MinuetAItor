@@ -8,6 +8,7 @@ import MinuteCard from "./MinuteCard";
 import MinutesPagination from "./MinutesPagination";
 import PageLoadingSpinner from "@/components/ui/modal/types/system/PageLoadingSpinner";
 import { toastInfo } from "@/components/common/toast/toastHelpers";
+import useAbortableRequestScope from "@/hooks/useAbortableRequestScope";
 
 import { listMinutes, reprocessMinute, transitionMinute } from "@/services/minutesService";
 import useMinuteNotificationStore from "@/store/minuteNotificationStore";
@@ -41,6 +42,7 @@ const extractOptions = (minutes) => {
 // ─── Componente ───────────────────────────────────────────────────────────────
 const Minutes = () => {
   const addPending = useMinuteNotificationStore((s) => s.addPending);
+  const requestScope = useAbortableRequestScope();
 
   // ── Estado de carga ──────────────────────────────────────────────────────
   const [isLoading,    setIsLoading]    = useState(true);
@@ -59,6 +61,8 @@ const Minutes = () => {
 
   // ─── Fetch principal ──────────────────────────────────────────────────────
   const fetchMinutes = useCallback(async (page, filters, showSpinner = false) => {
+    const requestConfig = requestScope.createRequestConfig();
+
     if (showSpinner) setIsLoading(true);
     else             setIsRefreshing(true);
     setError(null);
@@ -71,19 +75,24 @@ const Minutes = () => {
         status_filter: filters.status     || null,
         client_id:     filters.client_id  || null,
         project_id:    filters.project_id || null,
-      });
+      }, requestConfig);
+
+      if (requestScope.wasAborted(requestConfig.signal)) return;
 
       setMinutes(data?.minutes ?? []);
       setTotal(data?.total     ?? 0);
-    } catch {
+    } catch (error) {
+      if (requestScope.wasAborted(requestConfig.signal)) return;
       setError("No se pudieron cargar las minutas. Intenta nuevamente.");
       setMinutes([]);
       setTotal(0);
     } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
+      if (!requestScope.wasAborted(requestConfig.signal)) {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
     }
-  }, []);
+  }, [requestScope]);
 
   // ── Carga inicial ─────────────────────────────────────────────────────────
   useEffect(() => {

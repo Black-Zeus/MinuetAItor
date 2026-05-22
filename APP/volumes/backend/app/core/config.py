@@ -60,6 +60,7 @@ class Settings(BaseSettings):
     minutes_rate_limit_per_day: int = 20
     minutes_polling_interval_seconds: int = 3
     minutes_max_polling_attempts: int = 100
+    minutes_stale_processing_minutes: int = 10
 
     # Redis TTLs
     redis_ttl_file_id_days: int = 30

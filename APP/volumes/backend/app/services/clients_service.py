@@ -25,6 +25,7 @@ from services.client_logo_service import (
     remove_client_logo,
     save_client_logo,
 )
+from services.pdf_template_resolver import normalize_pdf_template
 
 from utils.text import title_case_es
 
@@ -91,6 +92,7 @@ def _build_response_dict(obj: Client) -> dict:
         # Gobernanza
         "is_confidential": bool(obj.is_confidential),
         "is_active":       bool(obj.is_active),
+        "default_pdf_template": normalize_pdf_template(obj.default_pdf_template) if obj.default_pdf_template else None,
         # Auditoría
         "created_at": obj.created_at.isoformat() if obj.created_at else None,
         "updated_at": obj.updated_at.isoformat() if obj.updated_at else None,
@@ -214,6 +216,7 @@ def create_client(
         # Gobernanza
         is_confidential=bool(payload.is_confidential),
         is_active=bool(payload.is_active),
+        default_pdf_template=payload.default_pdf_template,
         created_by=created_by_id,
         updated_by=None,
         deleted_at=None,
@@ -233,7 +236,7 @@ _UPDATABLE_FIELDS = [
     "contact_name", "contact_email", "contact_phone",
     "contact_position", "contact_department",
     "status", "priority", "notes", "tags",
-    "is_confidential", "is_active",
+    "is_confidential", "is_active", "default_pdf_template",
 ]
 
 

@@ -21,6 +21,7 @@ class ActiveAIProviderConfigResponse(BaseModel):
     name: str
     provider_type: str = Field(..., description="Tipo de proveedor activo, ej: openai")
     provider_family: str = Field(..., description="Familia/protocolo del proveedor")
+    execution_adapter: str = Field(..., description="Adapter normalizado que el worker debe usar para ejecutar la inferencia")
     base_url: str = Field(..., description="Base URL efectiva para el cliente del worker")
     model_name: str = Field(..., description="Modelo configurado para procesamiento")
     auth_type: str = Field(..., description="Modo de autenticación configurado")

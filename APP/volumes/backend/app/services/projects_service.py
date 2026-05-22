@@ -25,6 +25,7 @@ from services.project_logo_service import (
     remove_project_logo,
     save_project_logo,
 )
+from services.pdf_template_resolver import resolve_pdf_template_for_project
 
 
 def _user_ref(u) -> dict | None:
@@ -53,6 +54,8 @@ def _build_response_dict(obj: Project) -> dict:
         "is_active": bool(obj.is_active),
         "auto_send_on_preview": bool(getattr(obj, "auto_send_on_preview", False)),
         "auto_send_on_completed": bool(getattr(obj, "auto_send_on_completed", False)),
+        "pdf_template_override": getattr(obj, "pdf_template_override", None),
+        "resolved_pdf_template": resolve_pdf_template_for_project(obj),
         "created_at": obj.created_at.isoformat() if obj.created_at else None,
         "updated_at": obj.updated_at.isoformat() if obj.updated_at else None,
         "created_by": _user_ref(getattr(obj, "created_by_user", None)),
@@ -186,6 +189,7 @@ def create_project(
         is_active=bool(body.is_active),
         auto_send_on_preview=bool(body.auto_send_on_preview),
         auto_send_on_completed=bool(body.auto_send_on_completed),
+        pdf_template_override=body.pdf_template_override,
         created_by=created_by_id,
         updated_by=None,
         deleted_at=None,
@@ -243,6 +247,8 @@ def update_project(
         obj.auto_send_on_preview = bool(body.auto_send_on_preview)
     if body.auto_send_on_completed is not None:
         obj.auto_send_on_completed = bool(body.auto_send_on_completed)
+    if "pdf_template_override" in body.model_fields_set:
+        obj.pdf_template_override = body.pdf_template_override
 
     obj.updated_by = updated_by_id
 

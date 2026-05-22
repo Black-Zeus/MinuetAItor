@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 import ActionButton from "@/components/ui/button/ActionButton";
 import Icon from "@/components/ui/icon/iconManager";
@@ -26,64 +26,73 @@ import {
 } from "@/pages/system/SystemSettingsShared";
 import aiProviderConfigService from "@/services/aiProviderConfigService";
 import smtpConfigService from "@/services/smtpConfigService";
+import useAbortableRequestScope from "@/hooks/useAbortableRequestScope";
 
 const SystemSettings = () => {
+  const requestScope = useAbortableRequestScope();
   const [activeTab, setActiveTab] = useState("summary");
   const [smtpItems, setSmtpItems] = useState([]);
   const [aiItems, setAiItems] = useState([]);
   const [aiProviderCatalog, setAiProviderCatalog] = useState([]);
   const [isSmtpLoading, setIsSmtpLoading] = useState(false);
   const [isAiLoading, setIsAiLoading] = useState(false);
-  const hasLoadedSmtpRef = useRef(false);
-  const hasLoadedAiRef = useRef(false);
 
   useDocumentTitle("Configuración del Sistema");
 
-  const loadSmtpConfigs = async () => {
+  const loadSmtpConfigs = async ({ signal } = {}) => {
     setIsSmtpLoading(true);
     try {
-      const result = await smtpConfigService.list({ limit: 100 });
+      const result = await smtpConfigService.list({ limit: 100 }, { signal });
+      if (signal?.aborted) return;
       setSmtpItems(Array.isArray(result?.items) ? result.items : []);
     } catch (error) {
+      if (signal?.aborted) return;
       setSmtpItems([]);
     } finally {
-      setIsSmtpLoading(false);
+      if (!signal?.aborted) {
+        setIsSmtpLoading(false);
+      }
     }
   };
 
-  const loadAiConfigs = async () => {
+  const loadAiConfigs = async ({ signal } = {}) => {
     setIsAiLoading(true);
     try {
-      const result = await aiProviderConfigService.list({ limit: 100 });
+      const result = await aiProviderConfigService.list({ limit: 100 }, { signal });
+      if (signal?.aborted) return;
       setAiItems(Array.isArray(result?.items) ? result.items : []);
     } catch (error) {
+      if (signal?.aborted) return;
       setAiItems([]);
     } finally {
-      setIsAiLoading(false);
+      if (!signal?.aborted) {
+        setIsAiLoading(false);
+      }
     }
   };
 
-  const loadAiProviderCatalog = async () => {
+  const loadAiProviderCatalog = async ({ signal } = {}) => {
     try {
-      const result = await aiProviderConfigService.getCatalog();
+      const result = await aiProviderConfigService.getCatalog({ signal });
+      if (signal?.aborted) return;
       setAiProviderCatalog(Array.isArray(result) ? result : []);
     } catch (error) {
+      if (signal?.aborted) return;
       setAiProviderCatalog([]);
     }
   };
 
   useEffect(() => {
-    if (hasLoadedSmtpRef.current) return;
-    hasLoadedSmtpRef.current = true;
-    loadSmtpConfigs();
-  }, []);
+    const requestConfig = requestScope.createRequestConfig();
+    loadSmtpConfigs({ signal: requestConfig.signal });
+  }, [requestScope]);
 
   useEffect(() => {
-    if (hasLoadedAiRef.current) return;
-    hasLoadedAiRef.current = true;
-    loadAiProviderCatalog();
-    loadAiConfigs();
-  }, []);
+    const catalogRequest = requestScope.createRequestConfig();
+    const listRequest = requestScope.createRequestConfig();
+    loadAiProviderCatalog({ signal: catalogRequest.signal });
+    loadAiConfigs({ signal: listRequest.signal });
+  }, [requestScope]);
 
   const aiProviderLabelMap = useMemo(
     () =>

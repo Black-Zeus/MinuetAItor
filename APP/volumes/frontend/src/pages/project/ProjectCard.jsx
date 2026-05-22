@@ -47,6 +47,7 @@ const toApiPayload = (formData) => ({
   is_confidential: Boolean(formData.isConfidential),
   auto_send_on_preview: Boolean(formData.autoSendOnPreview),
   auto_send_on_completed: Boolean(formData.autoSendOnCompleted),
+  pdf_template_override: formData.pdfTemplateOverride || null,
 });
 
 const getStatusColor = (isActive) => {

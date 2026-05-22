@@ -43,6 +43,7 @@ class Client(Base, TimestampMixin):
     is_confidential = Column(Boolean, nullable=False, default=False)
     is_active       = Column(Boolean, nullable=False, default=True)
     avatar_object_id = Column(String(36), ForeignKey("objects.id"), nullable=True)
+    default_pdf_template = Column(String(40), nullable=True)
 
     created_by = Column(String(36), ForeignKey("users.id"), nullable=True)
     updated_by = Column(String(36), ForeignKey("users.id"), nullable=True)

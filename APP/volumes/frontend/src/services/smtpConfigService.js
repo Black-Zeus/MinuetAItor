@@ -1,6 +1,7 @@
 import axiosInstance from "@/services/axiosInterceptor";
 
 const BASE = "/v1/smtp-configs";
+const RESILIENT_READ_CONFIG = { timeout: 8000, _transientRetry: true };
 
 const unwrap = (res) => {
   const data = res?.data ?? {};
@@ -16,11 +17,11 @@ const normalizeListResult = (payload) => {
 };
 
 const smtpConfigService = {
-  async list({ skip = 0, limit = 100, isActive = null, search = "" } = {}) {
+  async list({ skip = 0, limit = 100, isActive = null, search = "" } = {}, requestConfig = {}) {
     const payload = { skip, limit };
     if (isActive !== null) payload.is_active = isActive;
     if (String(search || "").trim()) payload.search = String(search).trim();
-    const res = await axiosInstance.post(`${BASE}/list`, payload);
+    const res = await axiosInstance.post(`${BASE}/list`, payload, { ...RESILIENT_READ_CONFIG, ...requestConfig });
     return normalizeListResult(unwrap(res));
   },
 

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import Icon from "@/components/ui/icon/iconManager";
 import { ModalManager } from "@/components/ui/modal";
 import { toastError, toastSuccess } from "@/components/common/toast/toastHelpers";
+import { DEFAULT_PDF_TEMPLATE, PDF_TEMPLATE_OPTIONS, getPdfTemplateLabel } from "@/constants/pdfTemplates";
 import clientService from "@/services/clientService";
 
 const MODES = {
@@ -35,6 +36,7 @@ const normalizeClient = (data = {}) => ({
   contactDepartment: data.contactDepartment ?? data.contact_department ?? "",
   notes: data.notes ?? "",
   tags: data.tags ?? "",
+  defaultPdfTemplate: data.defaultPdfTemplate ?? data.default_pdf_template ?? "",
 });
 
 const cn = (...classes) => classes.filter(Boolean).join(" ");
@@ -494,6 +496,35 @@ const ClientModal = ({ mode, data, onSubmit, onClose, onSaved }) => {
                 </Field>
 
                 <div className="md:col-span-2">
+                  <Field label="Template PDF por defecto" hint="Opcional">
+                    {isView ? (
+                      <ReadValue
+                        value={
+                          formData.defaultPdfTemplate
+                            ? getPdfTemplateLabel(formData.defaultPdfTemplate)
+                            : `Hereda estándar del sistema (${getPdfTemplateLabel(DEFAULT_PDF_TEMPLATE)})`
+                        }
+                      />
+                    ) : (
+                      <select
+                        value={formData.defaultPdfTemplate}
+                        onChange={(e) => handleChange("defaultPdfTemplate", e.target.value)}
+                        className={fieldClass()}
+                      >
+                        <option value="">
+                          Heredar estándar del sistema ({getPdfTemplateLabel(DEFAULT_PDF_TEMPLATE)})
+                        </option>
+                        {PDF_TEMPLATE_OPTIONS.map((template) => (
+                          <option key={template.id} value={template.id}>
+                            {template.name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </Field>
+                </div>
+
+                <div className="md:col-span-2">
                   <Field label="Razón social" hint="Opcional">
                     {isView ? (
                       <ReadValue value={formData.companyLegalName} />
@@ -778,6 +809,14 @@ const ClientModal = ({ mode, data, onSubmit, onClose, onSaved }) => {
                   onLogoError={() => setLogoFailed(true)}
                 />
                 <SummaryItem label="Industria" value={formData.industry} />
+                <SummaryItem
+                  label="Template PDF por defecto"
+                  value={
+                    formData.defaultPdfTemplate
+                      ? getPdfTemplateLabel(formData.defaultPdfTemplate)
+                      : `Hereda estándar del sistema (${getPdfTemplateLabel(DEFAULT_PDF_TEMPLATE)})`
+                  }
+                />
                 <SummaryItem label="Razón social" value={formData.companyLegalName} />
                 <SummaryItem label="Email corporativo" value={formData.companyEmail} />
                 <SummaryItem label="Teléfono empresa" value={formData.companyPhone} />
