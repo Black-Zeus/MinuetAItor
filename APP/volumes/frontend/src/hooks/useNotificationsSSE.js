@@ -16,6 +16,25 @@ const toastByLevel = {
   info: toastInfo,
 };
 
+const SUPPRESSED_TOAST_NOTIFICATION_TYPES = new Set([
+  "minute.analysis.completed",
+  "minute.analysis.failed",
+]);
+
+const SUPPRESSED_TOAST_NOTIFICATION_TAGS = new Set([
+  "minute.analysis.email.sent",
+]);
+
+const shouldToastNotification = (item = {}) => {
+  const notificationType = String(item?.notificationType || "").trim();
+  if (SUPPRESSED_TOAST_NOTIFICATION_TYPES.has(notificationType)) {
+    return false;
+  }
+
+  const tags = Array.isArray(item?.tags) ? item.tags : [];
+  return !tags.some((tag) => SUPPRESSED_TOAST_NOTIFICATION_TAGS.has(String(tag || "").trim()));
+};
+
 const parseEventPayload = (event) => {
   try {
     return JSON.parse(event?.data ?? "{}");
@@ -86,6 +105,10 @@ export const useNotificationsSSE = () => {
 
       prependNotification(item, payload?.unread_count ?? payload?.unreadCount ?? null);
       notifyUi(payload);
+
+      if (!shouldToastNotification(item)) {
+        return;
+      }
 
       const toastFn = toastByLevel[item.level] || toastInfo;
       toastFn(item.title, item.message, {
