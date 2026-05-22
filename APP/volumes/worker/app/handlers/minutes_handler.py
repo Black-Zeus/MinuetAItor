@@ -802,9 +802,15 @@ async def handle_minutes_job(job: JobEnvelope) -> None:
         raise
 
     finally:
-        # Solo publicamos failed desde el worker si el proceso fallo.
-        # Si fue exitoso, el backend ya publico el evento completed.
-        if status == "failed" and error and not failure_reported:
+        # Solo publicamos failed desde el worker cuando el fallo ya es terminal
+        # para esta transacción. Si el job todavía será reintentado, no debemos
+        # cerrar el SSE del frontend ni quitar la tx de "pending".
+        if (
+            status == "failed"
+            and error
+            and not failure_reported
+            and job.attempt >= settings.MAX_RETRIES
+        ):
             try:
                 event = {
                     "event":          "failed",

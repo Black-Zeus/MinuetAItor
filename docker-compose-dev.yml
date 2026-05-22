@@ -315,6 +315,9 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
       GOTENBERG_URL:   http://${PROJECT_NAME}-gotenberg:3000
+      BACKEND_INTERNAL_URL: http://${PROJECT_NAME}-backend:8000
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET}
+      BACKEND_TIMEOUT: ${BACKEND_TIMEOUT:-30}
       LOG_LEVEL:       ${LOG_LEVEL:-INFO}
     volumes:
       - ./APP/volumes/pdf-worker/app:/app
