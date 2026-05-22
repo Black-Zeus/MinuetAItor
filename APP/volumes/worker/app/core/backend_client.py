@@ -84,6 +84,23 @@ def _build_headers() -> dict[str, str]:
     }
 
 
+def _unwrap_backend_success_payload(payload: Any) -> Any:
+    """
+    Desenvuelve el envelope estándar del backend cuando existe.
+
+    El backend normalmente responde con:
+      { success, status, result, error, meta }
+
+    Para el worker nos interesa el contenido de `result`.
+    Si el response no sigue ese contrato, devolvemos el payload original.
+    """
+    if not isinstance(payload, dict):
+        return payload
+    if "success" not in payload or "result" not in payload:
+        return payload
+    return payload.get("result")
+
+
 def _do_request(path: str, body: dict | None = None, *, method: str = "POST") -> dict:
     """
     Ejecuta un request HTTP hacia el backend interno.
@@ -103,7 +120,7 @@ def _do_request(path: str, body: dict | None = None, *, method: str = "POST") ->
             raw  = resp.read()
             data = json.loads(raw.decode("utf-8"))
             logger.debug("Backend response | status=%d path=%s", resp.status, path)
-            return data
+            return _unwrap_backend_success_payload(data)
 
     except urllib.error.HTTPError as e:
         raw  = e.read()

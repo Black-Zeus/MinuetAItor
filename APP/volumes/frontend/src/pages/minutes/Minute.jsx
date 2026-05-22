@@ -7,6 +7,7 @@ import MinutesResults from "./MinutesResults";
 import MinuteCard from "./MinuteCard";
 import MinutesPagination from "./MinutesPagination";
 import PageLoadingSpinner from "@/components/ui/modal/types/system/PageLoadingSpinner";
+import { toastInfo } from "@/components/common/toast/toastHelpers";
 
 import { listMinutes, reprocessMinute, transitionMinute } from "@/services/minutesService";
 import useMinuteNotificationStore from "@/store/minuteNotificationStore";
@@ -131,10 +132,19 @@ const Minutes = () => {
     try {
       const result = await reprocessMinute(minuteId);
       const minute = minutes.find((item) => item.id === minuteId);
+      const title = minute?.title ?? minute?.client ?? "Minuta";
       addPending(
         result?.transactionId,
         result?.recordId ?? minuteId,
-        minute?.title ?? minute?.client ?? "Minuta"
+        title
+      );
+      toastInfo(
+        "Reproceso encolado",
+        `"${title}" volvió a cola y comenzará a procesarse.`,
+        {
+          autoClose: 5000,
+          toastId: `minute-reprocess:${result?.transactionId ?? minuteId}`,
+        }
       );
       fetchMinutes(currentPage, filters, false);
     } catch {
