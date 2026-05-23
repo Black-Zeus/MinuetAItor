@@ -24,6 +24,8 @@ from models.version_statuses import VersionStatus
 from models.dashboard_widgets import DashboardWidget
 from models.ai_profile_categories import AiProfileCategory
 from models.ai_provider_configs import AiProviderConfig
+from models.ai_model_pricing import AiModelPricing
+from models.ai_usage_events import AiUsageEvent
 from models.notifications import Notification
 from models.notification_recipients import NotificationRecipient
 from models.organization_settings import OrganizationSetting
@@ -48,6 +50,7 @@ from models.ai_tag_conversions import AiTagConversion   # referencia "AITag" →
 
 # ── Records ───────────────────────────────────────────────────────────────────
 from models.records import Record
+from models.minute_transaction import MinuteTransaction
 from models.record_drafts import RecordDraft
 from models.record_versions import RecordVersion
 from models.record_artifacts import RecordArtifact
@@ -76,7 +79,7 @@ __all__ = [
     "TagCategory", "ArtifactType", "ArtifactState",
     "RecordType", "RecordStatus", "VersionStatus",
     "DashboardWidget", "AiProfileCategory",
-    "AiProviderConfig",
+    "AiProviderConfig", "AiModelPricing", "AiUsageEvent",
     "Notification", "NotificationRecipient",
     "OrganizationSetting",
     "SmtpConfig",
@@ -87,7 +90,7 @@ __all__ = [
     # Tags
     "Tag", "AITag", "AiTagConversion",
     # Records
-    "Record", "RecordDraft", "RecordVersion", "RecordArtifact",
+    "Record", "MinuteTransaction", "RecordDraft", "RecordVersion", "RecordArtifact",
     "RecordVersionTag", "RecordVersionAiTag", "RecordVersionCommit",
     "RecordVersionParticipant", "VisitorAccessRequest", "VisitorSession",
     "RecordVersionObservation",

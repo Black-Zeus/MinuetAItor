@@ -70,6 +70,11 @@ app.include_router(ai_profiles_router, prefix="/v1")
 from routers.v1.ai_provider_configs import router as ai_provider_configs_router
 app.include_router(ai_provider_configs_router, prefix="/v1")
 
+# ── AI Usage Events ───────────────────────────────────────────────────────────
+# [ACTIVO] TODO: [RBAC] Restringir lectura según política del módulo de métricas
+from routers.v1.ai_usage_events import router as ai_usage_events_router
+app.include_router(ai_usage_events_router, prefix="/v1")
+
 # ── AI Tag Conversions ────────────────────────────────────────────────────────
 # [ACTIVO]
 from routers.v1.ai_tag_conversions import router as ai_tag_conversions_router

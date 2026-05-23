@@ -6,6 +6,7 @@ Consumido exclusivamente por el worker. No forma parte de la API pública.
 """
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Literal
 from pydantic import BaseModel, Field
 
@@ -68,9 +69,16 @@ class MinuteCommitRequest(BaseModel):
     )
     ai_provider: str = Field(..., description="Proveedor IA efectivo usado por el worker")
     ai_model: str = Field(..., description="Modelo IA efectivo usado por el worker")
+    ai_provider_config_id: str | None = Field(None, description="ID de la configuración AI activa usada por el worker")
+    ai_provider_name: str | None = Field(None, description="Nombre de la configuración AI activa usada por el worker")
+    ai_provider_family: str | None = Field(None, description="Familia/protocolo del proveedor")
+    ai_execution_adapter: str | None = Field(None, description="Adapter de ejecución usado por el worker")
     openai_run_id: str = Field(..., description="ID del run de OpenAI (chatcmpl-xxx)")
     tokens_input: int = Field(..., ge=0, description="Tokens consumidos en el prompt")
     tokens_output: int = Field(..., ge=0, description="Tokens generados en la respuesta")
+    started_at: datetime | None = Field(None, description="Instante de inicio efectivo de la llamada al proveedor")
+    finished_at: datetime | None = Field(None, description="Instante de fin efectivo de la llamada al proveedor")
+    latency_ms: int | None = Field(None, ge=0, description="Duración total de la llamada al proveedor en milisegundos")
 
     # Metadatos de los objetos de entrada (para crear RecordArtifacts de inputs)
     input_objects_meta: list[dict[str, Any]] = Field(
@@ -114,7 +122,18 @@ class MinuteFailRequest(BaseModel):
         description="Estado funcional final que debe reflejar el record",
     )
     source: str = Field("worker", description="Origen del reporte de fallo")
+    ai_provider: str | None = Field(None, description="Proveedor IA resuelto para el intento fallido")
+    ai_model: str | None = Field(None, description="Modelo IA resuelto para el intento fallido")
+    ai_provider_config_id: str | None = Field(None, description="Configuración AI activa usada por el intento")
+    ai_provider_name: str | None = Field(None, description="Nombre de la configuración AI activa usada por el intento")
+    ai_provider_family: str | None = Field(None, description="Familia/protocolo del proveedor")
+    ai_execution_adapter: str | None = Field(None, description="Adapter de ejecución usado por el worker")
     openai_run_id: str | None = Field(None, description="Run ID asociado si existe")
+    tokens_input: int | None = Field(None, ge=0, description="Tokens de entrada observados si el proveedor alcanzó a responder")
+    tokens_output: int | None = Field(None, ge=0, description="Tokens de salida observados si el proveedor alcanzó a responder")
+    started_at: datetime | None = Field(None, description="Instante de inicio efectivo de la llamada al proveedor")
+    finished_at: datetime | None = Field(None, description="Instante de fin efectivo de la llamada al proveedor")
+    latency_ms: int | None = Field(None, ge=0, description="Duración total del intento de llamada al proveedor")
 
     model_config = {"populate_by_name": True}
 
