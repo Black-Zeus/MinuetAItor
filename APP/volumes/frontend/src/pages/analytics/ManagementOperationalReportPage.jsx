@@ -24,7 +24,10 @@ import {
   listMinutes,
 } from "@/services/minutesService";
 import projectService from "@/services/projectService";
-import { previewReportPdfBlob } from "@/services/reportsService";
+import {
+  listManagementTopicAnalytics,
+  previewReportPdfBlob,
+} from "@/services/reportsService";
 import aiProviderConfigService from "@/services/aiProviderConfigService";
 import systemMaintenanceService from "@/services/systemMaintenanceService";
 import systemQueueService from "@/services/systemQueueService";
@@ -70,6 +73,15 @@ const SYSTEM_NO_STATUS_VISIBLE_FILTERS = {
   dateTo: true,
   client: false,
   project: false,
+  responsible: false,
+  status: false,
+};
+
+const TOPIC_REPORT_VISIBLE_FILTERS = {
+  dateFrom: true,
+  dateTo: true,
+  client: true,
+  project: true,
   responsible: false,
   status: false,
 };
@@ -125,6 +137,29 @@ const REPROCESS_REASON_LABELS = {
   "record-error": "Error de registro",
   "stale-failed-transaction": "Transacción fallida previa",
   "stale-processing": "Procesamiento atascado",
+};
+
+const TOPIC_STATUS_CONFIG = {
+  active: {
+    label: "Activo",
+    className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
+  },
+  inactive: {
+    label: "Inactivo",
+    className: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
+  },
+  converted: {
+    label: "Convertido",
+    className: "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300",
+  },
+  unconverted: {
+    label: "Sin conversión",
+    className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+  },
+  trend: {
+    label: "Tendencia",
+    className: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300",
+  },
 };
 
 const DATE_FORMATTER = new Intl.DateTimeFormat("es-CL", {
@@ -190,6 +225,16 @@ const SORTERS = {
   providerType: (row) => row.providerType ?? "",
   model: (row) => row.model ?? "",
   lastValidatedAt: (row) => row.lastValidatedAtTimestamp ?? 0,
+  tag: (row) => row.tag ?? row.label ?? "",
+  aiTag: (row) => row.aiTag ?? row.label ?? "",
+  category: (row) => row.category ?? "",
+  period: (row) => row.period ?? "",
+  totalAssignments: (row) => row.totalAssignments ?? 0,
+  detectedCount: (row) => row.detectedCount ?? 0,
+  convertedCount: (row) => row.convertedCount ?? 0,
+  unconvertedCount: (row) => row.unconvertedCount ?? 0,
+  conversionTarget: (row) => row.conversionTarget ?? "",
+  conversionRate: (row) => row.conversionRate ?? 0,
   percentage: (row) => row.percentageRaw ?? 0,
   reprocessReady: (row) => (row.canReprocess ? 1 : 0),
   reprocessReason: (row) => row.reprocessReasonLabel ?? "",
@@ -746,6 +791,59 @@ const normalizeProviderValidationRecord = (item, index) => {
     status: getStatusPresentation(statusKey, statusLabel),
     isActive: Boolean(item?.isActive ?? item?.is_active ?? false),
     errorMessage: item?.lastError ?? item?.last_error ?? "",
+  };
+};
+
+const getTopicStatusPresentation = (statusKey, explicitLabel = null) => {
+  const key = String(statusKey ?? "active").trim() || "active";
+  const config = TOPIC_STATUS_CONFIG[key] ?? TOPIC_STATUS_CONFIG.active;
+  return {
+    key,
+    label: explicitLabel ?? config.label,
+    className: config.className,
+    sortWeight: key === "active" || key === "converted" ? 1 : key === "trend" ? 2 : 3,
+  };
+};
+
+const normalizeTopicAnalyticsRecord = (item, index) => {
+  const rawDate = item?.lastActivity ?? item?.last_activity ?? null;
+  const parsedDate = parseFlexibleDate(rawDate);
+  const statusKey = item?.statusKey ?? item?.status_key ?? "active";
+  const statusLabel = item?.statusLabel ?? item?.status_label ?? null;
+  const conversionRate = Number(item?.conversionRate ?? item?.conversion_rate ?? 0);
+
+  return {
+    id: item?.id ?? `topic-row-${index + 1}`,
+    label: item?.label ?? item?.tag ?? item?.aiTag ?? item?.ai_tag ?? "Sin etiqueta",
+    tagId: item?.tagId ?? item?.tag_id ?? null,
+    tag: item?.tag ?? item?.label ?? "Sin tag",
+    aiTagId: item?.aiTagId ?? item?.ai_tag_id ?? null,
+    aiTag: item?.aiTag ?? item?.ai_tag ?? item?.label ?? "Sin AI tag",
+    category: item?.category ?? "Sin categoría",
+    source: item?.source ?? "Sin dato",
+    conversionTarget: item?.conversionTarget ?? item?.conversion_target ?? "Sin conversión",
+    period: item?.period ?? "Sin período",
+    totalRecords: Number(item?.totalRecords ?? item?.total_records ?? 0),
+    totalAssignments: Number(item?.totalAssignments ?? item?.total_assignments ?? 0),
+    detectedCount: Number(item?.detectedCount ?? item?.detected_count ?? 0),
+    convertedCount: Number(item?.convertedCount ?? item?.converted_count ?? 0),
+    unconvertedCount: Number(item?.unconvertedCount ?? item?.unconverted_count ?? 0),
+    clientCount: Number(item?.clientCount ?? item?.client_count ?? 0),
+    projectCount: Number(item?.projectCount ?? item?.project_count ?? 0),
+    conversionRate,
+    conversionRateLabel: formatPercent(conversionRate),
+    dateLabel: rawDate ? formatDateLabel(rawDate) : "Sin fecha",
+    dateInput: toInputDate(rawDate),
+    dateTimestamp: parsedDate?.getTime?.() ?? 0,
+    lastDateLabel: rawDate ? formatDateLabel(rawDate) : "Sin fecha",
+    lastDateInput: toInputDate(rawDate),
+    lastDateTimestamp: parsedDate?.getTime?.() ?? 0,
+    client: item?.client ?? "",
+    project: item?.project ?? "",
+    responsible: "",
+    statusKey,
+    statusLabel: statusLabel ?? statusKey,
+    status: getTopicStatusPresentation(statusKey, statusLabel),
   };
 };
 
@@ -1565,6 +1663,28 @@ const buildReportRowDistribution = (
       return compareByLabel(left.label, right.label);
     })
     .slice(0, limit);
+
+const buildGroupedSumDistribution = (
+  rows = [],
+  labelField,
+  countField = "totalRecords",
+  limit = 8
+) => {
+  const grouped = new Map();
+
+  rows.forEach((row) => {
+    const label = row?.[labelField] ?? row?.label ?? "Sin dato";
+    grouped.set(label, (grouped.get(label) ?? 0) + Number(row?.[countField] ?? 0));
+  });
+
+  return [...grouped.entries()]
+    .map(([label, count]) => ({ label, count }))
+    .sort((left, right) => {
+      if (right.count !== left.count) return right.count - left.count;
+      return compareByLabel(left.label, right.label);
+    })
+    .slice(0, limit);
+};
 
 const buildStatusRows = (rows = []) => {
   const grouped = new Map();
@@ -2965,6 +3085,207 @@ const buildSystemAlertColumns = () => [
   },
 ];
 
+const buildTopicTagColumns = () => [
+  {
+    key: "tag",
+    label: "Tag",
+    sortable: true,
+    sortKey: "tag",
+    exportValue: (row) => row.tag,
+    render: (row) => row.tag,
+  },
+  {
+    key: "category",
+    label: "Categoría",
+    sortable: true,
+    sortKey: "category",
+    exportValue: (row) => row.category,
+    render: (row) => row.category,
+  },
+  {
+    key: "totalRecords",
+    label: "Minutas",
+    sortable: true,
+    sortKey: "totalRecords",
+    exportValue: (row) => formatNumber(row.totalRecords),
+    render: (row) => formatNumber(row.totalRecords),
+  },
+  {
+    key: "totalAssignments",
+    label: "Asignaciones",
+    sortable: true,
+    sortKey: "totalAssignments",
+    exportValue: (row) => formatNumber(row.totalAssignments),
+    render: (row) => formatNumber(row.totalAssignments),
+  },
+  {
+    key: "clientCount",
+    label: "Clientes",
+    sortable: true,
+    sortKey: "clientCount",
+    exportValue: (row) => formatNumber(row.clientCount),
+    render: (row) => formatNumber(row.clientCount),
+  },
+  {
+    key: "projectCount",
+    label: "Proyectos",
+    sortable: true,
+    sortKey: "projectCount",
+    exportValue: (row) => formatNumber(row.projectCount),
+    render: (row) => formatNumber(row.projectCount),
+  },
+  {
+    key: "lastDate",
+    label: "Última actividad",
+    sortable: true,
+    sortKey: "lastActivity",
+    exportValue: (row) => row.lastDateLabel,
+    render: (row) => row.lastDateLabel,
+  },
+];
+
+const buildAiTagColumns = () => [
+  {
+    key: "aiTag",
+    label: "AI tag",
+    sortable: true,
+    sortKey: "aiTag",
+    exportValue: (row) => row.aiTag,
+    render: (row) => row.aiTag,
+  },
+  {
+    key: "detectedCount",
+    label: "Detecciones",
+    sortable: true,
+    sortKey: "detectedCount",
+    exportValue: (row) => formatNumber(row.detectedCount),
+    render: (row) => formatNumber(row.detectedCount),
+  },
+  {
+    key: "totalRecords",
+    label: "Minutas",
+    sortable: true,
+    sortKey: "totalRecords",
+    exportValue: (row) => formatNumber(row.totalRecords),
+    render: (row) => formatNumber(row.totalRecords),
+  },
+  {
+    key: "clientCount",
+    label: "Clientes",
+    sortable: true,
+    sortKey: "clientCount",
+    exportValue: (row) => formatNumber(row.clientCount),
+    render: (row) => formatNumber(row.clientCount),
+  },
+  {
+    key: "projectCount",
+    label: "Proyectos",
+    sortable: true,
+    sortKey: "projectCount",
+    exportValue: (row) => formatNumber(row.projectCount),
+    render: (row) => formatNumber(row.projectCount),
+  },
+  {
+    key: "status",
+    label: "Estado",
+    sortable: true,
+    sortKey: "status",
+    exportValue: (row) => row.status.label,
+    render: (row) => (
+      <span
+        className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${row.status.className}`}
+      >
+        {row.status.label}
+      </span>
+    ),
+  },
+  {
+    key: "lastDate",
+    label: "Última actividad",
+    sortable: true,
+    sortKey: "lastActivity",
+    exportValue: (row) => row.lastDateLabel,
+    render: (row) => row.lastDateLabel,
+  },
+];
+
+const buildAiTagConversionColumns = () => [
+  {
+    key: "aiTag",
+    label: "AI tag",
+    sortable: true,
+    sortKey: "aiTag",
+    exportValue: (row) => row.aiTag,
+    render: (row) => row.aiTag,
+  },
+  {
+    key: "conversionTarget",
+    label: "Tag operacional",
+    sortable: true,
+    sortKey: "conversionTarget",
+    exportValue: (row) => row.conversionTarget,
+    render: (row) => row.conversionTarget,
+  },
+  {
+    key: "category",
+    label: "Categoría",
+    sortable: true,
+    sortKey: "category",
+    exportValue: (row) => row.category,
+    render: (row) => row.category,
+  },
+  {
+    key: "detectedCount",
+    label: "Detecciones",
+    sortable: true,
+    sortKey: "detectedCount",
+    exportValue: (row) => formatNumber(row.detectedCount),
+    render: (row) => formatNumber(row.detectedCount),
+  },
+  {
+    key: "conversionRate",
+    label: "% conversión",
+    sortable: true,
+    sortKey: "conversionRate",
+    exportValue: (row) => row.conversionRateLabel,
+    render: (row) => row.conversionRateLabel,
+  },
+  {
+    key: "status",
+    label: "Estado",
+    sortable: true,
+    sortKey: "status",
+    exportValue: (row) => row.status.label,
+    render: (row) => (
+      <span
+        className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${row.status.className}`}
+      >
+        {row.status.label}
+      </span>
+    ),
+  },
+  {
+    key: "lastDate",
+    label: "Última actividad",
+    sortable: true,
+    sortKey: "lastActivity",
+    exportValue: (row) => row.lastDateLabel,
+    render: (row) => row.lastDateLabel,
+  },
+];
+
+const buildTopicTrendColumns = () => [
+  {
+    key: "period",
+    label: "Período",
+    sortable: true,
+    sortKey: "period",
+    exportValue: (row) => row.period,
+    render: (row) => row.period,
+  },
+  ...buildTopicTagColumns().filter((column) => column.key !== "totalAssignments"),
+];
+
 const defaultMinuteOrder = (rows = []) =>
   [...rows].sort((left, right) => {
     if (left.dateTimestamp !== right.dateTimestamp) {
@@ -3705,6 +4026,130 @@ const buildSystemAlertSummaryCards = ({ reportRows }) => [
     "Alertas con estado crítico o error",
     "bug",
     "emerald"
+  ),
+];
+
+const buildTopicTagSummaryCards = ({ reportRows }) => [
+  buildSummaryCard(
+    "Tags visibles",
+    reportRows.length,
+    "Etiquetas operacionales con actividad documental",
+    "tags",
+    "sky"
+  ),
+  buildSummaryCard(
+    "Minutas asociadas",
+    reportRows.reduce((sum, row) => sum + Number(row.totalRecords ?? 0), 0),
+    "Suma de minutas vinculadas a tags visibles",
+    "fileLines",
+    "emerald"
+  ),
+  buildSummaryCard(
+    "Categorías",
+    new Set(reportRows.map((row) => row.category).filter(Boolean)).size,
+    "Categorías funcionales representadas",
+    "filter",
+    "amber"
+  ),
+  buildSummaryCard(
+    "Clientes cubiertos",
+    reportRows.reduce((sum, row) => sum + Number(row.clientCount ?? 0), 0),
+    "Cobertura acumulada por etiqueta",
+    "business",
+    "rose"
+  ),
+];
+
+const buildAiTagSummaryCards = ({ reportRows }) => [
+  buildSummaryCard(
+    "AI tags visibles",
+    reportRows.length,
+    "Etiquetas sugeridas por IA con detecciones",
+    "brain",
+    "sky"
+  ),
+  buildSummaryCard(
+    "Detecciones",
+    reportRows.reduce((sum, row) => sum + Number(row.detectedCount ?? 0), 0),
+    "Eventos de detección IA en versiones de minuta",
+    "clipboardList",
+    "emerald"
+  ),
+  buildSummaryCard(
+    "Minutas impactadas",
+    reportRows.reduce((sum, row) => sum + Number(row.totalRecords ?? 0), 0),
+    "Minutas con presencia de AI tags",
+    "fileLines",
+    "amber"
+  ),
+  buildSummaryCard(
+    "AI tags activos",
+    reportRows.filter((row) => row.statusKey === "active").length,
+    "Tags IA actualmente activos en catálogo",
+    "checkCircle",
+    "rose"
+  ),
+];
+
+const buildAiTagConversionSummaryCards = ({ reportRows }) => [
+  buildSummaryCard(
+    "Mapeos visibles",
+    reportRows.length,
+    "Relaciones entre AI tags y tags operacionales",
+    "tags",
+    "sky"
+  ),
+  buildSummaryCard(
+    "Convertidos",
+    reportRows.filter((row) => row.statusKey === "converted").length,
+    "AI tags con destino operacional definido",
+    "checkCircle",
+    "emerald"
+  ),
+  buildSummaryCard(
+    "Sin conversión",
+    reportRows.filter((row) => row.statusKey === "unconverted").length,
+    "AI tags detectados sin mapeo operacional",
+    "filter",
+    "amber"
+  ),
+  buildSummaryCard(
+    "Detecciones",
+    reportRows.reduce((sum, row) => sum + Number(row.detectedCount ?? 0), 0),
+    "Volumen de detección detrás de los mapeos",
+    "brain",
+    "rose"
+  ),
+];
+
+const buildTopicTrendSummaryCards = ({ reportRows }) => [
+  buildSummaryCard(
+    "Puntos de tendencia",
+    reportRows.length,
+    "Combinaciones de período y tag con actividad",
+    "chartLine",
+    "sky"
+  ),
+  buildSummaryCard(
+    "Períodos",
+    new Set(reportRows.map((row) => row.period).filter(Boolean)).size,
+    "Meses representados en el resultado",
+    "calendar",
+    "emerald"
+  ),
+  buildSummaryCard(
+    "Tags en tendencia",
+    new Set(reportRows.map((row) => row.tag).filter(Boolean)).size,
+    "Temas operacionales con movimiento",
+    "tags",
+    "amber"
+  ),
+  buildSummaryCard(
+    "Minutas asociadas",
+    reportRows.reduce((sum, row) => sum + Number(row.totalRecords ?? 0), 0),
+    "Volumen documental agregado por período",
+    "fileLines",
+    "rose"
   ),
 ];
 
@@ -4634,6 +5079,176 @@ const REPORT_DEFINITIONS = [
     ],
     columns: buildSystemAlertColumns(),
   },
+  {
+    id: "gestion-minute-tags",
+    path: "/reports/management/minutes-by-tag",
+    title: "Minutas por Tag",
+    description:
+      "Distribuye minutas según etiquetas funcionales u operacionales asociadas a sus versiones publicadas.",
+    pdfSlug: "minutas-por-tag",
+    pdfReportKey: "gestion-minutas-por-tag",
+    pdfDescription:
+      "Salida temática que agrupa minutas por tags operacionales dentro del período filtrado.",
+    tableDescription:
+      "Detalle por tag operacional con minutas asociadas, asignaciones, clientes, proyectos y última actividad.",
+    dataSource: "topic-analytics",
+    topicReportType: "minutes-by-tag",
+    disableFallback: true,
+    defaultVisibleFilters: TOPIC_REPORT_VISIBLE_FILTERS,
+    buildRows: ({ minuteRows }) => minuteRows,
+    buildDefaultRowsOrder: defaultAggregateOrder,
+    buildSummaryCards: buildTopicTagSummaryCards,
+    buildCharts: ({ reportRows }) => [
+      {
+        key: "topic-tags-volume",
+        type: "bar",
+        title: "Minutas por tag",
+        subtitle: "Ordena las etiquetas operacionales por volumen documental asociado.",
+        footer: "La agregación proviene de versiones de minuta etiquetadas en el período.",
+        data: buildReportRowDistribution(reportRows, "tag", "totalRecords", 8),
+        seriesName: "Minutas",
+      },
+      {
+        key: "topic-tags-category",
+        type: "bar",
+        title: "Tags por categoría",
+        subtitle: "Agrupa la presencia temática según categoría funcional.",
+        footer: "Cada barra suma minutas asociadas a tags de la misma categoría.",
+        data: buildGroupedSumDistribution(reportRows, "category", "totalRecords", 8),
+        seriesName: "Minutas",
+      },
+    ],
+    columns: buildTopicTagColumns(),
+  },
+  {
+    id: "gestion-ai-tags",
+    path: "/reports/management/detected-ai-tags",
+    title: "Tags AI Detectados",
+    description:
+      "Muestra las etiquetas sugeridas por IA con mayor presencia en versiones de minutas.",
+    pdfSlug: "tags-ai-detectados",
+    pdfReportKey: "gestion-tags-ai-detectados",
+    pdfDescription:
+      "Salida temática sobre tags IA detectados, frecuencia y cobertura documental.",
+    tableDescription:
+      "Detalle por AI tag con detecciones, minutas asociadas, cobertura y última actividad.",
+    dataSource: "topic-analytics",
+    topicReportType: "detected-ai-tags",
+    disableFallback: true,
+    defaultVisibleFilters: TOPIC_REPORT_VISIBLE_FILTERS,
+    buildRows: ({ minuteRows }) => minuteRows,
+    buildDefaultRowsOrder: defaultAggregateOrder,
+    buildSummaryCards: buildAiTagSummaryCards,
+    buildCharts: ({ reportRows }) => [
+      {
+        key: "ai-tags-detected",
+        type: "bar",
+        title: "AI tags por detección",
+        subtitle: "Ordena los tags IA por cantidad de detecciones visibles.",
+        footer: "La lectura usa relaciones explícitas entre versiones de minuta y AI tags.",
+        data: buildReportRowDistribution(reportRows, "aiTag", "detectedCount", 8),
+        seriesName: "Detecciones",
+      },
+      {
+        key: "ai-tags-status",
+        type: "status",
+        title: "Estado del catálogo IA",
+        subtitle: "Distribuye los AI tags detectados según su estado vigente.",
+        footer: "El estado proviene del catálogo administrativo de AI tags.",
+        data: buildStatusDistribution(reportRows),
+      },
+    ],
+    columns: buildAiTagColumns(),
+  },
+  {
+    id: "gestion-ai-tag-conversion",
+    path: "/reports/management/ai-tag-to-operational-tag-conversion",
+    title: "Conversión AI Tag -> Tag Operacional",
+    description:
+      "Evalúa cómo se transforman tags sugeridos por IA en etiquetas operacionales del catálogo.",
+    pdfSlug: "conversion-ai-tag-operacional",
+    pdfReportKey: "gestion-conversion-ai-tag-operacional",
+    pdfDescription:
+      "Salida temática sobre utilidad del etiquetado IA y su mapeo hacia tags operacionales.",
+    tableDescription:
+      "Detalle por AI tag y destino operacional, con detecciones, estado de conversión y última actividad.",
+    dataSource: "topic-analytics",
+    topicReportType: "ai-tag-conversions",
+    disableFallback: true,
+    defaultVisibleFilters: TOPIC_REPORT_VISIBLE_FILTERS,
+    buildRows: ({ minuteRows }) => minuteRows,
+    buildDefaultRowsOrder: defaultAggregateOrder,
+    buildSummaryCards: buildAiTagConversionSummaryCards,
+    buildCharts: ({ reportRows }) => [
+      {
+        key: "ai-conversion-detected",
+        type: "bar",
+        title: "Detecciones por mapeo",
+        subtitle: "Muestra qué AI tags tienen mayor volumen detrás de su conversión.",
+        footer: "Los AI tags sin destino operacional quedan visibles para priorizar normalización.",
+        data: buildGroupedSumDistribution(reportRows, "aiTag", "detectedCount", 8),
+        seriesName: "Detecciones",
+      },
+      {
+        key: "ai-conversion-status",
+        type: "status",
+        title: "Estado de conversión",
+        subtitle: "Separa AI tags convertidos y AI tags aún sin destino operacional.",
+        footer: "El estado se deriva de la existencia de un mapeo en el catálogo de conversiones.",
+        data: buildStatusDistribution(reportRows),
+      },
+    ],
+    columns: buildAiTagConversionColumns(),
+  },
+  {
+    id: "gestion-topic-trends",
+    path: "/reports/management/topic-trends",
+    title: "Tendencias Temáticas",
+    description:
+      "Detecta concentración temporal de temas tratados en minutas mediante tags operacionales.",
+    pdfSlug: "tendencias-tematicas",
+    pdfReportKey: "gestion-tendencias-tematicas",
+    pdfDescription:
+      "Salida temática con evolución mensual de tags operacionales en el universo filtrado.",
+    tableDescription:
+      "Detalle por período y tag, con volumen documental, cobertura y última actividad.",
+    dataSource: "topic-analytics",
+    topicReportType: "topic-trends",
+    disableFallback: true,
+    defaultVisibleFilters: TOPIC_REPORT_VISIBLE_FILTERS,
+    buildRows: ({ minuteRows }) => minuteRows,
+    buildDefaultRowsOrder: (rows) =>
+      [...rows].sort((left, right) => {
+        const periodOrder = compareByLabel(right.period, left.period);
+        if (periodOrder !== 0) return periodOrder;
+        if ((right.totalRecords ?? 0) !== (left.totalRecords ?? 0)) {
+          return (right.totalRecords ?? 0) - (left.totalRecords ?? 0);
+        }
+        return compareByLabel(left.tag, right.tag);
+      }),
+    buildSummaryCards: buildTopicTrendSummaryCards,
+    buildCharts: ({ reportRows }) => [
+      {
+        key: "topic-trend-period",
+        type: "bar",
+        title: "Volumen por período",
+        subtitle: "Compara la actividad temática acumulada por mes.",
+        footer: "Cada barra suma los puntos temáticos visibles del período.",
+        data: buildGroupedSumDistribution(reportRows, "period", "totalRecords", 8),
+        seriesName: "Registros",
+      },
+      {
+        key: "topic-trend-tags",
+        type: "bar",
+        title: "Tags en tendencia",
+        subtitle: "Ordena los temas con mayor volumen dentro del rango consultado.",
+        footer: "La comparación usa tags operacionales asociados a versiones publicadas.",
+        data: buildReportRowDistribution(reportRows, "tag", "totalRecords", 8),
+        seriesName: "Minutas",
+      },
+    ],
+    columns: buildTopicTrendColumns(),
+  },
 ];
 
 const REPORT_CONFIG_BY_PATH = Object.fromEntries(
@@ -4836,6 +5451,18 @@ const ManagementOperationalReportPage = () => {
             systemMaintenanceService.getStatus(),
           ]);
           rowsResult = { queueSnapshot, maintenanceStatus };
+        } else if (reportConfig?.dataSource === "topic-analytics") {
+          rowsResult = await listManagementTopicAnalytics(
+            {
+              reportType: reportConfig.topicReportType,
+              dateFrom: nextAppliedFilters.dateFrom,
+              dateTo: nextAppliedFilters.dateTo,
+              client: nextAppliedFilters.client,
+              project: nextAppliedFilters.project,
+              limit: 500,
+            },
+            requestConfig
+          );
         } else {
           rowsResult = await listMinutes({ skip: 0, limit: 300 }, requestConfig);
         }
@@ -4862,6 +5489,10 @@ const ManagementOperationalReportPage = () => {
           );
         } else if (reportConfig?.dataSource === "system-alerts") {
           nextRows = buildSystemAlertsFromSnapshots(rowsResult);
+        } else if (reportConfig?.dataSource === "topic-analytics") {
+          nextRows = (Array.isArray(rowsResult?.items) ? rowsResult.items : []).map(
+            normalizeTopicAnalyticsRecord
+          );
         } else {
           nextRows = (Array.isArray(rowsResult?.minutes) ? rowsResult.minutes : []).map(
             normalizeMinuteRecord
