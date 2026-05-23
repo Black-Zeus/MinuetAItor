@@ -805,10 +805,19 @@ const downloadTextFile = (filename, content, mimeType) => {
   window.URL.revokeObjectURL(url);
 };
 
+const getExportableColumns = (columns = []) =>
+  columns.flatMap((column) => {
+    if (Array.isArray(column.exportColumns) && column.exportColumns.length > 0) {
+      return column.exportColumns;
+    }
+    return [column];
+  });
+
 const exportRowsToCsv = (filename, columns, rows) => {
-  const header = columns.map((column) => column.label);
+  const exportableColumns = getExportableColumns(columns);
+  const header = exportableColumns.map((column) => column.label);
   const lines = rows.map((row) =>
-    columns.map((column) => {
+    exportableColumns.map((column) => {
       const rawValue = column.exportValue ? column.exportValue(row) : row?.[column.key];
       const cellValue = String(rawValue ?? "");
       return `"${cellValue.replace(/\"/g, "\"\"")}"`;
@@ -1054,6 +1063,51 @@ const buildStatusRows = (rows = []) => {
       return left.statusWeight - right.statusWeight;
     });
 };
+
+const buildTokenBreakdownColumn = () => ({
+  key: "tokenBreakdown",
+  label: "Tokens",
+  sortable: true,
+  sortKey: "totalTokens",
+  headerClassName: "min-w-[220px]",
+  exportColumns: [
+    {
+      key: "inputTokens",
+      label: "Tokens entrada",
+      exportValue: (row) => formatNumber(row.inputTokens ?? 0),
+    },
+    {
+      key: "outputTokens",
+      label: "Tokens salida",
+      exportValue: (row) => formatNumber(row.outputTokens ?? 0),
+    },
+    {
+      key: "totalTokens",
+      label: "Tokens total",
+      exportValue: (row) => formatNumber(row.totalTokens ?? 0),
+    },
+  ],
+  render: (row) => (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between gap-3 text-xs text-gray-500 dark:text-gray-400">
+        <span>Entrada</span>
+        <span className="font-medium text-gray-700 dark:text-gray-200">
+          {formatNumber(row.inputTokens ?? 0)}
+        </span>
+      </div>
+      <div className="flex items-center justify-between gap-3 text-xs text-gray-500 dark:text-gray-400">
+        <span>Salida</span>
+        <span className="font-medium text-gray-700 dark:text-gray-200">
+          {formatNumber(row.outputTokens ?? 0)}
+        </span>
+      </div>
+      <div className="flex items-center justify-between gap-3 border-t border-gray-100 pt-1 text-xs font-semibold text-gray-700 dark:border-gray-700 dark:text-gray-100">
+        <span>Total</span>
+        <span>{formatNumber(row.totalTokens ?? 0)}</span>
+      </div>
+    </div>
+  ),
+});
 
 const buildDailyProductionRows = (rows = []) => {
   const grouped = new Map();
@@ -1389,35 +1443,7 @@ const buildReprocessColumns = () => [
     ),
   },
   {
-    key: "tokenBreakdown",
-    label: "Tokens",
-    sortable: true,
-    sortKey: "totalTokens",
-    headerClassName: "min-w-[220px]",
-    exportValue: (row) =>
-      `Entrada: ${formatNumber(row.inputTokens ?? 0)} | Salida: ${formatNumber(
-        row.outputTokens ?? 0
-      )} | Total: ${formatNumber(row.totalTokens ?? 0)}`,
-    render: (row) => (
-      <div className="space-y-1">
-        <div className="flex items-center justify-between gap-3 text-xs text-gray-500 dark:text-gray-400">
-          <span>Entrada</span>
-          <span className="font-medium text-gray-700 dark:text-gray-200">
-            {formatNumber(row.inputTokens ?? 0)}
-          </span>
-        </div>
-        <div className="flex items-center justify-between gap-3 text-xs text-gray-500 dark:text-gray-400">
-          <span>Salida</span>
-          <span className="font-medium text-gray-700 dark:text-gray-200">
-            {formatNumber(row.outputTokens ?? 0)}
-          </span>
-        </div>
-        <div className="flex items-center justify-between gap-3 border-t border-gray-100 pt-1 text-xs font-semibold text-gray-700 dark:border-gray-700 dark:text-gray-100">
-          <span>Total</span>
-          <span>{formatNumber(row.totalTokens ?? 0)}</span>
-        </div>
-      </div>
-    ),
+    ...buildTokenBreakdownColumn(),
   },
 ];
 
