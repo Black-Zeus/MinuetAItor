@@ -28,6 +28,7 @@ from models.record_versions import RecordVersion
 from models.records import Record
 from models.user import User
 from schemas.minutes import (
+    MinuteCycleTimeResponse,
     MinuteDetailResponse,
     MinuteGenerateRequest,
     MinuteGenerateResponse,
@@ -51,6 +52,7 @@ from services.minutes import queue as minute_queue
 from services.minutes import query as minute_query
 from services.minutes import reprocess as minute_reprocess
 from services.minutes import sanitizers as minute_sanitizers
+from services.minutes.status_transitions import append_record_status_transition
 from services.minutes import storage as minute_storage
 from services.notification_center_service import create_in_app_notification
 from services.minutes.attachments import (
@@ -114,6 +116,13 @@ _VALID_TRANSITIONS: dict[str, set[str]] = {
     RECORD_STATUS_PROC_ERROR:  {RECORD_STATUS_CANCELLED, RECORD_STATUS_DELETED},
     RECORD_STATUS_COMPLETED:   set(),   # terminal
     RECORD_STATUS_DELETED:     set(),   # terminal
+}
+
+_TRANSITION_REASON_BY_TARGET: dict[tuple[str, str], str] = {
+    (RECORD_STATUS_READY, RECORD_STATUS_PENDING): "manual-open-editor",
+    (RECORD_STATUS_PENDING, RECORD_STATUS_PREVIEW): "sent-to-review",
+    (RECORD_STATUS_PREVIEW, RECORD_STATUS_PENDING): "returned-to-edit",
+    (RECORD_STATUS_PREVIEW, RECORD_STATUS_COMPLETED): "published",
 }
 
 PROMPT_FILE = getattr(settings, "openai_system_prompt", "system_prompt_v08.txt")
@@ -879,6 +888,7 @@ async def transition_minute(
 
     current_status_row  = db.query(RecordStatus).filter_by(id=record.status_id).first()
     current_status_code = current_status_row.code if current_status_row else "unknown"
+    previous_status_id = record.status_id
 
     allowed = minute_constants.VALID_TRANSITIONS.get(current_status_code, set())
     if target_status not in allowed:
@@ -1014,6 +1024,24 @@ async def transition_minute(
 
     record.status_id  = target_status_id
     record.updated_by = actor_user_id
+    append_record_status_transition(
+        db,
+        record_id=record_id,
+        from_status_id=previous_status_id,
+        to_status_id=target_status_id,
+        changed_by=actor_user_id,
+        source="minute.transition",
+        transition_reason=_TRANSITION_REASON_BY_TARGET.get(
+            (current_status_code, target_status),
+            target_status,
+        ),
+        record_version_id=(
+            str(new_version.id)
+            if new_version is not None
+            else str(record.active_version_id) if record.active_version_id else None
+        ),
+        metadata={"commitMessage": commit_message} if commit_message else None,
+    )
     db.commit()
 
     logger.info(f"[minutes] Transición | record={record_id} {current_status_code} → {target_status}")
@@ -1215,6 +1243,24 @@ def list_minute_reprocess_history(
     prepared_by_user_id: Optional[str] = None,
 ) -> MinuteReprocessHistoryResponse:
     return minute_query.list_minute_reprocess_history(
+        db=db,
+        skip=skip,
+        limit=limit,
+        client_id=client_id,
+        project_id=project_id,
+        prepared_by_user_id=prepared_by_user_id,
+    )
+
+
+def list_minute_cycle_times(
+    db: Session,
+    skip: int = 0,
+    limit: int = 500,
+    client_id: Optional[str] = None,
+    project_id: Optional[str] = None,
+    prepared_by_user_id: Optional[str] = None,
+) -> MinuteCycleTimeResponse:
+    return minute_query.list_minute_cycle_times(
         db=db,
         skip=skip,
         limit=limit,

@@ -21,6 +21,7 @@ from services.minutes import catalogs as minute_catalogs
 from services.minutes import constants as minute_constants
 from services.minutes import queue as minute_queue
 from services.minutes import sanitizers as minute_sanitizers
+from services.minutes.status_transitions import append_record_status_transition
 from services.minutes import storage as minute_storage
 
 logger = logging.getLogger(__name__)
@@ -318,6 +319,7 @@ async def reprocess_minute(
             else replacement_note
         )[:1000]
 
+    previous_status_id = record.status_id
     record.status_id = in_progress_status_id
     record.updated_by = actor_user_id
 
@@ -329,6 +331,16 @@ async def reprocess_minute(
         ai_profile_id=record.ai_profile_id,
     )
     db.add(tx)
+    append_record_status_transition(
+        db,
+        record_id=record_id,
+        from_status_id=previous_status_id,
+        to_status_id=in_progress_status_id,
+        changed_by=actor_user_id,
+        source="minute.reprocess",
+        transition_reason=reprocess_reason or "manual-reprocess",
+        minute_transaction_id=transaction_id,
+    )
     db.commit()
 
     job_payload = {
@@ -360,8 +372,20 @@ async def reprocess_minute(
         tx.status = "failed"
         tx.completed_at = utc_now_db()
         tx.error_message = f"No se pudo encolar el reproceso: {exc}"[:1000]
+        previous_status_id = record.status_id
         record.status_id = proc_error_status_id
         record.updated_by = actor_user_id
+        append_record_status_transition(
+            db,
+            record_id=record_id,
+            from_status_id=previous_status_id,
+            to_status_id=proc_error_status_id,
+            changed_by=actor_user_id,
+            source="minute.reprocess",
+            transition_reason="reprocess-enqueue-error",
+            minute_transaction_id=transaction_id,
+            metadata={"error": str(exc)[:300]},
+        )
         db.commit()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

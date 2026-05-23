@@ -53,6 +53,7 @@ from models.records import Record
 from models.minute_transaction import MinuteTransaction
 from models.record_drafts import RecordDraft
 from models.record_versions import RecordVersion
+from models.record_status_transitions import RecordStatusTransition
 from models.record_artifacts import RecordArtifact
 from models.record_version_tags import RecordVersionTag
 from models.record_version_ai_tags import RecordVersionAiTag
@@ -90,7 +91,7 @@ __all__ = [
     # Tags
     "Tag", "AITag", "AiTagConversion",
     # Records
-    "Record", "MinuteTransaction", "RecordDraft", "RecordVersion", "RecordArtifact",
+    "Record", "MinuteTransaction", "RecordDraft", "RecordVersion", "RecordStatusTransition", "RecordArtifact",
     "RecordVersionTag", "RecordVersionAiTag", "RecordVersionCommit",
     "RecordVersionParticipant", "VisitorAccessRequest", "VisitorSession",
     "RecordVersionObservation",

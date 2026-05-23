@@ -1,15 +1,20 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from typing import Optional
 
 from fastapi import HTTPException
 from sqlalchemy import false, or_
 from sqlalchemy.orm import Session
 
+from core.datetime_utils import utc_now_db
+from models.record_status_transitions import RecordStatusTransition
 from models.record_versions import RecordVersion
 from models.records import Record
 from models.user import User
 from schemas.minutes import (
+    MinuteCycleTimeItem,
+    MinuteCycleTimeResponse,
     MinuteDetailResponse,
     MinuteReprocessHistoryItem,
     MinuteReprocessHistoryResponse,
@@ -25,9 +30,12 @@ from services.minutes.constants import (
     BUCKET_DRAFT,
     BUCKET_JSON,
     RECORD_STATUS_COMPLETED,
+    RECORD_STATUS_DELETED,
+    RECORD_STATUS_IN_PROGRESS,
     RECORD_STATUS_PENDING,
     RECORD_STATUS_PREVIEW,
     RECORD_STATUS_READY,
+    RECORD_STATUS_CANCELLED,
     STATUSES_NO_CONTENT,
 )
 from services.minutes.reprocess import (
@@ -448,6 +456,152 @@ def list_minute_reprocess_history(
     total = len(history_items)
     paginated = history_items[skip : skip + limit]
     return MinuteReprocessHistoryResponse(items=paginated, total=total, skip=skip, limit=limit)
+
+
+def list_minute_cycle_times(
+    db: Session,
+    skip: int = 0,
+    limit: int = 500,
+    client_id: Optional[str] = None,
+    project_id: Optional[str] = None,
+    prepared_by_user_id: Optional[str] = None,
+) -> MinuteCycleTimeResponse:
+    from models.record_statuses import RecordStatus
+
+    record_query = db.query(Record).filter(Record.deleted_at.is_(None))
+
+    if client_id:
+        record_query = record_query.filter(Record.client_id == client_id)
+    if project_id:
+        record_query = record_query.filter(Record.project_id == project_id)
+    if prepared_by_user_id:
+        record_query = record_query.filter(Record.prepared_by_user_id == prepared_by_user_id)
+
+    records = record_query.order_by(Record.created_at.desc()).all()
+    if not records:
+        return MinuteCycleTimeResponse(items=[], total=0, skip=skip, limit=limit)
+
+    record_ids = [record.id for record in records]
+    transition_rows = (
+        db.query(RecordStatusTransition)
+        .filter(RecordStatusTransition.record_id.in_(record_ids))
+        .order_by(
+            RecordStatusTransition.record_id.asc(),
+            RecordStatusTransition.changed_at.asc(),
+            RecordStatusTransition.id.asc(),
+        )
+        .all()
+    )
+    if not transition_rows:
+        return MinuteCycleTimeResponse(items=[], total=0, skip=skip, limit=limit)
+
+    transitions_by_record: dict[str, list[RecordStatusTransition]] = defaultdict(list)
+    for transition in transition_rows:
+        if transition.record_id:
+            transitions_by_record[str(transition.record_id)].append(transition)
+
+    terminal_statuses = {RECORD_STATUS_COMPLETED, RECORD_STATUS_CANCELLED, RECORD_STATUS_DELETED}
+    now_utc = utc_now_db()
+    items: list[MinuteCycleTimeItem] = []
+
+    for record in records:
+        record_transitions = transitions_by_record.get(str(record.id), [])
+        if not record_transitions:
+            continue
+
+        first_transition = record_transitions[0]
+        last_transition = record_transitions[-1]
+        current_status_code = (
+            getattr(getattr(last_transition, "to_status", None), "code", None)
+            or getattr(getattr(record, "status", None), "code", None)
+            or "unknown"
+        )
+        cycle_closed = current_status_code in terminal_statuses
+        cycle_end_at = last_transition.changed_at if cycle_closed else now_utc
+
+        processing_duration_ms = 0
+        editing_duration_ms = 0
+        review_duration_ms = 0
+        return_to_edit_count = 0
+
+        for index, transition in enumerate(record_transitions):
+            status_code = getattr(getattr(transition, "to_status", None), "code", None) or "unknown"
+            segment_start = transition.changed_at
+            if segment_start is None:
+                continue
+
+            if index + 1 < len(record_transitions):
+                segment_end = record_transitions[index + 1].changed_at
+            else:
+                segment_end = cycle_end_at
+
+            if segment_end is None or segment_end < segment_start:
+                continue
+
+            delta_ms = int((segment_end - segment_start).total_seconds() * 1000)
+            if status_code == RECORD_STATUS_IN_PROGRESS:
+                processing_duration_ms += delta_ms
+            elif status_code in {RECORD_STATUS_READY, RECORD_STATUS_PENDING}:
+                editing_duration_ms += delta_ms
+            elif status_code == RECORD_STATUS_PREVIEW:
+                review_duration_ms += delta_ms
+
+            from_status_code = getattr(getattr(transition, "from_status", None), "code", None)
+            if from_status_code == RECORD_STATUS_PREVIEW and status_code == RECORD_STATUS_PENDING:
+                return_to_edit_count += 1
+
+        total_cycle_duration_ms = 0
+        if first_transition.changed_at and cycle_end_at and cycle_end_at >= first_transition.changed_at:
+            total_cycle_duration_ms = int((cycle_end_at - first_transition.changed_at).total_seconds() * 1000)
+
+        client_name = getattr(getattr(record, "client", None), "name", None)
+        project_name = getattr(getattr(record, "project", None), "name", None)
+        prep_user = getattr(record, "prepared_by_user", None)
+        prepared_by_name = (
+            getattr(prep_user, "full_name", None)
+            or getattr(prep_user, "username", None)
+        )
+
+        status_label_map = {
+            RECORD_STATUS_IN_PROGRESS: "En procesamiento",
+            RECORD_STATUS_READY: "Listo para editar",
+            RECORD_STATUS_PENDING: "Pendiente",
+            RECORD_STATUS_PREVIEW: "En revisión",
+            RECORD_STATUS_COMPLETED: "Completado",
+            RECORD_STATUS_CANCELLED: "Cancelado",
+            "llm-failed": "Fallo IA",
+            "processing-error": "Error de proceso",
+            RECORD_STATUS_DELETED: "Eliminado",
+        }
+
+        items.append(
+            MinuteCycleTimeItem(
+                record_id=str(record.id),
+                title=record.title or "Minuta sin título",
+                date=record.document_date.isoformat() if record.document_date else None,
+                client_id=str(record.client_id) if record.client_id else None,
+                project_id=str(record.project_id) if record.project_id else None,
+                prepared_by=prepared_by_name,
+                status=current_status_code,
+                status_label=status_label_map.get(current_status_code, current_status_code),
+                client=client_name,
+                project=project_name,
+                cycle_started_at=first_transition.changed_at.isoformat() if first_transition.changed_at else None,
+                last_transition_at=last_transition.changed_at.isoformat() if last_transition.changed_at else None,
+                completed_at=last_transition.changed_at.isoformat() if cycle_closed and last_transition.changed_at else None,
+                transition_count=len(record_transitions),
+                return_to_edit_count=return_to_edit_count,
+                processing_duration_ms=processing_duration_ms,
+                editing_duration_ms=editing_duration_ms,
+                review_duration_ms=review_duration_ms,
+                total_cycle_duration_ms=total_cycle_duration_ms,
+                cycle_closed=cycle_closed,
+            )
+        )
+
+    total = len(items)
+    paginated = items[skip : skip + limit]
+    return MinuteCycleTimeResponse(items=paginated, total=total, skip=skip, limit=limit)
 
 
 def get_minute_versions(db: Session, record_id: str) -> MinuteVersionsResponse:

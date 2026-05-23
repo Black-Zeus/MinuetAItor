@@ -54,6 +54,7 @@ from services.minute_participants_service import (
     persist_record_version_participants,
 )
 from services.ai_usage_events_service import record_ai_usage_event
+from services.minutes.status_transitions import append_record_status_transition
 from services.notification_center_service import create_in_app_notification
 from services.notification_service import enqueue_ai_processed_ready_email, enqueue_minute_officialized_email
 from services.pdf_template_resolver import ensure_pdf_template_in_content, resolve_pdf_template_for_record
@@ -550,12 +551,24 @@ def _execute_tx2(db: Session, body: MinuteCommitRequest) -> str:
     tx.tokens_output    = body.tokens_output
 
     # ── Actualizar Record ─────────────────────────────────────────────────────
+    previous_status_id        = record.status_id
     ready_status_id           = _get_status_id(db, RECORD_STATUS_READY)
     record.status_id          = ready_status_id
     record.active_version_id  = ver_id
     record.latest_version_num = 1
     record.intro_snippet      = _extract_intro_snippet(canonical_output)
     record.updated_by         = by_id
+    append_record_status_transition(
+        db,
+        record_id=rec_id,
+        from_status_id=previous_status_id,
+        to_status_id=ready_status_id,
+        changed_by=by_id,
+        source="worker.processing",
+        transition_reason="ai-processing-success",
+        minute_transaction_id=tx_id,
+        record_version_id=ver_id,
+    )
 
     db.commit()
     logger.info("TX2 DB commit OK | tx=%s version=%s", tx_id, ver_id)
@@ -585,9 +598,21 @@ def _mark_failed(
             tx.completed_at  = _now_utc()
 
         if record:
+            previous_status_id = record.status_id
             failed_status_id = _get_status_id(db, record_status_code)
             record.status_id = failed_status_id
             record.updated_by = tx.requested_by if tx else None
+            append_record_status_transition(
+                db,
+                record_id=rec_id,
+                from_status_id=previous_status_id,
+                to_status_id=failed_status_id,
+                changed_by=tx.requested_by if tx else None,
+                source="worker.processing",
+                transition_reason=record_status_code,
+                minute_transaction_id=tx_id,
+                metadata={"error": error_msg[:300]},
+            )
 
         db.commit()
         logger.info("Estado failed marcado | tx=%s record=%s record_status=%s", tx_id, rec_id, record_status_code)
