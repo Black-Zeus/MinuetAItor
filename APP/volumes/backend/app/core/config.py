@@ -15,6 +15,13 @@ class Settings(BaseSettings):
     # Redis
     redis_host: str = "redis"
     redis_port: int = 6379
+    redis_socket_connect_timeout: int = 5
+    redis_socket_timeout: int = 10
+
+    # DB connection safety
+    mariadb_connect_timeout: int = 5
+    mariadb_read_timeout: int = 15
+    mariadb_write_timeout: int = 15
     
     # JWT
     jwt_secret: str

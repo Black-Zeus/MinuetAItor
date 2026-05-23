@@ -12,6 +12,10 @@ def get_redis() -> aioredis.Redis:
             host=settings.redis_host,
             port=settings.redis_port,
             decode_responses=True,
+            socket_connect_timeout=settings.redis_socket_connect_timeout,
+            socket_timeout=settings.redis_socket_timeout,
+            socket_keepalive=True,
+            health_check_interval=30,
         )
     return _redis_client
 
