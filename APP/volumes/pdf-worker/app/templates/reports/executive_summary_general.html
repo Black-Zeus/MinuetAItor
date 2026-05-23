@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>{{ report_title }}</title>
+
+  <style>
+    @page {
+      size: A4 landscape;
+      margin: 18mm 14mm 16mm 14mm;
+
+      @bottom-left {
+        content: "MinuetAItor - {{ report_title }}";
+        font-size: 10px;
+        color: #6b7280;
+      }
+
+      @bottom-right {
+        content: "Página " counter(page) " de " counter(pages);
+        font-size: 10px;
+        color: #6b7280;
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      color: #1f2937;
+      background: #ffffff;
+      font-size: 12px;
+    }
+
+    .page {
+      page-break-after: always;
+      min-height: 170mm;
+      position: relative;
+    }
+
+    .page:last-child {
+      page-break-after: auto;
+    }
+
+    .cover {
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      min-height: 170mm;
+      padding: 2mm 2mm 4mm 2mm;
+      page-break-inside: avoid;
+      break-inside: avoid-page;
+    }
+
+    .organization-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 14px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #d1d5db;
+    }
+
+    .organization-brand {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .organization-logo {
+      width: 78px;
+      height: 78px;
+      border: 1px solid #d1d5db;
+      border-radius: 12px;
+      background: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .organization-logo img {
+      max-width: 68px;
+      max-height: 68px;
+      object-fit: contain;
+    }
+
+    .organization-logo-placeholder {
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+    }
+
+    .organization-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .organization-name {
+      font-size: 20px;
+      font-weight: 800;
+      color: #111827;
+    }
+
+    .organization-subtitle {
+      font-size: 12px;
+      color: #6b7280;
+      font-weight: 600;
+    }
+
+    .organization-banner {
+      width: 540px;
+      height: 156px;
+      border: 1px solid #d1d5db;
+      border-radius: 12px;
+      background: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .organization-banner img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .organization-banner-placeholder {
+      width: 92%;
+      height: 72%;
+      border-radius: 10px;
+      border: 1px dashed #cbd5e1;
+      background:
+        linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #94a3b8;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .cover-header {
+      border-bottom: 2px solid #1f2937;
+      padding-bottom: 10px;
+    }
+
+    .report-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1.8px;
+      color: #6b7280;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 30px;
+      line-height: 1.15;
+      color: #111827;
+    }
+
+    .subtitle {
+      margin-top: 10px;
+      font-size: 14px;
+      line-height: 1.4;
+      color: #4b5563;
+      max-width: 900px;
+    }
+
+    .cover-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-top: 14px;
+      page-break-inside: avoid;
+      break-inside: avoid-page;
+    }
+
+    .cover-grid--single {
+      grid-template-columns: 1fr;
+    }
+
+    .box {
+      border: 1px solid #d1d5db;
+      border-radius: 10px;
+      padding: 12px;
+      background: #f9fafb;
+      page-break-inside: avoid;
+      break-inside: avoid-page;
+    }
+
+    .box h2 {
+      margin: 0 0 8px;
+      font-size: 14px;
+      color: #111827;
+    }
+
+    .box p {
+      margin: 0;
+      line-height: 1.6;
+      color: #374151;
+    }
+
+    .meta-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .meta-table th,
+    .meta-table td {
+      padding: 6px 5px;
+      border-bottom: 1px solid #e5e7eb;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .meta-table tr:last-child th,
+    .meta-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .meta-table th {
+      width: 34%;
+      color: #6b7280;
+      font-weight: 700;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .meta-table td {
+      color: #111827;
+      font-weight: 600;
+      font-size: 11px;
+    }
+
+    .section-header {
+      margin-bottom: 16px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #111827;
+    }
+
+    .section-header h2 {
+      margin: 0;
+      font-size: 22px;
+      color: #111827;
+    }
+
+    .section-header p {
+      margin: 6px 0 0;
+      color: #6b7280;
+      font-size: 12px;
+    }
+
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-top: 20px;
+    }
+
+    .chart-card {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .chart-card h3 {
+      margin: 0;
+      font-size: 16px;
+      color: #111827;
+      font-weight: 700;
+    }
+
+    .chart-card p {
+      margin: 0;
+      color: #6b7280;
+      font-size: 11px;
+      line-height: 1.4;
+    }
+
+    .chart-image-frame {
+      width: 100%;
+      height: 98mm;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      background: #f8fafc;
+      padding: 1%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .chart-image {
+      width: 100%;
+      height: 100%;
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: fill;
+      display: block;
+    }
+
+    .chart-placeholder {
+      width: 100%;
+      height: 78mm;
+      border: 1px dashed #cbd5e1;
+      border-radius: 8px;
+      background:
+        linear-gradient(to top, rgba(37, 99, 235, 0.08), rgba(37, 99, 235, 0.02)),
+        repeating-linear-gradient(
+          to top,
+          transparent,
+          transparent 18px,
+          rgba(148, 163, 184, 0.35) 19px
+        );
+      position: relative;
+      overflow: hidden;
+    }
+
+    .line-svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .bar {
+      position: absolute;
+      bottom: 28px;
+      background: #2563eb;
+      border-radius: 6px 6px 0 0;
+    }
+
+    .bar-labels {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 10px;
+      color: #4b5563;
+      font-size: 10px;
+      gap: 10px;
+    }
+
+    .bar-labels span {
+      flex: 1;
+      text-align: center;
+    }
+
+    .donut {
+      width: 190px;
+      height: 190px;
+      border-radius: 50%;
+      margin: 20px auto 8px;
+      position: relative;
+    }
+
+    .donut::after {
+      content: "";
+      position: absolute;
+      inset: 46px;
+      background: #ffffff;
+      border-radius: 50%;
+      border: 1px solid #e5e7eb;
+    }
+
+    .legend {
+      display: flex;
+      justify-content: center;
+      gap: 18px;
+      margin-top: 10px;
+      color: #4b5563;
+      font-size: 11px;
+      flex-wrap: wrap;
+    }
+
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 3px;
+      display: inline-block;
+    }
+
+    .distribution-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .distribution-item {
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 8px 10px;
+      background: #f9fafb;
+    }
+
+    .distribution-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 11px;
+      color: #111827;
+      font-weight: 600;
+    }
+
+    .distribution-helper {
+      margin-top: 4px;
+      color: #6b7280;
+      font-size: 10px;
+    }
+
+    .rank-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .rank-item {
+      display: grid;
+      gap: 6px;
+    }
+
+    .rank-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #111827;
+    }
+
+    .rank-track {
+      width: 100%;
+      height: 10px;
+      border-radius: 999px;
+      background: #e5e7eb;
+      overflow: hidden;
+    }
+
+    .rank-fill {
+      height: 10px;
+      border-radius: 999px;
+    }
+
+    .table-section {
+      page-break-before: always;
+    }
+
+    .table-summary {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 12px;
+      color: #4b5563;
+      font-size: 11px;
+    }
+
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      font-size: 10.5px;
+    }
+
+    .data-table thead {
+      display: table-header-group;
+    }
+
+    .data-table tr {
+      page-break-inside: avoid;
+    }
+
+    .data-table th {
+      background: #111827;
+      color: #ffffff;
+      padding: 8px 7px;
+      border: 1px solid #111827;
+      text-align: left;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      font-size: 9px;
+    }
+
+    .data-table td {
+      padding: 8px 7px;
+      border: 1px solid #d1d5db;
+      vertical-align: top;
+      color: #1f2937;
+      line-height: 1.35;
+    }
+
+    .data-table tbody tr:nth-child(even) {
+      background: #f9fafb;
+    }
+
+    .small-note {
+      margin-top: 10px;
+      color: #6b7280;
+      font-size: 10px;
+      line-height: 1.4;
+    }
+
+    .nowrap {
+      white-space: nowrap;
+    }
+  </style>
+</head>
+
+<body>
+  <section class="page cover">
+    <div>
+      <div class="organization-header">
+        <div class="organization-brand">
+          <div class="organization-logo">
+            {% if organization_logo_data_uri %}
+              <img src="{{ organization_logo_data_uri }}" alt="Logo organización" />
+            {% else %}
+              <div class="organization-logo-placeholder"></div>
+            {% endif %}
+          </div>
+
+          <div class="organization-info">
+            <div class="organization-name">{{ organization_name }}</div>
+            <div class="organization-subtitle">{{ organization_area }}</div>
+          </div>
+        </div>
+
+        <div class="organization-banner">
+          {% if organization_banner_data_uri %}
+            <img src="{{ organization_banner_data_uri }}" alt="Imagen organización" />
+          {% else %}
+            <div class="organization-banner-placeholder">Banner</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="cover-header">
+        <div class="report-label">{{ report_type }}</div>
+        <h1>{{ report_title }}</h1>
+        <div class="subtitle">{{ report_description }}</div>
+      </div>
+
+      <div class="cover-grid cover-grid--single">
+        <div class="box">
+          <h2>Datos de generación</h2>
+          <table class="meta-table">
+            <tr>
+              <th>Fecha emisión</th>
+              <td>{{ generated_at_label }}</td>
+            </tr>
+            <tr>
+              <th>Generado por</th>
+              <td>{{ generated_by }}</td>
+            </tr>
+          </table>
+        </div>
+      </div>
+
+      <div class="cover-grid cover-grid--single">
+        <div class="box">
+          <h2>Filtros aplicados</h2>
+          <table class="meta-table">
+            {% if applied_filters %}
+              {% for item in applied_filters %}
+                <tr>
+                  <th>{{ item.label }}</th>
+                  <td>{{ item.value | default_dash }}</td>
+                </tr>
+              {% endfor %}
+            {% else %}
+              <tr>
+                <th>Filtros</th>
+                <td>Sin parámetros específicos</td>
+              </tr>
+            {% endif %}
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+  <section class="page">
+    <div class="section-header">
+      <h2>Resumen gráfico del período</h2>
+      <p>
+        Indicadores consolidados y visualización general de la actividad registrada según los filtros aplicados.
+      </p>
+    </div>
+
+    <div class="charts-grid">
+      {% if chart_images %}
+        {% for chart in chart_images[:2] %}
+          <div class="chart-card">
+            <h3>{{ chart.title }}</h3>
+            {% if chart.subtitle %}
+              <p>{{ chart.subtitle }}</p>
+            {% endif %}
+            <div class="chart-image-frame">
+              <img class="chart-image" src="{{ chart.image_data_url }}" alt="{{ chart.title }}" />
+            </div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <div class="chart-card">
+          <h3>Evolución del período</h3>
+          <p>Compara la cantidad de minutas registradas por fecha contra las minutas completadas.</p>
+          <div class="chart-placeholder">
+            {% for bar in period_trend_chart.bars %}
+              <div
+                class="bar"
+                style="left: {{ bar.x }}px; width: {{ bar.width }}px; height: {{ bar.height }}px; top: {{ bar.y }}px;"
+              ></div>
+            {% endfor %}
+            <svg class="line-svg" viewBox="0 0 500 260" preserveAspectRatio="none">
+              <polyline
+                points="{{ period_trend_chart.line_points }}"
+                fill="none"
+                stroke="#16a34a"
+                stroke-width="4"
+              />
+              {% for circle in period_trend_chart.circles %}
+                <circle cx="{{ circle.cx }}" cy="{{ circle.cy }}" r="5" fill="#16a34a"></circle>
+              {% endfor %}
+            </svg>
+          </div>
+          <div class="bar-labels">
+            {% for point in period_trend[:5] %}
+              <span>{{ point.label }}</span>
+            {% endfor %}
+          </div>
+          <div class="legend">
+            <span><i class="dot" style="background:#2563eb;"></i> Minutas</span>
+            <span><i class="dot" style="background:#16a34a;"></i> Completadas</span>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <h3>Distribución por estado</h3>
+          <p>Proporción operacional entre procesamiento, edición, revisión, publicación y estados residuales.</p>
+          <div class="donut" style="background: {{ status_distribution_donut_style }};"></div>
+          <div class="legend">
+            {% for item in status_distribution %}
+              <span><i class="dot" style="background: {{ item.color }};"></i> {{ item.label }} {{ item.percent }}%</span>
+            {% endfor %}
+          </div>
+          <div class="distribution-list">
+            {% for item in status_distribution %}
+              <div class="distribution-item">
+                <div class="distribution-row">
+                  <span>{{ item.label }}</span>
+                  <span>{{ item.count }}</span>
+                </div>
+                <div class="distribution-helper">{{ item.percent }}% del total exportado</div>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      {% endif %}
+    </div>
+
+    <div class="small-note">
+      Los gráficos se generan desde la misma fuente filtrada que alimenta el detalle tabular exportado.
+    </div>
+  </section>
+
+  <section class="page table-section">
+    <div class="section-header">
+      <h2>{{ table_title }}</h2>
+      <p>{{ table_description }}</p>
+    </div>
+
+    <div class="table-summary">
+      <div>Total de registros exportados: <strong>{{ total_records }}</strong></div>
+      <div>Rango consultado: <strong>{{ table_range_label }}</strong></div>
+    </div>
+
+    <table class="data-table">
+      <thead>
+        <tr>
+          {% for column in table_columns %}
+            <th>{{ column.label }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+
+      <tbody>
+        {% for row in table_rows %}
+          <tr>
+            {% for column in table_columns %}
+              <td>{{ row[column.key] | default_dash }}</td>
+            {% endfor %}
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <div class="small-note">
+      La cabecera de la tabla se repite automáticamente cuando el contenido continúa en páginas adicionales.
+    </div>
+  </section>
+</body>
+</html>

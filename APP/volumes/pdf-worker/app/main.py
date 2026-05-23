@@ -17,6 +17,7 @@ from core.job            import JobEnvelope
 from core.logging_config import get_logger, setup_logging
 from core.redis_client   import close_redis, get_redis
 from handlers.minute_pdf import handle_minute_pdf
+from handlers.report_pdf import handle_report_pdf
 
 logger = get_logger("pdf-worker.main")
 QUEUE_ACTIVITY_HASH = "system:queue:last_activity"
@@ -29,7 +30,7 @@ QUEUE_PRIORITY = ["queue:pdf"]
 
 HANDLERS = {
     "minute_pdf": handle_minute_pdf,
-    # "report_pdf": handle_report_pdf,   ← futuro
+    "report_pdf": handle_report_pdf,
 }
 
 
