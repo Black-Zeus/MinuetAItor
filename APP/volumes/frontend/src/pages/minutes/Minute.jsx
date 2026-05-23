@@ -49,6 +49,7 @@ const extractOptions = (minutes) => {
 // ─── Componente ───────────────────────────────────────────────────────────────
 const Minutes = () => {
   const addPending = useMinuteNotificationStore((s) => s.addPending);
+  const pendingMinuteMap = useMinuteNotificationStore((s) => s.pending);
   const requestScope = useAbortableRequestScope();
 
   // ── Estado de carga ──────────────────────────────────────────────────────
@@ -176,6 +177,25 @@ const Minutes = () => {
 
   // ─── Opciones para filtros ────────────────────────────────────────────────
   const { clients, projects } = useMemo(() => extractOptions(minutes), [minutes]);
+  const pendingMinuteEntries = useMemo(
+    () => Array.from((pendingMinuteMap ?? new Map()).values()),
+    [pendingMinuteMap]
+  );
+  const minutesWithPendingState = useMemo(() => {
+    const pendingRecordIds = new Set(
+      (pendingMinuteEntries ?? [])
+        .map((entry) => String(entry?.recordId ?? "").trim())
+        .filter(Boolean)
+    );
+
+    return (minutes ?? []).map((minute) => {
+      const minuteId = String(minute?.id ?? "").trim();
+      return {
+        ...minute,
+        is_reprocess_pending: Boolean(minuteId && pendingRecordIds.has(minuteId)),
+      };
+    });
+  }, [minutes, pendingMinuteEntries]);
 
   // ─── Paginación ───────────────────────────────────────────────────────────
   const totalPages = isGroupedByClientView ? 1 : Math.max(1, Math.ceil(total / currentPageSize));
@@ -214,7 +234,7 @@ const Minutes = () => {
       />
 
       <MinutesResults
-        count={minutes.length}
+        count={minutesWithPendingState.length}
         total={total}
         isRefreshing={isRefreshing}
         currentPage={currentPage}
@@ -232,7 +252,7 @@ const Minutes = () => {
       )}
 
       {/* Empty state */}
-      {!error && minutes.length === 0 && (
+      {!error && minutesWithPendingState.length === 0 && (
         <div className="flex flex-col items-center justify-center py-16 gap-3">
           <p className="text-sm text-gray-500 dark:text-gray-400">
             No se encontraron minutas con los filtros aplicados.
@@ -241,7 +261,7 @@ const Minutes = () => {
       )}
 
       {/* Grid */}
-      {!error && minutes.length > 0 && (
+      {!error && minutesWithPendingState.length > 0 && (
         <>
           {viewMode === "base" ? (
             <div
@@ -249,7 +269,7 @@ const Minutes = () => {
                 isRefreshing ? "opacity-50 pointer-events-none" : "opacity-100"
               }`}
             >
-              {minutes.map((minute) => (
+              {minutesWithPendingState.map((minute) => (
                 <MinuteCard
                   key={minute.id}
                   minute={minute}
@@ -262,7 +282,7 @@ const Minutes = () => {
 
           {viewMode === "list" ? (
             <div className={`mb-8 space-y-4 transition-opacity duration-200 ${isRefreshing ? "opacity-50 pointer-events-none" : "opacity-100"}`}>
-              {minutes.map((minute) => (
+              {minutesWithPendingState.map((minute) => (
                 <MinuteListRow
                   key={minute.id}
                   minute={minute}
@@ -275,7 +295,7 @@ const Minutes = () => {
 
           {viewMode === "table" ? (
             <MinutesTableView
-              minutes={minutes}
+              minutes={minutesWithPendingState}
               onStatusChange={handleStatusChange}
               onReprocess={handleReprocess}
               isRefreshing={isRefreshing}
@@ -285,7 +305,7 @@ const Minutes = () => {
           {viewMode === "client" ? (
             <div className="mb-8">
               <MinutesGroupedByClient
-                minutes={minutes}
+                minutes={minutesWithPendingState}
                 onStatusChange={handleStatusChange}
                 onReprocess={handleReprocess}
                 isRefreshing={isRefreshing}

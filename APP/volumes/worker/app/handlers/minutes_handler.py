@@ -96,6 +96,27 @@ def _datetime_to_iso(value: datetime | None) -> str | None:
     return value.astimezone(timezone.utc).isoformat()
 
 
+def _normalize_token_usage(value: Any) -> int:
+    try:
+        if value is None:
+            return 0
+        return max(int(value), 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _attach_usage_context_to_exception(
+    exc: Exception,
+    *,
+    run_id: str | None,
+    tokens_input: Any,
+    tokens_output: Any,
+) -> None:
+    setattr(exc, "openai_run_id", run_id)
+    setattr(exc, "tokens_input", _normalize_token_usage(tokens_input))
+    setattr(exc, "tokens_output", _normalize_token_usage(tokens_output))
+
+
 def _build_failure_report_kwargs(exc: Exception) -> dict[str, Any]:
     context = getattr(exc, "ai_usage_context", None) or {}
     return {
@@ -106,8 +127,8 @@ def _build_failure_report_kwargs(exc: Exception) -> dict[str, Any]:
         "ai_provider_family": context.get("ai_provider_family"),
         "ai_execution_adapter": context.get("ai_execution_adapter"),
         "openai_run_id": context.get("openai_run_id"),
-        "tokens_input": context.get("tokens_input"),
-        "tokens_output": context.get("tokens_output"),
+        "tokens_input": _normalize_token_usage(context.get("tokens_input")),
+        "tokens_output": _normalize_token_usage(context.get("tokens_output")),
         "started_at": context.get("started_at"),
         "finished_at": context.get("finished_at"),
         "latency_ms": context.get("latency_ms"),
@@ -551,14 +572,26 @@ def _call_openai_compatible_sync(
         "response_format": {"type": "json_object"},
     }
     response = _http_json_request(url, _build_provider_headers(provider_config), payload, provider_config["timeout_seconds"])
-    raw_text = _extract_text_from_openai_like_response(response)
-    parsed = _parse_ai_json_output(raw_text)
     usage = response.get("usage") or {}
+    run_id = str(response.get("id") or f"{provider_config['provider_type']}:{uuid.uuid4()}")
+    prompt_tokens = _normalize_token_usage(usage.get("prompt_tokens"))
+    completion_tokens = _normalize_token_usage(usage.get("completion_tokens"))
+    raw_text = _extract_text_from_openai_like_response(response)
+    try:
+        parsed = _parse_ai_json_output(raw_text)
+    except Exception as exc:
+        _attach_usage_context_to_exception(
+            exc,
+            run_id=run_id,
+            tokens_input=prompt_tokens,
+            tokens_output=completion_tokens,
+        )
+        raise
     return (
         parsed,
-        str(response.get("id") or f"{provider_config['provider_type']}:{uuid.uuid4()}"),
-        int(usage.get("prompt_tokens") or 0),
-        int(usage.get("completion_tokens") or 0),
+        run_id,
+        prompt_tokens,
+        completion_tokens,
     )
 
 
@@ -581,13 +614,25 @@ def _call_ollama_sync(
         },
     }
     response = _http_json_request(url, _build_provider_headers(provider_config), payload, provider_config["timeout_seconds"])
+    run_id = str(response.get("created_at") or f"ollama:{uuid.uuid4()}")
+    prompt_tokens = _normalize_token_usage(response.get("prompt_eval_count"))
+    completion_tokens = _normalize_token_usage(response.get("eval_count"))
     raw_text = str(((response.get("message") or {}).get("content")) or "")
-    parsed = _parse_ai_json_output(raw_text)
+    try:
+        parsed = _parse_ai_json_output(raw_text)
+    except Exception as exc:
+        _attach_usage_context_to_exception(
+            exc,
+            run_id=run_id,
+            tokens_input=prompt_tokens,
+            tokens_output=completion_tokens,
+        )
+        raise
     return (
         parsed,
-        str(response.get("created_at") or f"ollama:{uuid.uuid4()}"),
-        int(response.get("prompt_eval_count") or 0),
-        int(response.get("eval_count") or 0),
+        run_id,
+        prompt_tokens,
+        completion_tokens,
     )
 
 
@@ -609,14 +654,26 @@ def _call_anthropic_sync(
         ],
     }
     response = _http_json_request(url, _build_provider_headers(provider_config), payload, provider_config["timeout_seconds"])
-    raw_text = _extract_text_from_anthropic_response(response)
-    parsed = _parse_ai_json_output(raw_text)
     usage = response.get("usage") or {}
+    run_id = str(response.get("id") or f"anthropic:{uuid.uuid4()}")
+    input_tokens = _normalize_token_usage(usage.get("input_tokens"))
+    output_tokens = _normalize_token_usage(usage.get("output_tokens"))
+    raw_text = _extract_text_from_anthropic_response(response)
+    try:
+        parsed = _parse_ai_json_output(raw_text)
+    except Exception as exc:
+        _attach_usage_context_to_exception(
+            exc,
+            run_id=run_id,
+            tokens_input=input_tokens,
+            tokens_output=output_tokens,
+        )
+        raise
     return (
         parsed,
-        str(response.get("id") or f"anthropic:{uuid.uuid4()}"),
-        int(usage.get("input_tokens") or 0),
-        int(usage.get("output_tokens") or 0),
+        run_id,
+        input_tokens,
+        output_tokens,
     )
 
 
@@ -702,10 +759,13 @@ def _execute_tx2_sync(payload: dict) -> tuple[str, str, int, int, str, str]:
         usage_context["started_at"] = _datetime_to_iso(started_at_utc)
         try:
             ai_output, run_id, tokens_in, tokens_out = _call_ai_provider_sync(provider_config, prompt, files, ai_input)
-        except Exception:
+        except Exception as exc:
             finished_at_utc = _now_utc()
             usage_context["finished_at"] = _datetime_to_iso(finished_at_utc)
             usage_context["latency_ms"] = max(int((finished_at_utc - started_at_utc).total_seconds() * 1000), 0)
+            usage_context["openai_run_id"] = getattr(exc, "openai_run_id", None)
+            usage_context["tokens_input"] = _normalize_token_usage(getattr(exc, "tokens_input", 0))
+            usage_context["tokens_output"] = _normalize_token_usage(getattr(exc, "tokens_output", 0))
             raise
 
         finished_at_utc = _now_utc()

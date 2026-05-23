@@ -23,6 +23,10 @@ const ManagementOperationalReportPage = lazy(() =>
   import("@/pages/analytics/ManagementOperationalReportPage")
 );
 
+const ManagementAiUsageReportPage = lazy(() =>
+  import("@/pages/analytics/ManagementAiUsageReportPage")
+);
+
 const UnderConstruction = lazy(() =>
   import("@/pages/errorPages/UnderConstructionPage")
 );
@@ -35,6 +39,17 @@ const buildPlaceholderRoutes = (items = [], prefix) =>
     requiresAuth: true,
     roles: [],
   }));
+
+const AI_ACTIVE_REPORT_IDS = new Set([
+  "gestion-ai-usage",
+  "gestion-ai-cost-client",
+  "gestion-ai-cost-project",
+  "gestion-ai-cost-model",
+  "gestion-ai-cost-provider",
+  "gestion-ai-latency-model",
+  "gestion-ai-profile-usage",
+  "gestion-ai-errors",
+]);
 
 // ─── Analytics ────────────────────────────────────────────────────
 const analyticsRoutes = [
@@ -74,7 +89,9 @@ const gestionActiveRoutes = GESTION_REPORT_ITEMS.filter((item) =>
 ).map((item) => ({
   path: item.path,
   title: item.name,
-  component: ManagementOperationalReportPage,
+  component: AI_ACTIVE_REPORT_IDS.has(item.id)
+    ? ManagementAiUsageReportPage
+    : ManagementOperationalReportPage,
   requiresAuth: true,
   roles: [],
 }));

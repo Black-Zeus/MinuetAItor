@@ -18,7 +18,7 @@ import useTableSorting from "@/hooks/useTableSorting";
 import ReportModulePage from "@/pages/analytics/reports/components/ReportModulePage";
 import { STATUS_CONFIG } from "@/pages/minutes/MinuteCard";
 import clientService from "@/services/clientService";
-import { listMinutes } from "@/services/minutesService";
+import { listMinuteReprocessHistory, listMinutes } from "@/services/minutesService";
 import projectService from "@/services/projectService";
 import { previewReportPdfBlob } from "@/services/reportsService";
 import teamsService from "@/services/teamsService";
@@ -73,10 +73,24 @@ const STATUS_SORT_WEIGHT = {
   deleted: 9,
 };
 
+const REPROCESS_REASON_LABELS = {
+  "record-error": "Error de registro",
+  "stale-failed-transaction": "Transacción fallida previa",
+  "stale-processing": "Procesamiento atascado",
+};
+
 const DATE_FORMATTER = new Intl.DateTimeFormat("es-CL", {
   year: "numeric",
   month: "2-digit",
   day: "2-digit",
+});
+
+const DATE_TIME_FORMATTER = new Intl.DateTimeFormat("es-CL", {
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
 });
 
 const PERCENT_FORMATTER = new Intl.NumberFormat("es-CL", {
@@ -105,6 +119,10 @@ const SORTERS = {
   projectCount: (row) => row.projectCount ?? 0,
   responsibleCount: (row) => row.responsibleCount ?? 0,
   percentage: (row) => row.percentageRaw ?? 0,
+  reprocessReady: (row) => (row.canReprocess ? 1 : 0),
+  reprocessReason: (row) => row.reprocessReasonLabel ?? "",
+  errorMessage: (row) => row.errorMessage ?? "",
+  totalTokens: (row) => row.totalTokens ?? 0,
 };
 
 const normalizeText = (value) =>
@@ -122,6 +140,9 @@ const compareByLabel = (left, right) =>
 
 const formatPercent = (value) =>
   `${PERCENT_FORMATTER.format(Number(value ?? 0))}%`;
+
+const getReprocessReasonLabel = (reason, fallback = "Señal operativa") =>
+  REPROCESS_REASON_LABELS[String(reason ?? "").trim()] ?? fallback;
 
 const formatDateForInput = (date) => {
   const normalized = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
@@ -143,6 +164,13 @@ const buildDefaultFilters = () => {
     status: "",
   };
 };
+
+const REPROCESS_STATUS_FILTER_OPTIONS = [
+  { value: "in-progress", label: "En procesamiento" },
+  { value: "completed", label: "OK / siguió flujo" },
+  { value: "llm-failed", label: "Con error IA" },
+  { value: "processing-error", label: "Con error de proceso" },
+];
 
 const parseFlexibleDate = (value) => {
   if (!value) return null;
@@ -195,6 +223,12 @@ const formatDateLabel = (value) => {
   return DATE_FORMATTER.format(parsedDate);
 };
 
+const formatDateTimeLabel = (value) => {
+  const parsedDate = parseFlexibleDate(value);
+  if (!parsedDate) return String(value ?? "Sin fecha");
+  return DATE_TIME_FORMATTER.format(parsedDate);
+};
+
 const toInputDate = (value) => {
   const parsedDate = parseFlexibleDate(value);
   if (!parsedDate) return "";
@@ -244,6 +278,37 @@ const normalizeMinuteRecord = (minute, index) => {
     minute?.status ?? minute?.statusCode,
     minute?.statusLabel ?? minute?.status_label ?? null
   );
+  const errorMessage = String(
+    minute?.errorMessage ?? minute?.error_message ?? ""
+  ).trim();
+  const canReprocess = Boolean(
+    minute?.canReprocess ?? minute?.can_reprocess ?? false
+  );
+  const reprocessReason = String(
+    minute?.reprocessReason ?? minute?.reprocess_reason ?? ""
+  ).trim();
+  const hasTerminalError = ["llm-failed", "processing-error"].includes(status.key);
+  const hasReprocessSignal = Boolean(
+    canReprocess || reprocessReason || errorMessage || hasTerminalError
+  );
+  const inputTokens = Number(
+    minute?.tokensInput ?? minute?.tokens_input ?? 0
+  );
+  const outputTokens = Number(
+    minute?.tokensOutput ?? minute?.tokens_output ?? 0
+  );
+  const totalTokens = Number(
+    minute?.totalTokens ?? minute?.total_tokens ?? inputTokens + outputTokens
+  );
+  const reprocessReasonLabel = reprocessReason
+    ? getReprocessReasonLabel(reprocessReason)
+    : errorMessage
+      ? "Error visible"
+      : hasTerminalError
+        ? "Error terminal"
+        : canReprocess
+          ? "Reproceso disponible"
+          : "Sin señal";
 
   return {
     id: minute?.id ?? minute?.recordId ?? `report-row-${index + 1}`,
@@ -262,10 +327,81 @@ const normalizeMinuteRecord = (minute, index) => {
     status,
     statusKey: status.key,
     statusWeight: status.sortWeight,
+    canReprocess,
+    reprocessReason,
+    reprocessReasonLabel,
+    errorMessage,
+    hasTerminalError,
+    hasReprocessSignal,
+    inputTokens,
+    outputTokens,
+    totalTokens,
     title:
       minute?.title ??
       minute?.subject ??
       minute?.minuteTitle ??
+      "Minuta sin título",
+  };
+};
+
+const normalizeReprocessAttemptRecord = (attempt, index) => {
+  const rawDate = attempt?.date ?? attempt?.createdAt ?? attempt?.created_at ?? null;
+  const parsedDate = parseFlexibleDate(rawDate);
+  const status = getStatusPresentation(
+    attempt?.status ?? attempt?.statusCode,
+    attempt?.statusLabel ?? attempt?.status_label ?? null
+  );
+  const inputTokens = Number(
+    attempt?.tokensInput ?? attempt?.tokens_input ?? 0
+  );
+  const outputTokens = Number(
+    attempt?.tokensOutput ?? attempt?.tokens_output ?? 0
+  );
+
+  return {
+    id: attempt?.transactionId ?? attempt?.transaction_id ?? `reprocess-row-${index + 1}`,
+    rawId: attempt?.recordId ?? attempt?.record_id ?? index + 1,
+    transactionId: attempt?.transactionId ?? attempt?.transaction_id ?? null,
+    attemptNumber: Number(attempt?.attemptNumber ?? attempt?.attempt_number ?? 0),
+    dateLabel: formatDateTimeLabel(rawDate),
+    dateInput: toInputDate(rawDate),
+    dateTimestamp: parsedDate?.getTime?.() ?? 0,
+    client: attempt?.client ?? "Sin cliente",
+    project: attempt?.project ?? "Sin proyecto",
+    responsible:
+      attempt?.preparedBy ??
+      attempt?.prepared_by ??
+      attempt?.ownerName ??
+      attempt?.createdBy ??
+      "Sistema",
+    status,
+    statusKey: status.key,
+    statusWeight: status.sortWeight,
+    canReprocess: Boolean(
+      attempt?.canReprocess ?? attempt?.can_reprocess ?? false
+    ),
+    reprocessReason: String(
+      attempt?.reprocessReason ?? attempt?.reprocess_reason ?? ""
+    ).trim(),
+    reprocessReasonLabel: String(
+      attempt?.reprocessReason ?? attempt?.reprocess_reason ?? ""
+    ).trim()
+      ? getReprocessReasonLabel(attempt?.reprocessReason ?? attempt?.reprocess_reason)
+      : "Reproceso histórico",
+    errorMessage: String(
+      attempt?.errorMessage ?? attempt?.error_message ?? ""
+    ).trim(),
+    hasTerminalError: ["llm-failed", "processing-error"].includes(status.key),
+    hasReprocessSignal: true,
+    inputTokens,
+    outputTokens,
+    totalTokens: Number(
+      attempt?.totalTokens ?? attempt?.total_tokens ?? inputTokens + outputTokens
+    ),
+    title:
+      attempt?.title ??
+      attempt?.subject ??
+      attempt?.minuteTitle ??
       "Minuta sin título",
   };
 };
@@ -655,6 +791,22 @@ const buildStatusDistribution = (rows = [], limit = null) => {
   return limit ? ordered.slice(0, limit) : ordered;
 };
 
+const buildReprocessReasonDistribution = (rows = []) => {
+  const grouped = new Map();
+
+  rows.forEach((row) => {
+    const label = String(row.reprocessReasonLabel ?? "").trim() || "Señal operativa";
+    grouped.set(label, (grouped.get(label) ?? 0) + 1);
+  });
+
+  return [...grouped.entries()]
+    .map(([label, count]) => ({ label, count }))
+    .sort((left, right) => {
+      if (right.count !== left.count) return right.count - left.count;
+      return compareByLabel(left.label, right.label);
+    });
+};
+
 const buildAggregateByField = (rows = [], fieldName) => {
   const grouped = new Map();
 
@@ -866,7 +1018,7 @@ const applyFilters = (rows, filters) => {
   });
 };
 
-const buildAppliedFiltersForExport = (filters) => [
+const buildAppliedFiltersForExport = (filters, statusOptions = STATUS_FILTER_OPTIONS) => [
   { label: "Fecha desde", value: filters.dateFrom || "Sin límite" },
   { label: "Fecha hasta", value: filters.dateTo || "Sin límite" },
   { label: "Cliente", value: filters.client || "Todos" },
@@ -875,7 +1027,7 @@ const buildAppliedFiltersForExport = (filters) => [
   {
     label: "Estado",
     value:
-      STATUS_FILTER_OPTIONS.find((option) => option.value === filters.status)?.label ||
+      statusOptions.find((option) => option.value === filters.status)?.label ||
       "Todos",
   },
 ];
@@ -922,7 +1074,7 @@ const buildChartDataPayload = (chartDefinitions = [], minuteRows = []) => {
   };
 };
 
-const filterFieldsFactory = (filterCatalogs) => [
+const filterFieldsFactory = (filterCatalogs, statusOptions = STATUS_FILTER_OPTIONS) => [
   { name: "dateFrom", label: "Fecha desde", type: "date" },
   { name: "dateTo", label: "Fecha hasta", type: "date" },
   {
@@ -955,7 +1107,7 @@ const filterFieldsFactory = (filterCatalogs) => [
     type: "select",
     icon: "filter",
     placeholder: "Todos los estados",
-    options: STATUS_FILTER_OPTIONS,
+    options: statusOptions,
   },
 ];
 
@@ -1016,6 +1168,130 @@ const buildMinuteDetailColumns = () => [
     render: (row) => (
       <div className="min-w-[240px]">
         <p className="font-semibold text-gray-900 dark:text-white">{row.title}</p>
+      </div>
+    ),
+  },
+];
+
+const buildReprocessColumns = () => [
+  {
+    key: "date",
+    label: "Fecha",
+    sortable: true,
+    sortKey: "date",
+    exportValue: (row) => row.dateLabel,
+    render: (row) => row.dateLabel,
+  },
+  {
+    key: "client",
+    label: "Cliente",
+    sortable: true,
+    sortKey: "client",
+    exportValue: (row) => row.client,
+    render: (row) => row.client,
+  },
+  {
+    key: "project",
+    label: "Proyecto",
+    sortable: true,
+    sortKey: "project",
+    exportValue: (row) => row.project,
+    render: (row) => row.project,
+  },
+  {
+    key: "title",
+    label: "Minuta",
+    sortable: true,
+    sortKey: "title",
+    exportValue: (row) => row.title,
+    cellClassName: "min-w-[280px]",
+    render: (row) => (
+      <div className="min-w-[240px]">
+        <p className="font-semibold text-gray-900 dark:text-white">{row.title}</p>
+      </div>
+    ),
+  },
+  {
+    key: "responsible",
+    label: "Responsable",
+    sortable: true,
+    sortKey: "responsible",
+    exportValue: (row) => row.responsible,
+    render: (row) => row.responsible,
+  },
+  {
+    key: "status",
+    label: "Estado",
+    sortable: true,
+    sortKey: "status",
+    exportValue: (row) => row.status.label,
+    render: (row) => (
+      <span
+        className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${row.status.className}`}
+      >
+        {row.status.label}
+      </span>
+    ),
+  },
+  {
+    key: "reprocessReady",
+    label: "Reprocesable",
+    sortable: true,
+    sortKey: "reprocessReady",
+    exportValue: (row) => (row.canReprocess ? "Sí" : "No"),
+    render: (row) => (
+      <span
+        className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
+          row.canReprocess
+            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+            : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+        }`}
+      >
+        {row.canReprocess ? "Sí" : "No"}
+      </span>
+    ),
+  },
+  {
+    key: "errorMessage",
+    label: "Error visible",
+    sortable: true,
+    sortKey: "errorMessage",
+    exportValue: (row) => row.errorMessage || "—",
+    cellClassName: "min-w-[280px]",
+    render: (row) => (
+      <div className="min-w-[240px] text-sm text-gray-600 dark:text-gray-300">
+        {row.errorMessage || "—"}
+      </div>
+    ),
+  },
+  {
+    key: "tokenBreakdown",
+    label: "Tokens",
+    sortable: true,
+    sortKey: "totalTokens",
+    headerClassName: "min-w-[220px]",
+    exportValue: (row) =>
+      `Entrada: ${formatNumber(row.inputTokens ?? 0)} | Salida: ${formatNumber(
+        row.outputTokens ?? 0
+      )} | Total: ${formatNumber(row.totalTokens ?? 0)}`,
+    render: (row) => (
+      <div className="space-y-1">
+        <div className="flex items-center justify-between gap-3 text-xs text-gray-500 dark:text-gray-400">
+          <span>Entrada</span>
+          <span className="font-medium text-gray-700 dark:text-gray-200">
+            {formatNumber(row.inputTokens ?? 0)}
+          </span>
+        </div>
+        <div className="flex items-center justify-between gap-3 text-xs text-gray-500 dark:text-gray-400">
+          <span>Salida</span>
+          <span className="font-medium text-gray-700 dark:text-gray-200">
+            {formatNumber(row.outputTokens ?? 0)}
+          </span>
+        </div>
+        <div className="flex items-center justify-between gap-3 border-t border-gray-100 pt-1 text-xs font-semibold text-gray-700 dark:border-gray-700 dark:text-gray-100">
+          <span>Total</span>
+          <span>{formatNumber(row.totalTokens ?? 0)}</span>
+        </div>
       </div>
     ),
   },
@@ -1730,6 +2006,37 @@ const buildReviewSummaryCards = ({ minuteRows }) => [
   ),
 ];
 
+const buildReprocessSummaryCards = ({ minuteRows }) => [
+  buildSummaryCard(
+    "Reprocesos listados",
+    minuteRows.length,
+    "Cada fila representa un reproceso historico independiente",
+    "arrowsRotate",
+    "sky"
+  ),
+  buildSummaryCard(
+    "Minutas afectadas",
+    new Set(minuteRows.map((row) => row.rawId).filter(Boolean)).size,
+    "Cantidad unica de minutas que registran al menos un reproceso",
+    "fileLines",
+    "emerald"
+  ),
+  buildSummaryCard(
+    "Intentos exitosos",
+    minuteRows.filter((row) => row.status.key === "completed").length,
+    "Reprocesos que se recuperaron y siguieron flujo",
+    "checkCircle",
+    "amber"
+  ),
+  buildSummaryCard(
+    "Tokens de reproceso",
+    minuteRows.reduce((sum, row) => sum + Number(row.totalTokens ?? 0), 0),
+    "Suma de entrada y salida consumida por todos los reprocesos visibles",
+    "fileLines",
+    "rose"
+  ),
+];
+
 const REPORT_DEFINITIONS = [
   {
     id: "gestion-executive-general",
@@ -2031,6 +2338,48 @@ const REPORT_DEFINITIONS = [
     columns: buildProjectColumns(),
   },
   {
+    id: "gestion-minute-reprocess",
+    path: "/reports/management/minutes-with-reprocess",
+    title: "Minutas con Reproceso",
+    description:
+      "Lista historicamente cada reproceso ejecutado sobre minutas, incluyendo resultado y consumo de tokens por intento.",
+    pdfSlug: "minutas-reproceso",
+    pdfReportKey: "gestion-minutas-reproceso",
+    pdfDescription:
+      "Salida operacional orientada a trazar historicamente cada reproceso ejecutado sobre minutas dentro del universo filtrado.",
+    tableDescription:
+      "Detalle historico de reprocesos con una fila por intento, incluyendo estado y gasto de tokens asociado.",
+    dataSource: "reprocess-history",
+    statusFilterOptions: REPROCESS_STATUS_FILTER_OPTIONS,
+    buildRows: ({ minuteRows }) => minuteRows,
+    buildDefaultRowsOrder: defaultMinuteOrder,
+    buildSummaryCards: buildReprocessSummaryCards,
+    buildCharts: ({ minuteRows }) => [
+      {
+        key: "reprocess-reasons",
+        type: "bar",
+        title: "Señales de reproceso",
+        subtitle:
+          "Agrupa las causas operativas que hoy explican por qué una minuta requiere atención o reproceso.",
+        footer:
+          "La comparación se calcula solo sobre minutas que presentan una señal activa de reproceso.",
+        data: buildReprocessReasonDistribution(minuteRows),
+        seriesName: "Minutas",
+      },
+      {
+        key: "reprocess-status",
+        type: "status",
+        title: "Distribución por estado",
+        subtitle:
+          "Permite ver en qué estados se concentran hoy las minutas con señal de reproceso.",
+        footer:
+          "Cada segmento se calcula sobre el mismo subconjunto operativo visible en la tabla.",
+        data: buildStatusDistribution(minuteRows),
+      },
+    ],
+    columns: buildReprocessColumns(),
+  },
+  {
     id: "gestion-review-minutes",
     path: "/reports/management/minutes-in-review",
     title: "Minutas en Revisión",
@@ -2106,9 +2455,11 @@ const ManagementOperationalReportPage = () => {
   const [usingFallbackData, setUsingFallbackData] = useState(false);
   const [page, setPage] = useState(1);
 
+  const statusFilterOptions = reportConfig?.statusFilterOptions ?? STATUS_FILTER_OPTIONS;
+
   const filterFields = useMemo(
-    () => filterFieldsFactory(filterCatalogs),
-    [filterCatalogs]
+    () => filterFieldsFactory(filterCatalogs, statusFilterOptions),
+    [filterCatalogs, statusFilterOptions]
   );
 
   useEffect(() => {
@@ -2229,13 +2580,21 @@ const ManagementOperationalReportPage = () => {
       const requestConfig = requestScope.createRequestConfig();
 
       try {
-        const minutesResult = await listMinutes({ skip: 0, limit: 300 }, requestConfig);
+        const rowsResult =
+          reportConfig?.dataSource === "reprocess-history"
+            ? await listMinuteReprocessHistory({ skip: 0, limit: 1000 }, requestConfig)
+            : await listMinutes({ skip: 0, limit: 300 }, requestConfig);
 
         if (requestScope.wasAborted(requestConfig.signal)) return;
 
-        const nextRows = Array.isArray(minutesResult?.minutes)
-          ? minutesResult.minutes.map(normalizeMinuteRecord)
-          : [];
+        const nextRows =
+          reportConfig?.dataSource === "reprocess-history"
+            ? (Array.isArray(rowsResult?.items) ? rowsResult.items : []).map(
+                normalizeReprocessAttemptRecord
+              )
+            : (Array.isArray(rowsResult?.minutes) ? rowsResult.minutes : []).map(
+                normalizeMinuteRecord
+              );
 
         setRawRows(nextRows);
         setUsingFallbackData(false);
@@ -2412,7 +2771,10 @@ const ManagementOperationalReportPage = () => {
         source_module: "Módulo de Reportes",
         orientation: "landscape",
         paper_size: "A4",
-        applied_filters: buildAppliedFiltersForExport(appliedFilters),
+        applied_filters: buildAppliedFiltersForExport(
+          appliedFilters,
+          reportConfig?.statusFilterOptions ?? STATUS_FILTER_OPTIONS
+        ),
         summary_metrics: buildSummaryMetricsFromCards(summaryCards),
         chart_data: buildChartDataPayload(chartDefinitions, filteredMinuteRows),
         chart_images: chartImages,
@@ -2533,7 +2895,7 @@ const ManagementOperationalReportPage = () => {
     >
       {hasExecutedSearch && usingFallbackData ? (
         <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700/40 dark:bg-amber-900/20 dark:text-amber-100">
-          La vista está usando un dataset de referencia porque la API de reportes aún no entrega todos los datos necesarios. La estructura, filtros, ordenamiento y exportación ya quedan listas para reutilizarse en los siguientes reportes.
+          La vista está usando un dataset de referencia temporal porque no fue posible cargar la fuente operativa del reporte. La estructura, filtros, ordenamiento y exportación siguen disponibles para validación funcional.
         </div>
       ) : null}
     </ReportModulePage>

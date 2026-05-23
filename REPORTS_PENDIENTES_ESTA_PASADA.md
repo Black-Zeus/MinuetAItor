@@ -10,17 +10,23 @@
 - Minutas por Elaborador
 - Minutas por Cliente
 - Minutas por Proyecto
+- Minutas con Reproceso
 - Minutas en Revisión
+- Uso General de IA
+- Costo de IA por Cliente
+- Costo de IA por Proyecto
+- Costo de IA por Modelo
+- Costo de IA por Proveedor
+- Latencia y Éxito por Modelo
+- Uso de IA por Perfil
+- Eventos IA con Error
 
 ## Pendientes de gestión
 
 ### Producción de Minutas
 
 - Tiempos de Ciclo de Minutas
-  Motivo: requiere timestamps de transición por etapa para medir duración real entre procesamiento, edición, revisión y publicación.
-
-- Minutas con Reproceso
-  Motivo: requiere eventos o marcas explícitas de reintento/error por minuta; la fuente actual de minutas no expone ese historial.
+  Motivo: requiere timestamps de transición por etapa para medir duración real entre procesamiento, edición, revisión y publicación. La propuesta técnica para resolverlo quedó documentada en `MINUTE_LIFECYCLE_TRANSITIONS_PROPOSAL.md`.
 
 ### Requerimientos y Compromisos
 
@@ -53,15 +59,8 @@
 
 ### Uso y Costo de IA
 
-- Uso General de IA
-- Costo de IA por Cliente
-- Costo de IA por Proyecto
-- Costo de IA por Modelo
-- Costo de IA por Proveedor
-- Latencia y Éxito por Modelo
-- Uso de IA por Perfil
-- Eventos IA con Error
-  Motivo: requieren fuentes transaccionales de uso, costos, latencias, perfiles y errores de IA que no están conectadas todavía al módulo reutilizable de reportes de gestión.
+- Reportes de costo IA con pricing parcial
+  Motivo: la estructura `ai_model_pricing` existe y la reportería ya la consume, pero si faltan precios cargados para algunos modelos o providers, el costo visible será parcial y se marcará como cobertura incompleta.
 
 ### Salud Operativa
 

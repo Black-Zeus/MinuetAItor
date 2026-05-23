@@ -132,7 +132,7 @@ const MinutesTableView = ({ minutes = [], onStatusChange, onReprocess, isRefresh
           <tbody>
             {sortedItems.map((minute) => {
               const statusConfig = getMinuteStatusConfig(minute);
-              const status = String(minute?.status ?? "in-progress");
+              const status = minute?.is_reprocess_pending ? "in-progress" : String(minute?.status ?? "in-progress");
               const filename = buildMinuteFilename(minute?.title, minute?.date);
               const isCompleted = status === "completed";
               const isCancelled = status === "cancelled";

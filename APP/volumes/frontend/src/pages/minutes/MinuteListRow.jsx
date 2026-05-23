@@ -42,7 +42,7 @@ const ActionButton = ({ label, icon, onClick, tone = "default" }) => {
 const MinuteListRow = ({ minute, onStatusChange, onReprocess }) => {
   const navigate = useNavigate();
   const statusConfig = getMinuteStatusConfig(minute);
-  const status = String(minute?.status ?? "in-progress");
+  const status = minute?.is_reprocess_pending ? "in-progress" : String(minute?.status ?? "in-progress");
   const participants = Array.isArray(minute?.participants) ? minute.participants : [];
   const tags = Array.isArray(minute?.tags) ? minute.tags : [];
   const filename = buildMinuteFilename(minute?.title, minute?.date);
