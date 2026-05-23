@@ -110,6 +110,22 @@ export const listMinuteReprocessHistory = async ({
   return unwrap(res);
 };
 
+export const listMinuteCycleTimes = async ({
+  skip = 0,
+  limit = 500,
+  client_id = null,
+  project_id = null,
+  mine_as_preparer = false,
+} = {}, requestConfig = {}) => {
+  const params = { skip, limit };
+  if (client_id) params.client_id = client_id;
+  if (project_id) params.project_id = project_id;
+  if (mine_as_preparer) params.mine_as_preparer = true;
+
+  const res = await api.get(`${BASE}/cycle-times`, { params, ...requestConfig });
+  return unwrap(res);
+};
+
 // ─── DETAIL ───────────────────────────────────────────────────────────────────
 /**
  * GET /v1/minutes/{record_id}

@@ -7,6 +7,7 @@ export const ACTIVE_GESTION_REPORT_IDS = [
   "gestion-minute-author",
   "gestion-minute-client",
   "gestion-minute-project",
+  "gestion-minute-cycle",
   "gestion-minute-reprocess",
   "gestion-review-minutes",
   "gestion-ai-usage",

@@ -15,6 +15,7 @@ from db.session import get_db
 from db.redis import get_redis
 from schemas.auth import UserSession
 from schemas.minutes import (
+    MinuteCycleTimeResponse,
     MinuteDetailResponse,
     MinuteGenerateRequest,
     MinuteGenerateResponse,
@@ -41,6 +42,7 @@ from services.minutes_service import (
     generate_minute_pdf_preview,
     get_minute_detail,
     reprocess_minute,
+    list_minute_cycle_times,
     list_minute_reprocess_history,
     get_minute_status,
     get_minute_versions,
@@ -120,6 +122,31 @@ async def generate_endpoint(
     )
 
     return await generate_minute(db=db, request=request, files=files, requested_by_id=session.user_id)
+
+
+@router.get(
+    "/cycle-times",
+    response_model = MinuteCycleTimeResponse,
+    status_code    = status.HTTP_200_OK,
+    summary        = "Listar tiempos de ciclo de minutas",
+)
+def cycle_times_endpoint(
+    skip: int = 0,
+    limit: int = 500,
+    client_id: str | None = None,
+    project_id: str | None = None,
+    mine_as_preparer: bool = False,
+    db: Session = Depends(get_db),
+    session: UserSession = Depends(current_user_dep),
+):
+    return list_minute_cycle_times(
+        db=db,
+        skip=skip,
+        limit=limit,
+        client_id=client_id,
+        project_id=project_id,
+        prepared_by_user_id=session.user_id if mine_as_preparer else None,
+    )
 
 
 @router.get(

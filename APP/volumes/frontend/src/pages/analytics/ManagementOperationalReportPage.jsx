@@ -18,7 +18,11 @@ import useTableSorting from "@/hooks/useTableSorting";
 import ReportModulePage from "@/pages/analytics/reports/components/ReportModulePage";
 import { STATUS_CONFIG } from "@/pages/minutes/MinuteCard";
 import clientService from "@/services/clientService";
-import { listMinuteReprocessHistory, listMinutes } from "@/services/minutesService";
+import {
+  listMinuteCycleTimes,
+  listMinuteReprocessHistory,
+  listMinutes,
+} from "@/services/minutesService";
 import projectService from "@/services/projectService";
 import { previewReportPdfBlob } from "@/services/reportsService";
 import teamsService from "@/services/teamsService";
@@ -123,6 +127,14 @@ const SORTERS = {
   reprocessReason: (row) => row.reprocessReasonLabel ?? "",
   errorMessage: (row) => row.errorMessage ?? "",
   totalTokens: (row) => row.totalTokens ?? 0,
+  cycleStartedAt: (row) => row.cycleStartedAtTimestamp ?? 0,
+  lastActivity: (row) => row.lastTransitionAtTimestamp ?? 0,
+  processingDuration: (row) => row.processingDurationMs ?? 0,
+  editingDuration: (row) => row.editingDurationMs ?? 0,
+  reviewDuration: (row) => row.reviewDurationMs ?? 0,
+  totalCycleDuration: (row) => row.totalCycleDurationMs ?? 0,
+  transitionCount: (row) => row.transitionCount ?? 0,
+  returnToEditCount: (row) => row.returnToEditCount ?? 0,
 };
 
 const normalizeText = (value) =>
@@ -140,6 +152,22 @@ const compareByLabel = (left, right) =>
 
 const formatPercent = (value) =>
   `${PERCENT_FORMATTER.format(Number(value ?? 0))}%`;
+
+const formatDurationMs = (value) => {
+  const totalMs = Math.max(0, Number(value ?? 0));
+  const totalMinutes = Math.floor(totalMs / 60000);
+  const days = Math.floor(totalMinutes / 1440);
+  const hours = Math.floor((totalMinutes % 1440) / 60);
+  const minutes = totalMinutes % 60;
+
+  if (days > 0) {
+    return `${days} d ${hours} h`;
+  }
+  if (hours > 0) {
+    return `${hours} h ${minutes} min`;
+  }
+  return `${minutes} min`;
+};
 
 const getReprocessReasonLabel = (reason, fallback = "Señal operativa") =>
   REPROCESS_REASON_LABELS[String(reason ?? "").trim()] ?? fallback;
@@ -403,6 +431,68 @@ const normalizeReprocessAttemptRecord = (attempt, index) => {
       attempt?.subject ??
       attempt?.minuteTitle ??
       "Minuta sin título",
+  };
+};
+
+const normalizeCycleTimeRecord = (item, index) => {
+  const rawDate = item?.date ?? null;
+  const parsedDate = parseFlexibleDate(rawDate);
+  const cycleStartedAt = item?.cycleStartedAt ?? item?.cycle_started_at ?? null;
+  const lastTransitionAt = item?.lastTransitionAt ?? item?.last_transition_at ?? null;
+  const completedAt = item?.completedAt ?? item?.completed_at ?? null;
+  const parsedCycleStartedAt = parseFlexibleDate(cycleStartedAt);
+  const parsedLastTransitionAt = parseFlexibleDate(lastTransitionAt);
+  const parsedCompletedAt = parseFlexibleDate(completedAt);
+  const status = getStatusPresentation(
+    item?.status ?? item?.statusCode,
+    item?.statusLabel ?? item?.status_label ?? null
+  );
+
+  return {
+    id: item?.recordId ?? item?.record_id ?? `cycle-row-${index + 1}`,
+    rawId: item?.recordId ?? item?.record_id ?? index + 1,
+    dateLabel: formatDateLabel(rawDate),
+    dateInput: toInputDate(rawDate),
+    dateTimestamp: parsedDate?.getTime?.() ?? 0,
+    client: item?.client ?? "Sin cliente",
+    project: item?.project ?? "Sin proyecto",
+    responsible:
+      item?.preparedBy ??
+      item?.prepared_by ??
+      item?.ownerName ??
+      item?.createdBy ??
+      "Sistema",
+    status,
+    statusKey: status.key,
+    statusWeight: status.sortWeight,
+    title:
+      item?.title ??
+      item?.subject ??
+      item?.minuteTitle ??
+      "Minuta sin título",
+    cycleStartedAtLabel: formatDateTimeLabel(cycleStartedAt),
+    cycleStartedAtTimestamp: parsedCycleStartedAt?.getTime?.() ?? 0,
+    lastTransitionAtLabel: formatDateTimeLabel(lastTransitionAt),
+    lastTransitionAtTimestamp: parsedLastTransitionAt?.getTime?.() ?? 0,
+    completedAtLabel: completedAt ? formatDateTimeLabel(completedAt) : "—",
+    completedAtTimestamp: parsedCompletedAt?.getTime?.() ?? 0,
+    processingDurationMs: Number(
+      item?.processingDurationMs ?? item?.processing_duration_ms ?? 0
+    ),
+    editingDurationMs: Number(
+      item?.editingDurationMs ?? item?.editing_duration_ms ?? 0
+    ),
+    reviewDurationMs: Number(
+      item?.reviewDurationMs ?? item?.review_duration_ms ?? 0
+    ),
+    totalCycleDurationMs: Number(
+      item?.totalCycleDurationMs ?? item?.total_cycle_duration_ms ?? 0
+    ),
+    transitionCount: Number(item?.transitionCount ?? item?.transition_count ?? 0),
+    returnToEditCount: Number(
+      item?.returnToEditCount ?? item?.return_to_edit_count ?? 0
+    ),
+    cycleClosed: Boolean(item?.cycleClosed ?? item?.cycle_closed ?? false),
   };
 };
 
@@ -805,6 +895,40 @@ const buildReprocessReasonDistribution = (rows = []) => {
       if (right.count !== left.count) return right.count - left.count;
       return compareByLabel(left.label, right.label);
     });
+};
+
+const buildCycleDurationDistribution = (rows = [], limit = 8) =>
+  [...rows]
+    .filter((row) => Number(row.totalCycleDurationMs ?? 0) > 0)
+    .sort((left, right) => (right.totalCycleDurationMs ?? 0) - (left.totalCycleDurationMs ?? 0))
+    .slice(0, limit)
+    .map((row) => ({
+      label: row.title,
+      count: Number(((row.totalCycleDurationMs ?? 0) / 3600000).toFixed(1)),
+    }));
+
+const buildCycleStageAverageDistribution = (rows = []) => {
+  if (!rows.length) return [];
+
+  const processingTotal = rows.reduce(
+    (sum, row) => sum + Number(row.processingDurationMs ?? 0),
+    0
+  );
+  const editingTotal = rows.reduce(
+    (sum, row) => sum + Number(row.editingDurationMs ?? 0),
+    0
+  );
+  const reviewTotal = rows.reduce(
+    (sum, row) => sum + Number(row.reviewDurationMs ?? 0),
+    0
+  );
+
+  const divisor = rows.length || 1;
+  return [
+    { label: "IA", count: Number(((processingTotal / divisor) / 3600000).toFixed(1)) },
+    { label: "Edición", count: Number(((editingTotal / divisor) / 3600000).toFixed(1)) },
+    { label: "Revisión", count: Number(((reviewTotal / divisor) / 3600000).toFixed(1)) },
+  ];
 };
 
 const buildAggregateByField = (rows = [], fieldName) => {
@@ -1294,6 +1418,128 @@ const buildReprocessColumns = () => [
         </div>
       </div>
     ),
+  },
+];
+
+const buildCycleColumns = () => [
+  {
+    key: "date",
+    label: "Fecha",
+    sortable: true,
+    sortKey: "date",
+    exportValue: (row) => row.dateLabel,
+    render: (row) => row.dateLabel,
+  },
+  {
+    key: "client",
+    label: "Cliente",
+    sortable: true,
+    sortKey: "client",
+    exportValue: (row) => row.client,
+    render: (row) => row.client,
+  },
+  {
+    key: "project",
+    label: "Proyecto",
+    sortable: true,
+    sortKey: "project",
+    exportValue: (row) => row.project,
+    render: (row) => row.project,
+  },
+  {
+    key: "title",
+    label: "Minuta",
+    sortable: true,
+    sortKey: "title",
+    exportValue: (row) => row.title,
+    cellClassName: "min-w-[280px]",
+    render: (row) => (
+      <div className="min-w-[240px]">
+        <p className="font-semibold text-gray-900 dark:text-white">{row.title}</p>
+      </div>
+    ),
+  },
+  {
+    key: "responsible",
+    label: "Responsable",
+    sortable: true,
+    sortKey: "responsible",
+    exportValue: (row) => row.responsible,
+    render: (row) => row.responsible,
+  },
+  {
+    key: "status",
+    label: "Estado",
+    sortable: true,
+    sortKey: "status",
+    exportValue: (row) => row.status.label,
+    render: (row) => (
+      <span
+        className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${row.status.className}`}
+      >
+        {row.status.label}
+      </span>
+    ),
+  },
+  {
+    key: "cycleStartedAt",
+    label: "Inicio ciclo",
+    sortable: true,
+    sortKey: "cycleStartedAt",
+    exportValue: (row) => row.cycleStartedAtLabel,
+    render: (row) => row.cycleStartedAtLabel,
+  },
+  {
+    key: "lastActivity",
+    label: "Último movimiento",
+    sortable: true,
+    sortKey: "lastActivity",
+    exportValue: (row) => row.lastTransitionAtLabel,
+    render: (row) => row.lastTransitionAtLabel,
+  },
+  {
+    key: "processingDuration",
+    label: "Tiempo IA",
+    sortable: true,
+    sortKey: "processingDuration",
+    exportValue: (row) => formatDurationMs(row.processingDurationMs),
+    render: (row) => formatDurationMs(row.processingDurationMs),
+  },
+  {
+    key: "editingDuration",
+    label: "Tiempo edición",
+    sortable: true,
+    sortKey: "editingDuration",
+    exportValue: (row) => formatDurationMs(row.editingDurationMs),
+    render: (row) => formatDurationMs(row.editingDurationMs),
+  },
+  {
+    key: "reviewDuration",
+    label: "Tiempo revisión",
+    sortable: true,
+    sortKey: "reviewDuration",
+    exportValue: (row) => formatDurationMs(row.reviewDurationMs),
+    render: (row) => formatDurationMs(row.reviewDurationMs),
+  },
+  {
+    key: "totalCycleDuration",
+    label: "Ciclo total",
+    sortable: true,
+    sortKey: "totalCycleDuration",
+    exportValue: (row) => formatDurationMs(row.totalCycleDurationMs),
+    render: (row) => (
+      <span className="font-semibold text-gray-900 dark:text-white">
+        {formatDurationMs(row.totalCycleDurationMs)}
+      </span>
+    ),
+  },
+  {
+    key: "returnToEditCount",
+    label: "Devuelta a edición",
+    sortable: true,
+    sortKey: "returnToEditCount",
+    exportValue: (row) => formatNumber(row.returnToEditCount ?? 0),
+    render: (row) => formatNumber(row.returnToEditCount ?? 0),
   },
 ];
 
@@ -2037,6 +2283,47 @@ const buildReprocessSummaryCards = ({ minuteRows }) => [
   ),
 ];
 
+const buildCycleSummaryCards = ({ minuteRows }) => {
+  const totalCycleDuration = minuteRows.reduce(
+    (sum, row) => sum + Number(row.totalCycleDurationMs ?? 0),
+    0
+  );
+  const averageCycleDuration = minuteRows.length
+    ? Math.round(totalCycleDuration / minuteRows.length)
+    : 0;
+
+  return [
+    buildSummaryCard(
+      "Minutas trazadas",
+      minuteRows.length,
+      "Solo considera minutas con historia explícita de transiciones",
+      "clock",
+      "sky"
+    ),
+    {
+      label: "Ciclo promedio",
+      value: formatDurationMs(averageCycleDuration),
+      helper: "Promedio visible del ciclo total entre minutas trazadas",
+      icon: "chartLine",
+      tone: "emerald",
+    },
+    buildSummaryCard(
+      "Ciclos cerrados",
+      minuteRows.filter((row) => row.cycleClosed).length,
+      "Minutas que ya llegaron a un estado terminal registrado",
+      "clipboardCheck",
+      "amber"
+    ),
+    buildSummaryCard(
+      "Vueltas a edición",
+      minuteRows.reduce((sum, row) => sum + Number(row.returnToEditCount ?? 0), 0),
+      "Cantidad total de regresiones desde revisión hacia edición",
+      "arrowsRotate",
+      "rose"
+    ),
+  ];
+};
+
 const REPORT_DEFINITIONS = [
   {
     id: "gestion-executive-general",
@@ -2338,6 +2625,48 @@ const REPORT_DEFINITIONS = [
     columns: buildProjectColumns(),
   },
   {
+    id: "gestion-minute-cycle",
+    path: "/reports/management/minute-cycle-times",
+    title: "Tiempos de Ciclo de Minutas",
+    description:
+      "Analiza cuánto tarda cada minuta en recorrer procesamiento IA, edición, revisión y cierre usando transiciones explícitas.",
+    pdfSlug: "tiempos-ciclo-minutas",
+    pdfReportKey: "gestion-tiempos-ciclo-minutas",
+    pdfDescription:
+      "Salida operacional orientada a medir tiempos de ciclo por minuta usando la historia explícita de cambios de estado registrada por el sistema.",
+    tableDescription:
+      "Detalle por minuta con inicio de ciclo, último movimiento, tiempos por etapa y total acumulado del ciclo.",
+    dataSource: "cycle-times",
+    buildRows: ({ minuteRows }) => minuteRows,
+    buildDefaultRowsOrder: defaultMinuteOrder,
+    buildSummaryCards: buildCycleSummaryCards,
+    buildCharts: ({ minuteRows }) => [
+      {
+        key: "cycle-total-duration",
+        type: "bar",
+        title: "Ciclo total por minuta",
+        subtitle:
+          "Destaca las minutas con mayor duración total visible, expresada en horas acumuladas de ciclo.",
+        footer:
+          "La comparación usa solo minutas que ya poseen transiciones explícitas registradas.",
+        data: buildCycleDurationDistribution(minuteRows),
+        seriesName: "Horas de ciclo",
+      },
+      {
+        key: "cycle-stage-average",
+        type: "bar",
+        title: "Promedio por etapa",
+        subtitle:
+          "Compara el tiempo promedio invertido en procesamiento IA, edición y revisión sobre el universo visible.",
+        footer:
+          "Los promedios se calculan en horas usando la historia explícita de transiciones registrada.",
+        data: buildCycleStageAverageDistribution(minuteRows),
+        seriesName: "Horas promedio",
+      },
+    ],
+    columns: buildCycleColumns(),
+  },
+  {
     id: "gestion-minute-reprocess",
     path: "/reports/management/minutes-with-reprocess",
     title: "Minutas con Reproceso",
@@ -2580,21 +2909,31 @@ const ManagementOperationalReportPage = () => {
       const requestConfig = requestScope.createRequestConfig();
 
       try {
-        const rowsResult =
-          reportConfig?.dataSource === "reprocess-history"
-            ? await listMinuteReprocessHistory({ skip: 0, limit: 1000 }, requestConfig)
-            : await listMinutes({ skip: 0, limit: 300 }, requestConfig);
+        let rowsResult;
+        if (reportConfig?.dataSource === "reprocess-history") {
+          rowsResult = await listMinuteReprocessHistory({ skip: 0, limit: 1000 }, requestConfig);
+        } else if (reportConfig?.dataSource === "cycle-times") {
+          rowsResult = await listMinuteCycleTimes({ skip: 0, limit: 1000 }, requestConfig);
+        } else {
+          rowsResult = await listMinutes({ skip: 0, limit: 300 }, requestConfig);
+        }
 
         if (requestScope.wasAborted(requestConfig.signal)) return;
 
-        const nextRows =
-          reportConfig?.dataSource === "reprocess-history"
-            ? (Array.isArray(rowsResult?.items) ? rowsResult.items : []).map(
-                normalizeReprocessAttemptRecord
-              )
-            : (Array.isArray(rowsResult?.minutes) ? rowsResult.minutes : []).map(
-                normalizeMinuteRecord
-              );
+        let nextRows;
+        if (reportConfig?.dataSource === "reprocess-history") {
+          nextRows = (Array.isArray(rowsResult?.items) ? rowsResult.items : []).map(
+            normalizeReprocessAttemptRecord
+          );
+        } else if (reportConfig?.dataSource === "cycle-times") {
+          nextRows = (Array.isArray(rowsResult?.items) ? rowsResult.items : []).map(
+            normalizeCycleTimeRecord
+          );
+        } else {
+          nextRows = (Array.isArray(rowsResult?.minutes) ? rowsResult.minutes : []).map(
+            normalizeMinuteRecord
+          );
+        }
 
         setRawRows(nextRows);
         setUsingFallbackData(false);

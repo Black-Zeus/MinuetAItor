@@ -19,6 +19,7 @@ from services.minutes import catalogs as minute_catalogs
 from services.minutes import constants as minute_constants
 from services.minutes import queue as minute_queue
 from services.minutes import sanitizers as minute_sanitizers
+from services.minutes.status_transitions import append_record_status_transition
 from services.minutes import storage as minute_storage
 from services.notification_center_service import create_in_app_notification
 
@@ -213,6 +214,17 @@ async def generate_minute(
         requested_by=requested_by_id,
     )
     db.add(tx)
+    append_record_status_transition(
+        db,
+        record_id=record_id,
+        from_status_id=None,
+        to_status_id=status_in_progress_id,
+        changed_by=requested_by_id,
+        source="minute.generate",
+        transition_reason="initial-create",
+        minute_transaction_id=transaction_id,
+        metadata={"queue": minute_constants.QUEUE_MINUTES},
+    )
 
     try:
         db.commit()

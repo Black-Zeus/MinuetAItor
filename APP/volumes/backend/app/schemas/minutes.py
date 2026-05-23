@@ -305,6 +305,40 @@ class MinuteReprocessHistoryResponse(BaseModel):
 
     model_config = {"populate_by_name": True}
 
+
+class MinuteCycleTimeItem(BaseModel):
+    record_id: str = Field(..., serialization_alias="recordId")
+    title: str
+    date: Optional[str] = None
+    client_id: Optional[str] = None
+    project_id: Optional[str] = None
+    prepared_by: Optional[str] = Field(None, serialization_alias="preparedBy")
+    status: str
+    status_label: str = Field(..., serialization_alias="statusLabel")
+    client: Optional[str] = None
+    project: Optional[str] = None
+    cycle_started_at: Optional[str] = Field(None, serialization_alias="cycleStartedAt")
+    last_transition_at: Optional[str] = Field(None, serialization_alias="lastTransitionAt")
+    completed_at: Optional[str] = Field(None, serialization_alias="completedAt")
+    transition_count: int = Field(0, serialization_alias="transitionCount")
+    return_to_edit_count: int = Field(0, serialization_alias="returnToEditCount")
+    processing_duration_ms: int = Field(0, serialization_alias="processingDurationMs")
+    editing_duration_ms: int = Field(0, serialization_alias="editingDurationMs")
+    review_duration_ms: int = Field(0, serialization_alias="reviewDurationMs")
+    total_cycle_duration_ms: int = Field(0, serialization_alias="totalCycleDurationMs")
+    cycle_closed: bool = Field(False, serialization_alias="cycleClosed")
+
+    model_config = {"populate_by_name": True}
+
+
+class MinuteCycleTimeResponse(BaseModel):
+    items: list[MinuteCycleTimeItem]
+    total: int
+    skip: int
+    limit: int
+
+    model_config = {"populate_by_name": True}
+
 # ── VERSIONES: GET /minutes/{record_id}/versions ─────────────────────────────
 
 class MinuteVersionItem(BaseModel):

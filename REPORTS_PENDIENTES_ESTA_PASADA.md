@@ -11,6 +11,7 @@
 - Minutas por Cliente
 - Minutas por Proyecto
 - Minutas con Reproceso
+- Tiempos de Ciclo de Minutas
 - Minutas en Revisión
 - Uso General de IA
 - Costo de IA por Cliente
@@ -25,8 +26,8 @@
 
 ### Producción de Minutas
 
-- Tiempos de Ciclo de Minutas
-  Motivo: requiere timestamps de transición por etapa para medir duración real entre procesamiento, edición, revisión y publicación. La propuesta técnica para resolverlo quedó documentada en `MINUTE_LIFECYCLE_TRANSITIONS_PROPOSAL.md`.
+- La fuente de `Tiempos de Ciclo de Minutas` quedó implementada con `record_status_transitions`.
+  Consideración: la historia clara y no ambigua aplica desde esta implementación hacia adelante; los registros anteriores no se backfillearon para evitar inventar trazabilidad histórica.
 
 ### Requerimientos y Compromisos
 
