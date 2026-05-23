@@ -68,6 +68,7 @@ export default defineConfig({
           if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) return 'vendor-react';
           if (id.includes('node_modules/react-router')) return 'vendor-router';
           if (id.includes('node_modules/axios'))        return 'vendor-http';
+          if (id.includes('node_modules/echarts') || id.includes('node_modules/echarts-for-react')) return 'vendor-charts';
           if (id.includes('node_modules/xlsx') || id.includes('node_modules/exceljs') ||
               id.includes('node_modules/pdfmake') || id.includes('node_modules/file-saver')) return 'vendor-exporters';
           if (id.includes('node_modules/lucide-react') || id.includes('node_modules/@heroicons') ||
@@ -146,6 +147,7 @@ export default defineConfig({
     include: [
       'react', 'react-dom', 'react-router-dom',
       'axios', 'zustand', 'lucide-react',
+      'echarts', 'echarts-for-react',
     ],
     esbuildOptions: {
       target:      'es2020',

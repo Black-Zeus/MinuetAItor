@@ -5,19 +5,23 @@
  */
 import { lazy } from "react";
 
+const MetricsPage = lazy(() =>
+  import("@/pages/analytics/MetricsPage")
+);
+
 const UnderConstruction = lazy(() =>
   import("@/pages/errorPages/UnderConstructionPage")
 );
 
 // ─── Analytics ────────────────────────────────────────────────────
 const analyticsRoutes = [
-  { path: "/analytics/metrics",          title: "Métricas" },
+  { path: "/analytics/metrics",          title: "Métricas", component: MetricsPage },
   { path: "/analytics/audit/overview",   title: "Auditoría - Resumen" },
   { path: "/analytics/audit/access",     title: "Auditoría - Accesos" },
   { path: "/analytics/audit/changes",    title: "Auditoría - Cambios" },
   { path: "/analytics/audit/sessions",   title: "Auditoría - Sesiones" },
   { path: "/analytics/audit/exceptions", title: "Auditoría - Excepciones" },
-].map((r) => ({ ...r, component: UnderConstruction, requiresAuth: true, roles: [] }));
+].map((r) => ({ ...r, component: r.component ?? UnderConstruction, requiresAuth: true, roles: [] }));
 
 // ─── Reports ──────────────────────────────────────────────────────
 const reportsRoutes = [
