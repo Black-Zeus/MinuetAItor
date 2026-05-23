@@ -149,22 +149,22 @@ Estos reportes representan seguimiento declarado en actas. No validan cumplimien
 
 ## 7. Salud Operativa de Plataforma
 
-- [ ] `Estado de Colas`
+- [x] `Estado de Colas`
   - Reporte de tamaño, umbrales, alertas y actividad de `queue:minutes`, `queue:pdf`, `queue:maintenance`, `queue:email` y `queue:dlq`.
 
-- [ ] `Backlog Operacional`
+- [x] `Backlog Operacional`
   - Vista orientada a gerencia y operación sobre acumulación de trabajo y riesgo de demora.
 
-- [ ] `Fallos de Procesamiento`
+- [x] `Fallos de Procesamiento`
   - Identifica transacciones fallidas, minutas con error y patrones de falla.
 
-- [ ] `Reprocesos y Recuperacion`
+- [x] `Reprocesos y Recuperacion`
   - Controla cuántos flujos necesitaron reintento y con qué resultado.
 
-- [ ] `Validacion de Providers IA`
+- [x] `Validacion de Providers IA`
   - Reporte administrativo sobre proveedores activos, estado de validación y últimos errores.
 
-- [ ] `Alertas del Sistema`
+- [x] `Alertas del Sistema`
   - Consolida eventos importantes de mantenimiento, umbrales y recuperación.
 
 ## 8. Etiquetas y Analitica Tematica
