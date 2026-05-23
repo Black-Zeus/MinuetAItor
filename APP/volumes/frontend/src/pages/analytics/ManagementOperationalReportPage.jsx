@@ -122,6 +122,15 @@ const SORTERS = {
   clientCount: (row) => row.clientCount ?? 0,
   projectCount: (row) => row.projectCount ?? 0,
   responsibleCount: (row) => row.responsibleCount ?? 0,
+  documentLoadScore: (row) => row.documentLoadScore ?? 0,
+  daysWithoutActivity: (row) => row.daysWithoutActivity ?? 0,
+  statusLabel: (row) => row.statusLabel ?? "",
+  priorityLabel: (row) => row.priorityLabel ?? "",
+  industry: (row) => row.industry ?? "",
+  code: (row) => row.code ?? "",
+  isConfidential: (row) => (row.isConfidential ? 1 : 0),
+  isActive: (row) => (row.isActive ? 1 : 0),
+  autoSendCount: (row) => row.autoSendCount ?? 0,
   percentage: (row) => row.percentageRaw ?? 0,
   reprocessReady: (row) => (row.canReprocess ? 1 : 0),
   reprocessReason: (row) => row.reprocessReasonLabel ?? "",
@@ -287,6 +296,30 @@ const getClientLabel = (client) =>
 
 const getProjectLabel = (project) =>
   project?.name ?? project?.projectName ?? project?.project ?? "Sin proyecto";
+
+const getClientId = (client) => client?.id ?? client?.clientId ?? client?.client_id ?? null;
+
+const getProjectClientId = (project) =>
+  project?.clientId ?? project?.client_id ?? project?.client?.id ?? null;
+
+const getBooleanLabel = (value) => (value ? "Sí" : "No");
+
+const formatCatalogLabel = (value, fallback = "Sin dato") => {
+  const text = String(value ?? "").trim();
+  return text || fallback;
+};
+
+const formatStatusLabel = (value, isActive = true) => {
+  const text = String(value ?? "").trim();
+  if (text) return text;
+  return isActive ? "Activo" : "Inactivo";
+};
+
+const buildDaysWithoutActivity = (lastTimestamp, referenceTimestamp) => {
+  if (!lastTimestamp) return null;
+  const diffMs = Math.max(0, Number(referenceTimestamp ?? Date.now()) - Number(lastTimestamp));
+  return Math.floor(diffMs / 86400000);
+};
 
 const extractMinuteDate = (minute) =>
   minute?.meeting_date ??
@@ -493,6 +526,67 @@ const normalizeCycleTimeRecord = (item, index) => {
       item?.returnToEditCount ?? item?.return_to_edit_count ?? 0
     ),
     cycleClosed: Boolean(item?.cycleClosed ?? item?.cycle_closed ?? false),
+  };
+};
+
+const normalizeClientCatalogRecord = (client, index) => {
+  const isActive = Boolean(client?.isActive ?? client?.is_active ?? true);
+  const createdAt = client?.createdAt ?? client?.created_at ?? null;
+  const parsedCreatedAt = parseFlexibleDate(createdAt);
+
+  return {
+    id: getClientId(client) ?? `client-catalog-${index + 1}`,
+    client: getClientLabel(client),
+    label: getClientLabel(client),
+    industry: formatCatalogLabel(client?.industry),
+    statusLabel: formatStatusLabel(client?.status, isActive),
+    priorityLabel: formatCatalogLabel(client?.priority),
+    isActive,
+    isConfidential: Boolean(client?.isConfidential ?? client?.is_confidential ?? false),
+    createdAtLabel: createdAt ? formatDateLabel(createdAt) : "Sin fecha",
+    createdAtTimestamp: parsedCreatedAt?.getTime?.() ?? 0,
+  };
+};
+
+const normalizeProjectCatalogRecord = (project, index) => {
+  const isActive = Boolean(project?.isActive ?? project?.is_active ?? true);
+  const createdAt = project?.createdAt ?? project?.created_at ?? null;
+  const parsedCreatedAt = parseFlexibleDate(createdAt);
+  const autoSendOnPreview = Boolean(
+    project?.autoSendOnPreview ?? project?.auto_send_on_preview ?? false
+  );
+  const autoSendOnCompleted = Boolean(
+    project?.autoSendOnCompleted ?? project?.auto_send_on_completed ?? false
+  );
+
+  return {
+    id: project?.id ?? project?.projectId ?? project?.project_id ?? `project-catalog-${index + 1}`,
+    project: getProjectLabel(project),
+    label: getProjectLabel(project),
+    clientId: getProjectClientId(project),
+    client:
+      project?.clientName ??
+      project?.client_name ??
+      project?.client?.name ??
+      project?.client ??
+      "Sin cliente",
+    code: formatCatalogLabel(project?.code, "Sin código"),
+    statusLabel: formatStatusLabel(project?.status, isActive),
+    isActive,
+    isConfidential: Boolean(project?.isConfidential ?? project?.is_confidential ?? false),
+    autoSendOnPreview,
+    autoSendOnCompleted,
+    autoSendCount: Number(autoSendOnPreview) + Number(autoSendOnCompleted),
+    automationLabel:
+      autoSendOnPreview && autoSendOnCompleted
+        ? "Revisión y cierre"
+        : autoSendOnPreview
+          ? "Revisión"
+          : autoSendOnCompleted
+            ? "Cierre"
+            : "Sin automatización",
+    createdAtLabel: createdAt ? formatDateLabel(createdAt) : "Sin fecha",
+    createdAtTimestamp: parsedCreatedAt?.getTime?.() ?? 0,
   };
 };
 
@@ -1009,6 +1103,276 @@ const buildAggregateByField = (rows = [], fieldName) => {
     });
 };
 
+const createActivityAggregate = (label, extra = {}) => ({
+  id: extra.id ?? `activity-${normalizeText(label) || "sin-dato"}`,
+  label,
+  totalRecords: 0,
+  completedRecords: 0,
+  pendingRecords: 0,
+  reviewRecords: 0,
+  backlogRecords: 0,
+  totalTokens: 0,
+  clientSet: new Set(),
+  projectSet: new Set(),
+  responsibleSet: new Set(),
+  lastDateTimestamp: 0,
+  lastDateInput: "",
+  lastDateLabel: "Sin fecha",
+  ...extra,
+});
+
+const addMinuteActivityToAggregate = (aggregate, row) => {
+  aggregate.totalRecords += 1;
+  if (row.status.key === "completed") aggregate.completedRecords += 1;
+  if (row.status.key === "pending") aggregate.pendingRecords += 1;
+  if (row.status.key === "preview") aggregate.reviewRecords += 1;
+  if (isBacklogStatus(row.status.key)) aggregate.backlogRecords += 1;
+  aggregate.totalTokens += Number(row.totalTokens ?? 0);
+
+  if (row.client) aggregate.clientSet.add(row.client);
+  if (row.project) aggregate.projectSet.add(row.project);
+  if (row.responsible) aggregate.responsibleSet.add(row.responsible);
+
+  if (row.dateTimestamp > aggregate.lastDateTimestamp) {
+    aggregate.lastDateTimestamp = row.dateTimestamp;
+    aggregate.lastDateInput = row.dateInput;
+    aggregate.lastDateLabel = row.dateLabel;
+  }
+};
+
+const finalizeActivityAggregate = (aggregate, referenceTimestamp = Date.now()) => {
+  const projectCount = aggregate.projectSet?.size ?? aggregate.projectCount ?? 0;
+  const clientCount = aggregate.clientSet?.size ?? aggregate.clientCount ?? 0;
+  const responsibleCount = aggregate.responsibleSet?.size ?? aggregate.responsibleCount ?? 0;
+  const daysWithoutActivity = buildDaysWithoutActivity(
+    aggregate.lastDateTimestamp,
+    referenceTimestamp
+  );
+  const documentLoadScore =
+    aggregate.totalRecords +
+    aggregate.backlogRecords +
+    aggregate.reviewRecords * 2 +
+    Math.ceil(Number(aggregate.totalTokens ?? 0) / 10000);
+
+  const { clientSet, projectSet, responsibleSet, ...row } = aggregate;
+  return {
+    ...row,
+    projectCount,
+    clientCount,
+    responsibleCount,
+    daysWithoutActivity,
+    daysWithoutActivityLabel:
+      daysWithoutActivity == null ? "Sin actividad registrada" : `${formatNumber(daysWithoutActivity)} días`,
+    documentLoadScore,
+  };
+};
+
+const matchesTextFilter = (value, filterValue) => {
+  const normalizedFilter = normalizeText(filterValue);
+  if (!normalizedFilter) return true;
+  return normalizeText(value) === normalizedFilter;
+};
+
+const getReferenceTimestamp = (filters = {}) => {
+  const parsedDateTo = parseFlexibleDate(filters.dateTo);
+  if (!parsedDateTo) return Date.now();
+  parsedDateTo.setHours(23, 59, 59, 999);
+  return parsedDateTo.getTime();
+};
+
+const buildActivityMap = (rows = [], fieldName) => {
+  const grouped = new Map();
+
+  rows.forEach((row) => {
+    const label = String(row?.[fieldName] ?? "").trim() || "Sin dato";
+    const current = grouped.get(label) ?? createActivityAggregate(label, {
+      id: `${fieldName}-${normalizeText(label) || "sin-dato"}`,
+      [fieldName]: label,
+      client: fieldName === "client" ? label : row.client,
+      project: fieldName === "project" ? label : row.project,
+    });
+
+    addMinuteActivityToAggregate(current, row);
+    if (fieldName !== "client") current.client = row.client;
+    if (fieldName !== "project") current.project = row.project;
+    grouped.set(label, current);
+  });
+
+  return grouped;
+};
+
+const buildClientContextRows = ({
+  clientRows = [],
+  minuteRows = [],
+  historyRows = minuteRows,
+  filters = {},
+  onlyInactive = false,
+  onlyWithLoad = false,
+}) => {
+  const referenceTimestamp = getReferenceTimestamp(filters);
+  const activityMap = buildActivityMap(minuteRows, "client");
+  const historyMap = buildActivityMap(historyRows, "client");
+  const baseClientRows = clientRows.length
+    ? clientRows
+    : [...new Set([...activityMap.keys(), ...historyMap.keys()])].map((client) => ({
+        id: `client-derived-${normalizeText(client) || "sin-dato"}`,
+        client,
+        label: client,
+        industry: "Sin dato",
+        statusLabel: "Activo",
+        priorityLabel: "Sin dato",
+        isActive: true,
+        isConfidential: false,
+      }));
+
+  return baseClientRows
+    .filter((client) => matchesTextFilter(client.client, filters.client))
+    .map((client) => {
+      const aggregate = activityMap.get(client.client) ?? createActivityAggregate(client.client, {
+        id: client.id,
+        client: client.client,
+        label: client.client,
+      });
+      const historyAggregate = historyMap.get(client.client);
+      const lastDateTimestamp = historyAggregate?.lastDateTimestamp ?? aggregate.lastDateTimestamp;
+
+      return finalizeActivityAggregate(
+        {
+          ...aggregate,
+          id: client.id,
+          client: client.client,
+          label: client.client,
+          industry: client.industry,
+          statusLabel: client.statusLabel,
+          priorityLabel: client.priorityLabel,
+          isActive: client.isActive,
+          isConfidential: client.isConfidential,
+          createdAtLabel: client.createdAtLabel,
+          createdAtTimestamp: client.createdAtTimestamp,
+          lastDateTimestamp,
+          lastDateInput: historyAggregate?.lastDateInput ?? aggregate.lastDateInput,
+          lastDateLabel: historyAggregate?.lastDateLabel ?? aggregate.lastDateLabel,
+        },
+        referenceTimestamp
+      );
+    })
+    .filter((row) => (onlyInactive ? row.totalRecords === 0 : true))
+    .filter((row) => (onlyWithLoad ? row.totalRecords > 0 : true));
+};
+
+const buildProjectContextRows = ({
+  projectRows = [],
+  minuteRows = [],
+  historyRows = minuteRows,
+  filters = {},
+  onlyInactive = false,
+  onlyWithLoad = false,
+}) => {
+  const referenceTimestamp = getReferenceTimestamp(filters);
+  const activityMap = buildActivityMap(minuteRows, "project");
+  const historyMap = buildActivityMap(historyRows, "project");
+  const baseProjectRows = projectRows.length
+    ? projectRows
+    : [...new Set([...activityMap.keys(), ...historyMap.keys()])].map((project) => ({
+        id: `project-derived-${normalizeText(project) || "sin-dato"}`,
+        project,
+        label: project,
+        client: activityMap.get(project)?.client ?? historyMap.get(project)?.client ?? "Sin cliente",
+        code: "Sin código",
+        statusLabel: "Activo",
+        isActive: true,
+        isConfidential: false,
+        autoSendOnPreview: false,
+        autoSendOnCompleted: false,
+        autoSendCount: 0,
+        automationLabel: "Sin automatización",
+      }));
+
+  return baseProjectRows
+    .filter((project) => matchesTextFilter(project.client, filters.client))
+    .filter((project) => matchesTextFilter(project.project, filters.project))
+    .map((project) => {
+      const aggregate = activityMap.get(project.project) ?? createActivityAggregate(project.project, {
+        id: project.id,
+        project: project.project,
+        label: project.project,
+        client: project.client,
+      });
+      const historyAggregate = historyMap.get(project.project);
+      const lastDateTimestamp = historyAggregate?.lastDateTimestamp ?? aggregate.lastDateTimestamp;
+
+      return finalizeActivityAggregate(
+        {
+          ...aggregate,
+          id: project.id,
+          project: project.project,
+          label: project.project,
+          client: project.client,
+          code: project.code,
+          statusLabel: project.statusLabel,
+          isActive: project.isActive,
+          isConfidential: project.isConfidential,
+          autoSendOnPreview: project.autoSendOnPreview,
+          autoSendOnCompleted: project.autoSendOnCompleted,
+          autoSendCount: project.autoSendCount,
+          automationLabel: project.automationLabel,
+          createdAtLabel: project.createdAtLabel,
+          createdAtTimestamp: project.createdAtTimestamp,
+          lastDateTimestamp,
+          lastDateInput: historyAggregate?.lastDateInput ?? aggregate.lastDateInput,
+          lastDateLabel: historyAggregate?.lastDateLabel ?? aggregate.lastDateLabel,
+        },
+        referenceTimestamp
+      );
+    })
+    .filter((row) => (onlyInactive ? row.totalRecords === 0 : true))
+    .filter((row) => (onlyWithLoad ? row.totalRecords > 0 : true));
+};
+
+const buildConfidentialDistribution = (rows = []) => [
+  {
+    label: "Confidenciales",
+    count: rows.filter((row) => row.isConfidential).length,
+  },
+  {
+    label: "No confidenciales",
+    count: rows.filter((row) => !row.isConfidential).length,
+  },
+].filter((item) => item.count > 0);
+
+const buildCatalogStatusDistribution = (rows = []) => {
+  const grouped = new Map();
+  rows.forEach((row) => {
+    const label = row.statusLabel || (row.isActive ? "Activo" : "Inactivo");
+    grouped.set(label, (grouped.get(label) ?? 0) + 1);
+  });
+  return [...grouped.entries()]
+    .map(([label, count]) => ({ label, count }))
+    .sort((left, right) => {
+      if (right.count !== left.count) return right.count - left.count;
+      return compareByLabel(left.label, right.label);
+    });
+};
+
+const buildReportRowDistribution = (
+  rows = [],
+  labelField,
+  countField = "totalRecords",
+  limit = 6,
+  { includeZero = false } = {}
+) =>
+  [...rows]
+    .filter((row) => includeZero || Number(row?.[countField] ?? 0) > 0)
+    .map((row) => ({
+      label: row?.[labelField] ?? row?.label ?? "Sin dato",
+      count: Number(row?.[countField] ?? 0),
+    }))
+    .sort((left, right) => {
+      if (right.count !== left.count) return right.count - left.count;
+      return compareByLabel(left.label, right.label);
+    })
+    .slice(0, limit);
+
 const buildStatusRows = (rows = []) => {
   const grouped = new Map();
 
@@ -1192,6 +1556,21 @@ const applyFilters = (rows, filters) => {
     if (responsible && normalizeText(row.responsible) !== responsible) return false;
     if (status && row.status.key !== status) return false;
 
+    return true;
+  });
+};
+
+const applyNonDateFilters = (rows, filters) => {
+  const client = normalizeText(filters.client);
+  const project = normalizeText(filters.project);
+  const responsible = normalizeText(filters.responsible);
+  const status = String(filters.status ?? "").trim();
+
+  return rows.filter((row) => {
+    if (client && normalizeText(row.client) !== client) return false;
+    if (project && normalizeText(row.project) !== project) return false;
+    if (responsible && normalizeText(row.responsible) !== responsible) return false;
+    if (status && row.status.key !== status) return false;
     return true;
   });
 };
@@ -1972,6 +2351,251 @@ const buildProjectColumns = () => [
   },
 ];
 
+const renderBooleanBadge = (value) => (
+  <span
+    className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
+      value
+        ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+        : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+    }`}
+  >
+    {getBooleanLabel(value)}
+  </span>
+);
+
+const buildClientPortfolioColumns = () => [
+  {
+    key: "client",
+    label: "Cliente",
+    sortable: true,
+    sortKey: "client",
+    exportValue: (row) => row.client,
+    render: (row) => row.client,
+  },
+  {
+    key: "statusLabel",
+    label: "Estado",
+    sortable: true,
+    sortKey: "statusLabel",
+    exportValue: (row) => row.statusLabel,
+    render: (row) => row.statusLabel,
+  },
+  {
+    key: "priorityLabel",
+    label: "Prioridad",
+    sortable: true,
+    sortKey: "priorityLabel",
+    exportValue: (row) => row.priorityLabel,
+    render: (row) => row.priorityLabel,
+  },
+  {
+    key: "isConfidential",
+    label: "Confidencial",
+    sortable: true,
+    sortKey: "isConfidential",
+    exportValue: (row) => getBooleanLabel(row.isConfidential),
+    render: (row) => renderBooleanBadge(row.isConfidential),
+  },
+  {
+    key: "industry",
+    label: "Industria",
+    sortable: true,
+    sortKey: "industry",
+    exportValue: (row) => row.industry,
+    render: (row) => row.industry,
+  },
+  {
+    key: "projectCount",
+    label: "Proyectos con actividad",
+    sortable: true,
+    sortKey: "projectCount",
+    exportValue: (row) => formatNumber(row.projectCount),
+    render: (row) => formatNumber(row.projectCount),
+  },
+  {
+    key: "totalRecords",
+    label: "Minutas",
+    sortable: true,
+    sortKey: "totalRecords",
+    exportValue: (row) => formatNumber(row.totalRecords),
+    render: (row) => formatNumber(row.totalRecords),
+  },
+  {
+    key: "lastDate",
+    label: "Última actividad",
+    sortable: true,
+    sortKey: "lastActivity",
+    exportValue: (row) => row.lastDateLabel,
+    render: (row) => row.lastDateLabel,
+  },
+];
+
+const buildProjectPortfolioColumns = () => [
+  {
+    key: "project",
+    label: "Proyecto",
+    sortable: true,
+    sortKey: "project",
+    exportValue: (row) => row.project,
+    render: (row) => row.project,
+  },
+  {
+    key: "client",
+    label: "Cliente",
+    sortable: true,
+    sortKey: "client",
+    exportValue: (row) => row.client,
+    render: (row) => row.client,
+  },
+  {
+    key: "code",
+    label: "Código",
+    sortable: true,
+    sortKey: "code",
+    exportValue: (row) => row.code,
+    render: (row) => row.code,
+  },
+  {
+    key: "isConfidential",
+    label: "Confidencial",
+    sortable: true,
+    sortKey: "isConfidential",
+    exportValue: (row) => getBooleanLabel(row.isConfidential),
+    render: (row) => renderBooleanBadge(row.isConfidential),
+  },
+  {
+    key: "automationLabel",
+    label: "Automatización",
+    sortable: true,
+    sortKey: "autoSendCount",
+    exportValue: (row) => row.automationLabel,
+    render: (row) => row.automationLabel,
+  },
+  {
+    key: "totalRecords",
+    label: "Minutas",
+    sortable: true,
+    sortKey: "totalRecords",
+    exportValue: (row) => formatNumber(row.totalRecords),
+    render: (row) => formatNumber(row.totalRecords),
+  },
+  {
+    key: "lastDate",
+    label: "Última actividad",
+    sortable: true,
+    sortKey: "lastActivity",
+    exportValue: (row) => row.lastDateLabel,
+    render: (row) => row.lastDateLabel,
+  },
+];
+
+const buildInactiveClientColumns = () => [
+  ...buildClientPortfolioColumns().filter(
+    (column) => !["projectCount", "totalRecords"].includes(column.key)
+  ),
+  {
+    key: "daysWithoutActivity",
+    label: "Sin actividad",
+    sortable: true,
+    sortKey: "daysWithoutActivity",
+    exportValue: (row) => row.daysWithoutActivityLabel,
+    render: (row) => row.daysWithoutActivityLabel,
+  },
+];
+
+const buildInactiveProjectColumns = () => [
+  ...buildProjectPortfolioColumns().filter(
+    (column) => !["automationLabel", "totalRecords"].includes(column.key)
+  ),
+  {
+    key: "daysWithoutActivity",
+    label: "Sin actividad",
+    sortable: true,
+    sortKey: "daysWithoutActivity",
+    exportValue: (row) => row.daysWithoutActivityLabel,
+    render: (row) => row.daysWithoutActivityLabel,
+  },
+];
+
+const buildClientLoadColumns = () => [
+  {
+    key: "client",
+    label: "Cliente",
+    sortable: true,
+    sortKey: "client",
+    exportValue: (row) => row.client,
+    render: (row) => row.client,
+  },
+  {
+    key: "documentLoadScore",
+    label: "Carga documental",
+    sortable: true,
+    sortKey: "documentLoadScore",
+    exportValue: (row) => formatNumber(row.documentLoadScore),
+    render: (row) => formatNumber(row.documentLoadScore),
+  },
+  {
+    key: "totalRecords",
+    label: "Minutas",
+    sortable: true,
+    sortKey: "totalRecords",
+    exportValue: (row) => formatNumber(row.totalRecords),
+    render: (row) => formatNumber(row.totalRecords),
+  },
+  {
+    key: "reviewRecords",
+    label: "En revisión",
+    sortable: true,
+    sortKey: "reviewRecords",
+    exportValue: (row) => formatNumber(row.reviewRecords),
+    render: (row) => formatNumber(row.reviewRecords),
+  },
+  {
+    key: "backlogRecords",
+    label: "Backlog",
+    sortable: true,
+    sortKey: "backlogRecords",
+    exportValue: (row) => formatNumber(row.backlogRecords),
+    render: (row) => formatNumber(row.backlogRecords),
+  },
+  {
+    key: "totalTokens",
+    label: "Tokens IA",
+    sortable: true,
+    sortKey: "totalTokens",
+    exportValue: (row) => formatNumber(row.totalTokens),
+    render: (row) => formatNumber(row.totalTokens),
+  },
+  {
+    key: "lastDate",
+    label: "Última actividad",
+    sortable: true,
+    sortKey: "lastActivity",
+    exportValue: (row) => row.lastDateLabel,
+    render: (row) => row.lastDateLabel,
+  },
+];
+
+const buildProjectLoadColumns = () => [
+  {
+    key: "project",
+    label: "Proyecto",
+    sortable: true,
+    sortKey: "project",
+    exportValue: (row) => row.project,
+    render: (row) => row.project,
+  },
+  {
+    key: "client",
+    label: "Cliente",
+    sortable: true,
+    sortKey: "client",
+    exportValue: (row) => row.client,
+    render: (row) => row.client,
+  },
+  ...buildClientLoadColumns().filter((column) => column.key !== "client"),
+];
+
 const defaultMinuteOrder = (rows = []) =>
   [...rows].sort((left, right) => {
     if (left.dateTimestamp !== right.dateTimestamp) {
@@ -1991,6 +2615,30 @@ const defaultAggregateOrder = (rows = []) =>
       left.label ?? left.client ?? left.project ?? left.responsible,
       right.label ?? right.client ?? right.project ?? right.responsible
     );
+  });
+
+const defaultCatalogOrder = (rows = []) =>
+  [...rows].sort((left, right) =>
+    compareByLabel(left.label ?? left.client ?? left.project, right.label ?? right.client ?? right.project)
+  );
+
+const defaultInactiveOrder = (rows = []) =>
+  [...rows].sort((left, right) => {
+    const leftDays = left.daysWithoutActivity ?? Number.MAX_SAFE_INTEGER;
+    const rightDays = right.daysWithoutActivity ?? Number.MAX_SAFE_INTEGER;
+    if (rightDays !== leftDays) return rightDays - leftDays;
+    return compareByLabel(left.label ?? left.client ?? left.project, right.label ?? right.client ?? right.project);
+  });
+
+const defaultDocumentLoadOrder = (rows = []) =>
+  [...rows].sort((left, right) => {
+    if ((right.documentLoadScore ?? 0) !== (left.documentLoadScore ?? 0)) {
+      return (right.documentLoadScore ?? 0) - (left.documentLoadScore ?? 0);
+    }
+    if ((right.totalRecords ?? 0) !== (left.totalRecords ?? 0)) {
+      return (right.totalRecords ?? 0) - (left.totalRecords ?? 0);
+    }
+    return compareByLabel(left.label ?? left.client ?? left.project, right.label ?? right.client ?? right.project);
   });
 
 const buildGeneralSummaryCards = ({ minuteRows, catalogTotals }) => [
@@ -2349,6 +2997,192 @@ const buildCycleSummaryCards = ({ minuteRows }) => {
     ),
   ];
 };
+
+const buildClientPortfolioSummaryCards = ({ minuteRows, reportRows }) => [
+  buildSummaryCard(
+    "Clientes en cartera",
+    reportRows.length,
+    "Clientes activos visibles bajo los filtros aplicados",
+    "business",
+    "sky"
+  ),
+  buildSummaryCard(
+    "Clientes con actividad",
+    reportRows.filter((row) => row.totalRecords > 0).length,
+    "Con al menos una minuta dentro del período filtrado",
+    "fileLines",
+    "emerald"
+  ),
+  buildSummaryCard(
+    "Confidenciales",
+    reportRows.filter((row) => row.isConfidential).length,
+    "Clientes marcados como confidenciales",
+    "shield",
+    "amber"
+  ),
+  buildSummaryCard(
+    "Minutas asociadas",
+    minuteRows.length,
+    "Actividad documental usada para calcular la cartera",
+    "clipboardList",
+    "rose"
+  ),
+];
+
+const buildProjectPortfolioSummaryCards = ({ minuteRows, reportRows }) => [
+  buildSummaryCard(
+    "Proyectos en cartera",
+    reportRows.length,
+    "Proyectos activos visibles bajo los filtros aplicados",
+    "diagramProject",
+    "sky"
+  ),
+  buildSummaryCard(
+    "Proyectos con actividad",
+    reportRows.filter((row) => row.totalRecords > 0).length,
+    "Con al menos una minuta dentro del período filtrado",
+    "fileLines",
+    "emerald"
+  ),
+  buildSummaryCard(
+    "Con automatización",
+    reportRows.filter((row) => row.autoSendCount > 0).length,
+    "Proyectos con envío automático configurado",
+    "arrowsRotate",
+    "amber"
+  ),
+  buildSummaryCard(
+    "Confidenciales",
+    reportRows.filter((row) => row.isConfidential).length,
+    "Proyectos marcados como confidenciales",
+    "shield",
+    "rose"
+  ),
+];
+
+const buildInactiveClientSummaryCards = ({ reportRows }) => [
+  buildSummaryCard(
+    "Clientes sin actividad",
+    reportRows.length,
+    "Sin minutas dentro del período filtrado",
+    "clock",
+    "sky"
+  ),
+  buildSummaryCard(
+    "Confidenciales",
+    reportRows.filter((row) => row.isConfidential).length,
+    "Cuentas sensibles sin movimiento documental reciente",
+    "shield",
+    "amber"
+  ),
+  buildSummaryCard(
+    "Prioridad alta",
+    reportRows.filter((row) => normalizeText(row.priorityLabel).includes("alta")).length,
+    "Clientes priorizados sin actividad en el período",
+    "filter",
+    "rose"
+  ),
+  buildSummaryCard(
+    "Sin historial visible",
+    reportRows.filter((row) => !row.lastDateTimestamp).length,
+    "Sin actividad documental registrada en la fuente cargada",
+    "clipboardList",
+    "emerald"
+  ),
+];
+
+const buildInactiveProjectSummaryCards = ({ reportRows }) => [
+  buildSummaryCard(
+    "Proyectos sin actividad",
+    reportRows.length,
+    "Sin minutas dentro del período filtrado",
+    "clock",
+    "sky"
+  ),
+  buildSummaryCard(
+    "Clientes involucrados",
+    new Set(reportRows.map((row) => row.client).filter(Boolean)).size,
+    "Clientes con proyectos sin movimiento reciente",
+    "business",
+    "emerald"
+  ),
+  buildSummaryCard(
+    "Confidenciales",
+    reportRows.filter((row) => row.isConfidential).length,
+    "Proyectos sensibles sin actividad en el período",
+    "shield",
+    "amber"
+  ),
+  buildSummaryCard(
+    "Sin historial visible",
+    reportRows.filter((row) => !row.lastDateTimestamp).length,
+    "Sin actividad documental registrada en la fuente cargada",
+    "clipboardList",
+    "rose"
+  ),
+];
+
+const buildClientLoadSummaryCards = ({ minuteRows, reportRows }) => [
+  buildSummaryCard(
+    "Clientes con carga",
+    reportRows.length,
+    "Clientes con actividad documental dentro del filtro",
+    "business",
+    "sky"
+  ),
+  buildSummaryCard(
+    "Minutas consideradas",
+    minuteRows.length,
+    "Base usada para calcular la carga documental",
+    "fileLines",
+    "emerald"
+  ),
+  buildSummaryCard(
+    "En revisión",
+    minuteRows.filter((row) => row.status.key === "preview").length,
+    "Actividad editorial que aumenta la carga visible",
+    "clipboardCheck",
+    "amber"
+  ),
+  buildSummaryCard(
+    "Backlog",
+    minuteRows.filter((row) => isBacklogStatus(row.status.key)).length,
+    "Registros abiertos considerados en el puntaje",
+    "clock",
+    "rose"
+  ),
+];
+
+const buildProjectLoadSummaryCards = ({ minuteRows, reportRows }) => [
+  buildSummaryCard(
+    "Proyectos con carga",
+    reportRows.length,
+    "Proyectos con actividad documental dentro del filtro",
+    "diagramProject",
+    "sky"
+  ),
+  buildSummaryCard(
+    "Minutas consideradas",
+    minuteRows.length,
+    "Base usada para calcular la carga documental",
+    "fileLines",
+    "emerald"
+  ),
+  buildSummaryCard(
+    "En revisión",
+    minuteRows.filter((row) => row.status.key === "preview").length,
+    "Actividad editorial que aumenta la carga visible",
+    "clipboardCheck",
+    "amber"
+  ),
+  buildSummaryCard(
+    "Backlog",
+    minuteRows.filter((row) => isBacklogStatus(row.status.key)).length,
+    "Registros abiertos considerados en el puntaje",
+    "clock",
+    "rose"
+  ),
+];
 
 const REPORT_DEFINITIONS = [
   {
@@ -2772,6 +3606,256 @@ const REPORT_DEFINITIONS = [
     ],
     columns: buildMinuteDetailColumns(),
   },
+  {
+    id: "gestion-client-portfolio",
+    path: "/reports/management/client-portfolio",
+    title: "Cartera de Clientes",
+    description:
+      "Reporte administrativo de clientes activos, clasificación, confidencialidad y actividad documental asociada.",
+    pdfSlug: "cartera-clientes",
+    pdfReportKey: "gestion-cartera-clientes",
+    pdfDescription:
+      "Salida administrativa de cartera de clientes con clasificación y actividad documental del período filtrado.",
+    tableDescription:
+      "Detalle de clientes visibles con atributos administrativos y volumen documental asociado al filtro aplicado.",
+    buildRows: ({ clientRows, minuteRows, appliedFilters }) =>
+      buildClientContextRows({ clientRows, minuteRows, filters: appliedFilters }),
+    buildDefaultRowsOrder: defaultCatalogOrder,
+    buildSummaryCards: buildClientPortfolioSummaryCards,
+    buildCharts: ({ reportRows }) => [
+      {
+        key: "client-portfolio-activity",
+        type: "bar",
+        title: "Clientes por actividad documental",
+        subtitle: "Ordena la cartera según el volumen de minutas asociadas al período filtrado.",
+        footer: "La comparación usa los mismos clientes visibles en la tabla; los sin actividad aparecen con valor 0.",
+        data: buildReportRowDistribution(reportRows, "client", "totalRecords", 6, {
+          includeZero: true,
+        }),
+        seriesName: "Minutas",
+      },
+      {
+        key: "client-portfolio-confidential",
+        type: "status",
+        title: "Confidencialidad de cartera",
+        subtitle: "Distribuye los clientes visibles según su marca de confidencialidad.",
+        footer: "La clasificación proviene del catálogo administrativo de clientes.",
+        data: buildConfidentialDistribution(reportRows),
+      },
+    ],
+    columns: buildClientPortfolioColumns(),
+  },
+  {
+    id: "gestion-project-portfolio",
+    path: "/reports/management/project-portfolio",
+    title: "Cartera de Proyectos",
+    description:
+      "Reporte consolidado de proyectos activos, confidencialidad, automatizaciones de envío y actividad documental.",
+    pdfSlug: "cartera-proyectos",
+    pdfReportKey: "gestion-cartera-proyectos",
+    pdfDescription:
+      "Salida administrativa de cartera de proyectos con cliente asociado, automatizaciones y actividad documental.",
+    tableDescription:
+      "Detalle de proyectos visibles con atributos administrativos y volumen documental asociado al filtro aplicado.",
+    buildRows: ({ projectRows, minuteRows, appliedFilters }) =>
+      buildProjectContextRows({ projectRows, minuteRows, filters: appliedFilters }),
+    buildDefaultRowsOrder: defaultCatalogOrder,
+    buildSummaryCards: buildProjectPortfolioSummaryCards,
+    buildCharts: ({ reportRows }) => [
+      {
+        key: "project-portfolio-activity",
+        type: "bar",
+        title: "Proyectos por actividad documental",
+        subtitle: "Ordena la cartera según el volumen de minutas asociadas al período filtrado.",
+        footer: "La comparación usa los mismos proyectos visibles en la tabla; los sin actividad aparecen con valor 0.",
+        data: buildReportRowDistribution(reportRows, "project", "totalRecords", 6, {
+          includeZero: true,
+        }),
+        seriesName: "Minutas",
+      },
+      {
+        key: "project-portfolio-status",
+        type: "status",
+        title: "Estado administrativo",
+        subtitle: "Distribuye los proyectos visibles según su estado de catálogo.",
+        footer: "La clasificación proviene del catálogo administrativo de proyectos.",
+        data: buildCatalogStatusDistribution(reportRows),
+      },
+    ],
+    columns: buildProjectPortfolioColumns(),
+  },
+  {
+    id: "gestion-client-inactive",
+    path: "/reports/management/clients-without-recent-document-activity",
+    title: "Clientes sin Actividad Documental Reciente",
+    description:
+      "Identifica clientes activos sin minutas dentro del período filtrado para seguimiento operativo o comercial.",
+    pdfSlug: "clientes-sin-actividad-documental",
+    pdfReportKey: "gestion-clientes-sin-actividad-documental",
+    pdfDescription:
+      "Salida operacional de clientes sin actividad documental reciente según el rango consultado.",
+    tableDescription:
+      "Detalle de clientes activos sin minutas visibles dentro del período filtrado.",
+    buildRows: ({ clientRows, minuteRows, historyRows, appliedFilters }) =>
+      buildClientContextRows({
+        clientRows,
+        minuteRows,
+        historyRows,
+        filters: appliedFilters,
+        onlyInactive: true,
+      }),
+    buildDefaultRowsOrder: defaultInactiveOrder,
+    buildSummaryCards: buildInactiveClientSummaryCards,
+    buildCharts: ({ reportRows }) => [
+      {
+        key: "inactive-client-days",
+        type: "bar",
+        title: "Clientes por días sin actividad",
+        subtitle: "Prioriza cuentas con más tiempo desde su último movimiento documental visible.",
+        footer: "Cuando no existe historial visible, el cliente se informa como sin actividad registrada.",
+        data: buildReportRowDistribution(reportRows, "client", "daysWithoutActivity"),
+        seriesName: "Días",
+      },
+      {
+        key: "inactive-client-confidential",
+        type: "status",
+        title: "Confidencialidad",
+        subtitle: "Distribuye los clientes sin actividad según su marca de confidencialidad.",
+        footer: "Permite distinguir cuentas sensibles dentro del seguimiento operativo.",
+        data: buildConfidentialDistribution(reportRows),
+      },
+    ],
+    columns: buildInactiveClientColumns(),
+  },
+  {
+    id: "gestion-project-inactive",
+    path: "/reports/management/projects-without-recent-document-activity",
+    title: "Proyectos sin Actividad Documental Reciente",
+    description:
+      "Identifica proyectos activos sin minutas dentro del período filtrado.",
+    pdfSlug: "proyectos-sin-actividad-documental",
+    pdfReportKey: "gestion-proyectos-sin-actividad-documental",
+    pdfDescription:
+      "Salida operacional de proyectos sin actividad documental reciente según el rango consultado.",
+    tableDescription:
+      "Detalle de proyectos activos sin minutas visibles dentro del período filtrado.",
+    buildRows: ({ projectRows, minuteRows, historyRows, appliedFilters }) =>
+      buildProjectContextRows({
+        projectRows,
+        minuteRows,
+        historyRows,
+        filters: appliedFilters,
+        onlyInactive: true,
+      }),
+    buildDefaultRowsOrder: defaultInactiveOrder,
+    buildSummaryCards: buildInactiveProjectSummaryCards,
+    buildCharts: ({ reportRows }) => [
+      {
+        key: "inactive-project-days",
+        type: "bar",
+        title: "Proyectos por días sin actividad",
+        subtitle: "Prioriza proyectos con más tiempo desde su último movimiento documental visible.",
+        footer: "Cuando no existe historial visible, el proyecto se informa como sin actividad registrada.",
+        data: buildReportRowDistribution(reportRows, "project", "daysWithoutActivity"),
+        seriesName: "Días",
+      },
+      {
+        key: "inactive-project-confidential",
+        type: "status",
+        title: "Confidencialidad",
+        subtitle: "Distribuye los proyectos sin actividad según su marca de confidencialidad.",
+        footer: "Permite distinguir proyectos sensibles dentro del seguimiento operativo.",
+        data: buildConfidentialDistribution(reportRows),
+      },
+    ],
+    columns: buildInactiveProjectColumns(),
+  },
+  {
+    id: "gestion-client-load",
+    path: "/reports/management/clients-with-highest-document-load",
+    title: "Clientes con Mayor Carga Documental",
+    description:
+      "Prioriza clientes que concentran más minutas, revisión, backlog y consumo documental de IA.",
+    pdfSlug: "clientes-mayor-carga-documental",
+    pdfReportKey: "gestion-clientes-mayor-carga-documental",
+    pdfDescription:
+      "Salida operacional que ordena clientes por intensidad documental dentro del período filtrado.",
+    tableDescription:
+      "Detalle de clientes con actividad, puntaje de carga, minutas, revisión, backlog y tokens asociados.",
+    buildRows: ({ clientRows, minuteRows, appliedFilters }) =>
+      buildClientContextRows({
+        clientRows,
+        minuteRows,
+        filters: appliedFilters,
+        onlyWithLoad: true,
+      }),
+    buildDefaultRowsOrder: defaultDocumentLoadOrder,
+    buildSummaryCards: buildClientLoadSummaryCards,
+    buildCharts: ({ reportRows }) => [
+      {
+        key: "client-load-score",
+        type: "bar",
+        title: "Clientes por carga documental",
+        subtitle: "Ordena clientes por un puntaje que pondera minutas, revisión, backlog y tokens.",
+        footer: "El puntaje es operativo y sirve para priorizar seguimiento dentro del período filtrado.",
+        data: buildReportRowDistribution(reportRows, "client", "documentLoadScore"),
+        seriesName: "Carga",
+      },
+      {
+        key: "client-load-backlog",
+        type: "bar",
+        title: "Backlog por cliente",
+        subtitle: "Muestra dónde se concentra el volumen documental aún abierto.",
+        footer: "Incluye estados distintos de completado, cancelado y eliminado.",
+        data: buildReportRowDistribution(reportRows, "client", "backlogRecords"),
+        seriesName: "Backlog",
+      },
+    ],
+    columns: buildClientLoadColumns(),
+  },
+  {
+    id: "gestion-project-load",
+    path: "/reports/management/projects-with-highest-document-load",
+    title: "Proyectos con Mayor Carga Documental",
+    description:
+      "Prioriza proyectos con mayor intensidad documental, revisión, backlog y uso operativo de plataforma.",
+    pdfSlug: "proyectos-mayor-carga-documental",
+    pdfReportKey: "gestion-proyectos-mayor-carga-documental",
+    pdfDescription:
+      "Salida operacional que ordena proyectos por intensidad documental dentro del período filtrado.",
+    tableDescription:
+      "Detalle de proyectos con actividad, puntaje de carga, minutas, revisión, backlog y tokens asociados.",
+    buildRows: ({ projectRows, minuteRows, appliedFilters }) =>
+      buildProjectContextRows({
+        projectRows,
+        minuteRows,
+        filters: appliedFilters,
+        onlyWithLoad: true,
+      }),
+    buildDefaultRowsOrder: defaultDocumentLoadOrder,
+    buildSummaryCards: buildProjectLoadSummaryCards,
+    buildCharts: ({ reportRows }) => [
+      {
+        key: "project-load-score",
+        type: "bar",
+        title: "Proyectos por carga documental",
+        subtitle: "Ordena proyectos por un puntaje que pondera minutas, revisión, backlog y tokens.",
+        footer: "El puntaje es operativo y sirve para priorizar seguimiento dentro del período filtrado.",
+        data: buildReportRowDistribution(reportRows, "project", "documentLoadScore"),
+        seriesName: "Carga",
+      },
+      {
+        key: "project-load-backlog",
+        type: "bar",
+        title: "Backlog por proyecto",
+        subtitle: "Muestra dónde se concentra el volumen documental aún abierto.",
+        footer: "Incluye estados distintos de completado, cancelado y eliminado.",
+        data: buildReportRowDistribution(reportRows, "project", "backlogRecords"),
+        seriesName: "Backlog",
+      },
+    ],
+    columns: buildProjectLoadColumns(),
+  },
 ];
 
 const REPORT_CONFIG_BY_PATH = Object.fromEntries(
@@ -2802,6 +3886,10 @@ const ManagementOperationalReportPage = () => {
     clients: [],
     projects: [],
     responsibles: [],
+  });
+  const [catalogRows, setCatalogRows] = useState({
+    clients: [],
+    projects: [],
   });
   const [catalogTotals, setCatalogTotals] = useState({
     clients: 0,
@@ -2853,6 +3941,14 @@ const ManagementOperationalReportPage = () => {
       projects: fallbackProjectOptions,
       responsibles: fallbackResponsibleOptions,
     });
+    setCatalogRows({
+      clients: fallbackClientOptions.map((item, index) =>
+        normalizeClientCatalogRecord({ id: item.value, name: item.label }, index)
+      ),
+      projects: fallbackProjectOptions.map((item, index) =>
+        normalizeProjectCatalogRecord({ id: item.value, name: item.label }, index)
+      ),
+    });
     setCatalogTotals({
       clients: fallbackClientOptions.length,
       projects: fallbackProjectOptions.length,
@@ -2886,6 +3982,10 @@ const ManagementOperationalReportPage = () => {
           .sort(compareByLabel)
           .map((label) => ({ value: label, label }));
 
+        const nextClientRows = (Array.isArray(clientsResult?.items) ? clientsResult.items : [])
+          .map(normalizeClientCatalogRecord)
+          .sort((left, right) => compareByLabel(left.client, right.client));
+
         const projectOptions = Array.from(
           new Set(
             (Array.isArray(projectsResult?.items) ? projectsResult.items : [])
@@ -2895,6 +3995,10 @@ const ManagementOperationalReportPage = () => {
         )
           .sort(compareByLabel)
           .map((label) => ({ value: label, label }));
+
+        const nextProjectRows = (Array.isArray(projectsResult?.items) ? projectsResult.items : [])
+          .map(normalizeProjectCatalogRecord)
+          .sort((left, right) => compareByLabel(left.project, right.project));
 
         const responsibleOptions = Array.from(
           new Set(
@@ -2910,6 +4014,10 @@ const ManagementOperationalReportPage = () => {
           clients: clientOptions,
           projects: projectOptions,
           responsibles: responsibleOptions,
+        });
+        setCatalogRows({
+          clients: nextClientRows,
+          projects: nextProjectRows,
         });
         setCatalogTotals({
           clients: clientOptions.length,
@@ -2994,9 +4102,15 @@ const ManagementOperationalReportPage = () => {
   }, [appliedFilters, hasExecutedSearch, rawRows, reportConfig]);
 
   const reportRows = useMemo(() => {
-    if (!reportConfig) return [];
-    return reportConfig.buildRows({ minuteRows: filteredMinuteRows });
-  }, [filteredMinuteRows, reportConfig]);
+    if (!reportConfig || !hasExecutedSearch) return [];
+    return reportConfig.buildRows({
+      minuteRows: filteredMinuteRows,
+      historyRows: applyNonDateFilters(rawRows, appliedFilters),
+      clientRows: catalogRows.clients,
+      projectRows: catalogRows.projects,
+      appliedFilters,
+    });
+  }, [appliedFilters, catalogRows.clients, catalogRows.projects, filteredMinuteRows, hasExecutedSearch, rawRows, reportConfig]);
 
   const defaultOrderedRows = useMemo(() => {
     if (!reportConfig) return [];

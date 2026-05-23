@@ -103,22 +103,22 @@ Estos reportes representan seguimiento declarado en actas. No validan cumplimien
 
 ## 5. Clientes y Proyectos como Contexto Documental
 
-- [ ] `Cartera de Clientes`
+- [x] `Cartera de Clientes`
   - Reporte administrativo con clientes activos, prioridad, confidencialidad y volumen de actividad documental asociada.
 
-- [ ] `Cartera de Proyectos`
+- [x] `Cartera de Proyectos`
   - Reporte consolidado de proyectos activos, confidenciales, con automatizaciones de envío y nivel de actividad documental.
 
-- [ ] `Clientes sin Actividad Documental Reciente`
+- [x] `Clientes sin Actividad Documental Reciente`
   - Identifica clientes sin minutas recientes para seguimiento operativo o comercial.
 
-- [ ] `Proyectos sin Actividad Documental Reciente`
+- [x] `Proyectos sin Actividad Documental Reciente`
   - Identifica proyectos sin minutas recientes.
 
-- [ ] `Clientes con Mayor Carga Documental`
+- [x] `Clientes con Mayor Carga Documental`
   - Prioriza cuentas con más minutas, observaciones, revisión o consumo de IA.
 
-- [ ] `Proyectos con Mayor Carga Documental`
+- [x] `Proyectos con Mayor Carga Documental`
   - Permite ver los proyectos más intensivos en actividad documental, revisión y uso de plataforma.
 
 ## 6. Uso, Costo y Rendimiento de IA
