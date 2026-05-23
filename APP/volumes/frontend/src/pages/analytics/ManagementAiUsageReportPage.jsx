@@ -279,6 +279,35 @@ const formatMaybeUsd = (value) =>
 const formatLatency = (value) =>
   value == null ? "—" : `${formatNumber(Number(value ?? 0), 0)} ms`;
 
+const hasPricingCoverage = (overview = {}) =>
+  Number(overview?.estimatedCostEvents ?? 0) > 0;
+
+const hasPartialPricingCoverageForOverview = (overview = {}) => {
+  const totalEvents = Number(overview?.totalEvents ?? 0);
+  const estimatedCostEvents = Number(overview?.estimatedCostEvents ?? 0);
+  return totalEvents > 0 && estimatedCostEvents < totalEvents;
+};
+
+const formatOverviewCost = (overview = {}) =>
+  hasPricingCoverage(overview)
+    ? formatUsd(overview?.totalCost ?? 0)
+    : "Sin pricing";
+
+const buildPricingCoverageHelper = (overview = {}) => {
+  const estimatedCostEvents = Number(overview?.estimatedCostEvents ?? 0);
+  const totalEvents = Number(overview?.totalEvents ?? 0);
+
+  if (estimatedCostEvents <= 0) {
+    return "Sin pricing cargado; el reporte mantiene tokens, volumen y latencia.";
+  }
+
+  if (estimatedCostEvents < totalEvents) {
+    return `${formatNumber(estimatedCostEvents)} eventos con pricing resuelto; costo parcial sobre el universo visible.`;
+  }
+
+  return `${formatNumber(estimatedCostEvents)} eventos con pricing resuelto.`;
+};
+
 const formatDateForInput = (date) => {
   const normalized = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
   return normalized.toISOString().slice(0, 10);
@@ -334,6 +363,51 @@ const buildSummaryCard = (label, value, helper, icon, tone) => ({
   helper,
   icon,
   tone,
+});
+
+const buildTokenBreakdownColumn = () => ({
+  key: "tokenBreakdown",
+  label: "Tokens",
+  sortable: true,
+  sortKey: "totalTokens",
+  headerClassName: "min-w-[220px]",
+  exportColumns: [
+    {
+      key: "inputTokens",
+      label: "Tokens entrada",
+      exportValue: (row) => formatNumber(row.inputTokens ?? 0),
+    },
+    {
+      key: "outputTokens",
+      label: "Tokens salida",
+      exportValue: (row) => formatNumber(row.outputTokens ?? 0),
+    },
+    {
+      key: "totalTokens",
+      label: "Tokens total",
+      exportValue: (row) => formatNumber(row.totalTokens ?? 0),
+    },
+  ],
+  render: (row) => (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between gap-3 text-xs text-gray-500 dark:text-gray-400">
+        <span>Entrada</span>
+        <span className="font-medium text-gray-700 dark:text-gray-200">
+          {formatNumber(row.inputTokens ?? 0)}
+        </span>
+      </div>
+      <div className="flex items-center justify-between gap-3 text-xs text-gray-500 dark:text-gray-400">
+        <span>Salida</span>
+        <span className="font-medium text-gray-700 dark:text-gray-200">
+          {formatNumber(row.outputTokens ?? 0)}
+        </span>
+      </div>
+      <div className="flex items-center justify-between gap-3 border-t border-gray-100 pt-1 text-xs font-semibold text-gray-700 dark:border-gray-700 dark:text-gray-100">
+        <span>Total</span>
+        <span>{formatNumber(row.totalTokens ?? 0)}</span>
+      </div>
+    </div>
+  ),
 });
 
 const buildChartOptionBase = () => ({
@@ -615,7 +689,7 @@ const ReportMetricBarChart = ({ chartRef, chart }) => {
   if (!chart?.data?.length) {
     return (
       <p className="text-sm text-gray-500 dark:text-gray-400">
-        No hay datos suficientes para construir la comparacion visual.
+        {chart?.emptyMessage ?? "No hay datos suficientes para construir la comparacion visual."}
       </p>
     );
   }
@@ -856,8 +930,15 @@ const buildGroupedRows = (items = [], entityLabel, options = {}) =>
     inputTokens: Number(item.inputTokens ?? 0),
     outputTokens: Number(item.outputTokens ?? 0),
     totalTokens: Number(item.totalTokens ?? 0),
-    totalCost: Number(item.totalCost ?? 0),
-    totalCostLabel: formatMaybeUsd(item.totalCost ?? 0),
+    estimatedCostEvents: Number(item.estimatedCostEvents ?? 0),
+    totalCost:
+      Number(item.estimatedCostEvents ?? 0) > 0
+        ? Number(item.totalCost ?? 0)
+        : null,
+    totalCostLabel:
+      Number(item.estimatedCostEvents ?? 0) > 0
+        ? formatMaybeUsd(item.totalCost)
+        : "Sin pricing",
     latencyMs: item.averageLatencyMs == null ? null : Number(item.averageLatencyMs ?? 0),
     latencyLabel: formatLatency(item.averageLatencyMs),
     entityTypeLabel: entityLabel,
@@ -888,8 +969,8 @@ const buildGeneralSummaryCards = (summary = {}) => [
   ),
   buildSummaryCard(
     "Costo estimado",
-    formatMaybeUsd(summary.overview.totalCost ?? 0),
-    `${formatNumber(summary.overview.estimatedCostEvents ?? 0)} eventos con pricing resuelto`,
+    formatOverviewCost(summary.overview),
+    buildPricingCoverageHelper(summary.overview),
     "FaDollarSign",
     "rose"
   ),
@@ -907,8 +988,8 @@ const buildCostSummaryCards = (summary = {}, reportConfig) => {
   return [
     buildSummaryCard(
       "Costo estimado",
-      formatMaybeUsd(summary.overview.totalCost ?? 0),
-      `${formatNumber(summary.overview.estimatedCostEvents ?? 0)} eventos con pricing resuelto`,
+      formatOverviewCost(summary.overview),
+      buildPricingCoverageHelper(summary.overview),
       "FaDollarSign",
       "rose"
     ),
@@ -960,8 +1041,8 @@ const buildLatencySummaryCards = (summary = {}) => [
   ),
   buildSummaryCard(
     "Costo estimado",
-    formatMaybeUsd(summary.overview.totalCost ?? 0),
-    `${formatNumber(summary.overview.estimatedCostEvents ?? 0)} eventos con pricing resuelto`,
+    formatOverviewCost(summary.overview),
+    buildPricingCoverageHelper(summary.overview),
     "FaDollarSign",
     "rose"
   ),
@@ -1013,6 +1094,7 @@ const buildRawTableColumns = (isErrorReport = false) => {
       ...base,
       { key: "errorCode", label: "Codigo error" },
       { key: "errorMessage", label: "Mensaje error" },
+      buildTokenBreakdownColumn(),
       { key: "latencyLabel", label: "Latencia" },
     ];
   }
@@ -1020,50 +1102,7 @@ const buildRawTableColumns = (isErrorReport = false) => {
   return [
     ...base,
     { key: "eventTypeLabel", label: "Tipo evento" },
-    {
-      key: "tokenBreakdown",
-      label: "Tokens",
-      sortable: true,
-      sortKey: "totalTokens",
-      headerClassName: "min-w-[220px]",
-      exportColumns: [
-        {
-          key: "inputTokens",
-          label: "Tokens entrada",
-          exportValue: (row) => formatNumber(row.inputTokens ?? 0),
-        },
-        {
-          key: "outputTokens",
-          label: "Tokens salida",
-          exportValue: (row) => formatNumber(row.outputTokens ?? 0),
-        },
-        {
-          key: "totalTokens",
-          label: "Tokens total",
-          exportValue: (row) => formatNumber(row.totalTokens ?? 0),
-        },
-      ],
-      render: (row) => (
-        <div className="space-y-1">
-          <div className="flex items-center justify-between gap-3 text-xs text-gray-500 dark:text-gray-400">
-            <span>Entrada</span>
-            <span className="font-medium text-gray-700 dark:text-gray-200">
-              {formatNumber(row.inputTokens ?? 0)}
-            </span>
-          </div>
-          <div className="flex items-center justify-between gap-3 text-xs text-gray-500 dark:text-gray-400">
-            <span>Salida</span>
-            <span className="font-medium text-gray-700 dark:text-gray-200">
-              {formatNumber(row.outputTokens ?? 0)}
-            </span>
-          </div>
-          <div className="flex items-center justify-between gap-3 border-t border-gray-100 pt-1 text-xs font-semibold text-gray-700 dark:border-gray-700 dark:text-gray-100">
-            <span>Total</span>
-            <span>{formatNumber(row.totalTokens ?? 0)}</span>
-          </div>
-        </div>
-      ),
-    },
+    buildTokenBreakdownColumn(),
     { key: "totalCostLabel", label: "Costo" },
     { key: "latencyLabel", label: "Latencia" },
   ];
@@ -1087,11 +1126,7 @@ const buildGroupedColumns = (entityLabel) => [
     label: "Tasa de exito",
     exportValue: (row) => row.successRateLabel,
   },
-  {
-    key: "totalTokens",
-    label: "Tokens",
-    exportValue: (row) => formatNumber(row.totalTokens ?? 0),
-  },
+  buildTokenBreakdownColumn(),
   {
     key: "totalCostLabel",
     label: "Costo estimado",
@@ -1123,11 +1158,7 @@ const buildProfileColumns = () => [
     label: "Tasa de exito",
     exportValue: (row) => row.successRateLabel,
   },
-  {
-    key: "totalTokens",
-    label: "Tokens",
-    exportValue: (row) => formatNumber(row.totalTokens ?? 0),
-  },
+  buildTokenBreakdownColumn(),
   {
     key: "totalCostLabel",
     label: "Costo estimado",
@@ -1158,11 +1189,7 @@ const buildLatencyColumns = () => [
     label: "No exitosos",
     exportValue: (row) => formatNumber(row.failedEvents ?? 0),
   },
-  {
-    key: "totalTokens",
-    label: "Tokens",
-    exportValue: (row) => formatNumber(row.totalTokens ?? 0),
-  },
+  buildTokenBreakdownColumn(),
   {
     key: "totalCostLabel",
     label: "Costo estimado",
@@ -1230,6 +1257,7 @@ const buildChartDefinitions = ({ reportConfig, summary, rows }) => {
         color: CHART_THEME.negative,
         labelFormatter: (value) => formatUsd(value),
         tooltipFormatter: (value) => formatUsd(value),
+        emptyMessage: "No hay pricing resuelto para construir el ranking de costo estimado.",
         data: pickTopMetricItems(rows, "totalCost"),
       },
       {
@@ -1271,6 +1299,7 @@ const buildChartDefinitions = ({ reportConfig, summary, rows }) => {
         color: CHART_THEME.quaternary,
         labelFormatter: (value) => formatUsd(value),
         tooltipFormatter: (value) => formatUsd(value),
+        emptyMessage: "No hay pricing resuelto para comparar costo estimado entre perfiles.",
         data: pickTopMetricItems(rows, "totalCost"),
       },
     ];
@@ -1797,12 +1826,10 @@ const ManagementAiUsageReportPage = () => {
     return sortedItems.slice(startIndex, startIndex + ITEMS_PER_PAGE);
   }, [safePage, sortedItems]);
 
-  const hasPartialPricingCoverage = useMemo(() => {
-    if (!summary?.overview) return false;
-    const totalEvents = Number(summary.overview.totalEvents ?? 0);
-    const estimatedCostEvents = Number(summary.overview.estimatedCostEvents ?? 0);
-    return totalEvents > 0 && estimatedCostEvents < totalEvents;
-  }, [summary]);
+  const hasPartialPricingCoverage = useMemo(
+    () => hasPartialPricingCoverageForOverview(summary?.overview),
+    [summary]
+  );
 
   const hasLegacyEventsWithoutProfile = useMemo(
     () =>

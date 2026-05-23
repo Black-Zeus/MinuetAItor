@@ -160,7 +160,8 @@ class AIUsageBreakdownItemResponse(BaseModel):
     input_tokens: int = Field(0, alias="inputTokens")
     output_tokens: int = Field(0, alias="outputTokens")
     total_tokens: int = Field(0, alias="totalTokens")
-    total_cost: float = Field(0, alias="totalCost")
+    total_cost: float | None = Field(None, alias="totalCost")
+    estimated_cost_events: int = Field(0, alias="estimatedCostEvents")
     average_latency_ms: float | None = Field(None, alias="averageLatencyMs")
 
     model_config = {"populate_by_name": True}

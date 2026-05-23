@@ -594,7 +594,8 @@ def _build_breakdown(q, *, key_expr, label_expr=None, limit: int = 8) -> list[di
             func.sum(func.coalesce(AiUsageEvent.input_tokens, 0)).label("input_tokens"),
             func.sum(func.coalesce(AiUsageEvent.output_tokens, 0)).label("output_tokens"),
             func.sum(func.coalesce(AiUsageEvent.total_tokens, 0)).label("total_tokens"),
-            func.sum(func.coalesce(AiUsageEvent.total_cost, 0)).label("total_cost"),
+            func.sum(AiUsageEvent.total_cost).label("total_cost"),
+            func.sum(case((AiUsageEvent.total_cost.isnot(None), 1), else_=0)).label("estimated_cost_events"),
             func.avg(AiUsageEvent.latency_ms).label("average_latency_ms"),
         )
         .group_by(key_expr, label_expr)
@@ -618,7 +619,8 @@ def _build_breakdown(q, *, key_expr, label_expr=None, limit: int = 8) -> list[di
                 "inputTokens": _safe_int(getattr(row, "input_tokens", 0)),
                 "outputTokens": _safe_int(getattr(row, "output_tokens", 0)),
                 "totalTokens": _safe_int(getattr(row, "total_tokens", 0)),
-                "totalCost": _safe_float(getattr(row, "total_cost", 0)),
+                "totalCost": _nullable_float(getattr(row, "total_cost", None)),
+                "estimatedCostEvents": _safe_int(getattr(row, "estimated_cost_events", 0)),
                 "averageLatencyMs": _nullable_float(getattr(row, "average_latency_ms", None)),
             }
         )

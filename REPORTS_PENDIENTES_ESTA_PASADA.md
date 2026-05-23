@@ -24,11 +24,6 @@
 
 ## Pendientes de gestión
 
-### Producción de Minutas
-
-- La fuente de `Tiempos de Ciclo de Minutas` quedó implementada con `record_status_transitions`.
-  Consideración: la historia clara y no ambigua aplica desde esta implementación hacia adelante; los registros anteriores no se backfillearon para evitar inventar trazabilidad histórica.
-
 ### Requerimientos y Compromisos
 
 - Seguimiento Documental de Acuerdos
@@ -57,11 +52,6 @@
 - Clientes con Mayor Carga Documental
 - Proyectos con Mayor Carga Documental
   Motivo: aunque parte del dato base existe, faltan definiciones cerradas de negocio para distinguir cartera, inactividad reciente y carga documental con el criterio exacto esperado por negocio.
-
-### Uso y Costo de IA
-
-- Reportes de costo IA con pricing parcial
-  Motivo: la estructura `ai_model_pricing` existe y la reportería ya la consume, pero si faltan precios cargados para algunos modelos o providers, el costo visible será parcial y se marcará como cobertura incompleta.
 
 ### Salud Operativa
 

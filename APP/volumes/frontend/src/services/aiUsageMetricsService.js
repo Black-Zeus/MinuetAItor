@@ -130,7 +130,11 @@ const normalizeBreakdownItem = (item = {}) => ({
   inputTokens: Number(item.inputTokens ?? item.input_tokens ?? 0),
   outputTokens: Number(item.outputTokens ?? item.output_tokens ?? 0),
   totalTokens: Number(item.totalTokens ?? item.total_tokens ?? 0),
-  totalCost: Number(item.totalCost ?? item.total_cost ?? 0),
+  totalCost:
+    item.totalCost == null && item.total_cost == null
+      ? null
+      : Number(item.totalCost ?? item.total_cost ?? 0),
+  estimatedCostEvents: Number(item.estimatedCostEvents ?? item.estimated_cost_events ?? 0),
   averageLatencyMs:
     item.averageLatencyMs == null && item.average_latency_ms == null
       ? null
