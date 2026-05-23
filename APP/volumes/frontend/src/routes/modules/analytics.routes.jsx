@@ -9,6 +9,7 @@ import {
   AUDIT_REPORT_ITEMS,
   GESTION_REPORT_ITEMS,
 } from "@config/sidebarConfig";
+import { isActiveGestionReport } from "@/pages/analytics/reports/activeGestionReports";
 
 const MetricsPage = lazy(() =>
   import("@/pages/analytics/MetricsPage")
@@ -18,8 +19,8 @@ const ReportsCatalogPage = lazy(() =>
   import("@/pages/analytics/ReportsCatalogPage")
 );
 
-const ExecutiveSummaryGeneralReportPage = lazy(() =>
-  import("@/pages/analytics/ExecutiveSummaryGeneralReportPage")
+const ManagementOperationalReportPage = lazy(() =>
+  import("@/pages/analytics/ManagementOperationalReportPage")
 );
 
 const UnderConstruction = lazy(() =>
@@ -49,14 +50,14 @@ const analyticsRoutes = [
 // ─── Reports ──────────────────────────────────────────────────────
 const reportIndexRoutes = [
   {
-    path: "/reports/gestion",
+    path: "/reports/management",
     title: "Reportería de Gestión",
     component: ReportsCatalogPage,
     requiresAuth: true,
     roles: [],
   },
   {
-    path: "/reports/auditoria",
+    path: "/reports/audit",
     title: "Reportería de Auditoría",
     component: ReportsCatalogPage,
     requiresAuth: true,
@@ -65,19 +66,22 @@ const reportIndexRoutes = [
 ];
 
 const gestionReportsRoutes = buildPlaceholderRoutes(
-  GESTION_REPORT_ITEMS.filter((item) => item.id !== "gestion-executive-general"),
+  GESTION_REPORT_ITEMS.filter((item) => !isActiveGestionReport(item.id)),
   "Reportes Gestión"
 );
+const gestionActiveRoutes = GESTION_REPORT_ITEMS.filter((item) =>
+  isActiveGestionReport(item.id)
+).map((item) => ({
+  path: item.path,
+  title: item.name,
+  component: ManagementOperationalReportPage,
+  requiresAuth: true,
+  roles: [],
+}));
 const auditReportsRoutes = buildPlaceholderRoutes(AUDIT_REPORT_ITEMS, "Reportes Auditoría");
 const reportsRoutes = [
   ...reportIndexRoutes,
-  {
-    path: "/reports/gestion/resumen-ejecutivo-general",
-    title: "Resumen Ejecutivo General",
-    component: ExecutiveSummaryGeneralReportPage,
-    requiresAuth: true,
-    roles: [],
-  },
+  ...gestionActiveRoutes,
   ...gestionReportsRoutes,
   ...auditReportsRoutes,
 ];
