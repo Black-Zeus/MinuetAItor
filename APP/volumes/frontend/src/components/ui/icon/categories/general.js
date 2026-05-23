@@ -2,6 +2,7 @@
 import {
   // Iconos que no encajan perfectamente en otras categorías
   FaBrain,
+  FaRobot,
   FaCode,
   FaTerminal,
   FaFlask,
@@ -33,6 +34,7 @@ import {
 export const generalIcons = {
   // Tecnología
   brain: FaBrain,
+  robot: FaRobot,
   code: FaCode,
   terminal: FaTerminal,
   flask: FaFlask,
@@ -44,6 +46,7 @@ export const generalIcons = {
   chartPie: FaChartPie,
   diagram: FaDiagramProject,
   diagramProject: FaDiagramProject,
+  projectDiagram: FaDiagramProject,
   gauge: FaGaugeHigh,
   branch: FaCodeBranch,
   
@@ -71,6 +74,7 @@ export const generalIcons = {
   
   // Compatibilidad con nombres Fa...
   FaBrain,
+  FaRobot,
   FaCode,
   FaTerminal,
   FaFlask,
@@ -79,6 +83,7 @@ export const generalIcons = {
   FaChartBar,
   FaChartPie,
   FaDiagramProject,
+  FaProjectDiagram: FaDiagramProject,
   FaGaugeHigh,
   FaCodeBranch,
   FaMobile,
