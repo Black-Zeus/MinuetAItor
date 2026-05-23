@@ -25,6 +25,9 @@ import {
 } from "@/services/minutesService";
 import projectService from "@/services/projectService";
 import { previewReportPdfBlob } from "@/services/reportsService";
+import aiProviderConfigService from "@/services/aiProviderConfigService";
+import systemMaintenanceService from "@/services/systemMaintenanceService";
+import systemQueueService from "@/services/systemQueueService";
 import teamsService from "@/services/teamsService";
 import { formatNumber } from "@/utils/formats";
 import logger from "@/utils/logger";
@@ -52,6 +55,47 @@ const DEFAULT_VISIBLE_FILTERS = {
   responsible: false,
   status: false,
 };
+
+const SYSTEM_REPORT_VISIBLE_FILTERS = {
+  dateFrom: true,
+  dateTo: true,
+  client: false,
+  project: false,
+  responsible: false,
+  status: true,
+};
+
+const SYSTEM_NO_STATUS_VISIBLE_FILTERS = {
+  dateFrom: true,
+  dateTo: true,
+  client: false,
+  project: false,
+  responsible: false,
+  status: false,
+};
+
+const QUEUE_STATUS_FILTER_OPTIONS = [
+  { value: "idle", label: "Sin carga" },
+  { value: "active", label: "Con carga" },
+  { value: "warning", label: "Advertencia" },
+  { value: "critical", label: "Crítico" },
+];
+
+const PROVIDER_VALIDATION_STATUS_OPTIONS = [
+  { value: "valid", label: "Válido" },
+  { value: "unvalidated", label: "Sin validar" },
+  { value: "error", label: "Error" },
+  { value: "timeout", label: "Timeout" },
+  { value: "model_not_found", label: "Modelo no encontrado" },
+];
+
+const MAINTENANCE_RUNTIME_STATUS_OPTIONS = [
+  { value: "queued", label: "En cola" },
+  { value: "running", label: "En curso" },
+  { value: "success", label: "OK" },
+  { value: "error", label: "Error" },
+  { value: "warning", label: "Advertencia" },
+];
 
 const STATUS_FILTER_OPTIONS = [
   { value: "in-progress", label: "En procesamiento" },
@@ -131,6 +175,21 @@ const SORTERS = {
   isConfidential: (row) => (row.isConfidential ? 1 : 0),
   isActive: (row) => (row.isActive ? 1 : 0),
   autoSendCount: (row) => row.autoSendCount ?? 0,
+  queue: (row) => row.queue ?? row.label ?? "",
+  size: (row) => row.size ?? 0,
+  warningThreshold: (row) => row.warningThreshold ?? 0,
+  loadPercent: (row) => row.loadPercent ?? 0,
+  priority: (row) => row.priority ?? "",
+  consumer: (row) => row.consumer ?? "",
+  monitoringEnabled: (row) => (row.monitoringEnabled ? 1 : 0),
+  alertActive: (row) => (row.alertActive ? 1 : 0),
+  lastAlertAt: (row) => row.lastAlertAtTimestamp ?? 0,
+  runtimeScope: (row) => row.runtimeScope ?? "",
+  affectedCount: (row) => row.affectedCount ?? 0,
+  provider: (row) => row.provider ?? row.label ?? "",
+  providerType: (row) => row.providerType ?? "",
+  model: (row) => row.model ?? "",
+  lastValidatedAt: (row) => row.lastValidatedAtTimestamp ?? 0,
   percentage: (row) => row.percentageRaw ?? 0,
   reprocessReady: (row) => (row.canReprocess ? 1 : 0),
   reprocessReason: (row) => row.reprocessReasonLabel ?? "",
@@ -588,6 +647,140 @@ const normalizeProjectCatalogRecord = (project, index) => {
     createdAtLabel: createdAt ? formatDateLabel(createdAt) : "Sin fecha",
     createdAtTimestamp: parsedCreatedAt?.getTime?.() ?? 0,
   };
+};
+
+const normalizeQueueStatusRecord = (item, index, refreshedAt = null) => {
+  const rawDate = item?.lastActivityAt ?? item?.last_activity_at ?? refreshedAt;
+  const parsedDate = parseFlexibleDate(rawDate);
+  const statusKey = String(item?.status ?? "").trim() || "idle";
+  const statusLabel = item?.statusLabel ?? item?.status_label ?? statusKey;
+  const alertState = item?.alertState ?? item?.alert_state ?? {};
+  const lastAlertAt = alertState?.lastAlertAt ?? alertState?.last_alert_at ?? null;
+  const parsedLastAlertAt = parseFlexibleDate(lastAlertAt);
+
+  return {
+    id: item?.queue ?? `queue-row-${index + 1}`,
+    queue: item?.queue ?? "queue:unknown",
+    label: item?.label ?? item?.queue ?? "Cola sin nombre",
+    description: item?.description ?? "",
+    dateLabel: formatDateTimeLabel(rawDate),
+    dateInput: toInputDate(rawDate),
+    dateTimestamp: parsedDate?.getTime?.() ?? 0,
+    lastActivityLabel: rawDate ? formatDateTimeLabel(rawDate) : "Sin actividad",
+    consumer: item?.consumer ?? "Sin consumidor",
+    priority: item?.priority ?? "Sin prioridad",
+    size: Number(item?.size ?? 0),
+    monitoringEnabled: Boolean(item?.monitoringEnabled ?? item?.monitoring_enabled ?? false),
+    warningThreshold: Number(item?.warningThreshold ?? item?.warning_threshold ?? 0),
+    loadPercent: Number(item?.loadPercent ?? item?.load_percent ?? 0),
+    statusKey,
+    statusLabel,
+    status: getStatusPresentation(statusKey, statusLabel),
+    isWarning: Boolean(item?.isWarning ?? item?.is_warning ?? false),
+    alertActive: Boolean(alertState?.alertActive ?? alertState?.alert_active ?? item?.isWarning ?? false),
+    lastAlertAtLabel: lastAlertAt ? formatDateTimeLabel(lastAlertAt) : "Sin alerta",
+    lastAlertAtTimestamp: parsedLastAlertAt?.getTime?.() ?? 0,
+    jobTypesLabel: Array.isArray(item?.jobTypes ?? item?.job_types)
+      ? (item.jobTypes ?? item.job_types).join(", ")
+      : "Sin tipos",
+  };
+};
+
+const normalizeMaintenanceRuntimeRecord = (scope, runtime = {}, index = 0) => {
+  const lastEnqueuedAt = runtime?.lastEnqueuedAt ?? runtime?.last_enqueued_at ?? null;
+  const lastStartedAt = runtime?.lastStartedAt ?? runtime?.last_started_at ?? null;
+  const lastFinishedAt = runtime?.lastFinishedAt ?? runtime?.last_finished_at ?? null;
+  const rawDate = lastFinishedAt || lastStartedAt || lastEnqueuedAt;
+  const parsedDate = parseFlexibleDate(rawDate);
+  const statusKey = String(runtime?.lastStatus ?? runtime?.last_status ?? "sin-ejecucion").trim();
+  const statusLabel =
+    MAINTENANCE_RUNTIME_STATUS_OPTIONS.find((option) => option.value === statusKey)?.label ??
+    "Sin ejecuciones";
+
+  return {
+    id: `runtime-${scope}-${index + 1}`,
+    runtimeScope: scope,
+    label: scope === "session_cleanup" ? "Limpieza de sesiones" : "Limpieza de temporales",
+    dateLabel: rawDate ? formatDateTimeLabel(rawDate) : "Sin fecha",
+    dateInput: toInputDate(rawDate),
+    dateTimestamp: parsedDate?.getTime?.() ?? 0,
+    lastEnqueuedAtLabel: lastEnqueuedAt ? formatDateTimeLabel(lastEnqueuedAt) : "Sin registro",
+    lastStartedAtLabel: lastStartedAt ? formatDateTimeLabel(lastStartedAt) : "Sin registro",
+    lastFinishedAtLabel: lastFinishedAt ? formatDateTimeLabel(lastFinishedAt) : "Sin registro",
+    statusKey,
+    statusLabel,
+    status: getStatusPresentation(statusKey, statusLabel),
+    message: runtime?.lastMessage ?? runtime?.last_message ?? "Sin mensaje registrado",
+    affectedCount: Number(runtime?.affectedCount ?? runtime?.affected_count ?? 0),
+  };
+};
+
+const normalizeProviderValidationRecord = (item, index) => {
+  const validationDate = item?.lastValidatedAt ?? item?.last_validated_at ?? null;
+  const rawDate =
+    validationDate ??
+    item?.updatedAt ??
+    item?.updated_at ??
+    item?.createdAt ??
+    item?.created_at ??
+    new Date().toISOString();
+  const parsedDate = parseFlexibleDate(rawDate);
+  const statusKey = String(item?.validationStatus ?? item?.validation_status ?? "unvalidated").trim();
+  const statusLabel =
+    PROVIDER_VALIDATION_STATUS_OPTIONS.find((option) => option.value === statusKey)?.label ??
+    statusKey;
+
+  return {
+    id: item?.id ?? `provider-row-${index + 1}`,
+    provider: item?.name ?? item?.label ?? `Provider ${index + 1}`,
+    label: item?.name ?? item?.label ?? `Provider ${index + 1}`,
+    providerType: item?.providerType ?? item?.provider_type ?? "Sin tipo",
+    model: item?.model ?? item?.defaultModel ?? item?.default_model ?? "Sin modelo",
+    dateLabel: rawDate ? formatDateTimeLabel(rawDate) : "Sin fecha",
+    dateInput: toInputDate(rawDate),
+    dateTimestamp: parsedDate?.getTime?.() ?? 0,
+    lastValidatedAtLabel: validationDate ? formatDateTimeLabel(validationDate) : "Sin validación",
+    lastValidatedAtTimestamp: parseFlexibleDate(validationDate)?.getTime?.() ?? 0,
+    statusKey,
+    statusLabel,
+    status: getStatusPresentation(statusKey, statusLabel),
+    isActive: Boolean(item?.isActive ?? item?.is_active ?? false),
+    errorMessage: item?.lastError ?? item?.last_error ?? "",
+  };
+};
+
+const buildSystemAlertsFromSnapshots = ({ queueSnapshot, maintenanceStatus }) => {
+  const rows = [];
+  const refreshedAt = queueSnapshot?.refreshedAt ?? queueSnapshot?.refreshed_at ?? new Date().toISOString();
+
+  (Array.isArray(queueSnapshot?.queues) ? queueSnapshot.queues : []).forEach((queue, index) => {
+    const normalized = normalizeQueueStatusRecord(queue, index, refreshedAt);
+    if (!normalized.alertActive && !normalized.isWarning) return;
+    rows.push({
+      ...normalized,
+      id: `alert-${normalized.queue}`,
+      alertType: "Cola",
+      title: `${normalized.label} en alerta`,
+      message: `${normalized.queue} registra ${formatNumber(normalized.size)} job(s) con umbral ${formatNumber(normalized.warningThreshold)}.`,
+    });
+  });
+
+  [
+    ["session_cleanup", maintenanceStatus?.sessionCleanup ?? maintenanceStatus?.session_cleanup],
+    ["temp_cleanup", maintenanceStatus?.tempCleanup ?? maintenanceStatus?.temp_cleanup],
+  ].forEach(([scope, runtime], index) => {
+    const normalized = normalizeMaintenanceRuntimeRecord(scope, runtime ?? {}, index);
+    if (!["error", "warning"].includes(normalized.statusKey)) return;
+    rows.push({
+      ...normalized,
+      id: `alert-${scope}`,
+      alertType: "Rutina",
+      title: `${normalized.label}: ${normalized.statusLabel}`,
+      message: normalized.message,
+    });
+  });
+
+  return rows;
 };
 
 const buildSummaryCard = (label, value, helper, icon, tone) => ({
@@ -2596,6 +2789,182 @@ const buildProjectLoadColumns = () => [
   ...buildClientLoadColumns().filter((column) => column.key !== "client"),
 ];
 
+const buildQueueColumns = () => [
+  {
+    key: "queue",
+    label: "Cola",
+    sortable: true,
+    sortKey: "queue",
+    exportValue: (row) => row.queue,
+    render: (row) => (
+      <div className="min-w-[220px]">
+        <p className="font-semibold text-gray-900 dark:text-white">{row.label}</p>
+        <p className="mt-1 font-mono text-xs text-gray-500 dark:text-gray-400">{row.queue}</p>
+      </div>
+    ),
+  },
+  {
+    key: "status",
+    label: "Estado",
+    sortable: true,
+    sortKey: "status",
+    exportValue: (row) => row.statusLabel,
+    render: (row) => row.statusLabel,
+  },
+  {
+    key: "size",
+    label: "Backlog",
+    sortable: true,
+    sortKey: "size",
+    exportValue: (row) => formatNumber(row.size),
+    render: (row) => formatNumber(row.size),
+  },
+  {
+    key: "warningThreshold",
+    label: "Umbral",
+    sortable: true,
+    sortKey: "warningThreshold",
+    exportValue: (row) => formatNumber(row.warningThreshold),
+    render: (row) => formatNumber(row.warningThreshold),
+  },
+  {
+    key: "loadPercent",
+    label: "% carga",
+    sortable: true,
+    sortKey: "loadPercent",
+    exportValue: (row) => formatPercent(row.loadPercent),
+    render: (row) => formatPercent(row.loadPercent),
+  },
+  {
+    key: "monitoringEnabled",
+    label: "Monitoreo",
+    sortable: true,
+    sortKey: "monitoringEnabled",
+    exportValue: (row) => getBooleanLabel(row.monitoringEnabled),
+    render: (row) => renderBooleanBadge(row.monitoringEnabled),
+  },
+  {
+    key: "consumer",
+    label: "Consumidor",
+    sortable: true,
+    sortKey: "consumer",
+    exportValue: (row) => row.consumer,
+    render: (row) => row.consumer,
+  },
+  {
+    key: "lastActivity",
+    label: "Última actividad",
+    sortable: true,
+    sortKey: "date",
+    exportValue: (row) => row.lastActivityLabel,
+    render: (row) => row.lastActivityLabel,
+  },
+];
+
+const buildProviderValidationColumns = () => [
+  {
+    key: "provider",
+    label: "Provider",
+    sortable: true,
+    sortKey: "provider",
+    exportValue: (row) => row.provider,
+    render: (row) => row.provider,
+  },
+  {
+    key: "providerType",
+    label: "Tipo",
+    sortable: true,
+    sortKey: "providerType",
+    exportValue: (row) => row.providerType,
+    render: (row) => row.providerType,
+  },
+  {
+    key: "model",
+    label: "Modelo",
+    sortable: true,
+    sortKey: "model",
+    exportValue: (row) => row.model,
+    render: (row) => row.model,
+  },
+  {
+    key: "status",
+    label: "Validación",
+    sortable: true,
+    sortKey: "status",
+    exportValue: (row) => row.statusLabel,
+    render: (row) => row.statusLabel,
+  },
+  {
+    key: "isActive",
+    label: "Activo",
+    sortable: true,
+    sortKey: "isActive",
+    exportValue: (row) => getBooleanLabel(row.isActive),
+    render: (row) => renderBooleanBadge(row.isActive),
+  },
+  {
+    key: "lastValidatedAt",
+    label: "Última validación",
+    sortable: true,
+    sortKey: "lastValidatedAt",
+    exportValue: (row) => row.lastValidatedAtLabel,
+    render: (row) => row.lastValidatedAtLabel,
+  },
+  {
+    key: "errorMessage",
+    label: "Último error",
+    sortable: true,
+    sortKey: "errorMessage",
+    exportValue: (row) => row.errorMessage || "—",
+    cellClassName: "min-w-[280px]",
+    render: (row) => row.errorMessage || "—",
+  },
+];
+
+const buildSystemAlertColumns = () => [
+  {
+    key: "alertType",
+    label: "Tipo",
+    sortable: true,
+    sortKey: "statusLabel",
+    exportValue: (row) => row.alertType,
+    render: (row) => row.alertType,
+  },
+  {
+    key: "title",
+    label: "Alerta",
+    sortable: true,
+    sortKey: "title",
+    exportValue: (row) => row.title,
+    render: (row) => row.title,
+  },
+  {
+    key: "status",
+    label: "Estado",
+    sortable: true,
+    sortKey: "status",
+    exportValue: (row) => row.statusLabel,
+    render: (row) => row.statusLabel,
+  },
+  {
+    key: "date",
+    label: "Fecha",
+    sortable: true,
+    sortKey: "date",
+    exportValue: (row) => row.dateLabel,
+    render: (row) => row.dateLabel,
+  },
+  {
+    key: "message",
+    label: "Detalle",
+    sortable: true,
+    sortKey: "errorMessage",
+    exportValue: (row) => row.message,
+    cellClassName: "min-w-[360px]",
+    render: (row) => row.message,
+  },
+];
+
 const defaultMinuteOrder = (rows = []) =>
   [...rows].sort((left, right) => {
     if (left.dateTimestamp !== right.dateTimestamp) {
@@ -3181,6 +3550,161 @@ const buildProjectLoadSummaryCards = ({ minuteRows, reportRows }) => [
     "Registros abiertos considerados en el puntaje",
     "clock",
     "rose"
+  ),
+];
+
+const buildQueueStatusSummaryCards = ({ reportRows }) => [
+  buildSummaryCard(
+    "Colas monitoreadas",
+    reportRows.length,
+    "Colas operativas incluidas en la lectura actual",
+    "clipboardList",
+    "sky"
+  ),
+  buildSummaryCard(
+    "Backlog total",
+    reportRows.reduce((sum, row) => sum + Number(row.size ?? 0), 0),
+    "Suma de jobs pendientes en todas las colas",
+    "clock",
+    "emerald"
+  ),
+  buildSummaryCard(
+    "Alertas activas",
+    reportRows.filter((row) => row.alertActive || row.isWarning).length,
+    "Colas que superan umbral o requieren revisión",
+    "filter",
+    "amber"
+  ),
+  buildSummaryCard(
+    "DLQ pendiente",
+    reportRows.find((row) => row.queue === "queue:dlq")?.size ?? 0,
+    "Jobs fallidos apartados para revisión manual",
+    "bug",
+    "rose"
+  ),
+];
+
+const buildProcessingFailureSummaryCards = ({ minuteRows }) => [
+  buildSummaryCard(
+    "Fallos visibles",
+    minuteRows.length,
+    "Minutas en estado de error dentro del filtro",
+    "bug",
+    "sky"
+  ),
+  buildSummaryCard(
+    "Fallo IA",
+    minuteRows.filter((row) => row.status.key === "llm-failed").length,
+    "Errores asociados al procesamiento IA",
+    "brain",
+    "amber"
+  ),
+  buildSummaryCard(
+    "Error de proceso",
+    minuteRows.filter((row) => row.status.key === "processing-error").length,
+    "Errores técnicos del flujo operacional",
+    "filter",
+    "rose"
+  ),
+  buildSummaryCard(
+    "Reprocesables",
+    minuteRows.filter((row) => row.canReprocess).length,
+    "Registros con reproceso disponible",
+    "arrowsRotate",
+    "emerald"
+  ),
+];
+
+const buildRecoverySummaryCards = ({ minuteRows }) => [
+  buildSummaryCard(
+    "Reprocesos",
+    minuteRows.length,
+    "Intentos históricos visibles en el filtro",
+    "arrowsRotate",
+    "sky"
+  ),
+  buildSummaryCard(
+    "Recuperados",
+    minuteRows.filter((row) => row.status.key === "completed").length,
+    "Intentos que cerraron correctamente",
+    "checkCircle",
+    "emerald"
+  ),
+  buildSummaryCard(
+    "Con error",
+    minuteRows.filter((row) => ["llm-failed", "processing-error"].includes(row.status.key)).length,
+    "Intentos que terminaron con falla",
+    "bug",
+    "rose"
+  ),
+  buildSummaryCard(
+    "Minutas afectadas",
+    new Set(minuteRows.map((row) => row.rawId).filter(Boolean)).size,
+    "Minutas únicas con historial de reproceso",
+    "fileLines",
+    "amber"
+  ),
+];
+
+const buildProviderValidationSummaryCards = ({ reportRows }) => [
+  buildSummaryCard(
+    "Providers",
+    reportRows.length,
+    "Configuraciones IA visibles",
+    "database",
+    "sky"
+  ),
+  buildSummaryCard(
+    "Válidos",
+    reportRows.filter((row) => row.statusKey === "valid").length,
+    "Providers validados correctamente",
+    "checkCircle",
+    "emerald"
+  ),
+  buildSummaryCard(
+    "Con error",
+    reportRows.filter((row) => !["valid", "unvalidated"].includes(row.statusKey)).length,
+    "Providers con error o validación fallida",
+    "bug",
+    "rose"
+  ),
+  buildSummaryCard(
+    "Sin validar",
+    reportRows.filter((row) => row.statusKey === "unvalidated").length,
+    "Configuraciones pendientes de validación",
+    "clock",
+    "amber"
+  ),
+];
+
+const buildSystemAlertSummaryCards = ({ reportRows }) => [
+  buildSummaryCard(
+    "Alertas",
+    reportRows.length,
+    "Eventos operativos activos o últimos errores relevantes",
+    "filter",
+    "sky"
+  ),
+  buildSummaryCard(
+    "Colas",
+    reportRows.filter((row) => row.alertType === "Cola").length,
+    "Alertas provenientes de monitoreo de colas",
+    "clipboardList",
+    "amber"
+  ),
+  buildSummaryCard(
+    "Rutinas",
+    reportRows.filter((row) => row.alertType === "Rutina").length,
+    "Alertas provenientes de rutinas de mantenimiento",
+    "arrowsRotate",
+    "rose"
+  ),
+  buildSummaryCard(
+    "Críticas",
+    reportRows.filter((row) => row.statusKey === "critical" || row.statusKey === "error").length,
+    "Alertas con estado crítico o error",
+    "bug",
+    "emerald"
   ),
 ];
 
@@ -3856,6 +4380,260 @@ const REPORT_DEFINITIONS = [
     ],
     columns: buildProjectLoadColumns(),
   },
+  {
+    id: "gestion-queue-status",
+    path: "/reports/management/queue-status",
+    title: "Estado de Colas",
+    description:
+      "Muestra carga, umbrales, alertas y actividad reciente de las colas operativas del sistema.",
+    pdfSlug: "estado-colas",
+    pdfReportKey: "gestion-estado-colas",
+    pdfDescription:
+      "Salida operacional del estado de colas Redis, umbrales configurados y señales de alerta.",
+    tableDescription:
+      "Detalle por cola con backlog, umbral, porcentaje de carga, monitoreo y última actividad registrada.",
+    dataSource: "system-queues",
+    disableFallback: true,
+    defaultVisibleFilters: SYSTEM_REPORT_VISIBLE_FILTERS,
+    statusFilterOptions: QUEUE_STATUS_FILTER_OPTIONS,
+    buildRows: ({ minuteRows }) => minuteRows,
+    buildDefaultRowsOrder: (rows) => [...rows].sort((left, right) => (right.size ?? 0) - (left.size ?? 0)),
+    buildSummaryCards: buildQueueStatusSummaryCards,
+    buildCharts: ({ reportRows }) => [
+      {
+        key: "queue-backlog",
+        type: "bar",
+        title: "Backlog por cola",
+        subtitle: "Compara cuántos jobs pendientes registra cada cola operacional.",
+        footer: "La lectura proviene del endpoint de estado de colas del sistema.",
+        data: buildReportRowDistribution(reportRows, "label", "size", 8, { includeZero: true }),
+        seriesName: "Jobs",
+      },
+      {
+        key: "queue-status",
+        type: "status",
+        title: "Distribución por estado",
+        subtitle: "Agrupa las colas según su estado operativo actual.",
+        footer: "El estado considera tamaño, umbral y reglas especiales para DLQ.",
+        data: buildStatusDistribution(reportRows),
+      },
+    ],
+    columns: buildQueueColumns(),
+  },
+  {
+    id: "gestion-backlog",
+    path: "/reports/management/operational-backlog",
+    title: "Backlog Operacional",
+    description:
+      "Resume la acumulación de trabajo pendiente y el riesgo de demora por cola.",
+    pdfSlug: "backlog-operacional",
+    pdfReportKey: "gestion-backlog-operacional",
+    pdfDescription:
+      "Salida ejecutiva sobre acumulación de jobs pendientes por cola y relación con umbrales operativos.",
+    tableDescription:
+      "Detalle de colas con backlog pendiente, porcentaje de carga y señales de alerta.",
+    dataSource: "system-queues",
+    disableFallback: true,
+    defaultVisibleFilters: SYSTEM_REPORT_VISIBLE_FILTERS,
+    statusFilterOptions: QUEUE_STATUS_FILTER_OPTIONS,
+    filterMinuteRows: (rows) => rows.filter((row) => Number(row.size ?? 0) > 0),
+    buildRows: ({ minuteRows }) => minuteRows,
+    buildDefaultRowsOrder: (rows) => [...rows].sort((left, right) => (right.loadPercent ?? 0) - (left.loadPercent ?? 0)),
+    buildSummaryCards: buildQueueStatusSummaryCards,
+    buildCharts: ({ reportRows }) => [
+      {
+        key: "backlog-load",
+        type: "bar",
+        title: "Carga relativa por cola",
+        subtitle: "Ordena colas con backlog por porcentaje respecto de su umbral.",
+        footer: "El porcentaje permite comparar colas con umbrales distintos.",
+        data: buildReportRowDistribution(reportRows, "label", "loadPercent", 8),
+        seriesName: "% carga",
+      },
+      {
+        key: "backlog-size",
+        type: "bar",
+        title: "Backlog absoluto",
+        subtitle: "Muestra el volumen de jobs pendientes por cola.",
+        footer: "La comparación usa solo colas con trabajos pendientes.",
+        data: buildReportRowDistribution(reportRows, "label", "size", 8),
+        seriesName: "Jobs",
+      },
+    ],
+    columns: buildQueueColumns(),
+  },
+  {
+    id: "gestion-processing-failures",
+    path: "/reports/management/processing-failures",
+    title: "Fallos de Procesamiento",
+    description:
+      "Identifica minutas en estado de error y señales operativas de reproceso.",
+    pdfSlug: "fallos-procesamiento",
+    pdfReportKey: "gestion-fallos-procesamiento",
+    pdfDescription:
+      "Salida operacional de minutas con error de IA o error técnico de procesamiento.",
+    tableDescription:
+      "Detalle de minutas fallidas con cliente, proyecto, responsable, estado, error visible y tokens.",
+    filterMinuteRows: (rows) =>
+      rows.filter((row) => ["llm-failed", "processing-error"].includes(row.status.key)),
+    defaultVisibleFilters: {
+      ...DEFAULT_VISIBLE_FILTERS,
+      status: true,
+    },
+    statusFilterOptions: [
+      { value: "llm-failed", label: "Fallo IA" },
+      { value: "processing-error", label: "Error de proceso" },
+    ],
+    buildRows: ({ minuteRows }) => minuteRows,
+    buildDefaultRowsOrder: defaultMinuteOrder,
+    buildSummaryCards: buildProcessingFailureSummaryCards,
+    buildCharts: ({ minuteRows }) => [
+      {
+        key: "failure-status",
+        type: "status",
+        title: "Fallos por estado",
+        subtitle: "Distingue errores IA de errores técnicos de procesamiento.",
+        footer: "La distribución usa el universo filtrado del reporte.",
+        data: buildStatusDistribution(minuteRows),
+      },
+      {
+        key: "failure-clients",
+        type: "bar",
+        title: "Fallos por cliente",
+        subtitle: "Clientes donde se concentran minutas con error.",
+        footer: "La barra ayuda a priorizar revisión operacional.",
+        data: buildActivityDistribution(minuteRows, "client"),
+        seriesName: "Fallos",
+      },
+    ],
+    columns: buildReprocessColumns(),
+  },
+  {
+    id: "gestion-recovery",
+    path: "/reports/management/reprocess-and-recovery",
+    title: "Reprocesos y Recuperación",
+    description:
+      "Revisa intentos de reproceso, resultados y recuperación de flujos fallidos.",
+    pdfSlug: "reprocesos-recuperacion",
+    pdfReportKey: "gestion-reprocesos-recuperacion",
+    pdfDescription:
+      "Salida operacional del historial de reprocesos, con foco en recuperación y fallos persistentes.",
+    tableDescription:
+      "Detalle histórico de reprocesos con resultado, error visible y consumo de tokens asociado.",
+    dataSource: "reprocess-history",
+    defaultVisibleFilters: {
+      ...SYSTEM_REPORT_VISIBLE_FILTERS,
+      client: true,
+      project: true,
+    },
+    statusFilterOptions: REPROCESS_STATUS_FILTER_OPTIONS,
+    buildRows: ({ minuteRows }) => minuteRows,
+    buildDefaultRowsOrder: defaultMinuteOrder,
+    buildSummaryCards: buildRecoverySummaryCards,
+    buildCharts: ({ minuteRows }) => [
+      {
+        key: "recovery-status",
+        type: "status",
+        title: "Resultado de reprocesos",
+        subtitle: "Distribuye intentos recuperados, fallidos o aún en tránsito.",
+        footer: "Cada fila representa un intento histórico de reproceso.",
+        data: buildStatusDistribution(minuteRows),
+      },
+      {
+        key: "recovery-reasons",
+        type: "bar",
+        title: "Señales de reproceso",
+        subtitle: "Agrupa las causas o señales registradas para reprocesar.",
+        footer: "La causa proviene del historial operativo disponible.",
+        data: buildReprocessReasonDistribution(minuteRows),
+        seriesName: "Intentos",
+      },
+    ],
+    columns: buildReprocessColumns(),
+  },
+  {
+    id: "gestion-provider-validation",
+    path: "/reports/management/ai-provider-validation",
+    title: "Validación de Providers IA",
+    description:
+      "Controla el estado de validación de providers IA y sus últimos errores registrados.",
+    pdfSlug: "validacion-providers-ia",
+    pdfReportKey: "gestion-validacion-providers-ia",
+    pdfDescription:
+      "Salida administrativa del estado de validación de providers y modelos IA configurados.",
+    tableDescription:
+      "Detalle de providers IA con estado de validación, modelo asociado, fecha de validación y último error.",
+    dataSource: "provider-validation",
+    disableFallback: true,
+    defaultVisibleFilters: SYSTEM_REPORT_VISIBLE_FILTERS,
+    statusFilterOptions: PROVIDER_VALIDATION_STATUS_OPTIONS,
+    buildRows: ({ minuteRows }) => minuteRows,
+    buildDefaultRowsOrder: (rows) => [...rows].sort((left, right) => compareByLabel(left.provider, right.provider)),
+    buildSummaryCards: buildProviderValidationSummaryCards,
+    buildCharts: ({ reportRows }) => [
+      {
+        key: "provider-validation-status",
+        type: "status",
+        title: "Estado de validación",
+        subtitle: "Distribuye providers por resultado de validación.",
+        footer: "El estado proviene del catálogo de configuración IA.",
+        data: buildStatusDistribution(reportRows),
+      },
+      {
+        key: "provider-types",
+        type: "bar",
+        title: "Providers por tipo",
+        subtitle: "Agrupa configuraciones IA por proveedor/adaptador.",
+        footer: "Permite revisar concentración por tecnología.",
+        data: buildActivityDistribution(reportRows, "providerType"),
+        seriesName: "Providers",
+      },
+    ],
+    columns: buildProviderValidationColumns(),
+  },
+  {
+    id: "gestion-system-alerts",
+    path: "/reports/management/system-alerts",
+    title: "Alertas del Sistema",
+    description:
+      "Consolida alertas operativas relevantes desde colas y rutinas de mantenimiento.",
+    pdfSlug: "alertas-sistema",
+    pdfReportKey: "gestion-alertas-sistema",
+    pdfDescription:
+      "Salida operacional de alertas activas o últimos errores relevantes detectados por el sistema.",
+    tableDescription:
+      "Detalle de alertas de colas y rutinas con estado, fecha y descripción operacional.",
+    dataSource: "system-alerts",
+    disableFallback: true,
+    defaultVisibleFilters: SYSTEM_REPORT_VISIBLE_FILTERS,
+    statusFilterOptions: [
+      ...QUEUE_STATUS_FILTER_OPTIONS,
+      ...MAINTENANCE_RUNTIME_STATUS_OPTIONS,
+    ],
+    buildRows: ({ minuteRows }) => minuteRows,
+    buildDefaultRowsOrder: defaultMinuteOrder,
+    buildSummaryCards: buildSystemAlertSummaryCards,
+    buildCharts: ({ reportRows }) => [
+      {
+        key: "alerts-type",
+        type: "bar",
+        title: "Alertas por tipo",
+        subtitle: "Separa alertas de colas y rutinas de mantenimiento.",
+        footer: "La vista contiene alertas activas y errores operativos relevantes.",
+        data: buildActivityDistribution(reportRows, "alertType"),
+        seriesName: "Alertas",
+      },
+      {
+        key: "alerts-status",
+        type: "status",
+        title: "Alertas por estado",
+        subtitle: "Agrupa las alertas visibles por su estado operativo.",
+        footer: "Permite distinguir advertencias de estados críticos o errores.",
+        data: buildStatusDistribution(reportRows),
+      },
+    ],
+    columns: buildSystemAlertColumns(),
+  },
 ];
 
 const REPORT_CONFIG_BY_PATH = Object.fromEntries(
@@ -4048,6 +4826,16 @@ const ManagementOperationalReportPage = () => {
           rowsResult = await listMinuteReprocessHistory({ skip: 0, limit: 1000 }, requestConfig);
         } else if (reportConfig?.dataSource === "cycle-times") {
           rowsResult = await listMinuteCycleTimes({ skip: 0, limit: 1000 }, requestConfig);
+        } else if (reportConfig?.dataSource === "system-queues") {
+          rowsResult = await systemQueueService.getStatus();
+        } else if (reportConfig?.dataSource === "provider-validation") {
+          rowsResult = await aiProviderConfigService.list({ skip: 0, limit: 200, isActive: null }, requestConfig);
+        } else if (reportConfig?.dataSource === "system-alerts") {
+          const [queueSnapshot, maintenanceStatus] = await Promise.all([
+            systemQueueService.getStatus(),
+            systemMaintenanceService.getStatus(),
+          ]);
+          rowsResult = { queueSnapshot, maintenanceStatus };
         } else {
           rowsResult = await listMinutes({ skip: 0, limit: 300 }, requestConfig);
         }
@@ -4063,6 +4851,17 @@ const ManagementOperationalReportPage = () => {
           nextRows = (Array.isArray(rowsResult?.items) ? rowsResult.items : []).map(
             normalizeCycleTimeRecord
           );
+        } else if (reportConfig?.dataSource === "system-queues") {
+          const refreshedAt = rowsResult?.refreshedAt ?? rowsResult?.refreshed_at ?? new Date().toISOString();
+          nextRows = (Array.isArray(rowsResult?.queues) ? rowsResult.queues : []).map((item, index) =>
+            normalizeQueueStatusRecord(item, index, refreshedAt)
+          );
+        } else if (reportConfig?.dataSource === "provider-validation") {
+          nextRows = (Array.isArray(rowsResult?.items) ? rowsResult.items : []).map(
+            normalizeProviderValidationRecord
+          );
+        } else if (reportConfig?.dataSource === "system-alerts") {
+          nextRows = buildSystemAlertsFromSnapshots(rowsResult);
         } else {
           nextRows = (Array.isArray(rowsResult?.minutes) ? rowsResult.minutes : []).map(
             normalizeMinuteRecord
@@ -4077,7 +4876,12 @@ const ManagementOperationalReportPage = () => {
           `No se pudo cargar el reporte ${reportConfig?.id ?? "gestion"} desde API.`,
           error
         );
-        loadFallbackData();
+        if (reportConfig?.disableFallback) {
+          setRawRows([]);
+          setUsingFallbackData(false);
+        } else {
+          loadFallbackData();
+        }
       } finally {
         if (!requestScope.wasAborted(requestConfig.signal)) {
           startTransition(() => {
@@ -4339,7 +5143,7 @@ const ManagementOperationalReportPage = () => {
       title={reportConfig.title}
       description={reportConfig.description}
       filterFields={filterFields}
-      defaultVisibleFilters={DEFAULT_VISIBLE_FILTERS}
+      defaultVisibleFilters={reportConfig.defaultVisibleFilters ?? DEFAULT_VISIBLE_FILTERS}
       filterValues={draftFilters}
       onFilterChange={handleFilterChange}
       onApplyFilters={handleApplyFilters}

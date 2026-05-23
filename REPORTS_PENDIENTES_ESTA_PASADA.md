@@ -27,10 +27,48 @@
 - Proyectos sin Actividad Documental Reciente
 - Clientes con Mayor Carga Documental
 - Proyectos con Mayor Carga Documental
+- Estado de Colas
+- Backlog Operacional
+- Fallos de Procesamiento
+- Reprocesos y Recuperación
+- Validación de Providers IA
+- Alertas del Sistema
 
 ## Pendientes de gestión
 
-### Requerimientos y Compromisos
+Orden recomendado de generación: avanzar primero por lo que ya tiene fuentes más cercanas y dejar al final lo que exige mayor consolidación o cambio de modelo.
+
+### 1. Etiquetas y Tendencias
+
+- Minutas por Tag
+- Tags AI Detectados
+- Conversión AI Tag -> Tag Operacional
+- Tendencias Temáticas
+  Motivo: existen modelos, catálogos y relaciones para tags operacionales, tags IA y conversiones. Requiere agregación y exposición homogénea para reportería, pero la base de datos ya contiene estructuras explícitas para el dominio.
+
+Prioridad interna sugerida:
+- Minutas por Tag
+- Tags AI Detectados
+- Conversión AI Tag -> Tag Operacional
+- Tendencias Temáticas
+
+### 2. Revisión y Publicación
+
+- Observaciones Externas Recibidas
+- Resolución de Observaciones
+- Minutas con Mayor Fricción de Revisión
+- Publicaciones Finalizadas
+- Correos de Revisión y Publicación
+  Motivo: hay fuentes parciales para observaciones, versiones, estados editoriales, publicación y correo, pero la categoría requiere consolidar eventos editoriales y evidencia de comunicación en una fuente operacional reusable.
+
+Prioridad interna sugerida:
+- Observaciones Externas Recibidas
+- Resolución de Observaciones
+- Publicaciones Finalizadas
+- Minutas con Mayor Fricción de Revisión
+- Correos de Revisión y Publicación
+
+### 3. Requerimientos y Compromisos
 
 - Seguimiento Documental de Acuerdos
 - Compromisos con Fecha Expirada
@@ -38,34 +76,15 @@
 - Requerimientos por Prioridad
 - Requerimientos y Compromisos por Cliente
 - Requerimientos y Compromisos por Proyecto
-  Motivo: requieren una fuente estructurada y estable de acuerdos, compromisos, prioridades, vencimientos y responsables extraídos desde minutas. En esta pasada no existe un endpoint consolidado listo para reportería reusable.
+  Motivo: es la categoría que más probablemente exige tocar más capas. Acuerdos y requerimientos existen dentro del contenido de minutas, pero no como dataset relacional/reportable estable con responsables, prioridades, vencimientos y estados normalizados.
 
-### Revisión y Publicación
-
-- Observaciones Externas Recibidas
-- Resolución de Observaciones
-- Minutas con Mayor Fricción de Revisión
-- Publicaciones Finalizadas
-- Correos de Revisión y Publicación
-  Motivo: requieren integrar observaciones externas, hitos editoriales, evidencia de publicación y eventos de correo. Hoy esa información no está consolidada en una sola fuente operacional apta para estos reportes.
-
-### Salud Operativa
-
-- Estado de Colas
-- Backlog Operacional
-- Fallos de Procesamiento
-- Reprocesos y Recuperación
-- Validación de Providers IA
-- Alertas del Sistema
-  Motivo: requieren leer colas, métricas operativas, alertas y validaciones técnicas del stack. Esa capa existe en otros componentes del sistema, pero no como dataset estable consumible desde esta fábrica de reportes.
-
-### Etiquetas y Tendencias
-
-- Minutas por Tag
-- Tags AI Detectados
-- Conversión AI Tag -> Tag Operacional
-- Tendencias Temáticas
-  Motivo: requieren catálogos y relaciones de etiquetas todavía no expuestos en una consulta homogénea para reportería consolidada.
+Prioridad interna sugerida:
+- Seguimiento Documental de Acuerdos
+- Requerimientos por Prioridad
+- Compromisos por Responsable
+- Compromisos con Fecha Expirada
+- Requerimientos y Compromisos por Cliente
+- Requerimientos y Compromisos por Proyecto
 
 ## Auditoría
 
