@@ -71,10 +71,10 @@ const findModuleFlat = (modules, path) => {
 
 const findReportRouteByPath = (pathname) => {
   const gestion = GESTION_REPORT_ITEMS.find((item) => item.path === pathname);
-  if (gestion) return { item: gestion, scope: 'Gestión', scopePath: '/reports/gestion' };
+  if (gestion) return { item: gestion, scope: 'Gestión', scopePath: '/reports/management' };
 
   const audit = AUDIT_REPORT_ITEMS.find((item) => item.path === pathname);
-  if (audit) return { item: audit, scope: 'Auditoría', scopePath: '/reports/auditoria' };
+  if (audit) return { item: audit, scope: 'Auditoría', scopePath: '/reports/audit' };
 
   return null;
 };
