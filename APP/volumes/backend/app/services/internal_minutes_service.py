@@ -53,6 +53,7 @@ from services.minute_participants_service import (
     build_version_participants_from_content,
     persist_record_version_participants,
 )
+from services.record_version_commitment_items_service import sync_record_version_commitment_items
 from services.ai_usage_events_service import record_ai_usage_event
 from services.minutes.status_transitions import append_record_status_transition
 from services.notification_center_service import create_in_app_notification
@@ -501,6 +502,12 @@ def _execute_tx2(db: Session, body: MinuteCommitRequest) -> str:
         db=db,
         record_version_id=ver_id,
         participants=build_version_participants_from_content(body.ai_input_schema),
+    )
+    sync_record_version_commitment_items(
+        db=db,
+        record_id=rec_id,
+        record_version_id=ver_id,
+        content=canonical_output,
     )
 
     # ── Asociar versión a la transacción ─────────────────────────────────────

@@ -14,7 +14,7 @@ from typing import Any, Optional
 
 from fastapi import HTTPException, UploadFile, status
 from sqlalchemy import false, or_
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from core.config import settings
@@ -45,6 +45,7 @@ from services.minute_participants_service import (
     build_version_participants_from_content,
     persist_record_version_participants,
 )
+from services.record_version_commitment_items_service import sync_record_version_commitment_items
 from services.minutes import catalogs as minute_catalogs
 from services.minutes import constants as minute_constants
 from services.minutes import generate as minute_generate
@@ -756,6 +757,21 @@ async def save_minute_draft(db: Session, record_id: str, content: dict) -> None:
         raise HTTPException(status_code=500,
             detail={"error": "minio_write_error", "message": "Error al guardar el borrador."})
 
+    if record.active_version_id:
+        try:
+            sync_record_version_commitment_items(
+                db=db,
+                record_id=record_id,
+                record_version_id=str(record.active_version_id),
+                content=content,
+            )
+            db.commit()
+        except SQLAlchemyError as e:
+            db.rollback()
+            logger.error(f"[minutes] Autosave DB projection error | record={record_id}: {e}")
+            raise HTTPException(status_code=500,
+                detail={"error": "db_projection_error", "message": "Error al actualizar la reportería del borrador."})
+
     # Encolar PDF de borrador — best-effort, no bloquea el autosave si falla
     try:
         from services.pdf_job_builder import build_pdf_job_on_save
@@ -941,6 +957,12 @@ async def transition_minute(
             record_version_id=new_version_id,
             participants=build_version_participants_from_content(content),
         )
+        sync_record_version_commitment_items(
+            db=db,
+            record_id=record_id,
+            record_version_id=new_version_id,
+            content=content,
+        )
         record.active_version_id  = new_version_id
         record.latest_version_num = new_version_num
 
@@ -987,6 +1009,12 @@ async def transition_minute(
             db=db,
             record_version_id=new_version_id,
             participants=build_version_participants_from_content(draft_content),
+        )
+        sync_record_version_commitment_items(
+            db=db,
+            record_id=record_id,
+            record_version_id=new_version_id,
+            content=draft_content,
         )
         record.active_version_id  = new_version_id
         record.latest_version_num = new_version_num
