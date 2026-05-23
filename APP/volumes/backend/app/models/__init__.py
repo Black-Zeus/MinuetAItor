@@ -28,6 +28,7 @@ from models.ai_model_pricing import AiModelPricing
 from models.ai_usage_events import AiUsageEvent
 from models.notifications import Notification
 from models.notification_recipients import NotificationRecipient
+from models.email_delivery_events import EmailDeliveryEvent
 from models.organization_settings import OrganizationSetting
 from models.smtp_configs import SmtpConfig
 from models.system_maintenance_setting import SystemMaintenanceSetting
@@ -57,6 +58,8 @@ from models.record_status_transitions import RecordStatusTransition
 from models.record_artifacts import RecordArtifact
 from models.record_version_tags import RecordVersionTag
 from models.record_version_ai_tags import RecordVersionAiTag
+from models.record_version_agreements import RecordVersionAgreement
+from models.record_version_requirements import RecordVersionRequirement
 from models.record_version_commits import RecordVersionCommit
 from models.record_version_participant import RecordVersionParticipant
 from models.visitor_access_request import VisitorAccessRequest
@@ -81,7 +84,7 @@ __all__ = [
     "RecordType", "RecordStatus", "VersionStatus",
     "DashboardWidget", "AiProfileCategory",
     "AiProviderConfig", "AiModelPricing", "AiUsageEvent",
-    "Notification", "NotificationRecipient",
+    "Notification", "NotificationRecipient", "EmailDeliveryEvent",
     "OrganizationSetting",
     "SmtpConfig",
     "SystemMaintenanceSetting",
@@ -93,6 +96,7 @@ __all__ = [
     # Records
     "Record", "MinuteTransaction", "RecordDraft", "RecordVersion", "RecordStatusTransition", "RecordArtifact",
     "RecordVersionTag", "RecordVersionAiTag", "RecordVersionCommit",
+    "RecordVersionAgreement", "RecordVersionRequirement",
     "RecordVersionParticipant", "VisitorAccessRequest", "VisitorSession",
     "RecordVersionObservation",
     # Relacionales

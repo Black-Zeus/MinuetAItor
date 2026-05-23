@@ -35,6 +35,12 @@ QUEUE_EMAIL = "queue:email"
 MAX_INSPECT = 50
 
 
+def _record_email_queued(job: dict) -> None:
+    from services.email_delivery_events_service import record_email_queued_from_job
+
+    record_email_queued_from_job(job)
+
+
 async def enqueue_email(payload: SendMailRequest, redis: Redis) -> SendMailResponse:
     """Encola un email y retorna confirmación con largo de cola actual."""
     subject = payload.subject
@@ -76,6 +82,7 @@ async def enqueue_email(payload: SendMailRequest, redis: Redis) -> SendMailRespo
         },
     }
 
+    _record_email_queued(job)
     await redis.rpush(QUEUE_EMAIL, json.dumps(job))
     queue_length = await redis.llen(QUEUE_EMAIL)
 

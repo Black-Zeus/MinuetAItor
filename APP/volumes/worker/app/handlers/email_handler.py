@@ -3,11 +3,14 @@ from __future__ import annotations
 import asyncio
 import base64
 import html
+import json
 import mimetypes
 import re
 import smtplib
 import threading
 import time
+import uuid
+from datetime import datetime
 from email.message import EmailMessage
 from pathlib import Path
 from typing import Any
@@ -76,6 +79,16 @@ async def handle_email_job(job: JobEnvelope) -> None:
             attachments,
         )
     except Exception as exc:
+        _safe_record_email_delivery_status(
+            job=job,
+            payload=payload,
+            status="failed",
+            subject=subject,
+            to=to,
+            cc=cc,
+            bcc=bcc,
+            error_message=str(exc),
+        )
         await _notify_email_failure(
             loop=loop,
             job=job,
@@ -87,6 +100,16 @@ async def handle_email_job(job: JobEnvelope) -> None:
             error=exc,
         )
         raise
+
+    _safe_record_email_delivery_status(
+        job=job,
+        payload=payload,
+        status="sent",
+        subject=subject,
+        to=to,
+        cc=cc,
+        bcc=bcc,
+    )
 
     if isinstance(notification_context, dict) and notification_context:
         try:
@@ -100,6 +123,182 @@ async def handle_email_job(job: JobEnvelope) -> None:
             )
 
     logger.info("Email enviado | to=%s subject=%s", to, subject)
+
+
+def _safe_record_email_delivery_status(
+    *,
+    job: JobEnvelope,
+    payload: dict[str, Any],
+    status: str,
+    subject: str,
+    to: list[str],
+    cc: list[str],
+    bcc: list[str],
+    error_message: str | None = None,
+) -> None:
+    try:
+        _record_email_delivery_status(
+            job=job,
+            payload=payload,
+            status=status,
+            subject=subject,
+            to=to,
+            cc=cc,
+            bcc=bcc,
+            error_message=error_message,
+        )
+    except Exception as exc:
+        logger.warning(
+            "No se pudo persistir evento de email | job_id=%s status=%s err=%s",
+            job.job_id,
+            status,
+            exc,
+        )
+
+
+def _record_email_delivery_status(
+    *,
+    job: JobEnvelope,
+    payload: dict[str, Any],
+    status: str,
+    subject: str,
+    to: list[str],
+    cc: list[str],
+    bcc: list[str],
+    error_message: str | None = None,
+) -> None:
+    notification_context = payload.get("notification_context")
+    notification_context = notification_context if isinstance(notification_context, dict) else {}
+    metadata = notification_context.get("metadata")
+    metadata = metadata if isinstance(metadata, dict) else {}
+    tags = _clean_delivery_list(notification_context.get("tags"))
+    scope_type = _clean_delivery_text(notification_context.get("scopeType") or notification_context.get("scope_type"))
+    scope_id = _clean_delivery_text(notification_context.get("scopeId") or notification_context.get("scope_id"))
+    record_id = _clean_delivery_text(metadata.get("recordId")) or (scope_id if scope_type == "record" else None)
+    occurred_at = datetime.utcnow()
+    sent_at = occurred_at if status == "sent" else None
+    failed_at = occurred_at if status == "failed" else None
+
+    SessionLocal = _get_db_session()
+    query = text(
+        """
+        INSERT INTO email_delivery_events (
+          id, job_id, queue_name, status, email_kind, notification_type,
+          template_id, subject, email_type, to_json, cc_json, bcc_json,
+          recipient_count, attachment_count, inline_asset_count,
+          scope_type, scope_id, record_id, actor_user_id, tags_json, metadata_json,
+          attempt, error_message, queued_at, sent_at, failed_at, event_at, created_at, updated_at
+        ) VALUES (
+          :id, :job_id, :queue_name, :status, :email_kind, :notification_type,
+          :template_id, :subject, :email_type, :to_json, :cc_json, :bcc_json,
+          :recipient_count, :attachment_count, :inline_asset_count,
+          :scope_type, :scope_id, :record_id, :actor_user_id, :tags_json, :metadata_json,
+          :attempt, :error_message, :queued_at, :sent_at, :failed_at, :event_at, :created_at, :updated_at
+        )
+        ON DUPLICATE KEY UPDATE
+          status = VALUES(status),
+          email_kind = VALUES(email_kind),
+          notification_type = VALUES(notification_type),
+          template_id = VALUES(template_id),
+          subject = VALUES(subject),
+          email_type = VALUES(email_type),
+          to_json = VALUES(to_json),
+          cc_json = VALUES(cc_json),
+          bcc_json = VALUES(bcc_json),
+          recipient_count = VALUES(recipient_count),
+          attachment_count = VALUES(attachment_count),
+          inline_asset_count = VALUES(inline_asset_count),
+          scope_type = VALUES(scope_type),
+          scope_id = VALUES(scope_id),
+          record_id = VALUES(record_id),
+          actor_user_id = VALUES(actor_user_id),
+          tags_json = VALUES(tags_json),
+          metadata_json = VALUES(metadata_json),
+          attempt = VALUES(attempt),
+          error_message = VALUES(error_message),
+          sent_at = COALESCE(VALUES(sent_at), sent_at),
+          failed_at = COALESCE(VALUES(failed_at), failed_at),
+          event_at = VALUES(event_at),
+          updated_at = VALUES(updated_at)
+        """
+    )
+    params = {
+        "id": str(uuid.uuid4()),
+        "job_id": job.job_id,
+        "queue_name": job.queue or "queue:email",
+        "status": status,
+        "email_kind": _delivery_email_kind(tags, payload, scope_type),
+        "notification_type": _clean_delivery_text(
+            notification_context.get("notificationType") or notification_context.get("notification_type")
+        ),
+        "template_id": _clean_delivery_text(payload.get("template_id")),
+        "subject": _clean_delivery_text(subject, "Correo sin asunto"),
+        "email_type": _clean_delivery_text(payload.get("email_type"), "html"),
+        "to_json": _delivery_json(to),
+        "cc_json": _delivery_json(cc),
+        "bcc_json": _delivery_json(bcc),
+        "recipient_count": len(to) + len(cc) + len(bcc),
+        "attachment_count": len(payload.get("attachments") or []),
+        "inline_asset_count": len(payload.get("inline_assets") or []),
+        "scope_type": scope_type,
+        "scope_id": scope_id,
+        "record_id": record_id,
+        "actor_user_id": _clean_delivery_text(
+            notification_context.get("actorUserId") or notification_context.get("actor_user_id")
+        ),
+        "tags_json": _delivery_json(tags),
+        "metadata_json": _delivery_json(metadata),
+        "attempt": int(job.attempt or 1),
+        "error_message": _clean_delivery_text(error_message),
+        "queued_at": occurred_at,
+        "sent_at": sent_at,
+        "failed_at": failed_at,
+        "event_at": occurred_at,
+        "created_at": occurred_at,
+        "updated_at": occurred_at,
+    }
+
+    with SessionLocal() as db:
+        db.execute(query, params)
+        db.commit()
+
+
+def _clean_delivery_text(value: Any, fallback: str | None = None) -> str | None:
+    if value is None:
+        return fallback
+    raw = str(value).strip()
+    return raw or fallback
+
+
+def _clean_delivery_list(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        value = [value]
+    return [str(item).strip() for item in value if str(item or "").strip()]
+
+
+def _delivery_json(value: Any) -> str:
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+
+
+def _delivery_email_kind(tags: list[str], payload: dict[str, Any], scope_type: str | None) -> str:
+    tag_set = {tag.casefold() for tag in tags}
+    if {"minute.review.email.sent", "minute.review.email.failed"} & tag_set:
+        return "minute_review"
+    if {"minute.publication.email.sent", "minute.publication.email.failed"} & tag_set:
+        return "minute_publication"
+    if {"minute.officialized.email.sent", "minute.officialized.email.failed"} & tag_set:
+        return "minute_officialized"
+    if {"minute.analysis.email.sent", "minute.analysis.email.failed"} & tag_set:
+        return "minute_analysis"
+    if "queue.email" in tag_set:
+        return "system_queue"
+    if scope_type == "record":
+        return "minute"
+    if _clean_delivery_text(payload.get("template_id")):
+        return "templated"
+    return "system"
 
 
 async def _notify_email_failure(

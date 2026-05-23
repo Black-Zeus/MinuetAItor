@@ -18,6 +18,12 @@ logger = logging.getLogger(__name__)
 QUEUE_EMAIL = "queue:email"
 
 
+def _record_email_queued(job: dict[str, Any]) -> None:
+    from services.email_delivery_events_service import record_email_queued_from_job
+
+    record_email_queued_from_job(job)
+
+
 async def queue_email(
     to: list[str],
     subject: str,
@@ -62,6 +68,7 @@ async def queue_email(
     }
 
     redis = get_redis()
+    _record_email_queued(job)
     await redis.rpush(QUEUE_EMAIL, json.dumps(job))
     logger.info("Email encolado | subject=%s | to=%s", subject, to)
 
@@ -108,6 +115,7 @@ async def queue_templated_email(
     }
 
     redis = get_redis()
+    _record_email_queued(job)
     await redis.rpush(QUEUE_EMAIL, json.dumps(job))
     logger.info("Email template encolado | template_id=%s | to=%s", template_id, to)
 
