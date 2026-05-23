@@ -21,6 +21,12 @@
 - Latencia y Éxito por Modelo
 - Uso de IA por Perfil
 - Eventos IA con Error
+- Cartera de Clientes
+- Cartera de Proyectos
+- Clientes sin Actividad Documental Reciente
+- Proyectos sin Actividad Documental Reciente
+- Clientes con Mayor Carga Documental
+- Proyectos con Mayor Carga Documental
 
 ## Pendientes de gestión
 
@@ -42,16 +48,6 @@
 - Publicaciones Finalizadas
 - Correos de Revisión y Publicación
   Motivo: requieren integrar observaciones externas, hitos editoriales, evidencia de publicación y eventos de correo. Hoy esa información no está consolidada en una sola fuente operacional apta para estos reportes.
-
-### Clientes y Proyectos
-
-- Cartera de Clientes
-- Cartera de Proyectos
-- Clientes sin Actividad Documental Reciente
-- Proyectos sin Actividad Documental Reciente
-- Clientes con Mayor Carga Documental
-- Proyectos con Mayor Carga Documental
-  Motivo: aunque parte del dato base existe, faltan definiciones cerradas de negocio para distinguir cartera, inactividad reciente y carga documental con el criterio exacto esperado por negocio.
 
 ### Salud Operativa
 
