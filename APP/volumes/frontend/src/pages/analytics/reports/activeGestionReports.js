@@ -30,6 +30,10 @@ export const ACTIVE_GESTION_REPORT_IDS = [
   "gestion-ai-latency-model",
   "gestion-ai-profile-usage",
   "gestion-ai-errors",
+  "gestion-minute-tags",
+  "gestion-ai-tags",
+  "gestion-ai-tag-conversion",
+  "gestion-topic-trends",
 ];
 
 export const ACTIVE_GESTION_REPORT_ID_SET = new Set(ACTIVE_GESTION_REPORT_IDS);

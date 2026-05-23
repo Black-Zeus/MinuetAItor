@@ -33,26 +33,16 @@
 - Reprocesos y Recuperación
 - Validación de Providers IA
 - Alertas del Sistema
+- Minutas por Tag
+- Tags AI Detectados
+- Conversión AI Tag -> Tag Operacional
+- Tendencias Temáticas
 
 ## Pendientes de gestión
 
 Orden recomendado de generación: avanzar primero por lo que ya tiene fuentes más cercanas y dejar al final lo que exige mayor consolidación o cambio de modelo.
 
-### 1. Etiquetas y Tendencias
-
-- Minutas por Tag
-- Tags AI Detectados
-- Conversión AI Tag -> Tag Operacional
-- Tendencias Temáticas
-  Motivo: existen modelos, catálogos y relaciones para tags operacionales, tags IA y conversiones. Requiere agregación y exposición homogénea para reportería, pero la base de datos ya contiene estructuras explícitas para el dominio.
-
-Prioridad interna sugerida:
-- Minutas por Tag
-- Tags AI Detectados
-- Conversión AI Tag -> Tag Operacional
-- Tendencias Temáticas
-
-### 2. Revisión y Publicación
+### 1. Revisión y Publicación
 
 - Observaciones Externas Recibidas
 - Resolución de Observaciones
@@ -68,7 +58,7 @@ Prioridad interna sugerida:
 - Minutas con Mayor Fricción de Revisión
 - Correos de Revisión y Publicación
 
-### 3. Requerimientos y Compromisos
+### 2. Requerimientos y Compromisos
 
 - Seguimiento Documental de Acuerdos
 - Compromisos con Fecha Expirada

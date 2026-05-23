@@ -169,16 +169,16 @@ Estos reportes representan seguimiento declarado en actas. No validan cumplimien
 
 ## 8. Etiquetas y Analitica Tematica
 
-- [ ] `Minutas por Tag`
+- [x] `Minutas por Tag`
   - Distribución por etiquetas funcionales o de negocio para análisis temático.
 
-- [ ] `Tags AI Detectados`
+- [x] `Tags AI Detectados`
   - Muestra qué etiquetas sugeridas por IA aparecen con mayor frecuencia.
 
-- [ ] `Conversion AI Tag -> Tag Operacional`
+- [x] `Conversion AI Tag -> Tag Operacional`
   - Permite medir la utilidad real del etiquetado IA y su mapeo al catálogo operativo.
 
-- [ ] `Tendencias Tematicas`
+- [x] `Tendencias Tematicas`
   - Detecta qué temas, áreas o tipos de reuniones están creciendo en frecuencia.
 
 Nota:
@@ -211,8 +211,8 @@ La exportacion no se maneja como seccion independiente. Cada reporte debe consid
 - [ ] `Requerimientos y Compromisos por Cliente`
 - [ ] `Requerimientos y Compromisos por Proyecto`
 - [ ] `Minutas con Mayor Friccion de Revision`
-- [ ] `Minutas por Tag`
-- [ ] `Tags AI Detectados`
+- [x] `Minutas por Tag`
+- [x] `Tags AI Detectados`
 
 ### Fase 3: Reporteria madura
 
@@ -220,7 +220,7 @@ La exportacion no se maneja como seccion independiente. Cada reporte debe consid
 - [ ] `Proyectos con Mayor Carga Documental`
 - [ ] `Latencia y Exito por Modelo`
 - [ ] `Uso de IA por Perfil`
-- [ ] `Tendencias Tematicas`
+- [x] `Tendencias Tematicas`
 
 ## Checklist de Implementacion por Reporte
 
