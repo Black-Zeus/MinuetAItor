@@ -18,13 +18,17 @@ import ClientStats from './ClientStats';
 import ClientGrid from './ClientGrid';
 import ClientListView from './ClientListView';
 import ClientTableView from './ClientTableView';
+import CatalogBasePagination from '@/components/common/CatalogBasePagination';
 import PageLoadingSpinner from '@/components/ui/modal/types/system/PageLoadingSpinner';
 import CatalogViewBar from '@/components/common/CatalogViewBar';
+import CatalogPagePagination from '@/components/common/CatalogPagePagination';
 import useModuleViewMode from '@/hooks/useModuleViewMode';
 
 import logger from '@/utils/logger';
 
 const clientLog = logger.scope('client');
+const DEFAULT_ITEMS_PER_PAGE = 18;
+const TABLE_ITEMS_PER_PAGE = 100;
 
 const Client = () => {
   const [clients, setClients] = useState([]);
@@ -40,6 +44,8 @@ const Client = () => {
 
   const [sortBy, setSortBy] = useState('recent');
   const [viewMode, setViewMode] = useModuleViewMode();
+  const [page, setPage] = useState(1);
+  const itemsPerPage = viewMode === 'table' ? TABLE_ITEMS_PER_PAGE : DEFAULT_ITEMS_PER_PAGE;
 
   // ─── Loader (API) ───────────────────────────────────────────────────────────
 
@@ -126,6 +132,11 @@ const Client = () => {
 
     return result;
   }, [clients, filters, sortBy]);
+  const totalPages = Math.max(1, Math.ceil(filteredClients.length / itemsPerPage));
+  const paginatedClients = useMemo(
+    () => filteredClients.slice((page - 1) * itemsPerPage, page * itemsPerPage),
+    [filteredClients, itemsPerPage, page]
+  );
 
   // ─── Handlers CRUD ──────────────────────────────────────────────────────────
   // Nota: refresco real (API) NO debe depender del cierre de modales.
@@ -161,6 +172,18 @@ const Client = () => {
   const handleClearFilters = useCallback(() => {
     setFilters({ search: '', status: '', industry: '', priority: '' });
   }, []);
+
+  const handlePageChange = useCallback((nextPage) => {
+    if (nextPage >= 1 && nextPage <= totalPages) setPage(nextPage);
+  }, [totalPages]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [filters, sortBy]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   // ─── Render ─────────────────────────────────────────────────────────────────
 
@@ -200,7 +223,7 @@ const Client = () => {
 
       {viewMode === 'base' ? (
         <ClientGrid
-          clients={filteredClients}
+          clients={paginatedClients}
           onUpdate={handleUpdateClient}
           onDelete={handleDeleteClient}
           hasFilters={hasFilters}
@@ -209,7 +232,7 @@ const Client = () => {
 
       {viewMode === 'list' ? (
         <ClientListView
-          clients={filteredClients}
+          clients={paginatedClients}
           onUpdate={handleUpdateClient}
           onDelete={handleDeleteClient}
           hasFilters={hasFilters}
@@ -218,10 +241,30 @@ const Client = () => {
 
       {viewMode === 'table' ? (
         <ClientTableView
-          clients={filteredClients}
+          clients={paginatedClients}
           onUpdate={handleUpdateClient}
           onDelete={handleDeleteClient}
           hasFilters={hasFilters}
+        />
+      ) : null}
+
+      {viewMode === 'base' ? (
+        <CatalogBasePagination
+          page={page}
+          totalPages={totalPages}
+          onPageChange={handlePageChange}
+          total={filteredClients.length}
+          itemsPerPage={itemsPerPage}
+          singularLabel="cliente"
+          pluralLabel="clientes"
+        />
+      ) : null}
+
+      {viewMode !== 'base' ? (
+        <CatalogPagePagination
+          page={page}
+          totalPages={totalPages}
+          onPageChange={handlePageChange}
         />
       ) : null}
 

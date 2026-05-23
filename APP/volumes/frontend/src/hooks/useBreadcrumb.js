@@ -14,7 +14,11 @@
 
 import { useEffect }   from 'react';
 import { useLocation } from 'react-router-dom';
-import { SIDEBAR_MODULES } from '@config/sidebarConfig';
+import {
+  AUDIT_REPORT_ITEMS,
+  GESTION_REPORT_ITEMS,
+  SIDEBAR_MODULES,
+} from '@config/sidebarConfig';
 import useBaseSiteStore    from '@store/baseSiteStore';
 
 // ─── Configuración ────────────────────────────────────────────────────────────
@@ -62,6 +66,16 @@ const findModuleFlat = (modules, path) => {
       }
     }
   }
+  return null;
+};
+
+const findReportRouteByPath = (pathname) => {
+  const gestion = GESTION_REPORT_ITEMS.find((item) => item.path === pathname);
+  if (gestion) return { item: gestion, scope: 'Gestión', scopePath: '/reports/gestion' };
+
+  const audit = AUDIT_REPORT_ITEMS.find((item) => item.path === pathname);
+  if (audit) return { item: audit, scope: 'Auditoría', scopePath: '/reports/auditoria' };
+
   return null;
 };
 
@@ -125,6 +139,27 @@ const useBreadcrumb = () => {
         icon:  standalone.icon ?? null,
         items: buildItems([INICIO, standalone]),
         meta:  null,
+      };
+    }
+  }
+
+  // 3.5 Reportes ocultos del sidebar, accesibles desde el catálogo
+  if (!resolved) {
+    const reportRoute = findReportRouteByPath(pathname);
+    if (reportRoute) {
+      const segments = [
+        INICIO,
+        {
+          name: reportRoute.scope === 'Gestión' ? 'Reportes de Gestión' : 'Reportes de Auditoría',
+          path: reportRoute.scopePath,
+        },
+        { name: reportRoute.item.name, path: reportRoute.item.path },
+      ];
+      resolved = {
+        name: reportRoute.item.name,
+        icon: reportRoute.item.icon ?? null,
+        items: buildItems(segments),
+        meta: null,
       };
     }
   }

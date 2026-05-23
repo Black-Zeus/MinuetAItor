@@ -13,8 +13,10 @@ import TagsGrid    from "./TagsGrid";
 import TagsListView from "./TagsListView";
 import TagsTableView from "./TagsTableView";
 import TagsGroupedByCategory from "./TagsGroupedByCategory";
+import CatalogBasePagination from "@/components/common/CatalogBasePagination";
 import PageLoadingSpinner from "@/components/ui/modal/types/system/PageLoadingSpinner";
 import CatalogViewBar from "@/components/common/CatalogViewBar";
+import CatalogPagePagination from "@/components/common/CatalogPagePagination";
 import useModuleViewMode from "@/hooks/useModuleViewMode";
 
 import logger from "@/utils/logger";
@@ -25,6 +27,8 @@ const VIEW_OPTIONS = [
   { id: "table", label: "Tabla" },
   { id: "category", label: "Por categoría" },
 ];
+const DEFAULT_ITEMS_PER_PAGE = 18;
+const TABLE_ITEMS_PER_PAGE = 100;
 
 // ─── Stats ────────────────────────────────────────────────────────────────────
 
@@ -79,6 +83,8 @@ const Tags = () => {
     categoryId: "",
   });
   const [viewMode, setViewMode] = useModuleViewMode(["base", "list", "table", "category"]);
+  const [page, setPage] = useState(1);
+  const itemsPerPage = viewMode === "table" ? TABLE_ITEMS_PER_PAGE : DEFAULT_ITEMS_PER_PAGE;
 
   // ─── Carga inicial ──────────────────────────────────────────────────────────
 
@@ -112,7 +118,11 @@ const Tags = () => {
 
   useEffect(() => {
     setFilteredTags(applyLocalFilters(tags, filters));
+    setPage(1);
   }, [filters, tags]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredTags.length / itemsPerPage));
+  const paginatedTags = filteredTags.slice((page - 1) * itemsPerPage, page * itemsPerPage);
 
   // ─── Filter handlers ────────────────────────────────────────────────────────
 
@@ -123,6 +133,14 @@ const Tags = () => {
   const handleClearFilters = () => {
     setFilters({ search: "", status: "", categoryId: "" });
   };
+
+  const handlePageChange = (nextPage) => {
+    if (nextPage >= 1 && nextPage <= totalPages) setPage(nextPage);
+  };
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   // ─── CRUD handlers (mutación optimista) ────────────────────────────────────
 
@@ -186,7 +204,7 @@ const Tags = () => {
 
       {viewMode === "base" ? (
         <TagsGrid
-          tags={filteredTags}
+          tags={paginatedTags}
           categories={categories}
           onUpdated={handleUpdated}
           onDeleted={handleDeleted}
@@ -196,7 +214,7 @@ const Tags = () => {
 
       {viewMode === "list" ? (
         <TagsListView
-          tags={filteredTags}
+          tags={paginatedTags}
           categories={categories}
           onUpdated={handleUpdated}
           onDeleted={handleDeleted}
@@ -206,7 +224,7 @@ const Tags = () => {
 
       {viewMode === "table" ? (
         <TagsTableView
-          tags={filteredTags}
+          tags={paginatedTags}
           categories={categories}
           onUpdated={handleUpdated}
           onDeleted={handleDeleted}
@@ -221,6 +239,26 @@ const Tags = () => {
           onUpdated={handleUpdated}
           onDeleted={handleDeleted}
           hasFilters={!!(filters.search || filters.status || filters.categoryId)}
+        />
+      ) : null}
+
+      {viewMode === "base" ? (
+        <CatalogBasePagination
+          page={page}
+          totalPages={totalPages}
+          onPageChange={handlePageChange}
+          total={filteredTags.length}
+          itemsPerPage={itemsPerPage}
+          singularLabel="tag"
+          pluralLabel="tags"
+        />
+      ) : null}
+
+      {viewMode !== "base" && viewMode !== "category" ? (
+        <CatalogPagePagination
+          page={page}
+          totalPages={totalPages}
+          onPageChange={handlePageChange}
         />
       ) : null}
     </div>

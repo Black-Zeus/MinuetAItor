@@ -13,9 +13,11 @@ import ProjectGrid    from './ProjectGrid';
 import ProjectListView from './ProjectListView';
 import ProjectTableView from './ProjectTableView';
 import ProjectsGroupedByClient from './ProjectsGroupedByClient';
+import CatalogBasePagination from '@/components/common/CatalogBasePagination';
 import PageLoadingSpinner from '@/components/ui/modal/types/system/PageLoadingSpinner';
 import useAbortableRequestScope from '@/hooks/useAbortableRequestScope';
 import CatalogViewBar from '@/components/common/CatalogViewBar';
+import CatalogPagePagination from '@/components/common/CatalogPagePagination';
 import useModuleViewMode from '@/hooks/useModuleViewMode';
 
 import logger from '@/utils/logger';
@@ -26,6 +28,8 @@ const VIEW_OPTIONS = [
   { id: "table", label: "Tabla" },
   { id: "client", label: "Por cliente" },
 ];
+const DEFAULT_ITEMS_PER_PAGE = 18;
+const TABLE_ITEMS_PER_PAGE = 100;
 
 // ─── Stats ────────────────────────────────────────────────────────────────────
 
@@ -74,6 +78,8 @@ const Project = () => {
   const [isLoading,        setIsLoading]        = useState(true);
   const [stats,            setStats]            = useState({ total: 0, activos: 0, inactivos: 0, totalMinutas: 0 });
   const [viewMode, setViewMode] = useModuleViewMode(["base", "list", "table", "client"]);
+  const [page, setPage] = useState(1);
+  const itemsPerPage = viewMode === "table" ? TABLE_ITEMS_PER_PAGE : DEFAULT_ITEMS_PER_PAGE;
 
   const [filters, setFilters] = useState({
     search:   '',
@@ -121,7 +127,11 @@ const Project = () => {
   useEffect(() => {
     const filtered = applyLocalFilters(projects, filters);
     setFilteredProjects(filtered);
+    setPage(1);
   }, [filters, projects]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredProjects.length / itemsPerPage));
+  const paginatedProjects = filteredProjects.slice((page - 1) * itemsPerPage, page * itemsPerPage);
 
   // ─── Handlers CRUD ─────────────────────────────────────────────────────────
 
@@ -162,6 +172,14 @@ const Project = () => {
     setFilters({ search: '', status: '', clientId: '' });
   };
 
+  const handlePageChange = (nextPage) => {
+    if (nextPage >= 1 && nextPage <= totalPages) setPage(nextPage);
+  };
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
   // ─── Render ────────────────────────────────────────────────────────────────
 
   if (isLoading) {
@@ -197,7 +215,7 @@ const Project = () => {
 
       {viewMode === 'base' ? (
         <ProjectGrid
-          projects={filteredProjects}
+          projects={paginatedProjects}
           clientCatalog={clientCatalog}
           onUpdated={handleUpdated}
           onDeleted={handleDeleted}
@@ -207,7 +225,7 @@ const Project = () => {
 
       {viewMode === 'list' ? (
         <ProjectListView
-          projects={filteredProjects}
+          projects={paginatedProjects}
           clientCatalog={clientCatalog}
           onUpdated={handleUpdated}
           onDeleted={handleDeleted}
@@ -217,7 +235,7 @@ const Project = () => {
 
       {viewMode === 'table' ? (
         <ProjectTableView
-          projects={filteredProjects}
+          projects={paginatedProjects}
           clientCatalog={clientCatalog}
           onUpdated={handleUpdated}
           onDeleted={handleDeleted}
@@ -232,6 +250,26 @@ const Project = () => {
           onUpdated={handleUpdated}
           onDeleted={handleDeleted}
           hasFilters={hasFilters}
+        />
+      ) : null}
+
+      {viewMode === 'base' ? (
+        <CatalogBasePagination
+          page={page}
+          totalPages={totalPages}
+          onPageChange={handlePageChange}
+          total={filteredProjects.length}
+          itemsPerPage={itemsPerPage}
+          singularLabel="proyecto"
+          pluralLabel="proyectos"
+        />
+      ) : null}
+
+      {viewMode !== 'base' && viewMode !== 'client' ? (
+        <CatalogPagePagination
+          page={page}
+          totalPages={totalPages}
+          onPageChange={handlePageChange}
         />
       ) : null}
     </div>

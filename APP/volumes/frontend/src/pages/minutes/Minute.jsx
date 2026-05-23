@@ -8,7 +8,8 @@ import MinuteCard from "./MinuteCard";
 import MinuteListRow from "./MinuteListRow";
 import MinutesTableView from "./MinutesTableView";
 import MinutesGroupedByClient from "./MinutesGroupedByClient";
-import MinutesPagination from "./MinutesPagination";
+import CatalogBasePagination from "@/components/common/CatalogBasePagination";
+import CatalogPagePagination from "@/components/common/CatalogPagePagination";
 import PageLoadingSpinner from "@/components/ui/modal/types/system/PageLoadingSpinner";
 import { toastInfo } from "@/components/common/toast/toastHelpers";
 import useAbortableRequestScope from "@/hooks/useAbortableRequestScope";
@@ -18,7 +19,8 @@ import { listMinutes, reprocessMinute, transitionMinute } from "@/services/minut
 import useMinuteNotificationStore from "@/store/minuteNotificationStore";
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
-const PAGE_SIZE = 12;
+const DEFAULT_PAGE_SIZE = 18;
+const TABLE_PAGE_SIZE = 100;
 const GROUPED_VIEW_PAGE_SIZE = 5000;
 
 const EMPTY_FILTERS = {
@@ -62,6 +64,8 @@ const Minutes = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [viewMode, setViewMode] = useModuleViewMode(["base", "list", "table", "client"]);
   const isGroupedByClientView = viewMode === "client";
+  const isTableView = viewMode === "table";
+  const currentPageSize = isGroupedByClientView ? GROUPED_VIEW_PAGE_SIZE : (isTableView ? TABLE_PAGE_SIZE : DEFAULT_PAGE_SIZE);
 
   // ── Filtros reactivos ─────────────────────────────────────────────────────
   const [filters, setFilters] = useState({ ...EMPTY_FILTERS });
@@ -76,8 +80,8 @@ const Minutes = () => {
 
     try {
       const normalizedPage = isGroupedByClientView ? 1 : page;
-      const limit = isGroupedByClientView ? GROUPED_VIEW_PAGE_SIZE : PAGE_SIZE;
-      const skip = isGroupedByClientView ? 0 : (normalizedPage - 1) * PAGE_SIZE;
+      const limit = currentPageSize;
+      const skip = isGroupedByClientView ? 0 : (normalizedPage - 1) * currentPageSize;
       const data = await listMinutes({
         skip,
         limit,
@@ -101,7 +105,7 @@ const Minutes = () => {
         setIsRefreshing(false);
       }
     }
-  }, [isGroupedByClientView, requestScope]);
+  }, [currentPageSize, isGroupedByClientView, requestScope]);
 
   // ── Carga inicial ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -174,7 +178,7 @@ const Minutes = () => {
   const { clients, projects } = useMemo(() => extractOptions(minutes), [minutes]);
 
   // ─── Paginación ───────────────────────────────────────────────────────────
-  const totalPages = isGroupedByClientView ? 1 : Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const totalPages = isGroupedByClientView ? 1 : Math.max(1, Math.ceil(total / currentPageSize));
 
   const handlePageChange = (page) => {
     if (page < 1 || page > totalPages) return;
@@ -215,7 +219,7 @@ const Minutes = () => {
         isRefreshing={isRefreshing}
         currentPage={currentPage}
         totalPages={totalPages}
-        pageSize={PAGE_SIZE}
+        pageSize={currentPageSize}
         viewMode={viewMode}
         onViewModeChange={handleViewModeChange}
       />
@@ -289,13 +293,25 @@ const Minutes = () => {
             </div>
           ) : null}
 
-          {totalPages > 1 && (
-            <MinutesPagination
-              currentPage={currentPage}
+          {viewMode === "base" ? (
+            <CatalogBasePagination
+              page={currentPage}
+              totalPages={totalPages}
+              onPageChange={handlePageChange}
+              total={total}
+              itemsPerPage={currentPageSize}
+              singularLabel="minuta"
+              pluralLabel="minutas"
+            />
+          ) : null}
+
+          {viewMode !== "base" && viewMode !== "client" ? (
+            <CatalogPagePagination
+              page={currentPage}
               totalPages={totalPages}
               onPageChange={handlePageChange}
             />
-          )}
+          ) : null}
         </>
       )}
     </div>
