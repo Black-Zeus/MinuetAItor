@@ -70,7 +70,7 @@ const ProfilesCatalogGrid = ({
   categories  = [],
   page        = 1,
   totalPages  = 1,
-  itemsPerPage = 12,
+  itemsPerPage = 18,
   onPageChange,
   onUpdated,
   onDeleted,

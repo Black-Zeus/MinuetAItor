@@ -15,8 +15,10 @@ import TeamsListView from "./TeamsListView";
 import TeamsTableView from "./TeamsTableView";
 import TeamsGroupedByPosition from "./TeamsGroupedByPosition";
 
+import CatalogBasePagination from "@/components/common/CatalogBasePagination";
 import PageLoadingSpinner from "@/components/ui/modal/types/system/PageLoadingSpinner";
 import CatalogViewBar from "@/components/common/CatalogViewBar";
+import CatalogPagePagination from "@/components/common/CatalogPagePagination";
 import useModuleViewMode from "@/hooks/useModuleViewMode";
 
 import logger from "@/utils/logger";
@@ -27,6 +29,8 @@ const VIEW_OPTIONS = [
   { id: "table", label: "Tabla" },
   { id: "position", label: "Por cargo" },
 ];
+const DEFAULT_ITEMS_PER_PAGE = 18;
+const TABLE_ITEMS_PER_PAGE = 100;
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -56,6 +60,8 @@ const Teams = () => {
 
   const [sortBy, setSortBy] = useState("name-asc");
   const [viewMode, setViewMode] = useModuleViewMode(["base", "list", "table", "position"]);
+  const [page, setPage] = useState(1);
+  const itemsPerPage = viewMode === "table" ? TABLE_ITEMS_PER_PAGE : DEFAULT_ITEMS_PER_PAGE;
 
   // ── 1. Carga inicial ──────────────────────────────────────────────────────
 
@@ -117,7 +123,14 @@ const Teams = () => {
     }
 
     setFilteredUsers(sorted);
+    setPage(1);
   }, [filters, users, sortBy]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / itemsPerPage));
+  const paginatedUsers = useMemo(
+    () => filteredUsers.slice((page - 1) * itemsPerPage, page * itemsPerPage),
+    [filteredUsers, itemsPerPage, page]
+  );
 
   // ── 3. Handlers CRUD con mutación optimista ───────────────────────────────
 
@@ -152,8 +165,15 @@ const Teams = () => {
   const handleFilterChange  = (patch) => setFilters((prev) => ({ ...prev, ...patch }));
   const handleClearFilters  = () => setFilters({ search: "", status: "", systemRole: "" });
   const handleSortChange    = (value) => setSortBy(value);
+  const handlePageChange = (nextPage) => {
+    if (nextPage >= 1 && nextPage <= totalPages) setPage(nextPage);
+  };
 
   const hasFilters = !!(filters.search || filters.status || filters.systemRole);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -182,7 +202,7 @@ const Teams = () => {
 
       {viewMode === "base" ? (
         <TeamsGrid
-          users={filteredUsers}
+          users={paginatedUsers}
           sortBy={sortBy}
           onSortChange={handleSortChange}
           hasFilters={hasFilters}
@@ -193,7 +213,7 @@ const Teams = () => {
 
       {viewMode === "list" ? (
         <TeamsListView
-          users={filteredUsers}
+          users={paginatedUsers}
           hasFilters={hasFilters}
           onUpdated={handleUpdated}
           onDeleted={handleDeleted}
@@ -202,7 +222,7 @@ const Teams = () => {
 
       {viewMode === "table" ? (
         <TeamsTableView
-          users={filteredUsers}
+          users={paginatedUsers}
           hasFilters={hasFilters}
           onUpdated={handleUpdated}
           onDeleted={handleDeleted}
@@ -215,6 +235,26 @@ const Teams = () => {
           hasFilters={hasFilters}
           onUpdated={handleUpdated}
           onDeleted={handleDeleted}
+        />
+      ) : null}
+
+      {viewMode === "base" ? (
+        <CatalogBasePagination
+          page={page}
+          totalPages={totalPages}
+          onPageChange={handlePageChange}
+          total={filteredUsers.length}
+          itemsPerPage={itemsPerPage}
+          singularLabel="usuario"
+          pluralLabel="usuarios"
+        />
+      ) : null}
+
+      {viewMode !== "base" && viewMode !== "position" ? (
+        <CatalogPagePagination
+          page={page}
+          totalPages={totalPages}
+          onPageChange={handlePageChange}
         />
       ) : null}
     </div>

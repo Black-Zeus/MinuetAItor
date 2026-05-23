@@ -5,6 +5,8 @@ import ParticipantsStats from "./ParticipantsStats";
 import ParticipantsGrid from "./ParticipantsGrid";
 import ParticipantsListView from "./ParticipantsListView";
 import ParticipantsTableView from "./ParticipantsTableView";
+import CatalogBasePagination from "@/components/common/CatalogBasePagination";
+import CatalogPagePagination from "@/components/common/CatalogPagePagination";
 import participantsService from "@/services/participantsService";
 import PageLoadingSpinner from "@/components/ui/modal/types/system/PageLoadingSpinner";
 import CatalogViewBar from "@/components/common/CatalogViewBar";
@@ -12,6 +14,8 @@ import useModuleViewMode from "@/hooks/useModuleViewMode";
 import logger from "@/utils/logger";
 
 const participantsLog = logger.scope("participants");
+const DEFAULT_ITEMS_PER_PAGE = 18;
+const TABLE_ITEMS_PER_PAGE = 100;
 
 const calcStats = (participants) => ({
   total: participants.length,
@@ -65,6 +69,8 @@ const Participants = () => {
     emailMode: "",
   });
   const [viewMode, setViewMode] = useModuleViewMode();
+  const [page, setPage] = useState(1);
+  const itemsPerPage = viewMode === "table" ? TABLE_ITEMS_PER_PAGE : DEFAULT_ITEMS_PER_PAGE;
 
   const loadParticipants = useCallback(async () => {
     setIsLoading(true);
@@ -87,9 +93,22 @@ const Participants = () => {
     () => applyLocalFilters(participants, filters),
     [participants, filters]
   );
+  const totalPages = Math.max(1, Math.ceil(filteredParticipants.length / itemsPerPage));
+  const paginatedParticipants = useMemo(
+    () => filteredParticipants.slice((page - 1) * itemsPerPage, page * itemsPerPage),
+    [filteredParticipants, itemsPerPage, page]
+  );
 
   const stats = useMemo(() => calcStats(participants), [participants]);
   const hasFilters = Boolean(filters.search || filters.status || filters.emailMode);
+
+  useEffect(() => {
+    setPage(1);
+  }, [filters]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   const handleFilterChange = useCallback((name, value) => {
     setFilters((prev) => ({ ...prev, [name]: value }));
@@ -98,6 +117,10 @@ const Participants = () => {
   const handleClearFilters = useCallback(() => {
     setFilters({ search: "", status: "", emailMode: "" });
   }, []);
+
+  const handlePageChange = useCallback((nextPage) => {
+    if (nextPage >= 1 && nextPage <= totalPages) setPage(nextPage);
+  }, [totalPages]);
 
   const handleCreated = useCallback((created) => {
     setParticipants((prev) => [created, ...prev]);
@@ -133,7 +156,7 @@ const Participants = () => {
       />
       {viewMode === "base" ? (
         <ParticipantsGrid
-          participants={filteredParticipants}
+          participants={paginatedParticipants}
           hasFilters={hasFilters}
           onUpdated={handleUpdated}
           onDeleted={handleDeleted}
@@ -141,7 +164,7 @@ const Participants = () => {
       ) : null}
       {viewMode === "list" ? (
         <ParticipantsListView
-          participants={filteredParticipants}
+          participants={paginatedParticipants}
           hasFilters={hasFilters}
           onUpdated={handleUpdated}
           onDeleted={handleDeleted}
@@ -149,10 +172,30 @@ const Participants = () => {
       ) : null}
       {viewMode === "table" ? (
         <ParticipantsTableView
-          participants={filteredParticipants}
+          participants={paginatedParticipants}
           hasFilters={hasFilters}
           onUpdated={handleUpdated}
           onDeleted={handleDeleted}
+        />
+      ) : null}
+
+      {viewMode === "base" ? (
+        <CatalogBasePagination
+          page={page}
+          totalPages={totalPages}
+          onPageChange={handlePageChange}
+          total={filteredParticipants.length}
+          itemsPerPage={itemsPerPage}
+          singularLabel="participante"
+          pluralLabel="participantes"
+        />
+      ) : null}
+
+      {viewMode !== "base" ? (
+        <CatalogPagePagination
+          page={page}
+          totalPages={totalPages}
+          onPageChange={handlePageChange}
         />
       ) : null}
     </div>

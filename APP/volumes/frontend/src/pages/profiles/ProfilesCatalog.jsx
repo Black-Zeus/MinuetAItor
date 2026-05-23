@@ -25,6 +25,8 @@ const VIEW_OPTIONS = [
   { id: "table", label: "Tabla" },
   { id: "category", label: "Por categoría" },
 ];
+const DEFAULT_ITEMS_PER_PAGE = 18;
+const TABLE_ITEMS_PER_PAGE = 100;
 
 // ─── Stats ────────────────────────────────────────────────────────────────────
 
@@ -95,10 +97,10 @@ const ProfilesCatalog = () => {
     sort:       "az",
   });
   const [viewMode, setViewMode] = useModuleViewMode(["base", "list", "table", "category"]);
+  const itemsPerPage = viewMode === "table" ? TABLE_ITEMS_PER_PAGE : DEFAULT_ITEMS_PER_PAGE;
 
   // Pagination
   const [page, setPage]         = useState(1);
-  const itemsPerPage             = 12;
 
   // ─── Carga inicial ──────────────────────────────────────────────────────────
 
@@ -150,6 +152,10 @@ const ProfilesCatalog = () => {
 
   const totalPages       = Math.max(1, Math.ceil(filteredProfiles.length / itemsPerPage));
   const paginatedProfiles = filteredProfiles.slice((page - 1) * itemsPerPage, page * itemsPerPage);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   const handlePageChange = (newPage) => {
     if (newPage >= 1 && newPage <= totalPages) setPage(newPage);
