@@ -90,6 +90,30 @@ def _now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _datetime_to_iso(value: datetime | None) -> str | None:
+    if value is None:
+        return None
+    return value.astimezone(timezone.utc).isoformat()
+
+
+def _build_failure_report_kwargs(exc: Exception) -> dict[str, Any]:
+    context = getattr(exc, "ai_usage_context", None) or {}
+    return {
+        "ai_provider": context.get("ai_provider"),
+        "ai_model": context.get("ai_model"),
+        "ai_provider_config_id": context.get("ai_provider_config_id"),
+        "ai_provider_name": context.get("ai_provider_name"),
+        "ai_provider_family": context.get("ai_provider_family"),
+        "ai_execution_adapter": context.get("ai_execution_adapter"),
+        "openai_run_id": context.get("openai_run_id"),
+        "tokens_input": context.get("tokens_input"),
+        "tokens_output": context.get("tokens_output"),
+        "started_at": context.get("started_at"),
+        "finished_at": context.get("finished_at"),
+        "latency_ms": context.get("latency_ms"),
+    }
+
+
 def _sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
@@ -357,6 +381,8 @@ def _resolve_runtime_ai_provider() -> dict[str, Any]:
         raise NonRetryableMinuteError("La configuración AI activa usa custom_headers, pero no entregó headers efectivos")
 
     return {
+        "ai_provider_config_id": str(provider.get("id") or "").strip() or None,
+        "ai_provider_name": str(provider.get("name") or "").strip() or None,
         "provider_type": provider_type,
         "provider_family": provider_family,
         "execution_adapter": execution_adapter,
@@ -646,61 +672,102 @@ def _execute_tx2_sync(payload: dict) -> tuple[str, str, int, int, str, str]:
     cat           = payload.get("catalog_ids", {})
 
     minio = _get_minio()
+    usage_context: dict[str, Any] = {}
 
-    # 1. Descargar archivos
-    logger.info("Descargando %d archivos | record=%s", len(file_metadata), rec_id)
-    files = _download_files_from_minio(minio, rec_id, file_metadata)
-    if not files:
-        raise ValueError("No se pudieron descargar archivos desde MinIO")
+    try:
+        # 1. Descargar archivos
+        logger.info("Descargando %d archivos | record=%s", len(file_metadata), rec_id)
+        files = _download_files_from_minio(minio, rec_id, file_metadata)
+        if not files:
+            raise ValueError("No se pudieron descargar archivos desde MinIO")
 
-    provider_config = _resolve_runtime_ai_provider()
+        provider_config = _resolve_runtime_ai_provider()
+        usage_context.update(
+            {
+                "ai_provider": provider_config["provider_type"],
+                "ai_model": provider_config["model_name"],
+                "ai_provider_config_id": provider_config.get("ai_provider_config_id"),
+                "ai_provider_name": provider_config.get("ai_provider_name"),
+                "ai_provider_family": provider_config.get("provider_family"),
+                "ai_execution_adapter": provider_config.get("execution_adapter"),
+            }
+        )
 
-    # 2. Cargar prompt
-    additional_notes = ai_input.get("additionalNotes", "")
-    prompt = _load_agent_prompt(profile, additional_notes)
+        # 2. Cargar prompt
+        additional_notes = ai_input.get("additionalNotes", "")
+        prompt = _load_agent_prompt(profile, additional_notes)
 
-    # 3. Llamar al proveedor IA configurado
-    ai_output, run_id, tokens_in, tokens_out = _call_ai_provider_sync(provider_config, prompt, files, ai_input)
+        # 3. Llamar al proveedor IA configurado
+        started_at_utc = _now_utc()
+        usage_context["started_at"] = _datetime_to_iso(started_at_utc)
+        try:
+            ai_output, run_id, tokens_in, tokens_out = _call_ai_provider_sync(provider_config, prompt, files, ai_input)
+        except Exception:
+            finished_at_utc = _now_utc()
+            usage_context["finished_at"] = _datetime_to_iso(finished_at_utc)
+            usage_context["latency_ms"] = max(int((finished_at_utc - started_at_utc).total_seconds() * 1000), 0)
+            raise
 
-    # 4. Trace
-    _trace_write(
-        tx_id=tx_id,
-        prompt=prompt,
-        ai_input=ai_input,
-        ai_output=ai_output,
-        files=files,
-        tokens_in=tokens_in,
-        tokens_out=tokens_out,
-        ai_provider=provider_config["provider_type"],
-        ai_model=provider_config["model_name"],
-        run_id=run_id,
-    )
+        finished_at_utc = _now_utc()
+        usage_context.update(
+            {
+                "openai_run_id": run_id,
+                "tokens_input": int(tokens_in),
+                "tokens_output": int(tokens_out),
+                "finished_at": _datetime_to_iso(finished_at_utc),
+                "latency_ms": max(int((finished_at_utc - started_at_utc).total_seconds() * 1000), 0),
+            }
+        )
 
-    derived_fields = {}
-    inferred_actual_end_time = _infer_actual_end_time(ai_input, files)
-    if inferred_actual_end_time:
-        derived_fields["actual_end_time"] = inferred_actual_end_time
+        # 4. Trace
+        _trace_write(
+            tx_id=tx_id,
+            prompt=prompt,
+            ai_input=ai_input,
+            ai_output=ai_output,
+            files=files,
+            tokens_in=tokens_in,
+            tokens_out=tokens_out,
+            ai_provider=provider_config["provider_type"],
+            ai_model=provider_config["model_name"],
+            run_id=run_id,
+        )
 
-    # 5. Enviar al backend para persistencia (TX2)
-    result = commit_tx2(
-        transaction_id=tx_id,
-        record_id=rec_id,
-        requested_by_id=by_id,
-        ai_output=ai_output,
-        ai_input_schema=ai_input,
-        derived_fields=derived_fields,
-        ai_provider=provider_config["provider_type"],
-        ai_model=provider_config["model_name"],
-        openai_run_id=run_id,
-        tokens_input=tokens_in,
-        tokens_output=tokens_out,
-        input_objects_meta=ometa,   # [{ obj_id, art_type_id, fname }] — tal cual del backend
-        catalog_ids=cat,
-    )
+        derived_fields = {}
+        inferred_actual_end_time = _infer_actual_end_time(ai_input, files)
+        if inferred_actual_end_time:
+            derived_fields["actual_end_time"] = inferred_actual_end_time
 
-    version_id = result.get("version_id", "unknown")
-    logger.info("Backend confirmo TX2 | version=%s", version_id)
-    return run_id, version_id, tokens_in, tokens_out, provider_config["provider_type"], provider_config["model_name"]
+        # 5. Enviar al backend para persistencia (TX2)
+        result = commit_tx2(
+            transaction_id=tx_id,
+            record_id=rec_id,
+            requested_by_id=by_id,
+            ai_output=ai_output,
+            ai_input_schema=ai_input,
+            derived_fields=derived_fields,
+            ai_provider=provider_config["provider_type"],
+            ai_model=provider_config["model_name"],
+            ai_provider_config_id=provider_config.get("ai_provider_config_id"),
+            ai_provider_name=provider_config.get("ai_provider_name"),
+            ai_provider_family=provider_config.get("provider_family"),
+            ai_execution_adapter=provider_config.get("execution_adapter"),
+            openai_run_id=run_id,
+            tokens_input=tokens_in,
+            tokens_output=tokens_out,
+            started_at=usage_context.get("started_at"),
+            finished_at=usage_context.get("finished_at"),
+            latency_ms=usage_context.get("latency_ms"),
+            input_objects_meta=ometa,   # [{ obj_id, art_type_id, fname }] — tal cual del backend
+            catalog_ids=cat,
+        )
+
+        version_id = result.get("version_id", "unknown")
+        logger.info("Backend confirmo TX2 | version=%s", version_id)
+        return run_id, version_id, tokens_in, tokens_out, provider_config["provider_type"], provider_config["model_name"]
+    except Exception as exc:
+        setattr(exc, "ai_usage_context", usage_context)
+        raise
 
 
 # ── Handler principal ─────────────────────────────────────────────────────────
@@ -748,6 +815,7 @@ async def handle_minutes_job(job: JobEnvelope) -> None:
                 error,
                 record_status=exc.record_status,
                 source="worker",
+                **_build_failure_report_kwargs(exc),
             )
             failure_reported = True
         except Exception as report_exc:
@@ -768,6 +836,7 @@ async def handle_minutes_job(job: JobEnvelope) -> None:
                     error,
                     record_status="processing-error",
                     source="backend_client",
+                    **_build_failure_report_kwargs(exc),
                 )
                 failure_reported = True
             except Exception as report_exc:
@@ -790,6 +859,7 @@ async def handle_minutes_job(job: JobEnvelope) -> None:
                     error,
                     record_status="processing-error",
                     source="worker_retry_exhausted",
+                    **_build_failure_report_kwargs(exc),
                 )
                 failure_reported = True
                 logger.warning("Fallo final reportado al backend tras agotar reintentos | tx=%s", tx_id)

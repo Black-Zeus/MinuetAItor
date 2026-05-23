@@ -53,6 +53,7 @@ from services.minute_participants_service import (
     build_version_participants_from_content,
     persist_record_version_participants,
 )
+from services.ai_usage_events_service import record_ai_usage_event
 from services.notification_center_service import create_in_app_notification
 from services.notification_service import enqueue_ai_processed_ready_email, enqueue_minute_officialized_email
 from services.pdf_template_resolver import ensure_pdf_template_in_content, resolve_pdf_template_for_record
@@ -209,6 +210,8 @@ async def commit_minute_tx2(
 
     try:
         version_id = _execute_tx2(db, body)
+        tx = db.query(MinuteTransaction).filter(MinuteTransaction.id == tx_id).first()
+        record = db.query(Record).filter(Record.id == body.record_id, Record.deleted_at.is_(None)).first()
         actor_user = db.query(User).filter(User.id == body.requested_by_id, User.deleted_at.is_(None)).first()
         await enqueue_ai_processed_ready_email(
             db,
@@ -216,6 +219,14 @@ async def commit_minute_tx2(
             ai_output=body.ai_output,
             actor_user=actor_user,
             ai_engine=f"{body.ai_provider} · {body.ai_model}",
+        )
+        _record_ai_usage_best_effort(
+            db,
+            tx=tx,
+            record=record,
+            body=body,
+            status="success",
+            record_version_id=version_id,
         )
         try:
             record = db.query(Record).filter(Record.id == body.record_id, Record.deleted_at.is_(None)).first()
@@ -259,8 +270,18 @@ async def commit_minute_tx2(
 
         # Marcar tx y record como fallidos (best-effort — no debe propagar)
         _mark_failed(db, tx_id, rec_id, error_msg)
+        tx = db.query(MinuteTransaction).filter(MinuteTransaction.id == tx_id).first()
+        record = db.query(Record).filter(Record.id == body.record_id, Record.deleted_at.is_(None)).first()
+        _record_ai_usage_best_effort(
+            db,
+            tx=tx,
+            record=record,
+            body=body,
+            status="failed",
+            error_code="tx2_failed",
+            error_message=error_msg[:1000],
+        )
         try:
-            record = db.query(Record).filter(Record.id == body.record_id, Record.deleted_at.is_(None)).first()
             await create_in_app_notification(
                 db,
                 notification_type="minute.analysis.failed",
@@ -314,9 +335,19 @@ async def fail_minute_tx2(
     record_status = str(body.record_status or RECORD_STATUS_PROC_ERROR).strip() or RECORD_STATUS_PROC_ERROR
 
     _mark_failed(db, tx_id, rec_id, error_msg, record_status_code=record_status)
+    tx = db.query(MinuteTransaction).filter(MinuteTransaction.id == tx_id).first()
+    record = db.query(Record).filter(Record.id == body.record_id, Record.deleted_at.is_(None)).first()
+    _record_ai_usage_best_effort(
+        db,
+        tx=tx,
+        record=record,
+        body=body,
+        status="failed",
+        error_code=record_status,
+        error_message=error_msg[:1000],
+    )
 
     try:
-        record = db.query(Record).filter(Record.id == body.record_id, Record.deleted_at.is_(None)).first()
         title = getattr(record, "title", body.record_id)
         if record_status == RECORD_STATUS_LLM_FAILED:
             notification_title = "Falló el análisis IA del acta"
@@ -557,6 +588,54 @@ def _mark_failed(
 
     except Exception as e:
         logger.error("Error marcando failed (ignorado) | tx=%s: %s", tx_id, e)
+
+
+def _record_ai_usage_best_effort(
+    db: Session,
+    *,
+    tx: MinuteTransaction | None,
+    record: Record | None,
+    body: MinuteCommitRequest | MinuteFailRequest,
+    status: str,
+    record_version_id: str | None = None,
+    error_message: str | None = None,
+    error_code: str | None = None,
+) -> None:
+    provider_meta = {
+        "source": getattr(body, "source", None),
+        "recordStatus": getattr(body, "record_status", None),
+    }
+    provider_meta = {key: value for key, value in provider_meta.items() if value is not None}
+
+    record_ai_usage_event(
+        db,
+        event_type="minute_processing",
+        status=status,
+        minute_transaction_id=str(getattr(tx, "id", None) or getattr(body, "transaction_id", None) or "") or None,
+        record_id=str(getattr(record, "id", None) or getattr(body, "record_id", None) or "") or None,
+        record_version_id=record_version_id,
+        client_id=str(getattr(record, "client_id", None) or "") or None,
+        project_id=str(getattr(record, "project_id", None) or "") or None,
+        ai_profile_id=str(getattr(tx, "ai_profile_id", None) or getattr(record, "ai_profile_id", None) or "") or None,
+        requested_by=str(getattr(tx, "requested_by", None) or getattr(body, "requested_by_id", None) or "") or None,
+        provider_config_id=getattr(body, "ai_provider_config_id", None),
+        provider_type=getattr(body, "ai_provider", None),
+        provider_family=getattr(body, "ai_provider_family", None),
+        execution_adapter=getattr(body, "ai_execution_adapter", None),
+        provider_name_snapshot=getattr(body, "ai_provider_name", None),
+        model_name=getattr(body, "ai_model", None),
+        external_run_id=getattr(body, "openai_run_id", None),
+        external_thread_id=str(getattr(tx, "openai_thread_id", None) or "") or None,
+        started_at=getattr(body, "started_at", None),
+        finished_at=getattr(body, "finished_at", None),
+        latency_ms=getattr(body, "latency_ms", None),
+        input_tokens=getattr(body, "tokens_input", None),
+        output_tokens=getattr(body, "tokens_output", None),
+        error_code=error_code,
+        error_message=error_message,
+        provider_meta_json=provider_meta or None,
+        suppress_errors=True,
+    )
 
 
 async def _publish_event(
