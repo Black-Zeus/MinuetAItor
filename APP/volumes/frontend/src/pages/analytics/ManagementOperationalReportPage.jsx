@@ -25,6 +25,9 @@ import {
 } from "@/services/minutesService";
 import projectService from "@/services/projectService";
 import {
+  listManagementCommitmentItems,
+  listManagementEmailDeliveries,
+  listManagementReviewObservations,
   listManagementTopicAnalytics,
   previewReportPdfBlob,
 } from "@/services/reportsService";
@@ -101,6 +104,35 @@ const PROVIDER_VALIDATION_STATUS_OPTIONS = [
   { value: "model_not_found", label: "Modelo no encontrado" },
 ];
 
+const REVIEW_OBSERVATION_STATUS_OPTIONS = [
+  { value: "new", label: "Nueva" },
+  { value: "inserted", label: "Insertada" },
+  { value: "approved", label: "Aprobada" },
+  { value: "rejected", label: "Rechazada" },
+];
+
+const COMMITMENT_STATUS_OPTIONS = [
+  { value: "pending", label: "Pendiente" },
+  { value: "open", label: "Abierto" },
+  { value: "in-progress", label: "En curso" },
+  { value: "completed", label: "Completado" },
+  { value: "closed", label: "Cerrado" },
+  { value: "cancelled", label: "Cancelado" },
+];
+
+const REQUIREMENT_PRIORITY_OPTIONS = [
+  { value: "high", label: "Alta" },
+  { value: "medium", label: "Media" },
+  { value: "low", label: "Baja" },
+  { value: "critical", label: "Crítica" },
+];
+
+const EMAIL_DELIVERY_STATUS_OPTIONS = [
+  { value: "queued", label: "En cola" },
+  { value: "sent", label: "Enviado" },
+  { value: "failed", label: "Fallido" },
+];
+
 const MAINTENANCE_RUNTIME_STATUS_OPTIONS = [
   { value: "queued", label: "En cola" },
   { value: "running", label: "En curso" },
@@ -159,6 +191,67 @@ const TOPIC_STATUS_CONFIG = {
   trend: {
     label: "Tendencia",
     className: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300",
+  },
+};
+
+const REVIEW_OBSERVATION_STATUS_CONFIG = {
+  new: {
+    label: "Nueva",
+    className: "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300",
+  },
+  inserted: {
+    label: "Insertada",
+    className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
+  },
+  approved: {
+    label: "Aprobada",
+    className: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300",
+  },
+  rejected: {
+    label: "Rechazada",
+    className: "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300",
+  },
+};
+
+const EMAIL_DELIVERY_STATUS_CONFIG = {
+  queued: {
+    label: "En cola",
+    className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+  },
+  sent: {
+    label: "Enviado",
+    className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
+  },
+  failed: {
+    label: "Fallido",
+    className: "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300",
+  },
+};
+
+const COMMITMENT_STATUS_CONFIG = {
+  pending: {
+    label: "Pendiente",
+    className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+  },
+  open: {
+    label: "Abierto",
+    className: "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300",
+  },
+  "in-progress": {
+    label: "En curso",
+    className: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300",
+  },
+  completed: {
+    label: "Completado",
+    className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
+  },
+  closed: {
+    label: "Cerrado",
+    className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
+  },
+  cancelled: {
+    label: "Cancelado",
+    className: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
   },
 };
 
@@ -235,6 +328,28 @@ const SORTERS = {
   unconvertedCount: (row) => row.unconvertedCount ?? 0,
   conversionTarget: (row) => row.conversionTarget ?? "",
   conversionRate: (row) => row.conversionRate ?? 0,
+  observationId: (row) => row.observationId ?? 0,
+  authorEmail: (row) => row.authorEmail ?? "",
+  versionNum: (row) => row.versionNum ?? 0,
+  resolutionType: (row) => row.resolutionTypeLabel ?? row.resolutionType ?? "",
+  resolvedAt: (row) => row.resolvedAtTimestamp ?? 0,
+  completedAt: (row) => row.completedAtTimestamp ?? 0,
+  queuedAt: (row) => row.queuedAtTimestamp ?? 0,
+  sentAt: (row) => row.sentAtTimestamp ?? 0,
+  failedAt: (row) => row.failedAtTimestamp ?? 0,
+  emailKind: (row) => row.emailKindLabel ?? row.emailKind ?? "",
+  recipientCount: (row) => row.recipientCount ?? 0,
+  attachmentCount: (row) => row.attachmentCount ?? 0,
+  attempt: (row) => row.attempt ?? 0,
+  body: (row) => row.body ?? "",
+  editorComment: (row) => row.editorComment ?? "",
+  itemType: (row) => row.itemTypeLabel ?? row.itemType ?? "",
+  itemCode: (row) => row.itemCode ?? "",
+  dueDate: (row) => row.dueDateTimestamp ?? 0,
+  priority: (row) => row.priorityWeight ?? 99,
+  agreementCount: (row) => row.agreementCount ?? 0,
+  requirementCount: (row) => row.requirementCount ?? 0,
+  expiredCount: (row) => row.expiredCount ?? 0,
   percentage: (row) => row.percentageRaw ?? 0,
   reprocessReady: (row) => (row.canReprocess ? 1 : 0),
   reprocessReason: (row) => row.reprocessReasonLabel ?? "",
@@ -393,6 +508,100 @@ const getStatusPresentation = (status, explicitLabel = null) => {
     className: config.className,
     sortWeight: STATUS_SORT_WEIGHT[key] ?? 999,
   };
+};
+
+const getReviewObservationStatusPresentation = (status, explicitLabel = null) => {
+  const key = String(status ?? "new").trim().toLowerCase() || "new";
+  const config = REVIEW_OBSERVATION_STATUS_CONFIG[key] ?? REVIEW_OBSERVATION_STATUS_CONFIG.new;
+  return {
+    key,
+    label: explicitLabel ?? config.label,
+    className: config.className,
+    sortWeight: key === "new" ? 1 : key === "approved" ? 2 : key === "inserted" ? 3 : 4,
+  };
+};
+
+const getEmailDeliveryStatusPresentation = (status, explicitLabel = null) => {
+  const key = String(status ?? "queued").trim().toLowerCase() || "queued";
+  const config = EMAIL_DELIVERY_STATUS_CONFIG[key] ?? EMAIL_DELIVERY_STATUS_CONFIG.queued;
+  const sortWeight = key === "failed" ? 1 : key === "queued" ? 2 : 3;
+  return {
+    key,
+    label: explicitLabel ?? config.label,
+    className: config.className,
+    sortWeight,
+  };
+};
+
+const getEmailKindLabel = (value) => {
+  const labels = {
+    minute_review: "Revisión",
+    minute_publication: "Publicación",
+    minute_officialized: "Oficialización",
+    minute_analysis: "Análisis IA",
+    system_queue: "Colas",
+    templated: "Plantilla",
+    system: "Sistema",
+  };
+  return labels[String(value ?? "").trim()] ?? value ?? "Sistema";
+};
+
+const normalizeStatusKey = (value, fallback = "pending") =>
+  normalizeText(value).replace(/_/g, "-") || fallback;
+
+const getCommitmentStatusPresentation = (status, explicitLabel = null) => {
+  const aliases = {
+    done: "completed",
+    complete: "completed",
+    terminado: "completed",
+    cerrada: "closed",
+    cerrado: "closed",
+    pendiente: "pending",
+    abierto: "open",
+    abierta: "open",
+  };
+  const rawKey = normalizeStatusKey(status);
+  const key = aliases[rawKey] ?? rawKey;
+  const config = COMMITMENT_STATUS_CONFIG[key] ?? COMMITMENT_STATUS_CONFIG.pending;
+  const sortWeight = ["pending", "open", "in-progress", "completed", "closed", "cancelled"].indexOf(key);
+  return {
+    key,
+    label: explicitLabel ?? config.label,
+    className: config.className,
+    sortWeight: sortWeight >= 0 ? sortWeight + 1 : 99,
+  };
+};
+
+const getRequirementPriorityPresentation = (priority) => {
+  const aliases = {
+    alta: "high",
+    media: "medium",
+    baja: "low",
+    critica: "critical",
+    crítico: "critical",
+    critico: "critical",
+  };
+  const key = aliases[normalizeStatusKey(priority, "medium")] ?? normalizeStatusKey(priority, "medium");
+  const config = REQUIREMENT_PRIORITY_OPTIONS.find((option) => option.value === key);
+  const weight = { critical: 1, high: 2, medium: 3, low: 4 };
+  return {
+    key,
+    label: config?.label ?? key,
+    weight: weight[key] ?? 99,
+  };
+};
+
+const isClosedCommitmentStatus = (statusKey) =>
+  ["completed", "closed", "cancelled", "done"].includes(String(statusKey ?? ""));
+
+const getResolutionTypeLabel = (value) => {
+  const key = String(value ?? "none").trim().toLowerCase();
+  const labels = {
+    none: "Sin resolución",
+    direct_insert: "Inserción directa",
+    manual_update: "Actualización manual",
+  };
+  return labels[key] ?? (key || "Sin resolución");
 };
 
 const getClientLabel = (client) =>
@@ -612,6 +821,7 @@ const normalizeCycleTimeRecord = (item, index) => {
     lastTransitionAtLabel: formatDateTimeLabel(lastTransitionAt),
     lastTransitionAtTimestamp: parsedLastTransitionAt?.getTime?.() ?? 0,
     completedAtLabel: completedAt ? formatDateTimeLabel(completedAt) : "—",
+    completedAtInput: toInputDate(completedAt),
     completedAtTimestamp: parsedCompletedAt?.getTime?.() ?? 0,
     processingDurationMs: Number(
       item?.processingDurationMs ?? item?.processing_duration_ms ?? 0
@@ -844,6 +1054,141 @@ const normalizeTopicAnalyticsRecord = (item, index) => {
     statusKey,
     statusLabel: statusLabel ?? statusKey,
     status: getTopicStatusPresentation(statusKey, statusLabel),
+  };
+};
+
+const normalizeReviewObservationRecord = (item, index) => {
+  const createdAt = item?.createdAt ?? item?.created_at ?? null;
+  const resolvedAt = item?.resolvedAt ?? item?.resolved_at ?? null;
+  const parsedCreatedAt = parseFlexibleDate(createdAt);
+  const parsedResolvedAt = parseFlexibleDate(resolvedAt);
+  const statusKey = item?.status ?? "new";
+  const status = getReviewObservationStatusPresentation(statusKey);
+  const resolutionType = item?.resolutionType ?? item?.resolution_type ?? "none";
+
+  return {
+    id: item?.id ?? `review-observation-${index + 1}`,
+    observationId: Number(item?.observationId ?? item?.observation_id ?? index + 1),
+    rawId: item?.recordId ?? item?.record_id ?? index + 1,
+    recordVersionId: item?.recordVersionId ?? item?.record_version_id ?? null,
+    versionNum: Number(item?.versionNum ?? item?.version_num ?? 0),
+    title: item?.title ?? "Minuta sin título",
+    client: item?.client ?? "Sin cliente",
+    project: item?.project ?? "Sin proyecto",
+    responsible: item?.authorName ?? item?.author_name ?? item?.authorEmail ?? item?.author_email ?? "Invitado",
+    authorName: item?.authorName ?? item?.author_name ?? "",
+    authorEmail: item?.authorEmail ?? item?.author_email ?? "",
+    body: item?.body ?? "",
+    editorComment: item?.editorComment ?? item?.editor_comment ?? "",
+    resolutionType,
+    resolutionTypeLabel: getResolutionTypeLabel(resolutionType),
+    status,
+    statusKey: status.key,
+    statusWeight: status.sortWeight,
+    dateLabel: createdAt ? formatDateTimeLabel(createdAt) : "Sin fecha",
+    dateInput: toInputDate(createdAt),
+    dateTimestamp: parsedCreatedAt?.getTime?.() ?? 0,
+    resolvedAtLabel: resolvedAt ? formatDateTimeLabel(resolvedAt) : "Sin resolver",
+    resolvedAtInput: toInputDate(resolvedAt),
+    resolvedAtTimestamp: parsedResolvedAt?.getTime?.() ?? 0,
+  };
+};
+
+const normalizeEmailDeliveryRecord = (item, index) => {
+  const rawDate = item?.date ?? item?.sentAt ?? item?.sent_at ?? item?.failedAt ?? item?.failed_at ?? item?.queuedAt ?? item?.queued_at ?? null;
+  const queuedAt = item?.queuedAt ?? item?.queued_at ?? null;
+  const sentAt = item?.sentAt ?? item?.sent_at ?? null;
+  const failedAt = item?.failedAt ?? item?.failed_at ?? null;
+  const parsedDate = parseFlexibleDate(rawDate);
+  const parsedQueuedAt = parseFlexibleDate(queuedAt);
+  const parsedSentAt = parseFlexibleDate(sentAt);
+  const parsedFailedAt = parseFlexibleDate(failedAt);
+  const status = getEmailDeliveryStatusPresentation(item?.status);
+  const emailKind = item?.emailKind ?? item?.email_kind ?? "system";
+  const to = Array.isArray(item?.to) ? item.to : [];
+  const cc = Array.isArray(item?.cc) ? item.cc : [];
+
+  return {
+    id: item?.id ?? `email-delivery-${index + 1}`,
+    rawId: item?.recordId ?? item?.record_id ?? item?.jobId ?? item?.job_id ?? index + 1,
+    jobId: item?.jobId ?? item?.job_id ?? "",
+    title: item?.subject ?? "Correo sin asunto",
+    subject: item?.subject ?? "Correo sin asunto",
+    minuteTitle: item?.minuteTitle ?? item?.minute_title ?? "Sin minuta asociada",
+    client: item?.client ?? "Sin cliente",
+    project: item?.project ?? "Sin proyecto",
+    responsible: item?.actorUserId ?? item?.actor_user_id ?? "",
+    status,
+    statusKey: status.key,
+    statusWeight: status.sortWeight,
+    emailKind,
+    emailKindLabel: getEmailKindLabel(emailKind),
+    notificationType: item?.notificationType ?? item?.notification_type ?? "",
+    templateId: item?.templateId ?? item?.template_id ?? "",
+    recipientCount: Number(item?.recipientCount ?? item?.recipient_count ?? 0),
+    attachmentCount: Number(item?.attachmentCount ?? item?.attachment_count ?? 0),
+    inlineAssetCount: Number(item?.inlineAssetCount ?? item?.inline_asset_count ?? 0),
+    to,
+    cc,
+    bcc: Array.isArray(item?.bcc) ? item.bcc : [],
+    recipientsLabel: [...to, ...cc].slice(0, 3).join(", ") || "Sin destinatarios",
+    attempt: Number(item?.attempt ?? 1),
+    errorMessage: item?.errorMessage ?? item?.error_message ?? "",
+    dateLabel: rawDate ? formatDateTimeLabel(rawDate) : "Sin fecha",
+    dateInput: toInputDate(rawDate),
+    dateTimestamp: parsedDate?.getTime?.() ?? 0,
+    queuedAtLabel: queuedAt ? formatDateTimeLabel(queuedAt) : "Sin registro",
+    queuedAtTimestamp: parsedQueuedAt?.getTime?.() ?? 0,
+    sentAtLabel: sentAt ? formatDateTimeLabel(sentAt) : "Sin envío",
+    sentAtTimestamp: parsedSentAt?.getTime?.() ?? 0,
+    failedAtLabel: failedAt ? formatDateTimeLabel(failedAt) : "Sin fallo",
+    failedAtTimestamp: parsedFailedAt?.getTime?.() ?? 0,
+  };
+};
+
+const normalizeCommitmentItemRecord = (item, index) => {
+  const rawDate = item?.date ?? null;
+  const dueDate = item?.dueDate ?? item?.due_date ?? null;
+  const parsedDate = parseFlexibleDate(rawDate);
+  const parsedDueDate = parseFlexibleDate(dueDate);
+  const itemType = item?.itemType ?? item?.item_type ?? "agreement";
+  const status = getCommitmentStatusPresentation(item?.status);
+  const priority = getRequirementPriorityPresentation(item?.priority);
+  const isAgreement = itemType === "agreement";
+  const isExpired = Boolean(
+    isAgreement &&
+    parsedDueDate &&
+    parsedDueDate.getTime() < Date.now() &&
+    !isClosedCommitmentStatus(status.key)
+  );
+
+  return {
+    id: item?.id ?? `commitment-row-${index + 1}`,
+    rawId: item?.recordId ?? item?.record_id ?? index + 1,
+    recordVersionId: item?.recordVersionId ?? item?.record_version_id ?? null,
+    itemType,
+    itemTypeLabel: isAgreement ? "Acuerdo" : "Requerimiento",
+    itemCode: item?.itemCode ?? item?.item_code ?? (isAgreement ? "AGR" : "REQ"),
+    title: item?.title ?? item?.minuteTitle ?? item?.minute_title ?? "Sin título",
+    body: item?.body ?? "",
+    responsible: item?.responsible ?? "Sin responsable",
+    status,
+    statusKey: status.key,
+    statusWeight: status.sortWeight,
+    priority: priority.key,
+    priorityLabel: isAgreement ? "—" : priority.label,
+    priorityWeight: isAgreement ? 99 : priority.weight,
+    dueDateLabel: dueDate ? formatDateLabel(dueDate) : "Sin fecha",
+    dueDateInput: toInputDate(dueDate),
+    dueDateTimestamp: parsedDueDate?.getTime?.() ?? 0,
+    isExpired,
+    entity: item?.entity ?? "",
+    minuteTitle: item?.minuteTitle ?? item?.minute_title ?? "Minuta sin título",
+    client: item?.client ?? "Sin cliente",
+    project: item?.project ?? "Sin proyecto",
+    dateLabel: rawDate ? formatDateLabel(rawDate) : "Sin fecha",
+    dateInput: toInputDate(rawDate),
+    dateTimestamp: parsedDate?.getTime?.() ?? 0,
   };
 };
 
@@ -1741,6 +2086,64 @@ const buildStatusRows = (rows = []) => {
     });
 };
 
+const createCommitmentAggregate = (label, extra = {}) => ({
+  id: `commitment-aggregate-${normalizeText(label) || "sin-dato"}`,
+  label,
+  totalRecords: 0,
+  agreementCount: 0,
+  requirementCount: 0,
+  expiredCount: 0,
+  pendingRecords: 0,
+  completedRecords: 0,
+  clientSet: new Set(),
+  projectSet: new Set(),
+  responsibleSet: new Set(),
+  lastDateTimestamp: 0,
+  lastDateLabel: "Sin fecha",
+  lastDateInput: "",
+  ...extra,
+});
+
+const addCommitmentToAggregate = (aggregate, row) => {
+  aggregate.totalRecords += 1;
+  if (row.itemType === "agreement") aggregate.agreementCount += 1;
+  if (row.itemType === "requirement") aggregate.requirementCount += 1;
+  if (row.isExpired) aggregate.expiredCount += 1;
+  if (!isClosedCommitmentStatus(row.statusKey)) aggregate.pendingRecords += 1;
+  if (isClosedCommitmentStatus(row.statusKey)) aggregate.completedRecords += 1;
+  if (row.client) aggregate.clientSet.add(row.client);
+  if (row.project) aggregate.projectSet.add(row.project);
+  if (row.responsible) aggregate.responsibleSet.add(row.responsible);
+  if ((row.dateTimestamp ?? 0) > (aggregate.lastDateTimestamp ?? 0)) {
+    aggregate.lastDateTimestamp = row.dateTimestamp;
+    aggregate.lastDateLabel = row.dateLabel;
+    aggregate.lastDateInput = row.dateInput;
+  }
+};
+
+const finalizeCommitmentAggregate = (aggregate) => {
+  const { clientSet, projectSet, responsibleSet, ...row } = aggregate;
+  return {
+    ...row,
+    clientCount: clientSet.size,
+    projectCount: projectSet.size,
+    responsibleCount: responsibleSet.size,
+  };
+};
+
+const buildCommitmentAggregateRows = (rows = [], fieldName, labelFallback = "Sin dato") => {
+  const grouped = new Map();
+  rows.forEach((row) => {
+    const label = String(row?.[fieldName] ?? "").trim() || labelFallback;
+    const current = grouped.get(label) ?? createCommitmentAggregate(label, {
+      [fieldName]: label,
+    });
+    addCommitmentToAggregate(current, row);
+    grouped.set(label, current);
+  });
+  return [...grouped.values()].map(finalizeCommitmentAggregate);
+};
+
 const buildTokenBreakdownColumn = () => ({
   key: "tokenBreakdown",
   label: "Tokens",
@@ -1852,18 +2255,21 @@ const applyFilters = (rows, filters) => {
   const project = normalizeText(filters.project);
   const responsible = normalizeText(filters.responsible);
   const status = String(filters.status ?? "").trim();
+  const dateField = filters.dateField ?? "dateInput";
 
   return rows.filter((row) => {
-    if (filters.dateFrom && row.dateInput && row.dateInput < filters.dateFrom) {
+    const rowDateInput = row?.[dateField] ?? row.dateInput;
+
+    if (filters.dateFrom && rowDateInput && rowDateInput < filters.dateFrom) {
       return false;
     }
 
-    if (filters.dateTo && row.dateInput && row.dateInput > filters.dateTo) {
+    if (filters.dateTo && rowDateInput && rowDateInput > filters.dateTo) {
       return false;
     }
 
-    if (filters.dateFrom && !row.dateInput) return false;
-    if (filters.dateTo && !row.dateInput) return false;
+    if (filters.dateFrom && !rowDateInput) return false;
+    if (filters.dateTo && !rowDateInput) return false;
     if (client && normalizeText(row.client) !== client) return false;
     if (project && normalizeText(row.project) !== project) return false;
     if (responsible && normalizeText(row.responsible) !== responsible) return false;
@@ -3286,6 +3692,384 @@ const buildTopicTrendColumns = () => [
   ...buildTopicTagColumns().filter((column) => column.key !== "totalAssignments"),
 ];
 
+const buildReviewObservationColumns = () => [
+  {
+    key: "date",
+    label: "Fecha",
+    sortable: true,
+    sortKey: "date",
+    exportValue: (row) => row.dateLabel,
+    render: (row) => row.dateLabel,
+  },
+  {
+    key: "title",
+    label: "Minuta",
+    sortable: true,
+    sortKey: "title",
+    exportValue: (row) => row.title,
+    cellClassName: "min-w-[260px]",
+    render: (row) => row.title,
+  },
+  {
+    key: "client",
+    label: "Cliente",
+    sortable: true,
+    sortKey: "client",
+    exportValue: (row) => row.client,
+    render: (row) => row.client,
+  },
+  {
+    key: "project",
+    label: "Proyecto",
+    sortable: true,
+    sortKey: "project",
+    exportValue: (row) => row.project,
+    render: (row) => row.project,
+  },
+  {
+    key: "authorEmail",
+    label: "Autor externo",
+    sortable: true,
+    sortKey: "authorEmail",
+    exportValue: (row) => row.authorEmail,
+    render: (row) => row.authorName || row.authorEmail,
+  },
+  {
+    key: "status",
+    label: "Estado",
+    sortable: true,
+    sortKey: "status",
+    exportValue: (row) => row.status.label,
+    render: (row) => (
+      <span
+        className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${row.status.className}`}
+      >
+        {row.status.label}
+      </span>
+    ),
+  },
+  {
+    key: "body",
+    label: "Observación",
+    sortable: true,
+    sortKey: "body",
+    exportValue: (row) => row.body,
+    cellClassName: "min-w-[340px]",
+    render: (row) => row.body,
+  },
+];
+
+const buildReviewResolutionColumns = () => [
+  ...buildReviewObservationColumns().filter((column) => column.key !== "body"),
+  {
+    key: "resolutionType",
+    label: "Resolución",
+    sortable: true,
+    sortKey: "resolutionType",
+    exportValue: (row) => row.resolutionTypeLabel,
+    render: (row) => row.resolutionTypeLabel,
+  },
+  {
+    key: "resolvedAt",
+    label: "Fecha resolución",
+    sortable: true,
+    sortKey: "resolvedAt",
+    exportValue: (row) => row.resolvedAtLabel,
+    render: (row) => row.resolvedAtLabel,
+  },
+  {
+    key: "editorComment",
+    label: "Comentario editor",
+    sortable: true,
+    sortKey: "editorComment",
+    exportValue: (row) => row.editorComment || "—",
+    cellClassName: "min-w-[320px]",
+    render: (row) => row.editorComment || "—",
+  },
+];
+
+const buildEmailDeliveryColumns = () => [
+  {
+    key: "date",
+    label: "Fecha",
+    sortable: true,
+    sortKey: "date",
+    exportValue: (row) => row.dateLabel,
+    render: (row) => row.dateLabel,
+  },
+  {
+    key: "emailKind",
+    label: "Tipo",
+    sortable: true,
+    sortKey: "emailKind",
+    exportValue: (row) => row.emailKindLabel,
+    render: (row) => row.emailKindLabel,
+  },
+  {
+    key: "status",
+    label: "Estado",
+    sortable: true,
+    sortKey: "status",
+    exportValue: (row) => row.status.label,
+    render: (row) => (
+      <span
+        className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${row.status.className}`}
+      >
+        {row.status.label}
+      </span>
+    ),
+  },
+  {
+    key: "subject",
+    label: "Asunto",
+    sortable: true,
+    sortKey: "title",
+    exportValue: (row) => row.subject,
+    cellClassName: "min-w-[280px]",
+    render: (row) => row.subject,
+  },
+  {
+    key: "minuteTitle",
+    label: "Minuta",
+    sortable: true,
+    sortKey: "title",
+    exportValue: (row) => row.minuteTitle,
+    cellClassName: "min-w-[240px]",
+    render: (row) => row.minuteTitle,
+  },
+  {
+    key: "client",
+    label: "Cliente",
+    sortable: true,
+    sortKey: "client",
+    exportValue: (row) => row.client,
+    render: (row) => row.client,
+  },
+  {
+    key: "project",
+    label: "Proyecto",
+    sortable: true,
+    sortKey: "project",
+    exportValue: (row) => row.project,
+    render: (row) => row.project,
+  },
+  {
+    key: "recipients",
+    label: "Destinatarios",
+    sortable: true,
+    sortKey: "recipientCount",
+    exportValue: (row) => row.recipientsLabel,
+    cellClassName: "min-w-[240px]",
+    render: (row) => row.recipientsLabel,
+  },
+  {
+    key: "attachmentCount",
+    label: "Adjuntos",
+    sortable: true,
+    sortKey: "attachmentCount",
+    exportValue: (row) => row.attachmentCount,
+    render: (row) => row.attachmentCount,
+  },
+  {
+    key: "errorMessage",
+    label: "Error",
+    sortable: true,
+    sortKey: "errorMessage",
+    exportValue: (row) => row.errorMessage,
+    cellClassName: "min-w-[260px]",
+    render: (row) => row.errorMessage || "—",
+  },
+];
+
+const buildReviewFrictionColumns = () => [
+  ...buildCycleColumns().filter((column) =>
+    ["title", "client", "project", "status", "transitionCount", "returnToEditCount", "reviewDuration", "totalCycleDuration"].includes(column.key)
+  ),
+];
+
+const buildPublicationColumns = () => [
+  {
+    key: "completedAt",
+    label: "Publicación",
+    sortable: true,
+    sortKey: "completedAt",
+    exportValue: (row) => row.completedAtLabel,
+    render: (row) => row.completedAtLabel,
+  },
+  ...buildMinuteDetailColumns().filter((column) =>
+    ["client", "project", "responsible", "title"].includes(column.key)
+  ),
+  {
+    key: "totalCycleDuration",
+    label: "Ciclo total",
+    sortable: true,
+    sortKey: "totalCycleDuration",
+    exportValue: (row) => formatDurationMs(row.totalCycleDurationMs),
+    render: (row) => formatDurationMs(row.totalCycleDurationMs),
+  },
+];
+
+const buildCommitmentDetailColumns = () => [
+  {
+    key: "date",
+    label: "Fecha minuta",
+    sortable: true,
+    sortKey: "date",
+    exportValue: (row) => row.dateLabel,
+    render: (row) => row.dateLabel,
+  },
+  {
+    key: "itemCode",
+    label: "Código",
+    sortable: true,
+    sortKey: "itemCode",
+    exportValue: (row) => row.itemCode,
+    render: (row) => row.itemCode,
+  },
+  {
+    key: "itemType",
+    label: "Tipo",
+    sortable: true,
+    sortKey: "itemType",
+    exportValue: (row) => row.itemTypeLabel,
+    render: (row) => row.itemTypeLabel,
+  },
+  {
+    key: "client",
+    label: "Cliente",
+    sortable: true,
+    sortKey: "client",
+    exportValue: (row) => row.client,
+    render: (row) => row.client,
+  },
+  {
+    key: "project",
+    label: "Proyecto",
+    sortable: true,
+    sortKey: "project",
+    exportValue: (row) => row.project,
+    render: (row) => row.project,
+  },
+  {
+    key: "responsible",
+    label: "Responsable",
+    sortable: true,
+    sortKey: "responsible",
+    exportValue: (row) => row.responsible,
+    render: (row) => row.responsible,
+  },
+  {
+    key: "status",
+    label: "Estado",
+    sortable: true,
+    sortKey: "status",
+    exportValue: (row) => row.status.label,
+    render: (row) => (
+      <span
+        className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${row.status.className}`}
+      >
+        {row.status.label}
+      </span>
+    ),
+  },
+  {
+    key: "dueDate",
+    label: "Vencimiento",
+    sortable: true,
+    sortKey: "dueDate",
+    exportValue: (row) => row.dueDateLabel,
+    render: (row) => row.dueDateLabel,
+  },
+  {
+    key: "body",
+    label: "Detalle",
+    sortable: true,
+    sortKey: "body",
+    exportValue: (row) => row.body,
+    cellClassName: "min-w-[340px]",
+    render: (row) => row.body,
+  },
+];
+
+const buildRequirementDetailColumns = () => [
+  ...buildCommitmentDetailColumns().filter((column) => column.key !== "dueDate"),
+  {
+    key: "priority",
+    label: "Prioridad",
+    sortable: true,
+    sortKey: "priority",
+    exportValue: (row) => row.priorityLabel,
+    render: (row) => row.priorityLabel,
+  },
+  {
+    key: "entity",
+    label: "Entidad",
+    sortable: true,
+    sortKey: "title",
+    exportValue: (row) => row.entity || "—",
+    render: (row) => row.entity || "—",
+  },
+];
+
+const buildCommitmentAggregateColumns = (labelKey, labelText) => [
+  {
+    key: labelKey,
+    label: labelText,
+    sortable: true,
+    sortKey: labelKey,
+    exportValue: (row) => row[labelKey] ?? row.label,
+    render: (row) => row[labelKey] ?? row.label,
+  },
+  {
+    key: "totalRecords",
+    label: "Total",
+    sortable: true,
+    sortKey: "totalRecords",
+    exportValue: (row) => formatNumber(row.totalRecords),
+    render: (row) => formatNumber(row.totalRecords),
+  },
+  {
+    key: "agreementCount",
+    label: "Acuerdos",
+    sortable: true,
+    sortKey: "agreementCount",
+    exportValue: (row) => formatNumber(row.agreementCount),
+    render: (row) => formatNumber(row.agreementCount),
+  },
+  {
+    key: "requirementCount",
+    label: "Requerimientos",
+    sortable: true,
+    sortKey: "requirementCount",
+    exportValue: (row) => formatNumber(row.requirementCount),
+    render: (row) => formatNumber(row.requirementCount),
+  },
+  {
+    key: "pendingRecords",
+    label: "Pendientes",
+    sortable: true,
+    sortKey: "pendingRecords",
+    exportValue: (row) => formatNumber(row.pendingRecords),
+    render: (row) => formatNumber(row.pendingRecords),
+  },
+  {
+    key: "expiredCount",
+    label: "Vencidos",
+    sortable: true,
+    sortKey: "expiredCount",
+    exportValue: (row) => formatNumber(row.expiredCount),
+    render: (row) => formatNumber(row.expiredCount),
+  },
+  {
+    key: "lastDate",
+    label: "Última actividad",
+    sortable: true,
+    sortKey: "lastActivity",
+    exportValue: (row) => row.lastDateLabel,
+    render: (row) => row.lastDateLabel,
+  },
+];
+
 const defaultMinuteOrder = (rows = []) =>
   [...rows].sort((left, right) => {
     if (left.dateTimestamp !== right.dateTimestamp) {
@@ -4153,6 +4937,254 @@ const buildTopicTrendSummaryCards = ({ reportRows }) => [
   ),
 ];
 
+const buildReviewObservationSummaryCards = ({ reportRows }) => [
+  buildSummaryCard(
+    "Observaciones",
+    reportRows.length,
+    "Comentarios externos recibidos en versiones de minuta",
+    "clipboardList",
+    "sky"
+  ),
+  buildSummaryCard(
+    "Pendientes",
+    reportRows.filter((row) => row.statusKey === "new").length,
+    "Observaciones aún sin resolución editorial",
+    "clock",
+    "amber"
+  ),
+  buildSummaryCard(
+    "Autores externos",
+    new Set(reportRows.map((row) => row.authorEmail).filter(Boolean)).size,
+    "Participantes externos que dejaron comentarios",
+    "users",
+    "emerald"
+  ),
+  buildSummaryCard(
+    "Minutas afectadas",
+    new Set(reportRows.map((row) => row.rawId).filter(Boolean)).size,
+    "Minutas con observaciones registradas",
+    "fileLines",
+    "rose"
+  ),
+];
+
+const buildReviewResolutionSummaryCards = ({ reportRows }) => [
+  buildSummaryCard(
+    "Observaciones resueltas",
+    reportRows.filter((row) => row.statusKey !== "new").length,
+    "Observaciones con decisión editorial",
+    "clipboardCheck",
+    "sky"
+  ),
+  buildSummaryCard(
+    "Insertadas",
+    reportRows.filter((row) => row.statusKey === "inserted").length,
+    "Observaciones incorporadas directamente",
+    "checkCircle",
+    "emerald"
+  ),
+  buildSummaryCard(
+    "Aprobadas",
+    reportRows.filter((row) => row.statusKey === "approved").length,
+    "Observaciones aprobadas para actualización manual",
+    "filter",
+    "amber"
+  ),
+  buildSummaryCard(
+    "Rechazadas",
+    reportRows.filter((row) => row.statusKey === "rejected").length,
+    "Observaciones descartadas por edición",
+    "bug",
+    "rose"
+  ),
+];
+
+const buildReviewFrictionSummaryCards = ({ reportRows }) => [
+  buildSummaryCard(
+    "Minutas con fricción",
+    reportRows.length,
+    "Minutas con vueltas a edición o alta interacción de estados",
+    "filter",
+    "sky"
+  ),
+  buildSummaryCard(
+    "Vueltas a edición",
+    reportRows.reduce((sum, row) => sum + Number(row.returnToEditCount ?? 0), 0),
+    "Regresiones acumuladas desde revisión",
+    "arrowsRotate",
+    "amber"
+  ),
+  buildSummaryCard(
+    "Ciclos cerrados",
+    reportRows.filter((row) => row.cycleClosed).length,
+    "Minutas con ciclo terminal registrado",
+    "clipboardCheck",
+    "emerald"
+  ),
+  buildSummaryCard(
+    "Clientes impactados",
+    new Set(reportRows.map((row) => row.client).filter(Boolean)).size,
+    "Clientes representados en el reporte",
+    "business",
+    "rose"
+  ),
+];
+
+const buildPublicationSummaryCards = ({ reportRows }) => [
+  buildSummaryCard(
+    "Publicaciones",
+    reportRows.length,
+    "Minutas que alcanzaron publicación final",
+    "clipboardCheck",
+    "sky"
+  ),
+  buildSummaryCard(
+    "Clientes",
+    new Set(reportRows.map((row) => row.client).filter(Boolean)).size,
+    "Clientes con publicaciones finalizadas",
+    "business",
+    "emerald"
+  ),
+  buildSummaryCard(
+    "Proyectos",
+    new Set(reportRows.map((row) => row.project).filter(Boolean)).size,
+    "Proyectos con publicaciones finalizadas",
+    "diagramProject",
+    "amber"
+  ),
+  buildSummaryCard(
+    "Con ciclo trazado",
+    reportRows.filter((row) => Number(row.totalCycleDurationMs ?? 0) > 0).length,
+    "Publicaciones con duración de ciclo disponible",
+    "clock",
+    "rose"
+  ),
+];
+
+const buildEmailDeliverySummaryCards = ({ reportRows }) => [
+  buildSummaryCard(
+    "Correos",
+    reportRows.length,
+    "Eventos de correo asociados al flujo editorial",
+    "envelope",
+    "sky"
+  ),
+  buildSummaryCard(
+    "Enviados",
+    reportRows.filter((row) => row.statusKey === "sent").length,
+    "Correos confirmados por el worker SMTP",
+    "clipboardCheck",
+    "emerald"
+  ),
+  buildSummaryCard(
+    "Fallidos",
+    reportRows.filter((row) => row.statusKey === "failed").length,
+    "Intentos con error registrado",
+    "bug",
+    "rose"
+  ),
+  buildSummaryCard(
+    "Destinatarios",
+    reportRows.reduce((sum, row) => sum + Number(row.recipientCount ?? 0), 0),
+    "Total de destinatarios principales y copias",
+    "users",
+    "amber"
+  ),
+];
+
+const buildCommitmentSummaryCards = ({ reportRows }) => [
+  buildSummaryCard(
+    "Acuerdos",
+    reportRows.filter((row) => row.itemType === "agreement").length,
+    "Compromisos declarados en minutas visibles",
+    "clipboardList",
+    "sky"
+  ),
+  buildSummaryCard(
+    "Pendientes",
+    reportRows.filter((row) => row.itemType === "agreement" && !isClosedCommitmentStatus(row.statusKey)).length,
+    "Acuerdos aún abiertos documentalmente",
+    "clock",
+    "amber"
+  ),
+  buildSummaryCard(
+    "Vencidos",
+    reportRows.filter((row) => row.isExpired).length,
+    "Acuerdos con fecha expirada y estado abierto",
+    "bug",
+    "rose"
+  ),
+  buildSummaryCard(
+    "Responsables",
+    new Set(reportRows.map((row) => row.responsible).filter(Boolean)).size,
+    "Personas mencionadas como responsables",
+    "users",
+    "emerald"
+  ),
+];
+
+const buildRequirementSummaryCards = ({ reportRows }) => [
+  buildSummaryCard(
+    "Requerimientos",
+    reportRows.filter((row) => row.itemType === "requirement").length,
+    "Requerimientos documentados en minutas visibles",
+    "clipboardList",
+    "sky"
+  ),
+  buildSummaryCard(
+    "Alta prioridad",
+    reportRows.filter((row) => row.priority === "high" || row.priority === "critical").length,
+    "Requerimientos críticos o altos",
+    "filter",
+    "amber"
+  ),
+  buildSummaryCard(
+    "Pendientes",
+    reportRows.filter((row) => !isClosedCommitmentStatus(row.statusKey)).length,
+    "Requerimientos aún abiertos documentalmente",
+    "clock",
+    "rose"
+  ),
+  buildSummaryCard(
+    "Responsables",
+    new Set(reportRows.map((row) => row.responsible).filter(Boolean)).size,
+    "Personas mencionadas como responsables",
+    "users",
+    "emerald"
+  ),
+];
+
+const buildCommitmentContextSummaryCards = ({ reportRows }) => [
+  buildSummaryCard(
+    "Agrupaciones",
+    reportRows.length,
+    "Clientes o proyectos con seguimiento documental",
+    "business",
+    "sky"
+  ),
+  buildSummaryCard(
+    "Acuerdos",
+    reportRows.reduce((sum, row) => sum + Number(row.agreementCount ?? 0), 0),
+    "Acuerdos consolidados en el resultado",
+    "clipboardCheck",
+    "emerald"
+  ),
+  buildSummaryCard(
+    "Requerimientos",
+    reportRows.reduce((sum, row) => sum + Number(row.requirementCount ?? 0), 0),
+    "Requerimientos consolidados en el resultado",
+    "clipboardList",
+    "amber"
+  ),
+  buildSummaryCard(
+    "Vencidos",
+    reportRows.reduce((sum, row) => sum + Number(row.expiredCount ?? 0), 0),
+    "Acuerdos vencidos dentro del consolidado",
+    "bug",
+    "rose"
+  ),
+];
+
 const REPORT_DEFINITIONS = [
   {
     id: "gestion-executive-general",
@@ -4574,6 +5606,511 @@ const REPORT_DEFINITIONS = [
       },
     ],
     columns: buildMinuteDetailColumns(),
+  },
+  {
+    id: "gestion-agreements-followup",
+    path: "/reports/management/agreements-document-followup",
+    title: "Seguimiento Documental de Acuerdos",
+    description:
+      "Lista acuerdos declarados en minutas y su estado documental registrado.",
+    pdfSlug: "seguimiento-documental-acuerdos",
+    pdfReportKey: "gestion-seguimiento-documental-acuerdos",
+    pdfDescription:
+      "Salida documental de acuerdos declarados, responsables, vencimientos y estado dentro del rango filtrado.",
+    tableDescription:
+      "Detalle de acuerdos extraídos del JSON activo de cada minuta visible.",
+    dataSource: "commitment-items",
+    disableFallback: true,
+    defaultVisibleFilters: {
+      ...DEFAULT_VISIBLE_FILTERS,
+      status: true,
+    },
+    statusFilterOptions: COMMITMENT_STATUS_OPTIONS,
+    filterMinuteRows: (rows) => rows.filter((row) => row.itemType === "agreement"),
+    buildRows: ({ minuteRows }) => minuteRows,
+    buildDefaultRowsOrder: defaultMinuteOrder,
+    buildSummaryCards: buildCommitmentSummaryCards,
+    buildCharts: ({ reportRows }) => [
+      {
+        key: "agreements-status",
+        type: "status",
+        title: "Acuerdos por estado",
+        subtitle: "Distribuye acuerdos declarados según estado documental.",
+        footer: "La información proviene del contenido versionado de las minutas.",
+        data: buildStatusDistribution(reportRows),
+      },
+      {
+        key: "agreements-owner",
+        type: "bar",
+        title: "Acuerdos por responsable",
+        subtitle: "Responsables con mayor volumen de acuerdos documentados.",
+        footer: "Permite detectar concentración documental de compromisos.",
+        data: buildActivityDistribution(reportRows, "responsible"),
+        seriesName: "Acuerdos",
+      },
+    ],
+    columns: buildCommitmentDetailColumns(),
+  },
+  {
+    id: "gestion-commitments-expired",
+    path: "/reports/management/expired-commitments",
+    title: "Compromisos con Fecha Expirada",
+    description:
+      "Resalta compromisos cuya fecha declarada ya venció y siguen abiertos en el registro documental.",
+    pdfSlug: "compromisos-fecha-expirada",
+    pdfReportKey: "gestion-compromisos-fecha-expirada",
+    pdfDescription:
+      "Salida de acuerdos vencidos según fecha declarada y estado documental abierto.",
+    tableDescription:
+      "Detalle de acuerdos con vencimiento anterior a la fecha actual y estado no cerrado.",
+    dataSource: "commitment-items",
+    disableFallback: true,
+    defaultVisibleFilters: {
+      ...DEFAULT_VISIBLE_FILTERS,
+      status: false,
+    },
+    filterMinuteRows: (rows) => rows.filter((row) => row.itemType === "agreement" && row.isExpired),
+    buildRows: ({ minuteRows }) => minuteRows,
+    buildDefaultRowsOrder: (rows) =>
+      [...rows].sort((left, right) => {
+        if ((left.dueDateTimestamp ?? 0) !== (right.dueDateTimestamp ?? 0)) {
+          return (left.dueDateTimestamp ?? 0) - (right.dueDateTimestamp ?? 0);
+        }
+        return compareByLabel(left.responsible, right.responsible);
+      }),
+    buildSummaryCards: buildCommitmentSummaryCards,
+    buildCharts: ({ reportRows }) => [
+      {
+        key: "expired-owner",
+        type: "bar",
+        title: "Vencidos por responsable",
+        subtitle: "Responsables con más compromisos documentales vencidos.",
+        footer: "Solo incluye acuerdos abiertos con fecha expirada.",
+        data: buildActivityDistribution(reportRows, "responsible"),
+        seriesName: "Vencidos",
+      },
+      {
+        key: "expired-client",
+        type: "bar",
+        title: "Vencidos por cliente",
+        subtitle: "Clientes con mayor concentración de compromisos vencidos.",
+        footer: "Ayuda a priorizar seguimiento documental.",
+        data: buildActivityDistribution(reportRows, "client"),
+        seriesName: "Vencidos",
+      },
+    ],
+    columns: buildCommitmentDetailColumns(),
+  },
+  {
+    id: "gestion-commitments-owner",
+    path: "/reports/management/commitments-by-owner",
+    title: "Compromisos por Responsable",
+    description:
+      "Agrupa compromisos declarados según la persona asignada en las minutas.",
+    pdfSlug: "compromisos-por-responsable",
+    pdfReportKey: "gestion-compromisos-por-responsable",
+    pdfDescription:
+      "Salida agregada de acuerdos documentales por responsable declarado.",
+    tableDescription:
+      "Consolidado por responsable con acuerdos, pendientes, vencidos y última actividad.",
+    dataSource: "commitment-items",
+    disableFallback: true,
+    defaultVisibleFilters: {
+      ...DEFAULT_VISIBLE_FILTERS,
+      responsible: true,
+      status: false,
+    },
+    filterMinuteRows: (rows) => rows.filter((row) => row.itemType === "agreement"),
+    buildRows: ({ minuteRows }) => buildCommitmentAggregateRows(minuteRows, "responsible", "Sin responsable"),
+    buildDefaultRowsOrder: defaultAggregateOrder,
+    buildSummaryCards: buildCommitmentContextSummaryCards,
+    buildCharts: ({ reportRows }) => [
+      {
+        key: "owner-agreements",
+        type: "bar",
+        title: "Acuerdos por responsable",
+        subtitle: "Ordena responsables por volumen de acuerdos documentados.",
+        footer: "Cada barra representa acuerdos asociados al responsable declarado.",
+        data: buildReportRowDistribution(reportRows, "responsible", "agreementCount", 8),
+        seriesName: "Acuerdos",
+      },
+      {
+        key: "owner-expired",
+        type: "bar",
+        title: "Vencidos por responsable",
+        subtitle: "Compara compromisos vencidos dentro de cada responsable.",
+        footer: "Solo cuenta acuerdos con fecha expirada y estado abierto.",
+        data: buildReportRowDistribution(reportRows, "responsible", "expiredCount", 8),
+        seriesName: "Vencidos",
+      },
+    ],
+    columns: buildCommitmentAggregateColumns("responsible", "Responsable"),
+  },
+  {
+    id: "gestion-requirements-priority",
+    path: "/reports/management/requirements-by-priority",
+    title: "Requerimientos por Prioridad",
+    description:
+      "Ordena requerimientos según prioridad y estado registrado en las minutas.",
+    pdfSlug: "requerimientos-prioridad",
+    pdfReportKey: "gestion-requerimientos-prioridad",
+    pdfDescription:
+      "Salida documental de requerimientos agrupados por prioridad y estado.",
+    tableDescription:
+      "Detalle de requerimientos extraídos del JSON activo de cada minuta visible.",
+    dataSource: "commitment-items",
+    disableFallback: true,
+    defaultVisibleFilters: {
+      ...DEFAULT_VISIBLE_FILTERS,
+      status: true,
+    },
+    statusFilterOptions: COMMITMENT_STATUS_OPTIONS,
+    filterMinuteRows: (rows) => rows.filter((row) => row.itemType === "requirement"),
+    buildRows: ({ minuteRows }) => minuteRows,
+    buildDefaultRowsOrder: (rows) =>
+      [...rows].sort((left, right) => {
+        if ((left.priorityWeight ?? 99) !== (right.priorityWeight ?? 99)) {
+          return (left.priorityWeight ?? 99) - (right.priorityWeight ?? 99);
+        }
+        return compareByLabel(left.client, right.client);
+      }),
+    buildSummaryCards: buildRequirementSummaryCards,
+    buildCharts: ({ reportRows }) => [
+      {
+        key: "requirements-priority",
+        type: "bar",
+        title: "Requerimientos por prioridad",
+        subtitle: "Compara el volumen por prioridad declarada.",
+        footer: "La prioridad proviene del contenido documental de la minuta.",
+        data: buildActivityDistribution(reportRows, "priorityLabel"),
+        seriesName: "Requerimientos",
+      },
+      {
+        key: "requirements-status",
+        type: "status",
+        title: "Estado de requerimientos",
+        subtitle: "Distribuye requerimientos según estado documental.",
+        footer: "Ayuda a distinguir abiertos, cerrados o cancelados.",
+        data: buildStatusDistribution(reportRows),
+      },
+    ],
+    columns: buildRequirementDetailColumns(),
+  },
+  {
+    id: "gestion-requirements-client",
+    path: "/reports/management/requirements-commitments-by-client",
+    title: "Requerimientos y Compromisos por Cliente",
+    description:
+      "Resume seguimiento documental de acuerdos y requerimientos agrupado por cliente.",
+    pdfSlug: "requerimientos-compromisos-cliente",
+    pdfReportKey: "gestion-requerimientos-compromisos-cliente",
+    pdfDescription:
+      "Salida agregada de acuerdos y requerimientos documentales por cliente.",
+    tableDescription:
+      "Consolidado por cliente con acuerdos, requerimientos, pendientes y vencidos.",
+    dataSource: "commitment-items",
+    disableFallback: true,
+    buildRows: ({ minuteRows }) => buildCommitmentAggregateRows(minuteRows, "client", "Sin cliente"),
+    buildDefaultRowsOrder: defaultAggregateOrder,
+    buildSummaryCards: buildCommitmentContextSummaryCards,
+    buildCharts: ({ reportRows }) => [
+      {
+        key: "client-total",
+        type: "bar",
+        title: "Seguimiento por cliente",
+        subtitle: "Clientes con más acuerdos y requerimientos documentales.",
+        footer: "Incluye ambos tipos de ítems documentados en minutas.",
+        data: buildReportRowDistribution(reportRows, "client", "totalRecords", 8),
+        seriesName: "Ítems",
+      },
+      {
+        key: "client-expired",
+        type: "bar",
+        title: "Vencidos por cliente",
+        subtitle: "Compromisos vencidos agrupados por cliente.",
+        footer: "Solo considera acuerdos con fecha expirada y estado abierto.",
+        data: buildReportRowDistribution(reportRows, "client", "expiredCount", 8),
+        seriesName: "Vencidos",
+      },
+    ],
+    columns: buildCommitmentAggregateColumns("client", "Cliente"),
+  },
+  {
+    id: "gestion-requirements-project",
+    path: "/reports/management/requirements-commitments-by-project",
+    title: "Requerimientos y Compromisos por Proyecto",
+    description:
+      "Resume seguimiento documental de acuerdos y requerimientos agrupado por proyecto.",
+    pdfSlug: "requerimientos-compromisos-proyecto",
+    pdfReportKey: "gestion-requerimientos-compromisos-proyecto",
+    pdfDescription:
+      "Salida agregada de acuerdos y requerimientos documentales por proyecto.",
+    tableDescription:
+      "Consolidado por proyecto con acuerdos, requerimientos, pendientes y vencidos.",
+    dataSource: "commitment-items",
+    disableFallback: true,
+    buildRows: ({ minuteRows }) => buildCommitmentAggregateRows(minuteRows, "project", "Sin proyecto"),
+    buildDefaultRowsOrder: defaultAggregateOrder,
+    buildSummaryCards: buildCommitmentContextSummaryCards,
+    buildCharts: ({ reportRows }) => [
+      {
+        key: "project-total",
+        type: "bar",
+        title: "Seguimiento por proyecto",
+        subtitle: "Proyectos con más acuerdos y requerimientos documentales.",
+        footer: "Incluye ambos tipos de ítems documentados en minutas.",
+        data: buildReportRowDistribution(reportRows, "project", "totalRecords", 8),
+        seriesName: "Ítems",
+      },
+      {
+        key: "project-expired",
+        type: "bar",
+        title: "Vencidos por proyecto",
+        subtitle: "Compromisos vencidos agrupados por proyecto.",
+        footer: "Solo considera acuerdos con fecha expirada y estado abierto.",
+        data: buildReportRowDistribution(reportRows, "project", "expiredCount", 8),
+        seriesName: "Vencidos",
+      },
+    ],
+    columns: buildCommitmentAggregateColumns("project", "Proyecto"),
+  },
+  {
+    id: "gestion-review-observations",
+    path: "/reports/management/external-observations-received",
+    title: "Observaciones Externas Recibidas",
+    description:
+      "Centraliza observaciones ingresadas por participantes externos sobre versiones de minutas en revisión.",
+    pdfSlug: "observaciones-externas-recibidas",
+    pdfReportKey: "gestion-observaciones-externas-recibidas",
+    pdfDescription:
+      "Salida editorial de observaciones externas recibidas dentro del rango y filtros aplicados.",
+    tableDescription:
+      "Detalle de observaciones externas con minuta, versión, autor, estado y texto recibido.",
+    dataSource: "review-observations",
+    disableFallback: true,
+    defaultVisibleFilters: {
+      ...TOPIC_REPORT_VISIBLE_FILTERS,
+      status: true,
+    },
+    statusFilterOptions: REVIEW_OBSERVATION_STATUS_OPTIONS,
+    buildRows: ({ minuteRows }) => minuteRows,
+    buildDefaultRowsOrder: defaultMinuteOrder,
+    buildSummaryCards: buildReviewObservationSummaryCards,
+    buildCharts: ({ reportRows }) => [
+      {
+        key: "review-observation-status",
+        type: "status",
+        title: "Estado de observaciones",
+        subtitle: "Separa observaciones nuevas, aprobadas, insertadas y rechazadas.",
+        footer: "La distribución proviene del registro editorial de observaciones externas.",
+        data: buildStatusDistribution(reportRows),
+      },
+      {
+        key: "review-observation-clients",
+        type: "bar",
+        title: "Observaciones por cliente",
+        subtitle: "Clientes con mayor volumen de comentarios externos.",
+        footer: "La comparación usa las observaciones visibles bajo los filtros aplicados.",
+        data: buildActivityDistribution(reportRows, "client"),
+        seriesName: "Observaciones",
+      },
+    ],
+    columns: buildReviewObservationColumns(),
+  },
+  {
+    id: "gestion-review-resolution",
+    path: "/reports/management/observation-resolution",
+    title: "Resolución de Observaciones",
+    description:
+      "Resume cómo se están resolviendo las observaciones editoriales recibidas desde participantes externos.",
+    pdfSlug: "resolucion-observaciones",
+    pdfReportKey: "gestion-resolucion-observaciones",
+    pdfDescription:
+      "Salida editorial de resolución de observaciones, con estados y tipos de decisión aplicados.",
+    tableDescription:
+      "Detalle de observaciones con decisión editorial, tipo de resolución, fecha y comentario del editor.",
+    dataSource: "review-observations",
+    disableFallback: true,
+    defaultVisibleFilters: {
+      ...TOPIC_REPORT_VISIBLE_FILTERS,
+      status: true,
+    },
+    statusFilterOptions: REVIEW_OBSERVATION_STATUS_OPTIONS,
+    buildRows: ({ minuteRows }) => minuteRows,
+    buildDefaultRowsOrder: defaultMinuteOrder,
+    buildSummaryCards: buildReviewResolutionSummaryCards,
+    buildCharts: ({ reportRows }) => [
+      {
+        key: "review-resolution-status",
+        type: "status",
+        title: "Resolución por estado",
+        subtitle: "Distribuye observaciones según decisión editorial registrada.",
+        footer: "Las observaciones nuevas se mantienen visibles para dimensionar pendiente.",
+        data: buildStatusDistribution(reportRows),
+      },
+      {
+        key: "review-resolution-type",
+        type: "bar",
+        title: "Tipo de resolución",
+        subtitle: "Compara inserciones directas, actualizaciones manuales y casos sin resolución.",
+        footer: "El tipo proviene del campo de resolución editorial.",
+        data: buildActivityDistribution(reportRows, "resolutionTypeLabel"),
+        seriesName: "Observaciones",
+      },
+    ],
+    columns: buildReviewResolutionColumns(),
+  },
+  {
+    id: "gestion-review-friction",
+    path: "/reports/management/minutes-review-friction",
+    title: "Minutas con Mayor Fricción de Revisión",
+    description:
+      "Detecta minutas con más regresiones a edición, movimientos de estado o duración editorial antes de publicarse.",
+    pdfSlug: "minutas-friccion-revision",
+    pdfReportKey: "gestion-minutas-friccion-revision",
+    pdfDescription:
+      "Salida operacional que prioriza minutas con señales de fricción dentro del ciclo editorial.",
+    tableDescription:
+      "Detalle de minutas con vueltas a edición, tiempo de revisión, ciclo total y estado actual.",
+    dataSource: "cycle-times",
+    defaultVisibleFilters: {
+      ...DEFAULT_VISIBLE_FILTERS,
+      status: true,
+    },
+    filterMinuteRows: (rows) =>
+      rows.filter((row) =>
+        Number(row.returnToEditCount ?? 0) > 0 ||
+        Number(row.transitionCount ?? 0) >= 4 ||
+        Number(row.reviewDurationMs ?? 0) > 0
+      ),
+    buildRows: ({ minuteRows }) => minuteRows,
+    buildDefaultRowsOrder: (rows) =>
+      [...rows].sort((left, right) => {
+        if ((right.returnToEditCount ?? 0) !== (left.returnToEditCount ?? 0)) {
+          return (right.returnToEditCount ?? 0) - (left.returnToEditCount ?? 0);
+        }
+        if ((right.reviewDurationMs ?? 0) !== (left.reviewDurationMs ?? 0)) {
+          return (right.reviewDurationMs ?? 0) - (left.reviewDurationMs ?? 0);
+        }
+        return (right.transitionCount ?? 0) - (left.transitionCount ?? 0);
+      }),
+    buildSummaryCards: buildReviewFrictionSummaryCards,
+    buildCharts: ({ reportRows }) => [
+      {
+        key: "review-friction-return",
+        type: "bar",
+        title: "Vueltas a edición",
+        subtitle: "Minutas con mayor cantidad de regresiones desde revisión.",
+        footer: "Las vueltas a edición son una señal directa de fricción editorial.",
+        data: buildReportRowDistribution(reportRows, "title", "returnToEditCount", 8),
+        seriesName: "Vueltas",
+      },
+      {
+        key: "review-friction-duration",
+        type: "bar",
+        title: "Tiempo de revisión",
+        subtitle: "Minutas con mayor duración acumulada en etapa de revisión.",
+        footer: "El tiempo se expresa en horas para comparar ciclos editoriales.",
+        data: buildCycleDurationDistribution(
+          reportRows.map((row) => ({
+            ...row,
+            totalCycleDurationMs: row.reviewDurationMs,
+          }))
+        ),
+        seriesName: "Horas",
+      },
+    ],
+    columns: buildReviewFrictionColumns(),
+  },
+  {
+    id: "gestion-publications-finished",
+    path: "/reports/management/completed-publications",
+    title: "Publicaciones Finalizadas",
+    description:
+      "Lista minutas que alcanzaron publicación final y permite revisar su fecha asociada y ciclo de cierre.",
+    pdfSlug: "publicaciones-finalizadas",
+    pdfReportKey: "gestion-publicaciones-finalizadas",
+    pdfDescription:
+      "Salida editorial de minutas publicadas oficialmente dentro del rango consultado.",
+    tableDescription:
+      "Detalle de publicaciones finalizadas con cliente, proyecto, responsable y duración de ciclo.",
+    dataSource: "cycle-times",
+    filterDateField: "completedAtInput",
+    defaultVisibleFilters: {
+      ...DEFAULT_VISIBLE_FILTERS,
+      status: false,
+    },
+    filterMinuteRows: (rows) => rows.filter((row) => row.status.key === "completed"),
+    buildRows: ({ minuteRows }) => minuteRows,
+    buildDefaultRowsOrder: (rows) =>
+      [...rows].sort((left, right) => (right.completedAtTimestamp ?? 0) - (left.completedAtTimestamp ?? 0)),
+    buildSummaryCards: buildPublicationSummaryCards,
+    buildCharts: ({ reportRows }) => [
+      {
+        key: "publication-clients",
+        type: "bar",
+        title: "Publicaciones por cliente",
+        subtitle: "Clientes con más minutas publicadas dentro del rango.",
+        footer: "La comparación usa minutas cuyo ciclo llegó a completado.",
+        data: buildActivityDistribution(reportRows, "client"),
+        seriesName: "Publicaciones",
+      },
+      {
+        key: "publication-projects",
+        type: "bar",
+        title: "Publicaciones por proyecto",
+        subtitle: "Proyectos que concentran cierres editoriales.",
+        footer: "Solo considera publicaciones finalizadas visibles.",
+        data: buildActivityDistribution(reportRows, "project"),
+        seriesName: "Publicaciones",
+      },
+    ],
+    columns: buildPublicationColumns(),
+  },
+  {
+    id: "gestion-review-mails",
+    path: "/reports/management/review-publication-emails",
+    title: "Correos de Revisión y Publicación",
+    description:
+      "Monitorea correos asociados al flujo editorial de revisión, publicación y oficialización de minutas.",
+    pdfSlug: "correos-revision-publicacion",
+    pdfReportKey: "gestion-correos-revision-publicacion",
+    pdfDescription:
+      "Salida editorial de eventos de correo persistidos en BD para revisión, publicación y oficialización.",
+    tableDescription:
+      "Detalle histórico de correos con estado, destinatarios, asunto, minuta, adjuntos y errores registrados.",
+    dataSource: "email-deliveries",
+    disableFallback: true,
+    defaultVisibleFilters: {
+      ...TOPIC_REPORT_VISIBLE_FILTERS,
+      status: true,
+    },
+    statusFilterOptions: EMAIL_DELIVERY_STATUS_OPTIONS,
+    emailKinds: ["minute_review", "minute_publication", "minute_officialized"],
+    buildRows: ({ minuteRows }) => minuteRows,
+    buildDefaultRowsOrder: (rows) =>
+      [...rows].sort((left, right) => (right.dateTimestamp ?? 0) - (left.dateTimestamp ?? 0)),
+    buildSummaryCards: buildEmailDeliverySummaryCards,
+    buildCharts: ({ reportRows }) => [
+      {
+        key: "email-status",
+        type: "status",
+        title: "Estado de correos",
+        subtitle: "Separa correos enviados, fallidos y aún en cola.",
+        footer: "La fuente es la tabla histórica de eventos de entrega de correo.",
+        data: buildStatusDistribution(reportRows),
+      },
+      {
+        key: "email-kind",
+        type: "bar",
+        title: "Correos por tipo editorial",
+        subtitle: "Compara revisión, publicación y oficialización.",
+        footer: "Cada barra corresponde al tipo funcional persistido para el correo.",
+        data: buildActivityDistribution(reportRows, "emailKindLabel"),
+        seriesName: "Correos",
+      },
+    ],
+    columns: buildEmailDeliveryColumns(),
   },
   {
     id: "gestion-client-portfolio",
@@ -5357,10 +6894,17 @@ const ManagementOperationalReportPage = () => {
 
     const loadFilterCatalogs = async () => {
       try {
+        const visibleFilters = reportConfig.defaultVisibleFilters ?? DEFAULT_VISIBLE_FILTERS;
         const [clientsResult, projectsResult, teamsResult] = await Promise.all([
-          clientService.list({ isActive: true, limit: 200 }, requestConfig),
-          projectService.list({ isActive: true, limit: 200 }, requestConfig),
-          teamsService.list({ skip: 0, limit: 200, filters: { status: "active" } }),
+          visibleFilters.client
+            ? clientService.list({ isActive: true, limit: 200 }, requestConfig)
+            : Promise.resolve({ items: [] }),
+          visibleFilters.project
+            ? projectService.list({ isActive: true, limit: 200 }, requestConfig)
+            : Promise.resolve({ items: [] }),
+          visibleFilters.responsible
+            ? teamsService.list({ skip: 0, limit: 200, filters: { status: "active" } })
+            : Promise.resolve({ teams: [] }),
         ]);
 
         if (!isMounted || requestScope.wasAborted(requestConfig.signal)) return;
@@ -5463,6 +7007,42 @@ const ManagementOperationalReportPage = () => {
             },
             requestConfig
           );
+        } else if (reportConfig?.dataSource === "review-observations") {
+          rowsResult = await listManagementReviewObservations(
+            {
+              dateFrom: nextAppliedFilters.dateFrom,
+              dateTo: nextAppliedFilters.dateTo,
+              client: nextAppliedFilters.client,
+              project: nextAppliedFilters.project,
+              status: nextAppliedFilters.status,
+              limit: 500,
+            },
+            requestConfig
+          );
+        } else if (reportConfig?.dataSource === "commitment-items") {
+          rowsResult = await listManagementCommitmentItems(
+            {
+              dateFrom: nextAppliedFilters.dateFrom,
+              dateTo: nextAppliedFilters.dateTo,
+              client: nextAppliedFilters.client,
+              project: nextAppliedFilters.project,
+              limit: 300,
+            },
+            requestConfig
+          );
+        } else if (reportConfig?.dataSource === "email-deliveries") {
+          rowsResult = await listManagementEmailDeliveries(
+            {
+              dateFrom: nextAppliedFilters.dateFrom,
+              dateTo: nextAppliedFilters.dateTo,
+              client: nextAppliedFilters.client,
+              project: nextAppliedFilters.project,
+              status: nextAppliedFilters.status,
+              emailKinds: reportConfig.emailKinds,
+              limit: 500,
+            },
+            requestConfig
+          );
         } else {
           rowsResult = await listMinutes({ skip: 0, limit: 300 }, requestConfig);
         }
@@ -5492,6 +7072,18 @@ const ManagementOperationalReportPage = () => {
         } else if (reportConfig?.dataSource === "topic-analytics") {
           nextRows = (Array.isArray(rowsResult?.items) ? rowsResult.items : []).map(
             normalizeTopicAnalyticsRecord
+          );
+        } else if (reportConfig?.dataSource === "review-observations") {
+          nextRows = (Array.isArray(rowsResult?.items) ? rowsResult.items : []).map(
+            normalizeReviewObservationRecord
+          );
+        } else if (reportConfig?.dataSource === "commitment-items") {
+          nextRows = (Array.isArray(rowsResult?.items) ? rowsResult.items : []).map(
+            normalizeCommitmentItemRecord
+          );
+        } else if (reportConfig?.dataSource === "email-deliveries") {
+          nextRows = (Array.isArray(rowsResult?.items) ? rowsResult.items : []).map(
+            normalizeEmailDeliveryRecord
           );
         } else {
           nextRows = (Array.isArray(rowsResult?.minutes) ? rowsResult.minutes : []).map(
@@ -5530,7 +7122,10 @@ const ManagementOperationalReportPage = () => {
   const filteredMinuteRows = useMemo(() => {
     if (!hasExecutedSearch || !reportConfig) return [];
 
-    const baseRows = applyFilters(rawRows, appliedFilters);
+    const baseRows = applyFilters(rawRows, {
+      ...appliedFilters,
+      dateField: reportConfig.filterDateField,
+    });
     return reportConfig.filterMinuteRows
       ? reportConfig.filterMinuteRows(baseRows)
       : baseRows;

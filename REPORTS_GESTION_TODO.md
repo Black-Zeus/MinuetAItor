@@ -60,46 +60,48 @@ Estado sugerido:
 
 ## 3. Requerimientos, Acuerdos y Compromisos Declarados
 
-- [ ] `Seguimiento Documental de Acuerdos`
+- [x] `Seguimiento Documental de Acuerdos`
   - Lista acuerdos extraídos de minutas, su responsable, fecha declarada y estado documental registrado.
 
-- [ ] `Compromisos con Fecha Expirada`
+- [x] `Compromisos con Fecha Expirada`
   - Reporte de compromisos con fecha declarada ya expirada y que siguen figurando como pendientes en el registro documental.
 
-- [ ] `Compromisos por Responsable`
+- [x] `Compromisos por Responsable`
   - Muestra concentración de compromisos declarados por persona para análisis de carga documental.
 
-- [ ] `Requerimientos por Prioridad`
+- [x] `Requerimientos por Prioridad`
   - Ordena requerimientos detectados en minutas según prioridad y estado registrado.
 
-- [ ] `Requerimientos y Compromisos por Cliente`
+- [x] `Requerimientos y Compromisos por Cliente`
   - Resume seguimiento declarado agrupado por cliente.
 
-- [ ] `Requerimientos y Compromisos por Proyecto`
+- [x] `Requerimientos y Compromisos por Proyecto`
   - Resume seguimiento declarado agrupado por proyecto como contenedor documental.
 
 Nota:
 Estos reportes representan seguimiento declarado en actas. No validan cumplimiento real en terreno ni control efectivo de avance del proyecto.
+La fuente operacional es BD: `record_version_agreements` y `record_version_requirements`, sincronizadas al crear versiones de minuta.
 
 ## 4. Revision, Publicacion y Observaciones
 
-- [ ] `Minutas en Revision`
+- [x] `Minutas en Revision`
   - Muestra todas las minutas actualmente en `preview`, con foco en control editorial.
 
-- [ ] `Observaciones Externas Recibidas`
+- [x] `Observaciones Externas Recibidas`
   - Lista observaciones hechas por participantes invitados desde la vista pública o de revisión.
 
-- [ ] `Resolucion de Observaciones`
+- [x] `Resolucion de Observaciones`
   - Resume observaciones `new`, `inserted`, `approved` y `rejected`, incluyendo tiempos de respuesta editorial.
 
-- [ ] `Minutas con Mayor Friccion de Revision`
+- [x] `Minutas con Mayor Friccion de Revision`
   - Detecta minutas con más observaciones, más iteraciones o más demora antes de publicarse.
 
-- [ ] `Publicaciones Finalizadas`
+- [x] `Publicaciones Finalizadas`
   - Registro de minutas que llegaron a `completed`, quién publicó y cuándo.
 
-- [ ] `Correos de Revision y Publicacion`
+- [x] `Correos de Revision y Publicacion`
   - Mide envío automático o manual de correos asociados al flujo editorial.
+  - Fuente: `email_delivery_events`, filtrando `minute_review`, `minute_publication` y `minute_officialized`.
 
 ## 5. Clientes y Proyectos como Contexto Documental
 
@@ -193,9 +195,9 @@ La exportacion no se maneja como seccion independiente. Cada reporte debe consid
 - [ ] `Minutas por Estado`
 - [ ] `Minutas por Elaborador`
 - [ ] `Minutas por Cliente`
-- [ ] `Minutas en Revision`
-- [ ] `Observaciones Externas Recibidas`
-- [ ] `Resolucion de Observaciones`
+- [x] `Minutas en Revision`
+- [x] `Observaciones Externas Recibidas`
+- [x] `Resolucion de Observaciones`
 - [ ] `Uso General de IA`
 - [ ] `Costo de IA por Cliente`
 - [ ] `Costo de IA por Proyecto`
@@ -204,13 +206,13 @@ La exportacion no se maneja como seccion independiente. Cada reporte debe consid
 
 ### Fase 2: Alto valor con ajuste de modelo o agregacion
 
-- [ ] `Seguimiento Documental de Acuerdos`
-- [ ] `Compromisos con Fecha Expirada`
-- [ ] `Compromisos por Responsable`
-- [ ] `Requerimientos por Prioridad`
-- [ ] `Requerimientos y Compromisos por Cliente`
-- [ ] `Requerimientos y Compromisos por Proyecto`
-- [ ] `Minutas con Mayor Friccion de Revision`
+- [x] `Seguimiento Documental de Acuerdos`
+- [x] `Compromisos con Fecha Expirada`
+- [x] `Compromisos por Responsable`
+- [x] `Requerimientos por Prioridad`
+- [x] `Requerimientos y Compromisos por Cliente`
+- [x] `Requerimientos y Compromisos por Proyecto`
+- [x] `Minutas con Mayor Friccion de Revision`
 - [x] `Minutas por Tag`
 - [x] `Tags AI Detectados`
 

@@ -10,6 +10,18 @@ from schemas.management_topic_reports import (
     ManagementTopicReportRequest,
     ManagementTopicReportResponse,
 )
+from schemas.management_review_reports import (
+    ManagementReviewObservationRequest,
+    ManagementReviewObservationResponse,
+)
+from schemas.management_commitment_reports import (
+    ManagementCommitmentReportRequest,
+    ManagementCommitmentReportResponse,
+)
+from schemas.management_email_delivery_reports import (
+    ManagementEmailDeliveryReportRequest,
+    ManagementEmailDeliveryReportResponse,
+)
 from schemas.report_exports import ReportPdfPreviewRequest
 from services.auth_service import get_current_user
 from services.management_topic_reports_service import list_management_topic_report
@@ -23,6 +35,54 @@ async def current_user_dep(
     credentials: HTTPAuthorizationCredentials = Depends(bearer),
 ) -> UserSession:
     return await get_current_user(credentials.credentials)
+
+
+@router.post(
+    "/management/commitment-items",
+    response_model=ManagementCommitmentReportResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Listar acuerdos y requerimientos documentales para reportería",
+)
+def management_commitment_items_endpoint(
+    body: ManagementCommitmentReportRequest,
+    db: Session = Depends(get_db),
+    session: UserSession = Depends(current_user_dep),
+):
+    from services.management_commitment_reports_service import list_management_commitment_items
+
+    return list_management_commitment_items(db, body)
+
+
+@router.post(
+    "/management/email-deliveries",
+    response_model=ManagementEmailDeliveryReportResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Listar eventos históricos de correos para reportería",
+)
+def management_email_deliveries_endpoint(
+    body: ManagementEmailDeliveryReportRequest,
+    db: Session = Depends(get_db),
+    session: UserSession = Depends(current_user_dep),
+):
+    from services.management_email_delivery_reports_service import list_management_email_deliveries
+
+    return list_management_email_deliveries(db, body)
+
+
+@router.post(
+    "/management/review-observations",
+    response_model=ManagementReviewObservationResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Listar observaciones externas para reportería de revisión",
+)
+def management_review_observations_endpoint(
+    body: ManagementReviewObservationRequest,
+    db: Session = Depends(get_db),
+    session: UserSession = Depends(current_user_dep),
+):
+    from services.management_review_reports_service import list_management_review_observations
+
+    return list_management_review_observations(db, body)
 
 
 @router.post(
