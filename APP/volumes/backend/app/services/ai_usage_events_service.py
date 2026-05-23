@@ -11,6 +11,7 @@ from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session, joinedload
 
 from core.datetime_utils import assume_utc, utc_now_db
+from models.ai_profiles import AiProfile
 from models.ai_model_pricing import AiModelPricing
 from models.ai_provider_configs import AiProviderConfig
 from models.ai_usage_events import AiUsageEvent
@@ -153,7 +154,10 @@ def _apply_scope_filter(query, db: Session, session: UserSession):
 def _apply_common_filters(query, filters):
     if getattr(filters, "event_type", None):
         query = query.filter(AiUsageEvent.event_type == filters.event_type)
-    if getattr(filters, "status", None):
+    statuses = [str(value).strip() for value in (getattr(filters, "statuses", None) or []) if str(value).strip()]
+    if statuses:
+        query = query.filter(AiUsageEvent.status.in_(statuses))
+    elif getattr(filters, "status", None):
         query = query.filter(AiUsageEvent.status == filters.status)
     if getattr(filters, "minute_transaction_id", None):
         query = query.filter(AiUsageEvent.minute_transaction_id == filters.minute_transaction_id)
@@ -290,6 +294,7 @@ def _empty_summary() -> dict[str, Any]:
         "byStatus": [],
         "byProvider": [],
         "byModel": [],
+        "byProfile": [],
         "byClient": [],
         "byProject": [],
         "recentEvents": [],
@@ -300,6 +305,7 @@ def _empty_summary() -> dict[str, Any]:
             "providerFamilies": [],
             "executionAdapters": [],
             "modelNames": [],
+            "aiProfileIds": [],
         },
     }
 
@@ -423,6 +429,18 @@ def record_ai_usage_event(
     started_at_db = _to_utc_naive(started_at) or utc_now_db()
     finished_at_db = _to_utc_naive(finished_at)
     total_tokens = _normalize_total_tokens(input_tokens, output_tokens)
+    normalized_event_type = str(event_type or "minute_processing").strip() or "minute_processing"
+    normalized_ai_profile_id = str(ai_profile_id or "").strip() or None
+
+    if normalized_event_type == "minute_processing" and not normalized_ai_profile_id:
+        message = (
+            "Se omitió ai_usage_event porque falta ai_profile_id para minute_processing | "
+            f"tx={minute_transaction_id} record={record_id} model={model_name} provider={provider_type}"
+        )
+        if suppress_errors:
+            logger.error(message)
+            return None
+        raise ValueError(message)
 
     try:
         pricing_info = _calculate_costs(
@@ -437,14 +455,14 @@ def record_ai_usage_event(
         )
 
         obj = AiUsageEvent(
-            event_type=str(event_type or "minute_processing").strip() or "minute_processing",
+            event_type=normalized_event_type,
             status=str(status or "success").strip() or "success",
             minute_transaction_id=minute_transaction_id,
             record_id=record_id,
             record_version_id=record_version_id,
             client_id=client_id,
             project_id=project_id,
-            ai_profile_id=ai_profile_id,
+            ai_profile_id=normalized_ai_profile_id,
             requested_by=requested_by,
             provider_config_id=provider_config_id,
             pricing_id=pricing_info["pricing_id"],
@@ -630,6 +648,7 @@ def _build_filters_meta(q) -> dict[str, Any]:
         "providerFamilies": distinct_values(AiUsageEvent.provider_family),
         "executionAdapters": distinct_values(AiUsageEvent.execution_adapter),
         "modelNames": distinct_values(AiUsageEvent.model_name),
+        "aiProfileIds": distinct_values(AiUsageEvent.ai_profile_id),
     }
 
 
@@ -703,6 +722,13 @@ def get_ai_usage_summary(db: Session, session: UserSession, filters) -> dict[str
         label_expr=func.coalesce(AiUsageEvent.model_name, "Sin modelo"),
         limit=breakdown_limit,
     )
+    profile_query = q.outerjoin(AiProfile, AiProfile.id == AiUsageEvent.ai_profile_id)
+    by_profile = _build_breakdown(
+        profile_query,
+        key_expr=func.coalesce(AiUsageEvent.ai_profile_id, "sin-perfil"),
+        label_expr=func.coalesce(AiProfile.name, "Sin perfil"),
+        limit=breakdown_limit,
+    )
 
     client_query = q.outerjoin(Client, Client.id == AiUsageEvent.client_id)
     by_client = _build_breakdown(
@@ -736,6 +762,7 @@ def get_ai_usage_summary(db: Session, session: UserSession, filters) -> dict[str
         "byStatus": by_status,
         "byProvider": by_provider,
         "byModel": by_model,
+        "byProfile": by_profile,
         "byClient": by_client,
         "byProject": by_project,
         "recentEvents": [_build_response_dict(item) for item in recent_items],

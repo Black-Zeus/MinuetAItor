@@ -32,6 +32,7 @@ from schemas.minutes import (
     MinuteGenerateRequest,
     MinuteGenerateResponse,
     MinuteReprocessResponse,
+    MinuteReprocessHistoryResponse,
     MinuteRecordInfo,
     MinuteSendEmailResponse,
     MinuteStatusResponse,
@@ -1202,6 +1203,24 @@ def list_minutes(
         prepared_by_user_id=prepared_by_user_id,
         participant_user_id=participant_user_id,
         exclude_prepared_by_user_id=exclude_prepared_by_user_id,
+    )
+
+
+def list_minute_reprocess_history(
+    db: Session,
+    skip: int = 0,
+    limit: int = 500,
+    client_id: Optional[str] = None,
+    project_id: Optional[str] = None,
+    prepared_by_user_id: Optional[str] = None,
+) -> MinuteReprocessHistoryResponse:
+    return minute_query.list_minute_reprocess_history(
+        db=db,
+        skip=skip,
+        limit=limit,
+        client_id=client_id,
+        project_id=project_id,
+        prepared_by_user_id=prepared_by_user_id,
     )
 
     from schemas.minutes         import MinuteListResponse, MinuteListItem, MinuteTagItem

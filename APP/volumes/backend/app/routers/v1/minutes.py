@@ -19,6 +19,7 @@ from schemas.minutes import (
     MinuteGenerateRequest,
     MinuteGenerateResponse,
     MinuteReprocessResponse,
+    MinuteReprocessHistoryResponse,
     MinuteSendEmailRequest,
     MinuteSendEmailResponse,
     MinuteSaveRequest,
@@ -40,6 +41,7 @@ from services.minutes_service import (
     generate_minute_pdf_preview,
     get_minute_detail,
     reprocess_minute,
+    list_minute_reprocess_history,
     get_minute_status,
     get_minute_versions,
     save_minute_draft,
@@ -118,6 +120,31 @@ async def generate_endpoint(
     )
 
     return await generate_minute(db=db, request=request, files=files, requested_by_id=session.user_id)
+
+
+@router.get(
+    "/reprocess-history",
+    response_model = MinuteReprocessHistoryResponse,
+    status_code    = status.HTTP_200_OK,
+    summary        = "Listar historial de reprocesos de minutas",
+)
+def reprocess_history_endpoint(
+    skip: int = 0,
+    limit: int = 500,
+    client_id: str | None = None,
+    project_id: str | None = None,
+    mine_as_preparer: bool = False,
+    db: Session = Depends(get_db),
+    session: UserSession = Depends(current_user_dep),
+):
+    return list_minute_reprocess_history(
+        db=db,
+        skip=skip,
+        limit=limit,
+        client_id=client_id,
+        project_id=project_id,
+        prepared_by_user_id=session.user_id if mine_as_preparer else None,
+    )
 
 
 # ─── GET /{record_id} ─────────────────────────────────────────────────────────

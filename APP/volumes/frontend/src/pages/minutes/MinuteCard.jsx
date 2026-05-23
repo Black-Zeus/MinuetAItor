@@ -359,7 +359,7 @@ const FooterBtn = ({ icon, label, tooltip, onClick, variant = "default" }) => {
 const CardFooter = ({ minute, onStatusChange, onReprocess }) => {
   const navigate = useNavigate();
   const minuteId = minute?.id;
-  const status   = String(minute?.status ?? "in-progress");
+  const status   = minute?.is_reprocess_pending ? "in-progress" : String(minute?.status ?? "in-progress");
   const filename = buildMinuteFilename(minute?.title, minute?.date);
   const canReprocess = Boolean(minute?.can_reprocess);
   const reprocessReason = String(minute?.reprocess_reason ?? "");
@@ -550,7 +550,7 @@ const CardFooter = ({ minute, onStatusChange, onReprocess }) => {
 // COMPONENTE PRINCIPAL
 // ============================================================
 export const getMinuteStatusConfig = (minute) => {
-  const rawStatus      = String(minute?.status ?? "in-progress");
+  const rawStatus      = minute?.is_reprocess_pending ? "in-progress" : String(minute?.status ?? "in-progress");
   const visualStatus   = rawStatus === "in-progress" && minute?.can_reprocess ? "processing-error" : rawStatus;
   return getStatusCfg(visualStatus);
 };

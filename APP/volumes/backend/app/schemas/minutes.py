@@ -244,6 +244,9 @@ class MinuteListItem(BaseModel):
     error_message: Optional[str]          = None
     can_reprocess: bool                   = False
     reprocess_reason: Optional[str]       = None
+    tokens_input: int                     = 0
+    tokens_output: int                    = 0
+    total_tokens: int                     = 0
 
     model_config = {"populate_by_name": True}
 
@@ -269,6 +272,38 @@ class MinuteReprocessResponse(BaseModel):
             w.capitalize() if i else w for i, w in enumerate(s.split("_"))
         ),
     }
+
+
+class MinuteReprocessHistoryItem(BaseModel):
+    transaction_id: str = Field(..., serialization_alias="transactionId")
+    record_id: str = Field(..., serialization_alias="recordId")
+    attempt_number: int = Field(..., serialization_alias="attemptNumber")
+    title: str
+    date: Optional[str] = None
+    client_id: Optional[str] = None
+    project_id: Optional[str] = None
+    prepared_by: Optional[str] = Field(None, serialization_alias="preparedBy")
+    status: str
+    status_label: str = Field(..., serialization_alias="statusLabel")
+    client: Optional[str] = None
+    project: Optional[str] = None
+    error_message: Optional[str] = None
+    can_reprocess: bool = False
+    reprocess_reason: Optional[str] = None
+    tokens_input: int = 0
+    tokens_output: int = 0
+    total_tokens: int = 0
+
+    model_config = {"populate_by_name": True}
+
+
+class MinuteReprocessHistoryResponse(BaseModel):
+    items: list[MinuteReprocessHistoryItem]
+    total: int
+    skip: int
+    limit: int
+
+    model_config = {"populate_by_name": True}
 
 # ── VERSIONES: GET /minutes/{record_id}/versions ─────────────────────────────
 

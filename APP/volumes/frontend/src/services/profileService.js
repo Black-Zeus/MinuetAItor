@@ -60,9 +60,9 @@ export const profileService = {
    * POST /v1/ai-profiles/list
    * @returns { items, total, skip, limit }
    */
-  async list({ skip = 0, limit = 200, isActive = null, filters = {} } = {}) {
+  async list({ skip = 0, limit = 200, isActive = null, filters = {} } = {}, requestConfig = {}) {
     const payload = buildListPayload({ skip, limit, isActive, filters });
-    const res = await axiosInstance.post(`${BASE}/list`, payload);
+    const res = await axiosInstance.post(`${BASE}/list`, payload, requestConfig);
     const result = unwrap(res);
     return normalizeListResult(result);
   },

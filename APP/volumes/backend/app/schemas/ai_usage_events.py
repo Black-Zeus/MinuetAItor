@@ -24,10 +24,11 @@ class AIUsageProviderConfigRefResponse(BaseModel):
 
 class AIUsageEventFilterRequest(BaseModel):
     skip: int = Field(0, ge=0)
-    limit: int = Field(50, ge=1, le=500)
+    limit: int = Field(50, ge=1, le=1000)
 
     event_type: str | None = Field(None, max_length=40, alias="eventType")
     status: str | None = Field(None, max_length=20)
+    statuses: list[str] | None = Field(None, alias="statuses")
     minute_transaction_id: str | None = Field(None, max_length=36, alias="minuteTransactionId")
     record_id: str | None = Field(None, max_length=36, alias="recordId")
     record_version_id: str | None = Field(None, max_length=36, alias="recordVersionId")
@@ -110,7 +111,7 @@ class AIUsageEventListResponse(BaseModel):
 
 class AIUsageSummaryRequest(AIUsageEventFilterRequest):
     recent_limit: int = Field(12, ge=1, le=50, alias="recentLimit")
-    breakdown_limit: int = Field(8, ge=1, le=20, alias="breakdownLimit")
+    breakdown_limit: int = Field(8, ge=1, le=100, alias="breakdownLimit")
 
     model_config = {"populate_by_name": True}
 
@@ -172,6 +173,7 @@ class AIUsageSummaryFiltersMetaResponse(BaseModel):
     provider_families: list[str] = Field(default_factory=list, alias="providerFamilies")
     execution_adapters: list[str] = Field(default_factory=list, alias="executionAdapters")
     model_names: list[str] = Field(default_factory=list, alias="modelNames")
+    ai_profile_ids: list[str] = Field(default_factory=list, alias="aiProfileIds")
 
     model_config = {"populate_by_name": True}
 
@@ -182,6 +184,7 @@ class AIUsageSummaryResponse(BaseModel):
     by_status: list[AIUsageBreakdownItemResponse] = Field(default_factory=list, alias="byStatus")
     by_provider: list[AIUsageBreakdownItemResponse] = Field(default_factory=list, alias="byProvider")
     by_model: list[AIUsageBreakdownItemResponse] = Field(default_factory=list, alias="byModel")
+    by_profile: list[AIUsageBreakdownItemResponse] = Field(default_factory=list, alias="byProfile")
     by_client: list[AIUsageBreakdownItemResponse] = Field(default_factory=list, alias="byClient")
     by_project: list[AIUsageBreakdownItemResponse] = Field(default_factory=list, alias="byProject")
     recent_events: list[AIUsageEventResponse] = Field(default_factory=list, alias="recentEvents")

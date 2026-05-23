@@ -337,6 +337,12 @@ async def fail_minute_tx2(
     _mark_failed(db, tx_id, rec_id, error_msg, record_status_code=record_status)
     tx = db.query(MinuteTransaction).filter(MinuteTransaction.id == tx_id).first()
     record = db.query(Record).filter(Record.id == body.record_id, Record.deleted_at.is_(None)).first()
+    if tx:
+        tx.openai_run_id = body.openai_run_id
+        tx.openai_model = body.ai_model
+        tx.tokens_input = int(body.tokens_input) if body.tokens_input is not None else 0
+        tx.tokens_output = int(body.tokens_output) if body.tokens_output is not None else 0
+        db.commit()
     _record_ai_usage_best_effort(
         db,
         tx=tx,
@@ -601,6 +607,24 @@ def _record_ai_usage_best_effort(
     error_message: str | None = None,
     error_code: str | None = None,
 ) -> None:
+    input_tokens = getattr(body, "tokens_input", None)
+    output_tokens = getattr(body, "tokens_output", None)
+    normalized_input_tokens = int(input_tokens) if input_tokens is not None else 0
+    normalized_output_tokens = int(output_tokens) if output_tokens is not None else 0
+
+    resolved_ai_profile_id = str(
+        getattr(tx, "ai_profile_id", None) or getattr(record, "ai_profile_id", None) or ""
+    ) or None
+
+    if not resolved_ai_profile_id:
+        logger.error(
+            "AI usage event sin ai_profile_id | tx=%s record=%s status=%s source=%s",
+            getattr(tx, "id", None) or getattr(body, "transaction_id", None),
+            getattr(record, "id", None) or getattr(body, "record_id", None),
+            status,
+            getattr(body, "source", None),
+        )
+
     provider_meta = {
         "source": getattr(body, "source", None),
         "recordStatus": getattr(body, "record_status", None),
@@ -616,7 +640,7 @@ def _record_ai_usage_best_effort(
         record_version_id=record_version_id,
         client_id=str(getattr(record, "client_id", None) or "") or None,
         project_id=str(getattr(record, "project_id", None) or "") or None,
-        ai_profile_id=str(getattr(tx, "ai_profile_id", None) or getattr(record, "ai_profile_id", None) or "") or None,
+        ai_profile_id=resolved_ai_profile_id,
         requested_by=str(getattr(tx, "requested_by", None) or getattr(body, "requested_by_id", None) or "") or None,
         provider_config_id=getattr(body, "ai_provider_config_id", None),
         provider_type=getattr(body, "ai_provider", None),
@@ -629,8 +653,8 @@ def _record_ai_usage_best_effort(
         started_at=getattr(body, "started_at", None),
         finished_at=getattr(body, "finished_at", None),
         latency_ms=getattr(body, "latency_ms", None),
-        input_tokens=getattr(body, "tokens_input", None),
-        output_tokens=getattr(body, "tokens_output", None),
+        input_tokens=normalized_input_tokens,
+        output_tokens=normalized_output_tokens,
         error_code=error_code,
         error_message=error_message,
         provider_meta_json=provider_meta or None,

@@ -11,6 +11,8 @@ from models.records import Record
 from models.user import User
 from schemas.minutes import (
     MinuteDetailResponse,
+    MinuteReprocessHistoryItem,
+    MinuteReprocessHistoryResponse,
     MinuteListItem,
     MinuteListResponse,
     MinuteRecordInfo,
@@ -253,6 +255,8 @@ def list_minutes(
         )
         latest_tx = get_latest_minute_transaction(db, rec.id)
         can_reprocess, reprocess_reason = get_reprocess_eligibility(status_code, latest_tx)
+        tokens_input = int(getattr(latest_tx, "tokens_input", 0) or 0)
+        tokens_output = int(getattr(latest_tx, "tokens_output", 0) or 0)
         time_text = format_hhmm(rec.actual_start_time or rec.scheduled_start_time)
         duration_text = calculate_duration_label(
             rec.scheduled_start_time,
@@ -294,10 +298,156 @@ def list_minutes(
                 error_message=getattr(latest_tx, "error_message", None),
                 can_reprocess=can_reprocess,
                 reprocess_reason=reprocess_reason,
+                tokens_input=tokens_input,
+                tokens_output=tokens_output,
+                total_tokens=tokens_input + tokens_output,
             )
         )
 
     return MinuteListResponse(minutes=items, total=total, skip=skip, limit=limit)
+
+
+def list_minute_reprocess_history(
+    db: Session,
+    skip: int = 0,
+    limit: int = 500,
+    client_id: Optional[str] = None,
+    project_id: Optional[str] = None,
+    prepared_by_user_id: Optional[str] = None,
+) -> MinuteReprocessHistoryResponse:
+    from models.ai_usage_events import AiUsageEvent
+    from models.minute_transaction import MinuteTransaction
+    from models.record_statuses import RecordStatus
+
+    tx_query = (
+        db.query(MinuteTransaction)
+        .join(Record, Record.id == MinuteTransaction.record_id)
+        .filter(Record.deleted_at.is_(None))
+    )
+
+    if client_id:
+        tx_query = tx_query.filter(Record.client_id == client_id)
+    if project_id:
+        tx_query = tx_query.filter(Record.project_id == project_id)
+    if prepared_by_user_id:
+        tx_query = tx_query.filter(Record.prepared_by_user_id == prepared_by_user_id)
+
+    transactions = (
+        tx_query.order_by(
+            MinuteTransaction.record_id.asc(),
+            MinuteTransaction.created_at.asc(),
+            MinuteTransaction.id.asc(),
+        ).all()
+    )
+
+    if not transactions:
+        return MinuteReprocessHistoryResponse(items=[], total=0, skip=skip, limit=limit)
+
+    tx_ids = [tx.id for tx in transactions]
+    usage_rows = (
+        db.query(AiUsageEvent)
+        .filter(AiUsageEvent.minute_transaction_id.in_(tx_ids))
+        .order_by(AiUsageEvent.id.desc())
+        .all()
+    )
+    usage_by_tx_id = {}
+    for usage in usage_rows:
+        tx_id = str(getattr(usage, "minute_transaction_id", "") or "").strip()
+        if tx_id and tx_id not in usage_by_tx_id:
+            usage_by_tx_id[tx_id] = usage
+
+    status_cache: dict[str, str] = {}
+
+    def resolve_record_status_label(record_status_id: str | None) -> str | None:
+        if not record_status_id:
+            return None
+        if record_status_id not in status_cache:
+            row = db.query(RecordStatus).filter_by(id=record_status_id).first()
+            status_cache[record_status_id] = row.code if row else "unknown"
+        return status_cache.get(record_status_id)
+
+    attempts_by_record: dict[str, int] = {}
+    history_items: list[MinuteReprocessHistoryItem] = []
+
+    for tx in transactions:
+        record = getattr(tx, "record", None)
+        if not record:
+            continue
+
+        record_id = str(record.id)
+        attempts_by_record[record_id] = attempts_by_record.get(record_id, 0) + 1
+        attempt_number = attempts_by_record[record_id]
+
+        # La primera transacción corresponde a la generación original; desde la segunda
+        # se considera reproceso histórico.
+        if attempt_number <= 1:
+            continue
+
+        usage = usage_by_tx_id.get(str(tx.id))
+        event_error_code = str(getattr(usage, "error_code", "") or "").strip()
+        tx_status = str(getattr(tx, "status", "") or "").strip() or "failed"
+
+        if tx_status == "completed":
+            status_code = "completed"
+            status_label = "OK / siguió flujo"
+            can_reprocess = False
+        elif tx_status in {"pending", "processing"}:
+            status_code = "in-progress"
+            status_label = "En procesamiento"
+            current_record_status = resolve_record_status_label(getattr(record, "status_id", None))
+            latest_tx = get_latest_minute_transaction(db, record_id)
+            can_reprocess, _ = get_reprocess_eligibility(current_record_status, latest_tx)
+        else:
+            status_code = event_error_code if event_error_code in {"llm-failed", "processing-error"} else "processing-error"
+            status_label = "Con error"
+            can_reprocess = True
+
+        client_name = getattr(getattr(record, "client", None), "name", None)
+        project_name = getattr(getattr(record, "project", None), "name", None)
+        prep_user = getattr(record, "prepared_by_user", None)
+        prepared_by_name = (
+            getattr(prep_user, "full_name", None)
+            or getattr(prep_user, "username", None)
+        )
+
+        tokens_input = int(getattr(tx, "tokens_input", 0) or 0)
+        tokens_output = int(getattr(tx, "tokens_output", 0) or 0)
+
+        history_items.append(
+            MinuteReprocessHistoryItem(
+                transaction_id=str(tx.id),
+                record_id=record_id,
+                attempt_number=attempt_number - 1,
+                title=getattr(record, "title", None) or "Minuta sin título",
+                date=tx.created_at.isoformat() if getattr(tx, "created_at", None) else None,
+                client_id=str(record.client_id) if getattr(record, "client_id", None) else None,
+                project_id=str(record.project_id) if getattr(record, "project_id", None) else None,
+                prepared_by=prepared_by_name,
+                status=status_code,
+                status_label=status_label,
+                client=client_name,
+                project=project_name,
+                error_message=getattr(tx, "error_message", None),
+                can_reprocess=can_reprocess,
+                reprocess_reason="record-error" if can_reprocess and tx_status == "failed" else None,
+                tokens_input=tokens_input,
+                tokens_output=tokens_output,
+                total_tokens=tokens_input + tokens_output,
+            )
+        )
+
+    history_items.sort(
+        key=lambda item: (
+            item.date or "",
+            item.record_id,
+            item.transaction_id,
+        ),
+        reverse=True,
+    )
+
+    total = len(history_items)
+    paginated = history_items[skip : skip + limit]
+    return MinuteReprocessHistoryResponse(items=paginated, total=total, skip=skip, limit=limit)
 
 
 def get_minute_versions(db: Session, record_id: str) -> MinuteVersionsResponse:
