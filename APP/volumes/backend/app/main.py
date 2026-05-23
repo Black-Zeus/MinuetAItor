@@ -221,6 +221,11 @@ app.include_router(record_versions_router, prefix="/v1")
 from routers.v1.records import router as records_router
 app.include_router(records_router, prefix="/v1")
 
+# ── Reports ───────────────────────────────────────────────────────────────────
+# [ACTIVO]
+from routers.v1.reports import router as reports_router
+app.include_router(reports_router, prefix="/v1")
+
 # ── Role Permissions ──────────────────────────────────────────────────────────
 # [DESACTIVADO] Tabla pivote roles ↔ permisos. Modificar vía API compromete el
 # modelo de seguridad completo.

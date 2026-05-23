@@ -1,7 +1,7 @@
 /**
  * analytics.routes.jsx
  * Rutas del módulo Analytics + Reports
- * Todas las rutas de reportes apuntan a UnderConstructionPage hasta que estén implementadas
+ * Los reportes no implementados siguen apuntando a UnderConstructionPage
  */
 import { lazy } from "react";
 
@@ -16,6 +16,10 @@ const MetricsPage = lazy(() =>
 
 const ReportsCatalogPage = lazy(() =>
   import("@/pages/analytics/ReportsCatalogPage")
+);
+
+const ExecutiveSummaryGeneralReportPage = lazy(() =>
+  import("@/pages/analytics/ExecutiveSummaryGeneralReportPage")
 );
 
 const UnderConstruction = lazy(() =>
@@ -60,9 +64,23 @@ const reportIndexRoutes = [
   },
 ];
 
-const gestionReportsRoutes = buildPlaceholderRoutes(GESTION_REPORT_ITEMS, "Reportes Gestión");
+const gestionReportsRoutes = buildPlaceholderRoutes(
+  GESTION_REPORT_ITEMS.filter((item) => item.id !== "gestion-executive-general"),
+  "Reportes Gestión"
+);
 const auditReportsRoutes = buildPlaceholderRoutes(AUDIT_REPORT_ITEMS, "Reportes Auditoría");
-const reportsRoutes = [...reportIndexRoutes, ...gestionReportsRoutes, ...auditReportsRoutes];
+const reportsRoutes = [
+  ...reportIndexRoutes,
+  {
+    path: "/reports/gestion/resumen-ejecutivo-general",
+    title: "Resumen Ejecutivo General",
+    component: ExecutiveSummaryGeneralReportPage,
+    requiresAuth: true,
+    roles: [],
+  },
+  ...gestionReportsRoutes,
+  ...auditReportsRoutes,
+];
 
 export { analyticsRoutes, reportsRoutes };
 export default [...analyticsRoutes, ...reportsRoutes];

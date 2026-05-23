@@ -96,8 +96,10 @@ def get_minute_detail(db: Session, record_id: str) -> MinuteDetailResponse:
     prepared_by_name = None
     prep_user = getattr(record, "prepared_by_user", None)
     if prep_user:
-        profile = getattr(prep_user, "profile", None)
-        prepared_by_name = getattr(profile, "full_name", None) or getattr(prep_user, "username", None)
+        prepared_by_name = (
+            getattr(prep_user, "full_name", None)
+            or getattr(prep_user, "username", None)
+        )
 
     record_info = MinuteRecordInfo(
         id=record.id,
@@ -239,8 +241,10 @@ def list_minutes(
         client_name = getattr(getattr(rec, "client", None), "name", None)
         project_name = getattr(getattr(rec, "project", None), "name", None)
         prep_user = getattr(rec, "prepared_by_user", None)
-        prep_profile = getattr(prep_user, "profile", None) if prep_user else None
-        prepared_by_name = getattr(prep_profile, "full_name", None) or getattr(prep_user, "username", None)
+        prepared_by_name = (
+            getattr(prep_user, "full_name", None)
+            or getattr(prep_user, "username", None)
+        )
         version_num = int(rec.latest_version_num) if rec.latest_version_num else 1
         summary_text = getattr(rec, "intro_snippet", None) or _load_minute_list_summary(
             rec.id,

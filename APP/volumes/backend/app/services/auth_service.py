@@ -9,6 +9,7 @@ from core.config import settings
 from core.datetime_utils import utc_now, utc_now_db
 from core.exceptions import BadRequestException, ForbiddenException, UnauthorizedException
 from core.security import verify_password, create_access_token, decode_access_token, hash_password
+from db.session import SessionLocal
 from db.redis import get_redis
 from models.user import User
 from repositories.auth_repository import get_user_by_credential, get_user_with_roles_permissions, get_user_full, get_user_by_id
@@ -77,6 +78,30 @@ def _build_user_session(user: User) -> UserSession:
     )
 
 
+def _build_token_extra(session: UserSession) -> dict:
+    return {
+        "jti": session.jti,
+        "roles": session.roles,
+        "permissions": session.permissions,
+        "username": session.username,
+        "full_name": session.full_name,
+    }
+
+
+def _resolve_session_identity(user_id: str, username: str | None, full_name: str | None) -> tuple[str, str | None]:
+    if username and full_name:
+        return username, full_name
+
+    db = SessionLocal()
+    try:
+        user = get_user_by_id(db, user_id)
+        if not user:
+            return username or "", full_name
+        return user.username or username or "", user.full_name or full_name
+    finally:
+        db.close()
+
+
 async def login(db: Session, credential: str, password: str, request: Request) -> TokenResponse:
     user = get_user_by_credential(db, credential)
 
@@ -100,7 +125,7 @@ async def login(db: Session, credential: str, password: str, request: Request) -
     expires = timedelta(minutes=settings.jwt_expire_minutes)
     token = create_access_token(
         subject=session.user_id,
-        extra={"jti": session.jti, "roles": session.roles, "permissions": session.permissions},
+        extra=_build_token_extra(session),
         expires_delta=expires,
     )
 
@@ -263,10 +288,16 @@ async def get_current_user(token: str) -> UserSession:
     if not await session_exists(user_id, jti):
         raise UnauthorizedException("Sesión expirada o cerrada")
 
+    username, full_name = _resolve_session_identity(
+        user_id,
+        payload.get("username"),
+        payload.get("full_name"),
+    )
+
     return UserSession(
         user_id=user_id,
-        username=payload.get("username", ""),
-        full_name=payload.get("full_name"),
+        username=username,
+        full_name=full_name,
         roles=payload.get("roles", []),
         permissions=payload.get("permissions", []),
         jti=jti,
@@ -375,7 +406,7 @@ async def refresh_token(token: str, db: Session, request: Request) -> TokenRespo
     expires = timedelta(minutes=settings.jwt_expire_minutes)
     new_token = create_access_token(
         subject=session.user_id,
-        extra={"jti": session.jti, "roles": session.roles, "permissions": session.permissions},
+        extra=_build_token_extra(session),
         expires_delta=expires,
     )
 
