@@ -94,6 +94,13 @@ Este frente debe reflejar solo la cobertura real del sistema. Si hoy la auditor�
 - [ ] `Trazabilidad de Providers IA`
   - Vista de validaciones, errores y cambios desde óptica de control, no de gestión operativa.
 
+- [ ] `Sendmail del Sistema`
+  - Registra qué correos envió el sistema, cuándo, hacia quién y desde qué flujo funcional se originaron.
+  - Debe indicar si el correo salió con adjunto o sin adjunto.
+  - Si el adjunto corresponde a un artefacto recuperable, debe marcar si existe evidencia recuperable asociada.
+  - Para casos como exportación de reportes, idealmente debe registrar también los parámetros con que se generó el adjunto o una referencia trazable al payload/origen.
+  - El foco es evidencia y trazabilidad del envío, no reenviar ni reconstruir toda la operación desde el reporte.
+
 ## Priorizacion Sugerida
 
 ### Fase 1
@@ -119,6 +126,7 @@ Este frente debe reflejar solo la cobertura real del sistema. Si hoy la auditor�
 - [ ] `Observaciones Externas como Evidencia`
 - [ ] `Alertas con Impacto de Control`
 - [ ] `Trazabilidad de Providers IA`
+- [ ] `Sendmail del Sistema`
 
 ## Checklist de Implementacion por Reporte
 
