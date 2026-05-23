@@ -182,7 +182,7 @@ export const AUDIT_REPORT_SECTIONS = buildReportSections([
       { id: "audit-system-events", name: "Eventos de Sistema Relevantes", description: "Consolida eventos del sistema con valor para control y revisión.", icon: "FaGears", path: "/reports/audit/relevant-system-events" },
       { id: "audit-control-alerts", name: "Alertas con Impacto de Control", description: "Filtra alertas operativas que requieren mirada de auditoría o gobierno.", icon: "FaTriangleExclamation", path: "/reports/audit/control-impact-alerts" },
       { id: "audit-provider-traceability", name: "Trazabilidad de Providers IA", description: "Muestra validaciones, cambios y errores de providers desde control.", icon: "FaDatabase", path: "/reports/audit/ai-provider-traceability" },
-      { id: "audit-system-sendmail", name: "Sendmail del Sistema", description: "Registra correos enviados por el sistema, presencia de adjuntos y posibilidad de recuperar su evidencia asociada.", icon: "FaEnvelope", path: "/reports/audit/system-sendmail" },
+      { id: "audit-system-sendmail", name: "Correos del Sistema", description: "Registra correos emitidos por el sistema, estado de entrega, adjuntos y evidencia asociada.", icon: "FaEnvelope", path: "/reports/audit/system-sendmail" },
     ],
   },
 ]);

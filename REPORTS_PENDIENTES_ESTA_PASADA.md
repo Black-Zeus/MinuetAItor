@@ -37,46 +37,23 @@
 - Tags AI Detectados
 - Conversión AI Tag -> Tag Operacional
 - Tendencias Temáticas
+- Observaciones Externas Recibidas
+- Resolución de Observaciones
+- Minutas con Mayor Fricción de Revisión
+- Publicaciones Finalizadas
+- Correos de Revisión y Publicación
+- Seguimiento Documental de Acuerdos
+- Compromisos con Fecha Expirada
+- Compromisos por Responsable
+- Requerimientos por Prioridad
+- Requerimientos y Compromisos por Cliente
+- Requerimientos y Compromisos por Proyecto
 
 ## Pendientes de gestión
 
 Orden recomendado de generación: avanzar primero por lo que ya tiene fuentes más cercanas y dejar al final lo que exige mayor consolidación o cambio de modelo.
 
-### 1. Revisión y Publicación
-
-- Observaciones Externas Recibidas
-- Resolución de Observaciones
-- Minutas con Mayor Fricción de Revisión
-- Publicaciones Finalizadas
-- Correos de Revisión y Publicación
-  Motivo: hay fuentes parciales para observaciones, versiones, estados editoriales, publicación y correo, pero la categoría requiere consolidar eventos editoriales y evidencia de comunicación en una fuente operacional reusable.
-
-Prioridad interna sugerida:
-- Observaciones Externas Recibidas
-- Resolución de Observaciones
-- Publicaciones Finalizadas
-- Minutas con Mayor Fricción de Revisión
-- Correos de Revisión y Publicación
-
-### 2. Requerimientos y Compromisos
-
-- Seguimiento Documental de Acuerdos
-- Compromisos con Fecha Expirada
-- Compromisos por Responsable
-- Requerimientos por Prioridad
-- Requerimientos y Compromisos por Cliente
-- Requerimientos y Compromisos por Proyecto
-  Motivo: es la categoría que más probablemente exige tocar más capas. Acuerdos y requerimientos existen dentro del contenido de minutas, pero no como dataset relacional/reportable estable con responsables, prioridades, vencimientos y estados normalizados.
-
-Prioridad interna sugerida:
-- Seguimiento Documental de Acuerdos
-- Requerimientos por Prioridad
-- Compromisos por Responsable
-- Compromisos con Fecha Expirada
-- Requerimientos y Compromisos por Cliente
-- Requerimientos y Compromisos por Proyecto
-
 ## Auditoría
 
 - Toda la reportería de auditoría quedó fuera de esta pasada.
-  Motivo: decisión explícita de alcance para concentrar primero la reportería de gestión factible con la misma estructura, exportación y PDF del primer reporte.
+  Motivo: decisión explícita de alcance para concentrar primero la reportería de gestión factible con la misma estructura, exportación y PDF del primer reporte. La base de auditoría de correos queda disponible en `email_delivery_events`.

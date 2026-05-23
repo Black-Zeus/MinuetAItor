@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date as dt_date
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -16,8 +16,8 @@ TopicReportType = Literal[
 
 class ManagementTopicReportRequest(BaseModel):
     report_type: TopicReportType = Field(..., serialization_alias="reportType")
-    date_from: date | None = Field(None, serialization_alias="dateFrom")
-    date_to: date | None = Field(None, serialization_alias="dateTo")
+    date_from: dt_date | None = Field(None, serialization_alias="dateFrom")
+    date_to: dt_date | None = Field(None, serialization_alias="dateTo")
     client: str | None = None
     project: str | None = None
     limit: int = Field(200, ge=1, le=1000)
@@ -46,7 +46,7 @@ class ManagementTopicReportRow(BaseModel):
     client_count: int = Field(0, serialization_alias="clientCount")
     project_count: int = Field(0, serialization_alias="projectCount")
     conversion_rate: float = Field(0.0, serialization_alias="conversionRate")
-    last_activity: date | None = Field(None, serialization_alias="lastActivity")
+    last_activity: dt_date | None = Field(None, serialization_alias="lastActivity")
     client: str | None = None
     project: str | None = None
 
