@@ -338,6 +338,72 @@ services:
     logging: *default-logging
     <<: *resources-small
 
+  backup-worker:
+    container_name: ${PROJECT_NAME}-backup-worker
+    labels:
+      stack: ${PROJECT_NAME}
+      env: ${ENV_NAME:-dev}
+      service.group: core
+      service.lifecycle: stateless
+    build:
+      context: .
+      dockerfile: ./Data/dokerFile/dev_qa/Dockerfile.backup-worker
+    image: ${PROJECT_NAME}/backup-worker:dev
+    environment:
+      APP_VERSION: ${APP_VERSION}
+      ENV_NAME: ${ENV_NAME:-dev}
+      TZ: America/Santiago
+
+      # Redis / cola dedicada de respaldos
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_DB: ${REDIS_DB:-0}
+      BACKUP_QUEUE: queue:backups
+
+      # MariaDB
+      MARIADB_HOST: ${MARIADB_HOST:-mariadb}
+      MARIADB_PORT: ${MARIADB_PORT:-3306}
+      MARIADB_DATABASE: ${MARIADB_DATABASE:-minuetaitor}
+      MARIADB_USER: ${MARIADB_USER:-minuetaitor}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD}
+
+      # MinIO / mc
+      MINIO_HOST: ${MINIO_HOST:-minio}
+      MINIO_PORT: ${MINIO_PORT:-9000}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_SECURE: ${MINIO_SECURE:-false}
+
+      # Backend interno y almacenamiento compartido
+      BACKEND_INTERNAL_URL: http://${PROJECT_NAME}-backend:8000
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET}
+      BACKEND_TIMEOUT: ${BACKEND_TIMEOUT:-30}
+      BACKUP_STORAGE_ROOT: /app/remote_data/backups
+      MAINTENANCE_STATE_FILE: /app/backend_app/maintenance_state.json
+
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_DIR: /var/log/app
+    volumes:
+      - ./APP/volumes/backup-worker/app:/app
+      - ./APP/volumes/backend/app:/app/backend_app
+      - ./APP/data/backend_data:/app/remote_data
+      - ./APP/logs/backup-worker:/var/log/app
+    command: watchmedo auto-restart --patterns='*.py' --recursive -- python -u /app/main.py
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    networks:
+      - internal
+    restart: unless-stopped
+    logging: *default-logging
+    <<: *resources-medium
+
   gotenberg:
     image: gotenberg/gotenberg:8
     container_name: ${PROJECT_NAME}-gotenberg
