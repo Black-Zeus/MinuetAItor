@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import os
 import uuid
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
@@ -24,7 +23,7 @@ from schemas.system_maintenance import (
 )
 from services.email_queue import queue_templated_email
 from services.notification_center_service import create_in_app_notification
-from services.organization_settings_service import get_organization_public_base_url
+from services.public_url_service import build_public_url
 from services.system_maintenance_events_service import publish_maintenance_event
 from services.system_queue_catalog import QUEUE_DEFINITIONS
 
@@ -272,15 +271,7 @@ def _save_queue_monitor_state(obj: SystemMaintenanceSetting, state: dict) -> Non
 
 
 def _queue_dashboard_url(db: Session | None = None) -> str:
-    base = (
-        get_organization_public_base_url(db)
-        or str(
-            os.environ.get("FRONTEND_BASE_URL")
-            or os.environ.get("APP_BASE_URL")
-            or "http://localhost:5173"
-        ).rstrip("/")
-    )
-    return f"{base}/settings/system"
+    return build_public_url(db, "/settings/system")
 
 
 def _alert_level_for_queue(queue_key: str) -> str:

@@ -30,7 +30,7 @@ from models.user_project_acl import UserProjectACL, UserProjectPermission
 from schemas.sendmail import InlineAsset
 from services.email_branding_service import build_email_branding_bundle
 from services.email_queue import queue_templated_email
-from services.organization_settings_service import get_organization_public_base_url
+from services.public_url_service import build_public_url
 
 logger = logging.getLogger(__name__)
 
@@ -85,15 +85,8 @@ def _env(name: str, default: str) -> str:
     return value or default
 
 
-def _frontend_base_url(db: Session | None = None) -> str:
-    configured = get_organization_public_base_url(db)
-    if configured:
-        return configured
-    return _env("FRONTEND_BASE_URL", _env("APP_BASE_URL", "http://localhost:5173")).rstrip("/")
-
-
 def _login_url(db: Session | None = None) -> str:
-    return _env("FRONTEND_LOGIN_URL", f"{_frontend_base_url(db)}/login")
+    return build_public_url(db, "/login")
 
 
 def _support_name() -> str:
@@ -191,27 +184,23 @@ def _password_reset_otp_key(otp_code: str) -> str:
 
 
 def _minute_url(record_id: str, db: Session | None = None) -> str:
-    return f"{_frontend_base_url(db)}/minutes/view/{record_id}"
+    return build_public_url(db, f"/minutes/view/{record_id}")
 
 
 def _minute_edit_url(record_id: str, db: Session | None = None) -> str:
-    return f"{_frontend_base_url(db)}/minutes/process/{record_id}"
+    return build_public_url(db, f"/minutes/process/{record_id}")
 
 
 def _reset_url(token: str, db: Session | None = None) -> str:
-    configured = _env("FRONTEND_RESET_PASSWORD_URL", "")
-    if configured:
-        return configured.format(token=token) if "{token}" in configured else configured
-    return f"{_frontend_base_url(db)}/reset-password?token={token}"
+    return build_public_url(db, f"/reset-password?token={token}")
 
 
 def _access_url(scope: str, scope_id: str, db: Session | None = None) -> str:
-    base = _frontend_base_url(db)
     if scope == "project":
-        return f"{base}/projects"
+        return build_public_url(db, "/projects")
     if scope == "client":
-        return f"{base}/clients"
-    return f"{base}/teams"
+        return build_public_url(db, "/clients")
+    return build_public_url(db, "/teams")
 
 
 def _clean_list(items: list[str]) -> list[str]:
