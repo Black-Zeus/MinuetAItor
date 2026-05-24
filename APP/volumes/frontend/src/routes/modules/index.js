@@ -9,7 +9,6 @@
  *  4. Management (clientes, proyectos, equipos)
  *  5. Analytics + Reports
  *  6. Settings + Perfil
- *  7. Demo (última prioridad)
  */
 
 import { authRoutes }       from "./auth.routes";
@@ -18,7 +17,6 @@ import { minutesRoutes }    from "./minutes.routes";
 import { managementRoutes } from "./management.routes";
 import analyticsRoutes      from "./analytics.routes";
 import { settingsRoutes }   from "./settings.routes";
-import { demoRoutes }       from "./demo.routes";
 
 export const allRoutes = [
   ...authRoutes,
@@ -27,7 +25,6 @@ export const allRoutes = [
   ...managementRoutes,
   ...analyticsRoutes,
   ...settingsRoutes,
-  ...demoRoutes,
 ];
 
 // Re-exports individuales (para imports selectivos)
@@ -35,7 +32,7 @@ export { authRoutes }       from "./auth.routes";
 export { coreRoutes }       from "./core.routes";
 export { minutesRoutes }    from "./minutes.routes";
 export { managementRoutes } from "./management.routes";
+export { analyticsRoutes, reportsRoutes } from "./analytics.routes";
 export { settingsRoutes }   from "./settings.routes";
-export { demoRoutes }       from "./demo.routes";
 
 export default allRoutes;

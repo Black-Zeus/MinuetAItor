@@ -11,7 +11,6 @@ import { useLocation } from "react-router-dom";
 import AsyncEChart from "@/components/charts/AsyncEChart";
 import ModalManager from "@/components/ui/modal";
 import { openPdfViewer } from "@/components/ui/pdf/PdfViewerModal";
-import fallbackReportData from "@/data/minutes.json";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import useAbortableRequestScope from "@/hooks/useAbortableRequestScope";
 import useTableSorting from "@/hooks/useTableSorting";
@@ -5620,7 +5619,6 @@ const REPORT_DEFINITIONS = [
     tableDescription:
       "Detalle de acuerdos extraídos del JSON activo de cada minuta visible.",
     dataSource: "commitment-items",
-    disableFallback: true,
     defaultVisibleFilters: {
       ...DEFAULT_VISIBLE_FILTERS,
       status: true,
@@ -5664,7 +5662,6 @@ const REPORT_DEFINITIONS = [
     tableDescription:
       "Detalle de acuerdos con vencimiento anterior a la fecha actual y estado no cerrado.",
     dataSource: "commitment-items",
-    disableFallback: true,
     defaultVisibleFilters: {
       ...DEFAULT_VISIBLE_FILTERS,
       status: false,
@@ -5714,7 +5711,6 @@ const REPORT_DEFINITIONS = [
     tableDescription:
       "Consolidado por responsable con acuerdos, pendientes, vencidos y última actividad.",
     dataSource: "commitment-items",
-    disableFallback: true,
     defaultVisibleFilters: {
       ...DEFAULT_VISIBLE_FILTERS,
       responsible: true,
@@ -5759,7 +5755,6 @@ const REPORT_DEFINITIONS = [
     tableDescription:
       "Detalle de requerimientos extraídos del JSON activo de cada minuta visible.",
     dataSource: "commitment-items",
-    disableFallback: true,
     defaultVisibleFilters: {
       ...DEFAULT_VISIBLE_FILTERS,
       status: true,
@@ -5809,7 +5804,6 @@ const REPORT_DEFINITIONS = [
     tableDescription:
       "Consolidado por cliente con acuerdos, requerimientos, pendientes y vencidos.",
     dataSource: "commitment-items",
-    disableFallback: true,
     buildRows: ({ minuteRows }) => buildCommitmentAggregateRows(minuteRows, "client", "Sin cliente"),
     buildDefaultRowsOrder: defaultAggregateOrder,
     buildSummaryCards: buildCommitmentContextSummaryCards,
@@ -5848,7 +5842,6 @@ const REPORT_DEFINITIONS = [
     tableDescription:
       "Consolidado por proyecto con acuerdos, requerimientos, pendientes y vencidos.",
     dataSource: "commitment-items",
-    disableFallback: true,
     buildRows: ({ minuteRows }) => buildCommitmentAggregateRows(minuteRows, "project", "Sin proyecto"),
     buildDefaultRowsOrder: defaultAggregateOrder,
     buildSummaryCards: buildCommitmentContextSummaryCards,
@@ -5887,7 +5880,6 @@ const REPORT_DEFINITIONS = [
     tableDescription:
       "Detalle de observaciones externas con minuta, versión, autor, estado y texto recibido.",
     dataSource: "review-observations",
-    disableFallback: true,
     defaultVisibleFilters: {
       ...TOPIC_REPORT_VISIBLE_FILTERS,
       status: true,
@@ -5930,7 +5922,6 @@ const REPORT_DEFINITIONS = [
     tableDescription:
       "Detalle de observaciones con decisión editorial, tipo de resolución, fecha y comentario del editor.",
     dataSource: "review-observations",
-    disableFallback: true,
     defaultVisibleFilters: {
       ...TOPIC_REPORT_VISIBLE_FILTERS,
       status: true,
@@ -6080,7 +6071,6 @@ const REPORT_DEFINITIONS = [
     tableDescription:
       "Detalle histórico de correos con estado, destinatarios, asunto, minuta, adjuntos y errores registrados.",
     dataSource: "email-deliveries",
-    disableFallback: true,
     defaultVisibleFilters: {
       ...TOPIC_REPORT_VISIBLE_FILTERS,
       status: true,
@@ -6375,7 +6365,6 @@ const REPORT_DEFINITIONS = [
     tableDescription:
       "Detalle por cola con backlog, umbral, porcentaje de carga, monitoreo y última actividad registrada.",
     dataSource: "system-queues",
-    disableFallback: true,
     defaultVisibleFilters: SYSTEM_REPORT_VISIBLE_FILTERS,
     statusFilterOptions: QUEUE_STATUS_FILTER_OPTIONS,
     buildRows: ({ minuteRows }) => minuteRows,
@@ -6415,7 +6404,6 @@ const REPORT_DEFINITIONS = [
     tableDescription:
       "Detalle de colas con backlog pendiente, porcentaje de carga y señales de alerta.",
     dataSource: "system-queues",
-    disableFallback: true,
     defaultVisibleFilters: SYSTEM_REPORT_VISIBLE_FILTERS,
     statusFilterOptions: QUEUE_STATUS_FILTER_OPTIONS,
     filterMinuteRows: (rows) => rows.filter((row) => Number(row.size ?? 0) > 0),
@@ -6546,7 +6534,6 @@ const REPORT_DEFINITIONS = [
     tableDescription:
       "Detalle de providers IA con estado de validación, modelo asociado, fecha de validación y último error.",
     dataSource: "provider-validation",
-    disableFallback: true,
     defaultVisibleFilters: SYSTEM_REPORT_VISIBLE_FILTERS,
     statusFilterOptions: PROVIDER_VALIDATION_STATUS_OPTIONS,
     buildRows: ({ minuteRows }) => minuteRows,
@@ -6586,7 +6573,6 @@ const REPORT_DEFINITIONS = [
     tableDescription:
       "Detalle de alertas de colas y rutinas con estado, fecha y descripción operacional.",
     dataSource: "system-alerts",
-    disableFallback: true,
     defaultVisibleFilters: SYSTEM_REPORT_VISIBLE_FILTERS,
     statusFilterOptions: [
       ...QUEUE_STATUS_FILTER_OPTIONS,
@@ -6630,7 +6616,6 @@ const REPORT_DEFINITIONS = [
       "Detalle por tag operacional con minutas asociadas, asignaciones, clientes, proyectos y última actividad.",
     dataSource: "topic-analytics",
     topicReportType: "minutes-by-tag",
-    disableFallback: true,
     defaultVisibleFilters: TOPIC_REPORT_VISIBLE_FILTERS,
     buildRows: ({ minuteRows }) => minuteRows,
     buildDefaultRowsOrder: defaultAggregateOrder,
@@ -6671,7 +6656,6 @@ const REPORT_DEFINITIONS = [
       "Detalle por AI tag con detecciones, minutas asociadas, cobertura y última actividad.",
     dataSource: "topic-analytics",
     topicReportType: "detected-ai-tags",
-    disableFallback: true,
     defaultVisibleFilters: TOPIC_REPORT_VISIBLE_FILTERS,
     buildRows: ({ minuteRows }) => minuteRows,
     buildDefaultRowsOrder: defaultAggregateOrder,
@@ -6711,7 +6695,6 @@ const REPORT_DEFINITIONS = [
       "Detalle por AI tag y destino operacional, con detecciones, estado de conversión y última actividad.",
     dataSource: "topic-analytics",
     topicReportType: "ai-tag-conversions",
-    disableFallback: true,
     defaultVisibleFilters: TOPIC_REPORT_VISIBLE_FILTERS,
     buildRows: ({ minuteRows }) => minuteRows,
     buildDefaultRowsOrder: defaultAggregateOrder,
@@ -6751,7 +6734,6 @@ const REPORT_DEFINITIONS = [
       "Detalle por período y tag, con volumen documental, cobertura y última actividad.",
     dataSource: "topic-analytics",
     topicReportType: "topic-trends",
-    disableFallback: true,
     defaultVisibleFilters: TOPIC_REPORT_VISIBLE_FILTERS,
     buildRows: ({ minuteRows }) => minuteRows,
     buildDefaultRowsOrder: (rows) =>
@@ -6825,7 +6807,6 @@ const ManagementOperationalReportPage = () => {
     clients: 0,
     projects: 0,
   });
-  const [usingFallbackData, setUsingFallbackData] = useState(false);
   const [page, setPage] = useState(1);
 
   const statusFilterOptions = reportConfig?.statusFilterOptions ?? STATUS_FILTER_OPTIONS;
@@ -6841,50 +6822,8 @@ const ManagementOperationalReportPage = () => {
     setDraftFilters(defaults);
     setAppliedFilters(defaults);
     setHasExecutedSearch(false);
-    setUsingFallbackData(false);
     setPage(1);
   }, [location.pathname]);
-
-  const loadFallbackData = useCallback(() => {
-    const fallbackRows = Array.isArray(fallbackReportData?.minutes)
-      ? fallbackReportData.minutes.map(normalizeMinuteRecord)
-      : [];
-    const fallbackClientOptions = Array.from(
-      new Set(fallbackRows.map((row) => row.client).filter(Boolean))
-    )
-      .sort(compareByLabel)
-      .map((label) => ({ value: label, label }));
-    const fallbackProjectOptions = Array.from(
-      new Set(fallbackRows.map((row) => row.project).filter(Boolean))
-    )
-      .sort(compareByLabel)
-      .map((label) => ({ value: label, label }));
-    const fallbackResponsibleOptions = Array.from(
-      new Set(fallbackRows.map((row) => row.responsible).filter(Boolean))
-    )
-      .sort(compareByLabel)
-      .map((label) => ({ value: label, label }));
-
-    setRawRows(fallbackRows);
-    setFilterCatalogs({
-      clients: fallbackClientOptions,
-      projects: fallbackProjectOptions,
-      responsibles: fallbackResponsibleOptions,
-    });
-    setCatalogRows({
-      clients: fallbackClientOptions.map((item, index) =>
-        normalizeClientCatalogRecord({ id: item.value, name: item.label }, index)
-      ),
-      projects: fallbackProjectOptions.map((item, index) =>
-        normalizeProjectCatalogRecord({ id: item.value, name: item.label }, index)
-      ),
-    });
-    setCatalogTotals({
-      clients: fallbackClientOptions.length,
-      projects: fallbackProjectOptions.length,
-    });
-    setUsingFallbackData(true);
-  }, []);
 
   useEffect(() => {
     if (!reportConfig) return undefined;
@@ -6963,7 +6902,9 @@ const ManagementOperationalReportPage = () => {
       } catch (error) {
         if (!isMounted || requestScope.wasAborted(requestConfig.signal)) return;
         reportLog.warn("No se pudieron cargar los catálogos de filtros del reporte.", error);
-        loadFallbackData();
+        setFilterCatalogs({ clients: [], projects: [], responsibles: [] });
+        setCatalogRows({ clients: [], projects: [] });
+        setCatalogTotals({ clients: 0, projects: 0 });
       }
     };
 
@@ -6972,7 +6913,7 @@ const ManagementOperationalReportPage = () => {
     return () => {
       isMounted = false;
     };
-  }, [loadFallbackData, reportConfig, requestScope]);
+  }, [reportConfig, requestScope]);
 
   const loadReportData = useCallback(
     async (nextAppliedFilters) => {
@@ -7092,19 +7033,13 @@ const ManagementOperationalReportPage = () => {
         }
 
         setRawRows(nextRows);
-        setUsingFallbackData(false);
       } catch (error) {
         if (requestScope.wasAborted(requestConfig.signal)) return;
         reportLog.error(
           `No se pudo cargar el reporte ${reportConfig?.id ?? "gestion"} desde API.`,
           error
         );
-        if (reportConfig?.disableFallback) {
-          setRawRows([]);
-          setUsingFallbackData(false);
-        } else {
-          loadFallbackData();
-        }
+        setRawRows([]);
       } finally {
         if (!requestScope.wasAborted(requestConfig.signal)) {
           startTransition(() => {
@@ -7116,7 +7051,7 @@ const ManagementOperationalReportPage = () => {
         }
       }
     },
-    [loadFallbackData, reportConfig?.id, requestScope]
+    [reportConfig?.id, requestScope]
   );
 
   const filteredMinuteRows = useMemo(() => {
@@ -7402,11 +7337,6 @@ const ManagementOperationalReportPage = () => {
           : 'Define los parámetros de búsqueda y luego pulsa "Filtrar / Ejecutar" para consultar la información operacional.'
       }
     >
-      {hasExecutedSearch && usingFallbackData ? (
-        <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700/40 dark:bg-amber-900/20 dark:text-amber-100">
-          La vista está usando un dataset de referencia temporal porque no fue posible cargar la fuente operativa del reporte. La estructura, filtros, ordenamiento y exportación siguen disponibles para validación funcional.
-        </div>
-      ) : null}
     </ReportModulePage>
   );
 };
