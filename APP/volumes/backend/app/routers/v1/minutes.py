@@ -40,6 +40,8 @@ from services.minutes_service import (
     generate_minute,
     get_minute_attachment_blob,
     generate_minute_pdf_preview,
+    get_minute_pdf_preview_job_result,
+    get_minute_pdf_preview_job_status,
     get_minute_detail,
     reprocess_minute,
     list_minute_cycle_times,
@@ -48,6 +50,7 @@ from services.minutes_service import (
     get_minute_versions,
     save_minute_draft,
     send_minute_email,
+    start_minute_pdf_preview_job,
     transition_minute,
     list_minutes,
 )
@@ -177,6 +180,35 @@ def reprocess_history_endpoint(
 # ─── GET /{record_id} ─────────────────────────────────────────────────────────
 
 @router.get(
+    "/pdf-preview/jobs/{preview_id}/status",
+    status_code=status.HTTP_200_OK,
+    summary="Consultar estado de vista previa PDF temporal",
+)
+async def pdf_preview_job_status_endpoint(
+    preview_id: str,
+    session: UserSession = Depends(current_user_dep),
+):
+    return await get_minute_pdf_preview_job_status(preview_id)
+
+
+@router.get(
+    "/pdf-preview/jobs/{preview_id}/result",
+    status_code=status.HTTP_200_OK,
+    summary="Descargar resultado de vista previa PDF temporal",
+)
+async def pdf_preview_job_result_endpoint(
+    preview_id: str,
+    session: UserSession = Depends(current_user_dep),
+):
+    pdf_bytes = await get_minute_pdf_preview_job_result(preview_id)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": 'inline; filename="minute-preview.pdf"'},
+    )
+
+
+@router.get(
     "/{record_id}",
     response_model = MinuteDetailResponse,
     status_code    = status.HTTP_200_OK,
@@ -205,6 +237,24 @@ async def save_endpoint(
 ):
     await save_minute_draft(db=db, record_id=record_id, content=body.content)
     return {"ok": True}
+
+
+@router.post(
+    "/{record_id}/pdf-preview/jobs",
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Iniciar vista previa PDF temporal sin bloquear la request",
+)
+async def pdf_preview_job_endpoint(
+    record_id: str,
+    body: MinuteSaveRequest,
+    db: Session = Depends(get_db),
+    session: UserSession = Depends(current_user_dep),
+):
+    return await start_minute_pdf_preview_job(
+        db=db,
+        record_id=record_id,
+        content=body.content,
+    )
 
 
 @router.post(

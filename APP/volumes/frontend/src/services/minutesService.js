@@ -5,6 +5,30 @@ const BASE = "/v1/minutes";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const unwrap = (res) => res?.data?.result ?? res?.data;
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const normalizePreviewId = (payload) => (
+  payload?.previewId
+  ?? payload?.preview_id
+  ?? payload?.id
+  ?? null
+);
+
+const waitForMinutePdfPreview = async (previewId, {
+  timeoutMs = 60000,
+  intervalMs = 800,
+} = {}) => {
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    const statusRes = await api.get(`${BASE}/pdf-preview/jobs/${previewId}/status`);
+    const statusPayload = unwrap(statusRes);
+    if (statusPayload?.status === "ready") return;
+    await wait(intervalMs);
+  }
+
+  throw new Error("PDF_PREVIEW_TIMEOUT");
+};
 
 // ─── LIST ─────────────────────────────────────────────────────────────────────
 /**
@@ -187,7 +211,15 @@ export const saveMinuteDraft = async (recordId, content) => {
  * @returns {Promise<Blob>}
  */
 export const previewMinutePdfBlob = async (recordId, content) => {
-  const res = await api.post(`${BASE}/${recordId}/pdf-preview`, { content }, {
+  const startRes = await api.post(`${BASE}/${recordId}/pdf-preview/jobs`, { content });
+  const previewId = normalizePreviewId(unwrap(startRes));
+  if (!previewId) {
+    throw new Error("PDF_PREVIEW_ID_MISSING");
+  }
+
+  await waitForMinutePdfPreview(previewId);
+
+  const res = await api.get(`${BASE}/pdf-preview/jobs/${previewId}/result`, {
     responseType: "blob",
   });
   return res.data;
