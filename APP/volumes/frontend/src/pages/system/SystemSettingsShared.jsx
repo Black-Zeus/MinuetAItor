@@ -449,56 +449,7 @@ export const inferImportPackageAnalysis = (file) => {
   };
 };
 
-export const BACKUP_HISTORY_ITEMS = [
-  {
-    id: "backup-full-2026-05-17-0400",
-    scope: "FULL",
-    source: "MariaDB + objetos + configuración",
-    restoreImpact: "reemplazará base de datos, objetos y configuración operativa",
-    createdAt: "2026-05-17T04:00:00",
-    name: "minuetaitor-full-2026-05-17.tar.gz",
-    sizeBytes: 428734218,
-    status: "Disponible",
-    tone: "active",
-    storagePath: "/app/remote_data/backups/full/2026/05/17/minuetaitor-full-2026-05-17.tar.gz",
-  },
-  {
-    id: "backup-db-2026-05-17-0200",
-    scope: "BD",
-    source: "MariaDB",
-    restoreImpact: "reemplazará solo la base de datos operativa",
-    createdAt: "2026-05-17T02:00:00",
-    name: "minuetaitor-db-2026-05-17.sql.gz",
-    sizeBytes: 186734218,
-    status: "Verificado",
-    tone: "info",
-    storagePath: "/app/remote_data/backups/database/2026/05/17/minuetaitor-db-2026-05-17.sql.gz",
-  },
-  {
-    id: "backup-minio-2026-05-17-0230",
-    scope: "MinIO",
-    source: "Buckets y adjuntos",
-    restoreImpact: "reemplazará objetos, adjuntos y artefactos respaldados",
-    createdAt: "2026-05-17T02:30:00",
-    name: "minuetaitor-objects-2026-05-17.tar.gz",
-    sizeBytes: 219118904,
-    status: "Verificado",
-    tone: "info",
-    storagePath: "/app/remote_data/backups/objects/2026/05/17/minuetaitor-objects-2026-05-17.tar.gz",
-  },
-  {
-    id: "backup-db-2026-05-16-0200",
-    scope: "BD",
-    source: "MariaDB",
-    restoreImpact: "reemplazará solo la base de datos operativa",
-    createdAt: "2026-05-16T02:00:00",
-    name: "minuetaitor-db-2026-05-16.sql.gz",
-    sizeBytes: 182904552,
-    status: "Disponible",
-    tone: "active",
-    storagePath: "/app/remote_data/backups/database/2026/05/16/minuetaitor-db-2026-05-16.sql.gz",
-  },
-];
+export const BACKUP_HISTORY_ITEMS = [];
 
 export const Header = () => (
   <div>
