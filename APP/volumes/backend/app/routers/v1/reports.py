@@ -29,7 +29,12 @@ from schemas.audit_reports import (
 from schemas.report_exports import ReportPdfPreviewRequest
 from services.auth_service import get_current_user
 from services.management_topic_reports_service import list_management_topic_report
-from services.reports_service import generate_report_pdf_preview
+from services.reports_service import (
+    generate_report_pdf_preview,
+    get_report_pdf_preview_job_result,
+    get_report_pdf_preview_job_status,
+    start_report_pdf_preview_job,
+)
 
 router = APIRouter(prefix="/reports", tags=["Reports"])
 bearer = HTTPBearer(auto_error=False)
@@ -117,6 +122,52 @@ def management_topic_analytics_endpoint(
     session: UserSession = Depends(current_user_dep),
 ):
     return list_management_topic_report(db, body)
+
+
+@router.post(
+    "/pdf-preview/jobs",
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Iniciar PDF temporal de vista previa para un reporte sin bloquear la request",
+)
+async def report_pdf_preview_job_endpoint(
+    body: ReportPdfPreviewRequest,
+    db: Session = Depends(get_db),
+    session: UserSession = Depends(current_user_dep),
+):
+    return await start_report_pdf_preview_job(
+        db=db,
+        session=session,
+        payload=body,
+    )
+
+
+@router.get(
+    "/pdf-preview/jobs/{preview_id}/status",
+    status_code=status.HTTP_200_OK,
+    summary="Consultar estado de PDF temporal de reporte",
+)
+async def report_pdf_preview_job_status_endpoint(
+    preview_id: str,
+    session: UserSession = Depends(current_user_dep),
+):
+    return await get_report_pdf_preview_job_status(preview_id)
+
+
+@router.get(
+    "/pdf-preview/jobs/{preview_id}/result",
+    status_code=status.HTTP_200_OK,
+    summary="Descargar resultado de PDF temporal de reporte",
+)
+async def report_pdf_preview_job_result_endpoint(
+    preview_id: str,
+    session: UserSession = Depends(current_user_dep),
+):
+    pdf_bytes = await get_report_pdf_preview_job_result(preview_id)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": 'inline; filename="report-preview.pdf"'},
+    )
 
 
 @router.post(

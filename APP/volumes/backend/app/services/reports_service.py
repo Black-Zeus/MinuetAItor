@@ -22,6 +22,7 @@ from services.organization_settings_service import (
 
 QUEUE_PDF = "queue:pdf"
 REPORT_PREVIEW_RESPONSE_PREFIX = "report:pdf:preview:"
+REPORT_PREVIEW_META_PREFIX = "report:pdf:preview:meta:"
 REPORT_PREVIEW_RESPONSE_TTL_SECONDS = 180
 REPORT_CHART_PALETTE = [
     "#2563eb",
@@ -382,3 +383,102 @@ async def generate_report_pdf_preview(
             "last_error": str(last_error) if last_error else None,
         },
     )
+
+
+def _report_preview_meta_key(preview_id: str) -> str:
+    return f"{REPORT_PREVIEW_META_PREFIX}{preview_id}"
+
+
+async def start_report_pdf_preview_job(
+    db: Session,
+    session: UserSession,
+    payload: ReportPdfPreviewRequest,
+) -> dict[str, Any]:
+    context = _build_report_context(db, session, payload)
+    preview_id = uuid.uuid4().hex
+    response_key = f"{REPORT_PREVIEW_RESPONSE_PREFIX}{payload.report_key}:{preview_id}"
+
+    envelope = {
+        "job_id": f"report-pdf-{uuid.uuid4()}",
+        "type": "report_pdf",
+        "queue": QUEUE_PDF,
+        "attempt": 1,
+        "payload": {
+            "template": payload.template_key,
+            "options": {
+                "paper": payload.paper_size,
+                "landscape": payload.orientation == "landscape",
+            },
+            "response_storage": {
+                "mode": "redis",
+                "key": response_key,
+                "ttl_seconds": REPORT_PREVIEW_RESPONSE_TTL_SECONDS,
+            },
+            "data": context,
+        },
+    }
+
+    redis = get_redis()
+    try:
+        await redis.setex(
+            _report_preview_meta_key(preview_id),
+            REPORT_PREVIEW_RESPONSE_TTL_SECONDS,
+            response_key,
+        )
+        await minute_queue.enqueue_job(QUEUE_PDF, envelope)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "report_pdf_enqueue_error",
+                "message": "No se pudo iniciar la generación del PDF del reporte.",
+            },
+        ) from exc
+
+    return {
+        "preview_id": preview_id,
+        "status": "queued",
+        "expires_in": REPORT_PREVIEW_RESPONSE_TTL_SECONDS,
+    }
+
+
+async def get_report_pdf_preview_job_status(preview_id: str) -> dict[str, Any]:
+    redis = get_redis()
+    response_key = await redis.get(_report_preview_meta_key(preview_id))
+    if not response_key:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "report_pdf_preview_not_found", "message": "La vista previa ya expiró o no existe."},
+        )
+
+    encoded_pdf = await redis.get(response_key)
+    if encoded_pdf:
+        return {"preview_id": preview_id, "status": "ready", "size_bytes": len(encoded_pdf)}
+
+    ttl = await redis.ttl(_report_preview_meta_key(preview_id))
+    return {
+        "preview_id": preview_id,
+        "status": "processing",
+        "expires_in": max(int(ttl or 0), 0),
+    }
+
+
+async def get_report_pdf_preview_job_result(preview_id: str) -> bytes:
+    redis = get_redis()
+    meta_key = _report_preview_meta_key(preview_id)
+    response_key = await redis.get(meta_key)
+    if not response_key:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "report_pdf_preview_not_found", "message": "La vista previa ya expiró o no existe."},
+        )
+
+    encoded_pdf = await redis.get(response_key)
+    if not encoded_pdf:
+        raise HTTPException(
+            status_code=409,
+            detail={"error": "report_pdf_preview_not_ready", "message": "La vista previa aún se está generando."},
+        )
+
+    await redis.delete(response_key, meta_key)
+    return base64.b64decode(encoded_pdf)

@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 from core.config import settings
 from core.datetime_utils import utc_now_db
 from db.minio_client import get_minio_client
+from db.redis import get_redis
 from models.minute_transaction import MinuteTransaction
 from models.objects import Object
 from models.record_artifacts import RecordArtifact
@@ -97,6 +98,8 @@ VERSION_STATUS_SNAPSHOT   = "snapshot"
 VERSION_STATUS_FINAL      = "final"
 
 QUEUE_PDF = "queue:pdf"
+PDF_PREVIEW_META_PREFIX = "minute:pdf:preview:"
+PDF_PREVIEW_META_TTL_SECONDS = 180
 
 # Estados que no tienen contenido disponible para el editor
 _STATUSES_NO_CONTENT = {
@@ -857,6 +860,133 @@ async def generate_minute_pdf_preview(db: Session, record_id: str, content: dict
             "message": "La vista previa del PDF tardó demasiado en generarse. Intenta nuevamente.",
         },
     )
+
+
+def _pdf_preview_meta_key(preview_id: str) -> str:
+    return f"{PDF_PREVIEW_META_PREFIX}{preview_id}"
+
+
+async def start_minute_pdf_preview_job(db: Session, record_id: str, content: dict[str, Any]) -> dict[str, Any]:
+    """
+    Encola una vista previa PDF y retorna de inmediato.
+    El endpoint síncrono anterior queda disponible como compatibilidad.
+    """
+    from sqlalchemy.orm import joinedload
+
+    record = (
+        db.query(Record)
+        .options(
+            joinedload(Record.project).joinedload(Project.client),
+            joinedload(Record.created_by_user),
+        )
+        .filter(Record.id == record_id, Record.deleted_at.is_(None))
+        .first()
+    )
+    if record is None:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "record_not_found", "message": f"Minuta '{record_id}' no encontrada."},
+        )
+
+    content = minute_sanitizers.sanitize_editor_content(content)
+
+    try:
+        from services.pdf_job_builder import build_pdf_job_on_save
+
+        preview_id = uuid.uuid4().hex
+        preview_key = f"previews/{record_id}/{preview_id}.pdf"
+        envelope = build_pdf_job_on_save(record=record, draft_content=content)
+        envelope["payload"]["minio_bucket"] = BUCKET_DRAFT
+        envelope["payload"]["minio_output_key"] = preview_key
+
+        if isinstance(envelope["payload"].get("callback"), dict):
+            envelope["payload"]["callback"]["notify_redis_channel"] = None
+            envelope["payload"]["callback"]["pdf_url_field"] = None
+
+        redis = get_redis()
+        await redis.setex(
+            _pdf_preview_meta_key(preview_id),
+            PDF_PREVIEW_META_TTL_SECONDS,
+            json.dumps(
+                {
+                    "record_id": record_id,
+                    "bucket": BUCKET_DRAFT,
+                    "key": preview_key,
+                }
+            ),
+        )
+        await minute_queue.enqueue_job(minute_constants.QUEUE_PDF, envelope)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[minutes] Error encolando preview PDF async | record={record_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail={"error": "pdf_preview_enqueue_error", "message": "No se pudo iniciar la vista previa del PDF."},
+        )
+
+    return {
+        "preview_id": preview_id,
+        "status": "queued",
+        "expires_in": PDF_PREVIEW_META_TTL_SECONDS,
+    }
+
+
+async def get_minute_pdf_preview_job_status(preview_id: str) -> dict[str, Any]:
+    redis = get_redis()
+    raw_meta = await redis.get(_pdf_preview_meta_key(preview_id))
+    if not raw_meta:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "pdf_preview_not_found", "message": "La vista previa ya expiró o no existe."},
+        )
+
+    meta = json.loads(raw_meta)
+    minio = get_minio_client()
+    try:
+        stat = minio.stat_object(meta["bucket"], meta["key"])
+        return {
+            "preview_id": preview_id,
+            "status": "ready",
+            "size_bytes": int(getattr(stat, "size", 0) or 0),
+        }
+    except Exception:
+        ttl = await redis.ttl(_pdf_preview_meta_key(preview_id))
+        return {
+            "preview_id": preview_id,
+            "status": "processing",
+            "expires_in": max(int(ttl or 0), 0),
+        }
+
+
+async def get_minute_pdf_preview_job_result(preview_id: str) -> bytes:
+    redis = get_redis()
+    raw_meta = await redis.get(_pdf_preview_meta_key(preview_id))
+    if not raw_meta:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "pdf_preview_not_found", "message": "La vista previa ya expiró o no existe."},
+        )
+
+    meta = json.loads(raw_meta)
+    minio = get_minio_client()
+    try:
+        obj = minio.get_object(meta["bucket"], meta["key"])
+        pdf_bytes = obj.read()
+        obj.close()
+        obj.release_conn()
+    except Exception:
+        raise HTTPException(
+            status_code=409,
+            detail={"error": "pdf_preview_not_ready", "message": "La vista previa aún se está generando."},
+        )
+
+    try:
+        minio.remove_object(meta["bucket"], meta["key"])
+    except Exception as cleanup_err:
+        logger.warning("[minutes] No se pudo borrar preview temporal %s: %s", meta.get("key"), cleanup_err)
+    await redis.delete(_pdf_preview_meta_key(preview_id))
+    return pdf_bytes
 
 
 # ─── transition_minute ────────────────────────────────────────────────────────
