@@ -4,6 +4,12 @@ import ActionButton from "@/components/ui/button/ActionButton";
 import Icon from "@/components/ui/icon/iconManager";
 import ModalManager from "@/components/ui/modal";
 import { toastError, toastSuccess } from "@/components/common/toast/toastHelpers";
+import { BackupDashboardView } from "@/pages/system/backups/BackupDashboardView";
+import { BackupHistoryView } from "@/pages/system/backups/BackupHistoryView";
+import { BackupRecoveryView } from "@/pages/system/backups/BackupRecoveryView";
+import { BackupScheduleView } from "@/pages/system/backups/BackupScheduleView";
+import { BackupTechnicalView } from "@/pages/system/backups/BackupTechnicalView";
+import { BackupsPanelTabs } from "@/pages/system/backups/BackupsPanelTabs";
 import {
   BACKUP_DESTINATION_LABELS,
   BACKUP_HISTORY_ITEMS,
@@ -11,16 +17,10 @@ import {
   BACKUP_STORAGE_ROOT_CONTAINER,
   BACKUP_STORAGE_ROOT_HOST,
   BACKUP_VERIFICATION_LABELS,
-  BACKUP_VERIFICATION_OPTIONS,
-  ConfigActionBar,
-  CronInputField,
   DraftModeNotice,
   INITIAL_BACKUPS_DRAFT,
   MaintenanceField,
   MaintenanceInput,
-  MaintenanceSelect,
-  MaintenanceToggle,
-  SectionCard,
   StatusBadge,
   TXT_BODY,
   TXT_META,
@@ -239,10 +239,10 @@ const ImportBackupSummaryModal = ({ analysis, onClose, onImport }) => (
           <div>
             <div className="flex items-center gap-3">
               <h2 className={`text-xl font-semibold ${TXT_TITLE}`}>Resumen del paquete</h2>
-              <StatusBadge tone="warning">Importación destructiva</StatusBadge>
+              <StatusBadge tone="info">Registro de paquete</StatusBadge>
             </div>
             <p className={`mt-2 text-sm ${TXT_BODY}`}>
-              El análisis terminó. Revisa el alcance antes de habilitar la importación.
+              El análisis terminó. Revisa el alcance antes de registrar el paquete en el historial.
             </p>
           </div>
           <ActionButton
@@ -259,10 +259,10 @@ const ImportBackupSummaryModal = ({ analysis, onClose, onImport }) => (
       <div className="space-y-5 px-6 py-6">
         <div className="rounded-2xl border border-amber-200 bg-amber-50/70 px-5 py-4 dark:border-amber-800/60 dark:bg-amber-950/10">
           <p className={`text-sm font-medium ${TXT_TITLE}`}>
-            Si importas este paquete, se perderá toda la persistencia anterior del ámbito afectado antes de cargar la información analizada.
+            Importar registra el paquete externo en el historial para que pueda ser analizado y restaurado posteriormente desde Recuperación.
           </p>
           <p className={`mt-2 text-sm ${TXT_BODY}`}>
-            La importación limpia primero el contenido activo y luego carga desde cero la información contenida en el paquete.
+            Este paso no modifica la persistencia activa del sistema.
           </p>
         </div>
 
@@ -300,7 +300,7 @@ const ImportBackupSummaryModal = ({ analysis, onClose, onImport }) => (
           onClick={onClose}
         />
         <ActionButton
-          label="Importar"
+          label="Registrar"
           variant="primary"
           size="sm"
           onClick={onImport}
@@ -312,10 +312,10 @@ const ImportBackupSummaryModal = ({ analysis, onClose, onImport }) => (
 
 const IMPORT_EXECUTION_STEPS = [
   "Validando paquete",
-  "Limpiando persistencia anterior",
-  "Preparando estructura base",
-  "Cargando contenido",
-  "Registrando resultado",
+  "Calculando metadata",
+  "Registrando paquete en historial",
+  "Preparando paquete para recuperación",
+  "Guardando resultado",
 ];
 
 const RESTORE_EXECUTION_STEPS_BY_SCOPE = {
@@ -323,6 +323,12 @@ const RESTORE_EXECUTION_STEPS_BY_SCOPE = {
     "Validando respaldo de base de datos",
     "Limpiando base de datos activa",
     "Restaurando estructura y datos",
+    "Registrando resultado de restauración",
+  ],
+  Adjuntos: [
+    "Validando respaldo de objetos",
+    "Limpiando objetos y adjuntos activos",
+    "Restaurando buckets y artefactos",
     "Registrando resultado de restauración",
   ],
   MinIO: [
@@ -365,20 +371,20 @@ const ImportBackupExecutionModal = ({ analysis, onComplete }) => {
       <div className="w-full max-w-3xl rounded-[28px] border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-800">
         <div className="border-b border-gray-100 px-6 py-5 dark:border-gray-700">
           <div className="flex items-center gap-3">
-            <h2 className={`text-xl font-semibold ${TXT_TITLE}`}>Proceso de importación</h2>
+            <h2 className={`text-xl font-semibold ${TXT_TITLE}`}>Registro de importación</h2>
             <StatusBadge tone={isDone ? "active" : "warning"}>
               {isDone ? "Completado" : "En curso"}
             </StatusBadge>
           </div>
           <p className={`mt-2 text-sm ${TXT_BODY}`}>
-            Se está ejecutando la importación del paquete `{analysis?.file?.name || "seleccionado"}`.
+            Se está registrando el paquete `{analysis?.file?.name || "seleccionado"}` en el historial.
           </p>
         </div>
 
         <div className="space-y-5 px-6 py-6">
           <div className="rounded-2xl border border-amber-200 bg-amber-50/70 px-5 py-4 dark:border-amber-800/60 dark:bg-amber-950/10">
             <p className={`text-sm ${TXT_BODY}`}>
-              Durante este proceso se reemplaza la persistencia anterior del ámbito detectado antes de cargar desde cero la información del paquete.
+              Este proceso no restaura datos ni limpia persistencia activa. Solo deja el paquete disponible para análisis de recuperación.
             </p>
           </div>
 
@@ -607,11 +613,48 @@ const CompletedRestartModal = ({ title, description, onClose }) => {
   );
 };
 
+const CompletedProcessModal = ({ title, description, onClose }) => (
+  <div className="flex w-full justify-center px-4">
+    <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white dark:bg-gray-900">
+      <div className="h-1.5 bg-gradient-to-r from-blue-500 via-blue-600 to-indigo-500" />
+
+      <div className="flex flex-col items-center p-8 text-center">
+        <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-50 text-primary-600 dark:bg-primary-900/20 dark:text-primary-300">
+          <Icon name="FaCheck" className="h-7 w-7" />
+        </div>
+
+        <h2 className="mb-1 text-xl font-bold text-gray-900 dark:text-white">
+          {title || "Proceso terminado"}
+        </h2>
+        <p className="mb-6 max-w-[34ch] text-sm text-gray-500 dark:text-gray-400">
+          {description || "La operación fue procesada correctamente."}
+        </p>
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="w-full rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-700 active:bg-blue-800"
+        >
+          Entendido
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
 export const BackupsPanel = () => {
+  const [activeBackupTab, setActiveBackupTab] = useState("dashboard");
+  const [expandedScheduleSections, setExpandedScheduleSections] = useState({
+    database: true,
+    objects: false,
+    full: false,
+    retention: false,
+  });
   const [draft, setDraft] = useState(() => clonePlainObject(INITIAL_BACKUPS_DRAFT));
   const [savedDraft, setSavedDraft] = useState(() => clonePlainObject(INITIAL_BACKUPS_DRAFT));
   const [historyItems, setHistoryItems] = useState(BACKUP_HISTORY_ITEMS);
   const [latestImportAnalysis, setLatestImportAnalysis] = useState(null);
+  const [selectedRecoveryItem, setSelectedRecoveryItem] = useState(null);
   const [cronErrors, setCronErrors] = useState({});
 
   const updateDraft = (key, value) => {
@@ -682,6 +725,13 @@ export const BackupsPanel = () => {
     setCronErrors({});
   };
 
+  const toggleScheduleSection = (sectionId) => {
+    setExpandedScheduleSections((prev) => ({
+      ...prev,
+      [sectionId]: !(prev[sectionId] ?? false),
+    }));
+  };
+
   const handleSave = async () => {
     const invalidEntries = BACKUP_POLICY_DEFINITIONS
       .map((policyDefinition) => [policyDefinition.id, validatePolicyCron(policyDefinition.id)])
@@ -736,13 +786,65 @@ export const BackupsPanel = () => {
         { label: "Purge", value: "Interno y silencioso" },
         { label: "Cola técnica", value: savedDraft.backupPurgeQueue || "—" },
         { label: "Ruta host", value: BACKUP_STORAGE_ROOT_HOST },
-        { label: "Cobertura", value: "BD, MinIO y Full" },
+        { label: "Cobertura", value: "BD, Adjuntos y Full" },
       ],
     },
   ];
+  const enabledPolicyCount = BACKUP_POLICY_DEFINITIONS.filter((policyDefinition) => savedDraft.policies[policyDefinition.id]?.enabled).length;
+  const latestBackup = historyItems[0] ?? null;
+  const successfulBackupCount = historyItems.filter((item) => item.tone === "active" || item.status === "Completado").length;
+  const failedBackupCount = historyItems.filter((item) => item.tone === "danger" || item.status === "Fallido").length;
 
   const handleDownloadBackup = (item) => {
     toastSuccess("Descarga preparada", `Se preparó la descarga de "${item.name}".`);
+  };
+
+  const handleAnalyzeBackup = (item) => {
+    setSelectedRecoveryItem(item);
+    setActiveBackupTab("recovery");
+  };
+
+  const handleRunManualBackup = async (policyId) => {
+    const policyDefinition = BACKUP_POLICY_DEFINITIONS.find((candidate) => candidate.id === policyId);
+    const policy = savedDraft.policies[policyId];
+    if (!policyDefinition || !policy) return;
+
+    const confirmed = await ModalManager.confirm({
+      title: `Respaldar ${policyDefinition.shortLabel}`,
+      message: `¿Deseas solicitar un respaldo manual de ${policyDefinition.title.toLowerCase()}? El paquete quedará registrado en el historial.`,
+      confirmText: "Respaldar",
+      cancelText: "Cancelar",
+    });
+
+    if (!confirmed) return;
+
+    const now = new Date();
+    const stamp = [
+      now.getFullYear(),
+      String(now.getMonth() + 1).padStart(2, "0"),
+      String(now.getDate()).padStart(2, "0"),
+      String(now.getHours()).padStart(2, "0"),
+      String(now.getMinutes()).padStart(2, "0"),
+    ].join("");
+    const extension = policy.fileFormat === "sql_plain" ? "sql" : policy.fileFormat === "tar_plain" ? "tar" : policy.fileFormat === "zip_bundle" ? "zip" : policy.fileFormat === "sql_gzip" ? "sql.gz" : "tar.gz";
+    const name = `${policyId}-manual-${stamp}.${extension}`;
+    const item = {
+      id: `manual-${policyId}-${Date.now()}`,
+      name,
+      scope: policyDefinition.shortLabel,
+      source: policyDefinition.source,
+      originType: "Manual",
+      createdAt: now.toISOString(),
+      exportedAt: now.toISOString(),
+      sizeBytes: 0,
+      storagePath: `${policy.pathPrefix}/${name}`,
+      status: "Solicitado",
+      tone: "info",
+      restoreImpact: `limpiará la persistencia activa del ámbito ${policyDefinition.shortLabel} antes de cargar desde cero el contenido del paquete`,
+    };
+
+    setHistoryItems((prev) => [item, ...prev]);
+    toastSuccess("Respaldo manual solicitado", `${policyDefinition.title} quedó registrado en el historial.`);
   };
 
   const openImportPackageModal = () => {
@@ -782,11 +884,11 @@ export const BackupsPanel = () => {
                     analysis={analysis}
                     onClose={() => ModalManager.closeAll()}
                     onImport={() => {
-                      toastSuccess("Importación iniciada", "Proceso de importación iniciado.");
+                      toastSuccess("Registro iniciado", "El paquete se está registrando en el historial.");
                       ModalManager.closeAll();
                       ModalManager.show({
                         type: "custom",
-                        title: "Proceso de importación",
+                        title: "Registro de importación",
                         size: "clientWide",
                         showHeader: false,
                         showFooter: false,
@@ -795,21 +897,37 @@ export const BackupsPanel = () => {
                           <ImportBackupExecutionModal
                             analysis={analysis}
                             onComplete={() => {
+                              const importedItem = {
+                                id: `imported-${Date.now()}`,
+                                name: analysis?.file?.name || "paquete-importado",
+                                scope: analysis?.scope || "FULL",
+                                source: analysis?.source || "MariaDB + objetos + configuración",
+                                originType: "Importado",
+                                createdAt: new Date().toISOString(),
+                                exportedAt: analysis?.file?.lastModified ? new Date(analysis.file.lastModified).toISOString() : null,
+                                sizeBytes: analysis?.file?.size || 0,
+                                storagePath: `${BACKUP_STORAGE_ROOT_CONTAINER}/imports/${analysis?.file?.name || "paquete-importado"}`,
+                                status: "Importado",
+                                tone: "warning",
+                                restoreImpact: analysis?.restoreImpact || "limpiará la persistencia activa antes de cargar desde cero el contenido del paquete",
+                              };
+                              setHistoryItems((prev) => [importedItem, ...prev]);
+                              setSelectedRecoveryItem(importedItem);
                               ModalManager.closeAll();
                               ModalManager.show({
                                 type: "custom",
-                                title: "Importación terminada",
+                                title: "Paquete registrado",
                                 size: "clientWide",
                                 showHeader: false,
                                 showFooter: false,
                                 closeOnBackdrop: false,
                                 content: (
-                                  <CompletedRestartModal
-                                    title="Importación terminada"
+                                  <CompletedProcessModal
+                                    title="Paquete registrado"
                                     description={
                                       analysis?.file?.name
-                                        ? `El paquete "${analysis.file.name}" fue procesado correctamente.`
-                                        : "El paquete seleccionado fue procesado correctamente."
+                                        ? `El paquete "${analysis.file.name}" quedó disponible en Historial y preparado para Recuperación.`
+                                        : "El paquete seleccionado quedó disponible en Historial y preparado para Recuperación."
                                     }
                                     onClose={() => ModalManager.closeAll()}
                                   />
@@ -901,7 +1019,7 @@ export const BackupsPanel = () => {
   const handleDeleteBackup = async (item) => {
     const confirmed = await ModalManager.confirm({
       title: "Eliminar respaldo",
-      message: `¿Deseas eliminar "${item.name}" del historial? Esta acción quitará el paquete listado de esta vista placeholder.`,
+      message: `¿Deseas eliminar "${item.name}" del historial? Esta acción quitará el paquete listado de la vista administrativa.`,
       confirmText: "Eliminar",
       cancelText: "Cancelar",
     });
@@ -909,6 +1027,9 @@ export const BackupsPanel = () => {
     if (!confirmed) return;
 
     setHistoryItems((prev) => prev.filter((candidate) => candidate.id !== item.id));
+    if (selectedRecoveryItem?.id === item.id) {
+      setSelectedRecoveryItem(null);
+    }
     toastSuccess("Respaldo eliminado", `Se eliminó "${item.name}" del historial visible.`);
   };
 
@@ -916,366 +1037,59 @@ export const BackupsPanel = () => {
     <div className="space-y-6">
       {hasChanges ? <DraftModeNotice /> : null}
 
-      <div className="grid grid-cols-1 gap-6">
-        {BACKUP_POLICY_DEFINITIONS.map((policyDefinition) => {
-          const policy = draft.policies[policyDefinition.id];
-          const verificationLabel = BACKUP_VERIFICATION_LABELS[policy.verificationMode] ?? policy.verificationMode;
-          return (
-            <SectionCard
-              key={policyDefinition.id}
-              title={`Política ${policyDefinition.shortLabel}`}
-              icon={policyDefinition.icon}
-              description={policyDefinition.description}
-            >
-              <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                <div className="pb-6">
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                    <div>
-                      <div className="flex items-center gap-3">
-                        <h3 className={`text-base font-semibold ${TXT_TITLE}`}>{policyDefinition.title}</h3>
-                        <StatusBadge tone={policy.enabled ? "active" : "inactive"}>
-                          {policy.enabled ? "Programado" : "Detenido"}
-                        </StatusBadge>
-                      </div>
-                      <p className={`mt-2 text-sm ${TXT_BODY}`}>
-                        Permite decidir qué se respalda y en qué horario, sin obligar a ejecutar todo junto.
-                      </p>
-                    </div>
-                    <MaintenanceToggle
-                      checked={policy.enabled}
-                      onChange={(value) => updatePolicyDraft(policyDefinition.id, "enabled", value)}
-                    />
-                  </div>
+      <BackupsPanelTabs activeTab={activeBackupTab} onTabChange={setActiveBackupTab} />
 
-                  <div className="mt-5 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
-                    <MaintenanceField label="Frecuencia" hint="Programación del respaldo">
-                      <CronInputField
-                        value={policy.cron}
-                        onChange={(event) => updatePolicyDraft(policyDefinition.id, "cron", event.target.value)}
-                        onBlur={() => validatePolicyCron(policyDefinition.id)}
-                        onOpenPlanner={() => openPolicyCronPlanner(policyDefinition.id, `Programación de ${policyDefinition.title.toLowerCase()}`)}
-                        placeholder="0 2 * * *"
-                        errorMessage={cronErrors[`${policyDefinition.id}.cron`]}
-                      />
-                    </MaintenanceField>
-                    <MaintenanceField label="Almacenamiento" hint="Siempre se guarda fuera de MinIO">
-                      <MaintenanceInput
-                        value={BACKUP_DESTINATION_LABELS[policy.destination] ?? policy.destination}
-                        disabled
-                      />
-                    </MaintenanceField>
-                    <MaintenanceField label="Formato" hint="Archivo generado por esta política">
-                      <MaintenanceSelect
-                        value={policy.fileFormat}
-                        onChange={(event) => updatePolicyDraft(policyDefinition.id, "fileFormat", event.target.value)}
-                      >
-                        {policyDefinition.formatOptions.map((option) => (
-                          <option key={`${policyDefinition.id}-${option.value}`} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </MaintenanceSelect>
-                    </MaintenanceField>
-                    <MaintenanceField label="Ruta backend" hint="Subcarpeta final dentro del volumen compartido">
-                      <MaintenanceInput
-                        value={policy.pathPrefix}
-                        onChange={(event) => updatePolicyDraft(policyDefinition.id, "pathPrefix", event.target.value)}
-                        placeholder={`${BACKUP_STORAGE_ROOT_CONTAINER}/${policyDefinition.id}`}
-                      />
-                    </MaintenanceField>
-                  </div>
-                </div>
+      {activeBackupTab === "dashboard" ? (
+        <BackupDashboardView
+          backupSummaryItems={backupSummaryItems}
+          enabledPolicyCount={enabledPolicyCount}
+          failedBackupCount={failedBackupCount}
+          latestBackup={latestBackup}
+          savedDraft={savedDraft}
+          successfulBackupCount={successfulBackupCount}
+        />
+      ) : null}
 
-                <div className="py-6">
-                  <div className="flex flex-col gap-4">
-                    <div>
-                      <div className="flex items-center gap-3">
-                        <h3 className={`text-base font-semibold ${TXT_TITLE}`}>Control posterior</h3>
-                        <StatusBadge tone={policy.verificationMode === "none" ? "inactive" : "info"}>
-                          {verificationLabel}
-                        </StatusBadge>
-                      </div>
-                      <p className={`mt-2 text-sm ${TXT_BODY}`}>
-                        Define qué revisar al terminar el respaldo y deja explícito el canal técnico que lo procesa.
-                      </p>
-                    </div>
+      {activeBackupTab === "schedule" ? (
+        <BackupScheduleView
+          cronErrors={cronErrors}
+          draft={draft}
+          expandedScheduleSections={expandedScheduleSections}
+          hasChanges={hasChanges}
+          onDiscard={handleDiscard}
+          onOpenPolicyCronPlanner={openPolicyCronPlanner}
+          onSave={handleSave}
+          onToggleSection={toggleScheduleSection}
+          onUpdateDraft={updateDraft}
+          onUpdatePolicyDraft={updatePolicyDraft}
+          onValidatePolicyCron={validatePolicyCron}
+        />
+      ) : null}
 
-                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
-                      <MaintenanceField label="Verificación" hint="Chequeo automático posterior a la ejecución">
-                        <MaintenanceSelect
-                          value={policy.verificationMode}
-                          onChange={(event) => updatePolicyDraft(policyDefinition.id, "verificationMode", event.target.value)}
-                        >
-                          {BACKUP_VERIFICATION_OPTIONS.map((option) => (
-                            <option key={`${policyDefinition.id}-${option.value}`} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </MaintenanceSelect>
-                      </MaintenanceField>
-                      <MaintenanceField label="Origen" hint="Ámbito cubierto por esta política">
-                        <MaintenanceInput value={policyDefinition.source} disabled />
-                      </MaintenanceField>
-                      <MaintenanceField label="Cola técnica" hint="Canal placeholder previsto">
-                        <MaintenanceInput value={policyDefinition.queue} disabled />
-                      </MaintenanceField>
-                    </div>
-                  </div>
-                </div>
+      {activeBackupTab === "history" ? (
+        <BackupHistoryView
+          historyItems={historyItems}
+          latestImportAnalysis={latestImportAnalysis}
+          savedDraft={savedDraft}
+          selectedRecoveryItem={selectedRecoveryItem}
+          onAnalyze={handleAnalyzeBackup}
+          onDelete={handleDeleteBackup}
+          onDownload={handleDownloadBackup}
+          onImportPackage={openImportPackageModal}
+          onRunManualBackup={handleRunManualBackup}
+        />
+      ) : null}
 
-                <div className="pt-6">
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                    <div>
-                      <div className="flex items-center gap-3">
-                        <h3 className={`text-base font-semibold ${TXT_TITLE}`}>Notificación por correo</h3>
-                        <StatusBadge tone={policy.notifyByEmail ? "info" : "inactive"}>
-                          {policy.notifyByEmail ? "Activa" : "No enviar"}
-                        </StatusBadge>
-                      </div>
-                      <p className={`mt-2 text-sm ${TXT_BODY}`}>
-                        Si está activa, se enviará un aviso al terminar el respaldo o su verificación asociada.
-                      </p>
-                    </div>
-                    <MaintenanceToggle
-                      checked={policy.notifyByEmail}
-                      onChange={(value) => updatePolicyDraft(policyDefinition.id, "notifyByEmail", value)}
-                    />
-                  </div>
+      {activeBackupTab === "recovery" ? (
+        <BackupRecoveryView
+          selectedRecoveryItem={selectedRecoveryItem}
+          onRestore={handleRestoreBackup}
+        />
+      ) : null}
 
-                  <div className="mt-5 grid grid-cols-1 gap-6 md:grid-cols-2">
-                    <MaintenanceField label="Nombre destinatario" hint="Persona o alias que recibirá el aviso">
-                      <MaintenanceInput
-                        value={policy.notifyRecipientName}
-                        onChange={(event) => updatePolicyDraft(policyDefinition.id, "notifyRecipientName", event.target.value)}
-                        placeholder="Operaciones"
-                        disabled={!policy.notifyByEmail}
-                      />
-                    </MaintenanceField>
-                    <MaintenanceField label="Correo destinatario" hint="Correo usado para la notificación">
-                      <MaintenanceInput
-                        type="email"
-                        value={policy.notifyRecipientEmail}
-                        onChange={(event) => updatePolicyDraft(policyDefinition.id, "notifyRecipientEmail", event.target.value)}
-                        placeholder="operaciones@empresa.com"
-                        disabled={!policy.notifyByEmail}
-                      />
-                    </MaintenanceField>
-                  </div>
-                </div>
-              </div>
-            </SectionCard>
-          );
-        })}
-      </div>
-
-      <SectionCard
-        title="Conservación común"
-        icon="FaShield"
-        description="La retención se aplica igual a todos los respaldos almacenados en la carpeta compartida del backend."
-      >
-        <div className="space-y-5">
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
-            <MaintenanceField label="Retención" hint="Mismos días para BD, MinIO y Full">
-              <MaintenanceInput
-                type="number"
-                min="1"
-                max="365"
-                value={draft.backupRetentionDays}
-                onChange={(event) => updateDraft("backupRetentionDays", Number(event.target.value || 0))}
-              />
-            </MaintenanceField>
-            <MaintenanceField label="Historial" hint="Visibilidad operativa del historial">
-              <MaintenanceSelect
-                value={draft.backupHistoryVisible ? "visible" : "hidden"}
-                onChange={(event) => updateDraft("backupHistoryVisible", event.target.value === "visible")}
-              >
-                <option value="visible">Visible</option>
-                <option value="hidden">Oculto</option>
-              </MaintenanceSelect>
-            </MaintenanceField>
-            <MaintenanceField label="Purge interno" hint="Tarea silenciosa de mantenimiento">
-              <MaintenanceInput value={draft.backupPurgeQueue} disabled />
-            </MaintenanceField>
-          </div>
-
-          <div className="rounded-2xl border border-dashed border-gray-300 bg-slate-50/70 px-5 py-4 dark:border-gray-700 dark:bg-slate-900/30">
-            <p className={`text-sm ${TXT_BODY}`}>
-              Los paquetes con más de {draft.backupRetentionDays} días serán eliminados automáticamente por una tarea interna de mantenimiento.
-            </p>
-          </div>
-        </div>
-      </SectionCard>
-
-      <SectionCard
-        title="Resumen de configuración"
-        icon="FaClockRotateLeft"
-        description="Vista rápida de la última versión guardada para cada política y la conservación común."
-      >
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2 2xl:grid-cols-4">
-          {backupSummaryItems.map((item) => (
-            <div
-              key={item.key}
-              className="rounded-[24px] border border-gray-200/80 bg-slate-50/80 p-5 shadow-sm dark:border-gray-700/80 dark:bg-slate-900/40"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <h3 className={`text-base font-semibold ${TXT_TITLE}`}>{item.title}</h3>
-                <StatusBadge tone={item.tone}>{item.status}</StatusBadge>
-              </div>
-              <div className="mt-4 space-y-3">
-                {item.details.map((detail) => (
-                  <div key={`${item.key}-${detail.label}`}>
-                    <p className={`text-xs font-semibold uppercase tracking-wide ${TXT_META}`}>{detail.label}</p>
-                    <p className={`mt-1 text-sm ${TXT_TITLE}`}>{detail.value}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      </SectionCard>
-
-      <SectionCard
-        title="Historial de respaldos"
-        icon="FaClockRotateLeft"
-        description="Consulta respaldos disponibles y usa acciones rápidas para descargar, restaurar o eliminar."
-      >
-        <div className="space-y-5">
-          {!savedDraft.backupHistoryVisible ? (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50/70 px-5 py-4 dark:border-amber-800/60 dark:bg-amber-950/10">
-              <p className={`text-sm ${TXT_BODY}`}>
-                El historial quedó marcado como oculto en la configuración guardada. Esta tabla sigue visible aquí porque estamos en la vista administrativa del placeholder.
-              </p>
-            </div>
-          ) : null}
-
-          {!historyItems.length ? (
-            <div className="rounded-2xl border border-dashed border-gray-300 px-5 py-8 text-center dark:border-gray-700">
-              <p className={`text-sm ${TXT_BODY}`}>No hay respaldos visibles en el historial.</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-200 dark:border-gray-700">
-                    <th className={`py-3 pr-4 text-left font-semibold ${TXT_META}`}>Fecha</th>
-                    <th className={`py-3 pr-4 text-left font-semibold ${TXT_META}`}>Tipo</th>
-                    <th className={`py-3 pr-4 text-left font-semibold ${TXT_META}`}>Archivo</th>
-                    <th className={`py-3 pr-4 text-left font-semibold ${TXT_META}`}>Origen</th>
-                    <th className={`py-3 pr-4 text-left font-semibold ${TXT_META}`}>Tamaño</th>
-                    <th className={`py-3 pr-4 text-left font-semibold ${TXT_META}`}>Estado</th>
-                    <th className={`py-3 text-right font-semibold ${TXT_META}`}>Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {historyItems.map((item) => (
-                    <tr
-                      key={item.id}
-                      className="border-b border-gray-100 align-top dark:border-gray-700/60"
-                    >
-                      <td className="py-4 pr-4">
-                        <p className={`font-medium ${TXT_TITLE}`}>{formatDateTime(item.createdAt)}</p>
-                      </td>
-                      <td className="py-4 pr-4">
-                        <StatusBadge tone={item.scope === "FULL" ? "warning" : item.scope === "BD" ? "info" : "active"}>
-                          {item.scope}
-                        </StatusBadge>
-                      </td>
-                      <td className="py-4 pr-4">
-                        <p className={`font-semibold ${TXT_TITLE}`}>{item.name}</p>
-                        <p className={`mt-1 text-xs ${TXT_META}`}>{item.storagePath}</p>
-                      </td>
-                      <td className="py-4 pr-4">
-                        <p className={`font-medium ${TXT_TITLE}`}>{item.source}</p>
-                      </td>
-                      <td className="py-4 pr-4">
-                        <p className={`font-medium ${TXT_TITLE}`}>{formatBytes(item.sizeBytes)}</p>
-                      </td>
-                      <td className="py-4 pr-4">
-                        <StatusBadge tone={item.tone}>{item.status}</StatusBadge>
-                      </td>
-                      <td className="py-4 text-right">
-                        <div className="ml-auto grid w-[168px] grid-cols-3 gap-2">
-                          <ActionButton
-                            variant="soft"
-                            size="xs"
-                            icon={<Icon name="FaDownload" />}
-                            tooltip="Descargar respaldo"
-                            onClick={() => handleDownloadBackup(item)}
-                            className="w-full hover:scale-100 active:scale-100"
-                          />
-                          <ActionButton
-                            variant="soft"
-                            size="xs"
-                            icon={<Icon name="rotate" />}
-                            tooltip="Restaurar respaldo"
-                            onClick={() => handleRestoreBackup(item)}
-                            className="w-full hover:scale-100 active:scale-100"
-                          />
-                          <ActionButton
-                            variant="soft"
-                            size="xs"
-                            icon={<Icon name="FaTrash" />}
-                            tooltip="Eliminar respaldo"
-                            onClick={() => handleDeleteBackup(item)}
-                            className="w-full hover:scale-100 active:scale-100"
-                          />
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </SectionCard>
-
-      <SectionCard
-        title="Importar paquete externo"
-        icon="FaFolderOpen"
-        description="Inicia un flujo guiado para cargar, analizar y confirmar la importación de un paquete externo."
-        actions={(
-          <ActionButton
-            label="Importar"
-            variant="primary"
-            size="sm"
-            onClick={openImportPackageModal}
-          />
-        )}
-      >
-        {latestImportAnalysis ? (
-          <div className="rounded-2xl border border-gray-200 bg-white px-5 py-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-            <div className="flex items-center gap-3">
-              <h3 className={`text-base font-semibold ${TXT_TITLE}`}>Último paquete analizado</h3>
-              <StatusBadge tone="info">{latestImportAnalysis.scope}</StatusBadge>
-            </div>
-            <p className={`mt-2 text-sm ${TXT_BODY}`}>
-              Último archivo revisado por el flujo de análisis previo a importación.
-            </p>
-
-            <div className="mt-5 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
-              <MaintenanceField label="Archivo" hint="">
-                <MaintenanceInput value={latestImportAnalysis.file.name} disabled />
-              </MaintenanceField>
-              <MaintenanceField label="Formato" hint="">
-                <MaintenanceInput value={latestImportAnalysis.format} disabled />
-              </MaintenanceField>
-              <MaintenanceField label="Tamaño" hint="">
-                <MaintenanceInput value={formatBytes(latestImportAnalysis.file.size)} disabled />
-              </MaintenanceField>
-              <MaintenanceField label="Impacto" hint="">
-                <MaintenanceInput value="Reemplaza persistencia anterior" disabled />
-              </MaintenanceField>
-            </div>
-          </div>
-        ) : null}
-      </SectionCard>
-
-      <ConfigActionBar
-        hasChanges={hasChanges}
-        onDiscard={handleDiscard}
-        onSave={handleSave}
-      />
+      {activeBackupTab === "technical" ? (
+        <BackupTechnicalView savedDraft={savedDraft} />
+      ) : null}
     </div>
   );
 };

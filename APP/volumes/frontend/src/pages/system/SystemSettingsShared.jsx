@@ -179,12 +179,12 @@ export const BACKUP_POLICY_DEFINITIONS = [
   },
   {
     id: "objects",
-    title: "Objetos y adjuntos",
-    shortLabel: "MinIO",
-    icon: "FaCloud",
-    source: "Buckets MinIO / adjuntos",
+    title: "Adjuntos",
+    shortLabel: "Adjuntos",
+    icon: "paperclip",
+    source: "Adjuntos y artefactos",
     queue: "queue:maintenance / object_backup",
-    description: "Respalda buckets, adjuntos y artefactos almacenados fuera de la base de datos.",
+    description: "Respalda adjuntos y artefactos almacenados fuera de la base de datos.",
     formatOptions: [
       { value: "tar_gzip", label: "Tar comprimido (.tar.gz)" },
       { value: "tar_plain", label: "Tar plano (.tar)" },
@@ -433,8 +433,8 @@ export const inferImportPackageAnalysis = (file) => {
   if (/\b(minio|object|objects|bucket|adjunto|artifact|artefact)\b/.test(lowerName)) {
     return {
       file,
-      scope: "MinIO",
-      source: "Buckets MinIO / adjuntos",
+      scope: "Adjuntos",
+      source: "Adjuntos y artefactos",
       format,
       restoreImpact: "limpiará los objetos y adjuntos activos antes de cargar desde cero el contenido del paquete analizado",
     };
