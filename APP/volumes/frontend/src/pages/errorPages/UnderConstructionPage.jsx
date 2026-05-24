@@ -23,7 +23,7 @@ const UnderConstructionPage = () => {
         relative
         bg-gradient-to-br from-amber-50 via-white to-red-50
         dark:from-gray-900 dark:via-gray-800 dark:to-amber-900
-        w-full h-full flex items-center justify-center overflow-hidden
+        -m-6 h-[calc(100%+3rem)] w-[calc(100%+3rem)] flex items-center justify-center overflow-hidden
       "
         >
             {/* Background decorations */}
