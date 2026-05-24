@@ -37,14 +37,6 @@ const normalizeDensity = (density) =>
 const normalizeDefaultModuleView = (value) =>
   ["base", "list", "table"].includes(value) ? value : "base";
 
-const isDemoPath = (path) => String(path ?? "").startsWith("/demo/");
-
-const normalizeSidebarActiveModule = (activeModule) =>
-  activeModule === "demos" ? null : activeModule ?? null;
-
-const sanitizeNavigationHistory = (entries = []) =>
-  (Array.isArray(entries) ? entries : []).filter((entry) => !isDemoPath(entry?.path));
-
 const mergeWidgetsWithDefaults = (widgetsInput = {}) => {
   const mergedWidgets = { ...WIDGETS_DEFAULT };
 
@@ -129,7 +121,7 @@ const useBaseSiteStore = create(
       setSidebarCollapsed: (collapsed) =>
         set((s) => ({ sidebar: { ...s.sidebar, collapsed: !!collapsed } })),
       setActiveModule: (activeModule) =>
-        set((s) => ({ sidebar: { ...s.sidebar, activeModule: normalizeSidebarActiveModule(activeModule) } })),
+        set((s) => ({ sidebar: { ...s.sidebar, activeModule: activeModule ?? null } })),
 
       // ── Navigation history ────────────────────────────────────────────────
       // Registra las últimas NAV_HISTORY_MAX páginas visitadas.
@@ -137,11 +129,11 @@ const useBaseSiteStore = create(
       // Entries: { name, path, icon, ts }
       addToNavigationHistory: ({ name, path, icon, meta = null }) =>
         set((s) => {
-          if (!path || isDemoPath(path)) return s;
+          if (!path) return s;
           const entry = { name, path, icon: icon ?? null, ts: Date.now(), meta: meta ?? null };
           const next  = [
             entry,
-            ...sanitizeNavigationHistory(s.navigationHistory).filter((h) => h.path !== path), // sin duplicados
+            ...(Array.isArray(s.navigationHistory) ? s.navigationHistory : []).filter((h) => h.path !== path), // sin duplicados
           ].slice(0, NAV_HISTORY_MAX);
           return { navigationHistory: next };
         }),
@@ -157,7 +149,7 @@ const useBaseSiteStore = create(
             h.path === path
               ? { ...h, name: name ?? h.name, meta: meta ? { ...h.meta, ...meta } : h.meta }
               : h
-          ).filter((entry) => !isDemoPath(entry?.path)),
+          ),
         })),
 
       // ── UI ─────────────────────────────────────────────────────────────────
@@ -296,7 +288,7 @@ const useBaseSiteStore = create(
         sidebar:   { collapsed: Boolean(state.sidebar?.collapsed) },
         ui:        state.ui,
         dashboard:         state.dashboard,
-        navigationHistory: sanitizeNavigationHistory(state.navigationHistory),
+        navigationHistory: state.navigationHistory,
       }),
 
       // merge recibe directamente el objeto de partialize (flat)
@@ -311,7 +303,7 @@ const useBaseSiteStore = create(
           language: s.language ?? initialState.language,
           sidebar: {
             collapsed:    s.sidebar?.collapsed    ?? false,
-            activeModule: normalizeSidebarActiveModule(s.sidebar?.activeModule),
+            activeModule: s.sidebar?.activeModule ?? null,
           },
           ui: {
             density:    normalizeDensity(s.ui?.density ?? "comfortable"),
@@ -320,7 +312,7 @@ const useBaseSiteStore = create(
               s.ui?.defaultModuleView ?? UI_DEFAULT.defaultModuleView
             ),
           },
-          navigationHistory: sanitizeNavigationHistory(s.navigationHistory),
+          navigationHistory: Array.isArray(s.navigationHistory) ? s.navigationHistory : [],
           dashboard: {
             widgets: mergeWidgetsWithDefaults(s.dashboard?.widgets ?? {}),
             layout: {
