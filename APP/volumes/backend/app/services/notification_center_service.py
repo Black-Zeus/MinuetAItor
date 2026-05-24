@@ -592,6 +592,19 @@ async def create_in_app_notification(
         str(item.user_id): _build_item_response(item)
         for item in persisted
     }
+    unread_counts = {
+        str(user_id): int(count or 0)
+        for user_id, count in (
+            db.query(NotificationRecipient.user_id, func.count(NotificationRecipient.id))
+            .filter(
+                NotificationRecipient.user_id.in_(resolved_user_ids),
+                NotificationRecipient.is_hidden.is_(False),
+                NotificationRecipient.is_read.is_(False),
+            )
+            .group_by(NotificationRecipient.user_id)
+            .all()
+        )
+    }
 
     for user_id in resolved_user_ids:
         payload = items_by_user.get(user_id)
@@ -602,7 +615,7 @@ async def create_in_app_notification(
             "notification_created",
             {
                 "notification": payload,
-                "unread_count": get_unread_notifications_count(db, user_id),
+                "unread_count": unread_counts.get(user_id, 0),
             },
         )
 

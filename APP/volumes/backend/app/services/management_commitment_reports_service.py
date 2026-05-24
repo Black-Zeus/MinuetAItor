@@ -86,9 +86,21 @@ def list_management_commitment_items(db: Session, filters) -> dict:
         agreement_q = agreement_q.filter(Project.name == filters.project)
         requirement_q = requirement_q.filter(Project.name == filters.project)
 
+    total = int((agreement_q.count() or 0) + (requirement_q.count() or 0))
+    row_limit = max(1, int(filters.limit or 1))
+    order_columns = (
+        date_expr.desc(),
+        Record.title.asc(),
+    )
+
     items: list[dict] = []
 
-    for agreement, record, client, project, version in agreement_q.all():
+    for agreement, record, client, project, version in (
+        agreement_q
+        .order_by(*order_columns, RecordVersionAgreement.source_index.asc())
+        .limit(row_limit)
+        .all()
+    ):
         base = _base_row(record, client, project, version)
         items.append(
             {
@@ -107,7 +119,12 @@ def list_management_commitment_items(db: Session, filters) -> dict:
             }
         )
 
-    for requirement, record, client, project, version in requirement_q.all():
+    for requirement, record, client, project, version in (
+        requirement_q
+        .order_by(*order_columns, RecordVersionRequirement.source_index.asc())
+        .limit(row_limit)
+        .all()
+    ):
         base = _base_row(record, client, project, version)
         body = _clean_text(requirement.body, "Requerimiento sin detalle")
         items.append(
@@ -139,6 +156,6 @@ def list_management_commitment_items(db: Session, filters) -> dict:
         row.pop("source_index", None)
 
     return {
-        "items": items[: filters.limit],
-        "total": len(items),
+        "items": items[:row_limit],
+        "total": total,
     }
