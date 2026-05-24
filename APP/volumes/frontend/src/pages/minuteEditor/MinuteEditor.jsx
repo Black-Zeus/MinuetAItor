@@ -297,7 +297,7 @@ const MinuteEditor = () => {
 
   // ── Editor ───────────────────────────────────────────────────
   return (
-    <div className="transition-theme">
+    <div className="space-y-6 transition-theme [&_button:not(:disabled)]:cursor-pointer [&_button:disabled]:cursor-not-allowed">
       {/*
         onTransitionSuccess conectado: el Header llama este callback tras
         transitionMinute() exitoso, actualizando recordMeta.status en este
@@ -311,7 +311,7 @@ const MinuteEditor = () => {
         onTransitionSuccess={handleTransitionSuccess}
       />
 
-      <main className="max-w-7xl mx-auto px-4 py-6 space-y-6">
+      <main className="space-y-6">
         {!isReadOnly && <MinuteEditorFindReplace />}
 
         <MinuteEditorTabs observationPendingCount={observationPendingCount} />
