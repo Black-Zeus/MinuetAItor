@@ -12,6 +12,7 @@ import Icon from "@/components/ui/icon/iconManager";
 
 import DashboardHeader from "./DashboardHeader";
 import MetricCard from "./MetricCard";
+import DashboardCharts from "./DashboardCharts";
 import LastConectionInfo from "./LastConectionInfo";
 import MinutesSection from "./MinutesSection";
 import PageLoadingSpinner from "@/components/ui/modal/types/system/PageLoadingSpinner";
@@ -100,6 +101,10 @@ const Dashboard = () => {
     minutesThisMonth: { value: 0, change: 0 },
     activeProjects: { value: 0, change: 0 },
     activeClients: { value: 0, change: 0 },
+    charts: {
+      minuteTrend: [],
+      statusDistribution: [],
+    },
   });
   const userName = sessionUser?.full_name || sessionUser?.username || "Usuario";
 
@@ -182,32 +187,36 @@ const Dashboard = () => {
       />
 
       {w("stats") && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <MetricCard
-            icon={FaCalendarAlt}
-            title="Minutas este mes"
-            value={stats.minutesThisMonth.value}
-            change={stats.minutesThisMonth.change}
-            isNew={false}
-            variant="primary"
-          />
-          <MetricCard
-            icon={FaFileAlt}
-            title="Proyectos activos"
-            value={stats.activeProjects.value}
-            change={stats.activeProjects.change}
-            isNew={false}
-            variant="warm"
-          />
-          <MetricCard
-            icon={FaUsers}
-            title="Clientes activos"
-            value={stats.activeClients.value}
-            change={stats.activeClients.change}
-            isNew={false}
-            variant="info"
-          />
-        </div>
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <MetricCard
+              icon={FaCalendarAlt}
+              title="Minutas este mes"
+              value={stats.minutesThisMonth.value}
+              change={stats.minutesThisMonth.change}
+              isNew={false}
+              variant="primary"
+            />
+            <MetricCard
+              icon={FaFileAlt}
+              title="Proyectos activos"
+              value={stats.activeProjects.value}
+              change={stats.activeProjects.change}
+              isNew={false}
+              variant="warm"
+            />
+            <MetricCard
+              icon={FaUsers}
+              title="Clientes activos"
+              value={stats.activeClients.value}
+              change={stats.activeClients.change}
+              isNew={false}
+              variant="info"
+            />
+          </div>
+
+          <DashboardCharts charts={stats.charts} />
+        </>
       )}
 
       {w("ultima_conexion") && <LastConectionInfo />}
