@@ -7,29 +7,24 @@
  */
 const ROLE_NAMES = {
     'ADMIN': 'Administrador',
-    'WAREHOUSE_MANAGER': 'Jefe de Bodega',
-    'SUPERVISOR': 'Supervisor',
-    'SALES_PERSON': 'Vendedor',
-    'CASHIER': 'Cajero',
-    'ACCOUNTANT': 'Contador',
-    'VIEWER': 'Consultor'
+    'EDITOR': 'Editor',
+    'VIEWER': 'Lector',
+    'DELETER': 'Eliminador'
 };
 
 /**
  * Mapeo de permisos a nombres legibles (muestra)
  */
 const PERMISSION_NAMES = {
-    'MENU_ADMIN': 'Menú Administración',
-    'USER_MENU_ADMIN': 'Administrar Usuarios',
-    'WAREHOUSE_ADMIN': 'Administrar Bodegas',
-    'WAREHOUSE_ACCESS_READ': 'Ver Acceso Bodegas',
-    'WAREHOUSE_ACCESS_WRITE': 'Modificar Acceso Bodegas',
-    'WAREHOUSE_ZONE_READ': 'Ver Zonas de Bodega',
-    'WAREHOUSE_ZONE_WRITE': 'Modificar Zonas',
-    'RETURNS_VIEW': 'Ver Devoluciones',
-    'RETURNS_CREATE': 'Crear Devoluciones',
-    'RETURNS_PROCESS': 'Procesar Devoluciones',
-    'RETURNS_APPROVE': 'Aprobar Devoluciones'
+    'records.read': 'Leer documentos',
+    'records.create': 'Crear documentos',
+    'records.update': 'Editar documentos',
+    'records.publish': 'Publicar documentos',
+    'records.soft_delete': 'Baja lógica de documentos',
+    'records.hard_delete': 'Eliminación física de documentos',
+    'users.manage': 'Administrar usuarios',
+    'clients.manage': 'Administrar clientes',
+    'audit.read': 'Leer auditoría'
 };
 
 /**
@@ -64,10 +59,6 @@ export const adaptApiUserToComponent = (apiUser) => {
         permissionNames: (apiUser.permissions || []).map(permCode =>
             PERMISSION_NAMES[permCode] || permCode
         ),
-
-        // Campos temporales con mock data (hasta que endpoints estén listos)
-        warehouses: ["Acceso por configurar"],
-        warehouseAccess: [],
 
         // Avatar
         avatar: null,
@@ -146,8 +137,8 @@ export const adaptApiStatsToComponent = (apiData) => {
         newUsersThisMonth: calculateNewUsersThisMonth(users),
         lastLoginToday: apiData.recent_login_count || 0,
         adminUsers: users.filter(u => u.roles?.includes('ADMIN')).length,
-        managerUsers: users.filter(u => u.roles?.includes('WAREHOUSE_MANAGER')).length,
-        regularUsers: users.filter(u => !u.roles?.includes('ADMIN') && !u.roles?.includes('WAREHOUSE_MANAGER')).length
+        editorUsers: users.filter(u => u.roles?.includes('EDITOR')).length,
+        viewerUsers: users.filter(u => u.roles?.includes('VIEWER')).length
     };
 };
 
@@ -178,66 +169,5 @@ export const adaptComponentUserToApi = (componentUser) => {
         phone: componentUser.phone || null,
         is_active: componentUser.isActive
         // roles y permissions se manejarán en endpoints separados
-    };
-};
-
-/**
- * Hook para manejo de datos de usuarios
- */
-export const useUsersData = () => {
-    const [users, setUsers] = useState([]);
-    const [stats, setStats] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-
-    const fetchUsers = async (filters = {}) => {
-        try {
-            setLoading(true);
-
-            const params = new URLSearchParams({
-                skip: filters.skip || 0,
-                limit: filters.limit || 100,
-                active_only: filters.active_only ?? true,
-                ...(filters.search && { search: filters.search })
-            });
-
-            const response = await fetch(`/api/users/?${params}`);
-
-            if (!response.ok) {
-                throw new Error(`Error ${response.status}: ${response.statusText}`);
-            }
-
-            const apiData = await response.json();
-
-            if (!apiData.success) {
-                throw new Error(apiData.message || 'Error en la respuesta de la API');
-            }
-
-            // Adaptar datos
-            const adaptedUsers = apiData.data.users.map(adaptApiUserToComponent);
-            const adaptedStats = adaptApiStatsToComponent(apiData.data);
-
-            setUsers(adaptedUsers);
-            setStats(adaptedStats);
-            setError(null);
-
-            return { users: adaptedUsers, stats: adaptedStats };
-
-        } catch (err) {
-            setError(err.message);
-            console.error('Error fetching users:', err);
-            throw err;
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return {
-        users,
-        stats,
-        loading,
-        error,
-        fetchUsers,
-        refreshUsers: () => fetchUsers()
     };
 };
