@@ -9,6 +9,7 @@ import ActionButton from "@/components/ui/button/ActionButton";
 import Icon from "@/components/ui/icon/iconManager";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import useModuleViewMode from "@/hooks/useModuleViewMode";
+import { isActiveAuditReport } from "@/pages/analytics/reports/activeAuditReports";
 import { isActiveGestionReport } from "@/pages/analytics/reports/activeGestionReports";
 import {
   AUDIT_REPORT_SECTIONS,
@@ -32,10 +33,18 @@ const buildDefaultOpenSections = (sections = []) =>
 
 const buildStatusMeta = (item, isAudit = false) => {
   if (isAudit) {
+    if (isActiveAuditReport(item?.id)) {
+      return {
+        label: "Activo",
+        className:
+          "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
+      };
+    }
+
     return {
-      label: "En desarrollo",
+      label: "En validación",
       className:
-        "bg-gray-100 text-gray-600 dark:bg-gray-700/60 dark:text-gray-300",
+        "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
     };
   }
 
@@ -363,6 +372,18 @@ const ReportsCatalogPage = () => {
     () => sections.reduce((acc, section) => acc + section.items.length, 0),
     [sections]
   );
+  const activeReports = useMemo(
+    () =>
+      sections.reduce(
+        (acc, section) =>
+          acc +
+          section.items.filter((item) =>
+            isAudit ? isActiveAuditReport(item.id) : isActiveGestionReport(item.id)
+          ).length,
+        0
+      ),
+    [isAudit, sections]
+  );
   const flatItems = useMemo(
     () => sections.flatMap((section) => section.items),
     [sections]
@@ -413,7 +434,11 @@ const ReportsCatalogPage = () => {
 
           <div className="grid grid-cols-2 gap-3 sm:min-w-[320px] sm:grid-cols-2">
             <HeaderSummaryTile label="Secciones" value={sections.length} />
-            <HeaderSummaryTile label="Reportes" value={totalReports} />
+            <HeaderSummaryTile
+              label="Operativos"
+              value={activeReports}
+              helper={`${totalReports - activeReports} en validación`}
+            />
           </div>
         </div>
 

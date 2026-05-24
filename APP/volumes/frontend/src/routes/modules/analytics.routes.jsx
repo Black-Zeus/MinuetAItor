@@ -10,6 +10,7 @@ import {
   GESTION_REPORT_ITEMS,
 } from "@config/sidebarConfig";
 import { isActiveGestionReport } from "@/pages/analytics/reports/activeGestionReports";
+import { isActiveAuditReport } from "@/pages/analytics/reports/activeAuditReports";
 
 const MetricsPage = lazy(() =>
   import("@/pages/analytics/MetricsPage")
@@ -25,6 +26,10 @@ const ManagementOperationalReportPage = lazy(() =>
 
 const ManagementAiUsageReportPage = lazy(() =>
   import("@/pages/analytics/ManagementAiUsageReportPage")
+);
+
+const AuditReportPage = lazy(() =>
+  import("@/pages/analytics/AuditReportPage.jsx")
 );
 
 const UnderConstruction = lazy(() =>
@@ -95,11 +100,24 @@ const gestionActiveRoutes = GESTION_REPORT_ITEMS.filter((item) =>
   requiresAuth: true,
   roles: [],
 }));
-const auditReportsRoutes = buildPlaceholderRoutes(AUDIT_REPORT_ITEMS, "Reportes Auditoría");
+const auditReportsRoutes = buildPlaceholderRoutes(
+  AUDIT_REPORT_ITEMS.filter((item) => !isActiveAuditReport(item.id)),
+  "Reportes Auditoría"
+);
+const auditActiveRoutes = AUDIT_REPORT_ITEMS.filter((item) =>
+  isActiveAuditReport(item.id)
+).map((item) => ({
+  path: item.path,
+  title: item.name,
+  component: AuditReportPage,
+  requiresAuth: true,
+  roles: [],
+}));
 const reportsRoutes = [
   ...reportIndexRoutes,
   ...gestionActiveRoutes,
   ...gestionReportsRoutes,
+  ...auditActiveRoutes,
   ...auditReportsRoutes,
 ];
 
