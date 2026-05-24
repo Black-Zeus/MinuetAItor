@@ -42,8 +42,12 @@ const MinuteEditorTabs = ({ observationPendingCount = 0 }) => {
   };
 
   return (
-    <section className="bg-white dark:bg-gray-800 rounded-xl p-3 transition-theme shadow-md border border-gray-200/50 dark:border-gray-700/50">
-      <div className="flex flex-wrap gap-2">
+    <section className="bg-white dark:bg-gray-800 rounded-xl p-2 transition-theme shadow-md border border-gray-200/50 dark:border-gray-700/50">
+      <div
+        role="tablist"
+        aria-label="Secciones del editor de minuta"
+        className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6"
+      >
         {TABS.map(tab => {
           const isActive = activeTab === tab.id;
           const count = tab.id === "observations"
@@ -55,19 +59,28 @@ const MinuteEditorTabs = ({ observationPendingCount = 0 }) => {
             <button
               key={tab.id}
               type="button"
+              role="tab"
+              aria-selected={isActive}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-3 py-2 rounded-lg transition-theme text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 ${isActive ? 'opacity-100' : 'opacity-90'}`}
-            >
-              <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-lg border transition-theme
+              className={`group flex min-h-[48px] w-full cursor-pointer items-center justify-center gap-2 rounded-lg border px-3 py-2 text-center transition-theme
                 ${isActive
-                  ? 'bg-primary-600/15 border-primary-500/40 text-primary-700 dark:text-primary-300'
-                  : 'border-transparent'
+                  ? 'border-primary-500/50 bg-primary-600/12 text-primary-700 shadow-sm dark:bg-primary-500/15 dark:text-primary-300'
+                  : 'border-transparent text-gray-700 hover:border-gray-200 hover:bg-gray-50 dark:text-gray-300 dark:hover:border-gray-700 dark:hover:bg-gray-900/40'
                 }`}
-              >
-                <Icon name={tab.icon} className="text-sm" />
-                <span className="font-semibold text-sm">{tab.label}</span>
+            >
+              <span className="flex min-w-0 items-center justify-center gap-2">
+                <Icon
+                  name={tab.icon}
+                  className={`shrink-0 text-sm ${isActive ? 'text-primary-600 dark:text-primary-300' : 'text-gray-500 dark:text-gray-400'}`}
+                />
+                <span className="truncate text-sm font-semibold">{tab.label}</span>
                 {count !== null && (
-                  <span className="text-xs px-2 py-0.5 rounded-lg bg-gray-100 dark:bg-gray-900 text-gray-700 dark:text-gray-300 border border-gray-200/50 dark:border-gray-700/50 transition-theme">
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold transition-theme
+                    ${isActive
+                      ? 'bg-primary-600 text-white dark:bg-primary-400 dark:text-gray-950'
+                      : 'bg-gray-100 text-gray-600 dark:bg-gray-900 dark:text-gray-300'
+                    }`}
+                  >
                     {count}
                   </span>
                 )}

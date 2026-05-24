@@ -648,21 +648,21 @@ const MinuteEditorHeader = ({ recordMeta, isReadOnly, onTransitionSuccess }) => 
   // ─────────────────────────────────────────────────────────────────────────────
 
   return (
-    <header className="border-b border-gray-200 dark:border-gray-800  transition-theme">
-      <div className="max-w-7xl mx-auto px-4 py-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+    <header className="border-b border-gray-200 dark:border-gray-800 transition-theme">
+      <div className="flex flex-col gap-3 pb-4 lg:flex-row lg:items-center lg:justify-between">
 
         {/* ── IZQUIERDA: navegación + título + estado ── */}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2.5 flex-wrap">            
 
-            <h1 className="text-base md:text-lg font-bold text-gray-900 mt-0.5 ml-9  dark:text-white transition-theme truncate max-w-sm md:max-w-lg">
+            <h1 className="text-base md:text-lg font-bold text-gray-900 mt-0.5 dark:text-white transition-theme truncate max-w-sm md:max-w-lg">
               {clientName}
             </h1>
 
             {status && <StatusBadge status={status} />}
           </div>
 
-          <p className="mt-0.5 ml-9 text-sm text-gray-500 dark:text-gray-400 transition-theme truncate max-w-xl">
+          <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400 transition-theme truncate max-w-xl">
             {subject}
           </p>
         </div>
