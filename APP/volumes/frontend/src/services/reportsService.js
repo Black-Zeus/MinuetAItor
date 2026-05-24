@@ -90,3 +90,29 @@ export const listManagementEmailDeliveries = async ({
   const res = await api.post(`${BASE}/management/email-deliveries`, payload, requestConfig);
   return unwrap(res);
 };
+
+export const listAuditEvents = async ({
+  reportType,
+  dateFrom = null,
+  dateTo = null,
+  actor = null,
+  entityType = null,
+  status = null,
+  client = null,
+  project = null,
+  limit = 500,
+} = {}, requestConfig = {}) => {
+  const payload = {
+    report_type: reportType,
+    date_from: dateFrom || null,
+    date_to: dateTo || null,
+    actor: actor || null,
+    entity_type: entityType || null,
+    status: status || null,
+    client: client || null,
+    project: project || null,
+    limit,
+  };
+  const res = await api.post(`${BASE}/audit/events`, payload, requestConfig);
+  return unwrap(res);
+};

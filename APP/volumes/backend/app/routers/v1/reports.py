@@ -22,6 +22,10 @@ from schemas.management_email_delivery_reports import (
     ManagementEmailDeliveryReportRequest,
     ManagementEmailDeliveryReportResponse,
 )
+from schemas.audit_reports import (
+    AuditReportRequest,
+    AuditReportResponse,
+)
 from schemas.report_exports import ReportPdfPreviewRequest
 from services.auth_service import get_current_user
 from services.management_topic_reports_service import list_management_topic_report
@@ -35,6 +39,22 @@ async def current_user_dep(
     credentials: HTTPAuthorizationCredentials = Depends(bearer),
 ) -> UserSession:
     return await get_current_user(credentials.credentials)
+
+
+@router.post(
+    "/audit/events",
+    response_model=AuditReportResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Listar eventos y agregaciones para reportería de auditoría",
+)
+def audit_events_endpoint(
+    body: AuditReportRequest,
+    db: Session = Depends(get_db),
+    session: UserSession = Depends(current_user_dep),
+):
+    from services.audit_reports_service import list_audit_report
+
+    return list_audit_report(db, body)
 
 
 @router.post(
