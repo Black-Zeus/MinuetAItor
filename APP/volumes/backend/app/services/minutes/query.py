@@ -5,7 +5,7 @@ from typing import Optional
 
 from fastapi import HTTPException
 from sqlalchemy import false, or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from core.datetime_utils import utc_now_db
 from models.record_status_transitions import RecordStatusTransition
@@ -91,14 +91,24 @@ def _load_minute_list_summary(record_id: str, status_code: str, version_num: int
 def get_minute_detail(db: Session, record_id: str) -> MinuteDetailResponse:
     from models.record_statuses import RecordStatus
 
-    record = db.query(Record).filter(Record.id == record_id, Record.deleted_at.is_(None)).first()
+    record = (
+        db.query(Record)
+        .options(
+            joinedload(Record.client),
+            joinedload(Record.project),
+            joinedload(Record.prepared_by_user),
+            joinedload(Record.status),
+        )
+        .filter(Record.id == record_id, Record.deleted_at.is_(None))
+        .first()
+    )
     if record is None:
         raise HTTPException(
             status_code=404,
             detail={"error": "record_not_found", "message": f"Minuta '{record_id}' no encontrada."},
         )
 
-    status_row = db.query(RecordStatus).filter_by(id=record.status_id).first()
+    status_row = getattr(record, "status", None) or db.query(RecordStatus).filter_by(id=record.status_id).first()
     status_code = status_row.code if status_row else "unknown"
 
     client_name = getattr(getattr(record, "client", None), "name", None)
@@ -179,6 +189,7 @@ def list_minutes(
     exclude_prepared_by_user_id: Optional[str] = None,
 ) -> MinuteListResponse:
     from models.clients import Client
+    from models.minute_transaction import MinuteTransaction
     from models.projects import Project
     from models.record_statuses import RecordStatus
     from models.record_version_participant import RecordVersionParticipant
@@ -241,11 +252,57 @@ def list_minutes(
             query = query.filter(participant_exists)
 
     total = query.count()
-    records = query.order_by(Record.created_at.desc()).offset(skip).limit(limit).all()
+    records = (
+        query.options(
+            joinedload(Record.client),
+            joinedload(Record.project),
+            joinedload(Record.prepared_by_user),
+            joinedload(Record.status),
+        )
+        .order_by(Record.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
+    record_ids = [str(rec.id) for rec in records]
+    active_version_ids = [str(rec.active_version_id) for rec in records if rec.active_version_id]
+
+    latest_tx_by_record: dict[str, MinuteTransaction] = {}
+    if record_ids:
+        tx_rows = (
+            db.query(MinuteTransaction)
+            .filter(MinuteTransaction.record_id.in_(record_ids))
+            .order_by(
+                MinuteTransaction.record_id.asc(),
+                MinuteTransaction.created_at.desc(),
+                MinuteTransaction.id.desc(),
+            )
+            .all()
+        )
+        for tx in tx_rows:
+            record_key = str(tx.record_id)
+            if record_key not in latest_tx_by_record:
+                latest_tx_by_record[record_key] = tx
+
+    participants_by_version: dict[str, list[str]] = defaultdict(list)
+    if active_version_ids:
+        participant_rows = (
+            db.query(RecordVersionParticipant)
+            .filter(RecordVersionParticipant.record_version_id.in_(active_version_ids))
+            .order_by(
+                RecordVersionParticipant.record_version_id.asc(),
+                RecordVersionParticipant.display_name.asc(),
+            )
+            .all()
+        )
+        for participant in participant_rows:
+            if participant.display_name:
+                participants_by_version[str(participant.record_version_id)].append(participant.display_name)
 
     items = []
     for rec in records:
-        status_row = db.query(RecordStatus).filter_by(id=rec.status_id).first()
+        status_row = getattr(rec, "status", None) or db.query(RecordStatus).filter_by(id=rec.status_id).first()
         status_code = status_row.code if status_row else "unknown"
 
         client_name = getattr(getattr(rec, "client", None), "name", None)
@@ -261,7 +318,7 @@ def list_minutes(
             status_code,
             version_num,
         )
-        latest_tx = get_latest_minute_transaction(db, rec.id)
+        latest_tx = latest_tx_by_record.get(str(rec.id))
         can_reprocess, reprocess_reason = get_reprocess_eligibility(status_code, latest_tx)
         tokens_input = int(getattr(latest_tx, "tokens_input", 0) or 0)
         tokens_output = int(getattr(latest_tx, "tokens_output", 0) or 0)
@@ -273,15 +330,11 @@ def list_minutes(
             rec.actual_end_time,
         )
 
-        participant_rows = (
-            db.query(RecordVersionParticipant)
-            .filter(RecordVersionParticipant.record_version_id == rec.active_version_id)
-            .order_by(RecordVersionParticipant.display_name.asc())
-            .all()
+        participant_names = (
+            participants_by_version.get(str(rec.active_version_id), [])
             if rec.active_version_id
             else []
         )
-        participant_names = [p.display_name for p in participant_rows if p.display_name]
 
         tag_items = []
         if hasattr(rec, "tags"):
@@ -341,7 +394,12 @@ def list_minute_reprocess_history(
         tx_query = tx_query.filter(Record.prepared_by_user_id == prepared_by_user_id)
 
     transactions = (
-        tx_query.order_by(
+        tx_query.options(
+            joinedload(MinuteTransaction.record).joinedload(Record.client),
+            joinedload(MinuteTransaction.record).joinedload(Record.project),
+            joinedload(MinuteTransaction.record).joinedload(Record.prepared_by_user),
+        )
+        .order_by(
             MinuteTransaction.record_id.asc(),
             MinuteTransaction.created_at.asc(),
             MinuteTransaction.id.asc(),
@@ -477,13 +535,26 @@ def list_minute_cycle_times(
     if prepared_by_user_id:
         record_query = record_query.filter(Record.prepared_by_user_id == prepared_by_user_id)
 
-    records = record_query.order_by(Record.created_at.desc()).all()
+    records = (
+        record_query.options(
+            joinedload(Record.client),
+            joinedload(Record.project),
+            joinedload(Record.prepared_by_user),
+            joinedload(Record.status),
+        )
+        .order_by(Record.created_at.desc())
+        .all()
+    )
     if not records:
         return MinuteCycleTimeResponse(items=[], total=0, skip=skip, limit=limit)
 
     record_ids = [record.id for record in records]
     transition_rows = (
         db.query(RecordStatusTransition)
+        .options(
+            joinedload(RecordStatusTransition.from_status),
+            joinedload(RecordStatusTransition.to_status),
+        )
         .filter(RecordStatusTransition.record_id.in_(record_ids))
         .order_by(
             RecordStatusTransition.record_id.asc(),
