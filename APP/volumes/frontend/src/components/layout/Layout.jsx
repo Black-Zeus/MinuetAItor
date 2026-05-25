@@ -9,6 +9,7 @@ import { FaTriangleExclamation } from 'react-icons/fa6';
 import Sidebar         from './sidebar/Sidebar';
 import Header          from './header/Header';
 import { useMinuteSSE } from '@/hooks/useMinuteSSE';
+import { SYSTEM_MAINTENANCE_SSE_STATE_EVENT } from '@/hooks/useSystemMaintenanceSSE';
 import useSessionStore from '@store/sessionStore';
 import systemMaintenanceService from '@/services/systemMaintenanceService';
 
@@ -22,6 +23,7 @@ const Layout = ({ children }) => {
   const userDisplay    = getDisplayData();
   const authz          = useSessionStore((s) => s.authz);
   const [operationState, setOperationState] = useState(null);
+  const [maintenanceSseConnected, setMaintenanceSseConnected] = useState(false);
 
   const refreshOperationState = useCallback(async () => {
     try {
@@ -34,12 +36,31 @@ const Layout = ({ children }) => {
 
   useEffect(() => {
     refreshOperationState();
-    const interval = window.setInterval(refreshOperationState, 30000);
-    const handleRuntimeUpdate = () => refreshOperationState();
+  }, [refreshOperationState]);
+
+  useEffect(() => {
+    if (maintenanceSseConnected) return undefined;
+    const interval = window.setInterval(refreshOperationState, 120000);
+    return () => window.clearInterval(interval);
+  }, [maintenanceSseConnected, refreshOperationState]);
+
+  useEffect(() => {
+    const handleRuntimeUpdate = (event) => {
+      const nextState = event?.detail?.metadata?.operationState;
+      if (nextState) {
+        setOperationState(nextState);
+        return;
+      }
+      refreshOperationState();
+    };
+    const handleSseState = (event) => {
+      setMaintenanceSseConnected(Boolean(event?.detail?.connected));
+    };
     window.addEventListener(MAINTENANCE_RUNTIME_EVENT, handleRuntimeUpdate);
+    window.addEventListener(SYSTEM_MAINTENANCE_SSE_STATE_EVENT, handleSseState);
     return () => {
-      window.clearInterval(interval);
       window.removeEventListener(MAINTENANCE_RUNTIME_EVENT, handleRuntimeUpdate);
+      window.removeEventListener(SYSTEM_MAINTENANCE_SSE_STATE_EVENT, handleSseState);
     };
   }, [refreshOperationState]);
 
@@ -47,10 +68,10 @@ const Layout = ({ children }) => {
   const operationMode = operationState?.mode || "normal";
   const isOperationLocked = operationMode !== "normal";
   const isMaintenanceMode = operationMode === "maintenance";
-  const shouldRestrictShell = isOperationChecking || isMaintenanceMode;
+  const shouldRestrictShell = isMaintenanceMode;
   const isSystemSettingsRoute = location.pathname.startsWith(SYSTEM_SETTINGS_PATH);
 
-  useMinuteSSE(!isOperationChecking && !isMaintenanceMode);
+  useMinuteSSE(!isMaintenanceMode);
 
   useEffect(() => {
     if (isMaintenanceMode && !isSystemSettingsRoute) {
@@ -90,40 +111,29 @@ const Layout = ({ children }) => {
         />
 
         <main className="flex-1 overflow-y-auto bg-white dark:bg-gray-800 p-6">
-          {isOperationChecking ? (
-            <div className="flex min-h-[320px] items-center justify-center">
-              <div className="text-center">
-                <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
-                <p className="text-sm text-gray-600 dark:text-gray-300">Verificando modo operativo...</p>
+          {isOperationLocked && (
+            <div className="mb-5 flex items-start gap-3 rounded-lg border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-amber-900 dark:text-amber-100">
+              <FaTriangleExclamation className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-500 dark:text-amber-300" />
+              <div>
+                <p className="text-sm font-semibold">Sistema en modo {operationLabel}</p>
+                <p className="mt-0.5 text-sm text-amber-800/90 dark:text-amber-100/80">{operationMessage}</p>
+                {operationReason ? (
+                  <p className="mt-1 text-sm text-amber-900 dark:text-amber-50">
+                    <span className="font-semibold">Motivo:</span> {operationReason}
+                  </p>
+                ) : null}
               </div>
             </div>
+          )}
+          {isMaintenanceMode && !isSystemSettingsRoute ? (
+            <section className="rounded-lg border border-gray-200 bg-white p-6 text-gray-700 shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200">
+              <h1 className="text-lg font-semibold">Acceso temporalmente restringido</h1>
+              <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                El sistema está en modo {operationLabel}. Serás redirigido al módulo Sistema para administrar el estado operativo.
+              </p>
+            </section>
           ) : (
-            <>
-              {isOperationLocked && (
-                <div className="mb-5 flex items-start gap-3 rounded-lg border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-amber-900 dark:text-amber-100">
-                  <FaTriangleExclamation className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-500 dark:text-amber-300" />
-                  <div>
-                    <p className="text-sm font-semibold">Sistema en modo {operationLabel}</p>
-                    <p className="mt-0.5 text-sm text-amber-800/90 dark:text-amber-100/80">{operationMessage}</p>
-                    {operationReason ? (
-                      <p className="mt-1 text-sm text-amber-900 dark:text-amber-50">
-                        <span className="font-semibold">Motivo:</span> {operationReason}
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
-              )}
-              {isMaintenanceMode && !isSystemSettingsRoute ? (
-                <section className="rounded-lg border border-gray-200 bg-white p-6 text-gray-700 shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200">
-                  <h1 className="text-lg font-semibold">Acceso temporalmente restringido</h1>
-                  <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-                    El sistema está en modo {operationLabel}. Serás redirigido al módulo Sistema para administrar el estado operativo.
-                  </p>
-                </section>
-              ) : (
-                children ?? <Outlet />
-              )}
-            </>
+            children ?? <Outlet />
           )}
         </main>
       </div>

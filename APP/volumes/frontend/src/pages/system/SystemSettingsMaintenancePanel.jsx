@@ -24,6 +24,7 @@ import {
   validateCronExpression,
 } from "@/pages/system/SystemSettingsShared";
 import systemMaintenanceService from "@/services/systemMaintenanceService";
+import { SYSTEM_MAINTENANCE_SSE_STATE_EVENT } from "@/hooks/useSystemMaintenanceSSE";
 
 const SYSTEM_MAINTENANCE_RUNTIME_EVENT = "system-maintenance-runtime-update";
 
@@ -207,6 +208,7 @@ const toDraftShape = (payload) => ({
   pdfQueueWarningThreshold: Number(payload?.pdfQueueWarningThreshold ?? INITIAL_MAINTENANCE_DRAFT.pdfQueueWarningThreshold),
   monitorDlqEnabled: Boolean(payload?.monitorDlqEnabled),
   dlqWarningThreshold: Number(payload?.dlqWarningThreshold ?? INITIAL_MAINTENANCE_DRAFT.dlqWarningThreshold),
+  accessRequestEnabled: Boolean(payload?.accessRequestEnabled ?? INITIAL_MAINTENANCE_DRAFT.accessRequestEnabled),
 });
 
 const describeRuntime = (runtime) => {
@@ -271,6 +273,7 @@ export const MaintenancePanel = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [runningNowAction, setRunningNowAction] = useState("");
   const [isChangingOperationMode, setIsChangingOperationMode] = useState(false);
+  const [maintenanceSseConnected, setMaintenanceSseConnected] = useState(false);
   const [lastStatusRefreshAt, setLastStatusRefreshAt] = useState("");
   const runtimeRequestRef = useRef(null);
 
@@ -372,10 +375,15 @@ export const MaintenancePanel = () => {
     const handleRuntimeEvent = () => {
       loadRuntimeStatus().catch(() => {});
     };
+    const handleSseState = (event) => {
+      setMaintenanceSseConnected(Boolean(event?.detail?.connected));
+    };
 
     window.addEventListener(SYSTEM_MAINTENANCE_RUNTIME_EVENT, handleRuntimeEvent);
+    window.addEventListener(SYSTEM_MAINTENANCE_SSE_STATE_EVENT, handleSseState);
     return () => {
       window.removeEventListener(SYSTEM_MAINTENANCE_RUNTIME_EVENT, handleRuntimeEvent);
+      window.removeEventListener(SYSTEM_MAINTENANCE_SSE_STATE_EVENT, handleSseState);
     };
   }, []);
 
@@ -461,7 +469,7 @@ export const MaintenancePanel = () => {
       await loadRuntimeStatus();
       toastSuccess(
         isSessionCleanup ? "Limpieza de sesiones encolada" : "Limpieza de temporales encolada",
-        response?.message ?? "La rutina quedó enviada a queue:maintenance."
+        response?.message ?? "La rutina quedó enviada a procesos de mantenimiento."
       );
     } catch (error) {
       toastError(
@@ -515,8 +523,9 @@ export const MaintenancePanel = () => {
 
   useEffect(() => {
     if (isLoading) return undefined;
+    if (maintenanceSseConnected) return undefined;
 
-    const pollMs = hasActiveRuntime ? 5000 : 30000;
+    const pollMs = hasActiveRuntime ? 5000 : 120000;
     const intervalId = window.setInterval(() => {
       loadRuntimeStatus().catch(() => {});
     }, pollMs);
@@ -524,12 +533,18 @@ export const MaintenancePanel = () => {
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [hasActiveRuntime, isLoading]);
+  }, [hasActiveRuntime, isLoading, maintenanceSseConnected]);
 
   const maintenanceSummaryItems = [
     {
       key: "summary-sessions",
       title: "Limpieza de sesiones",
+      description: "Control de sesiones técnicas y cierre administrativo.",
+      calloutTitle: savedDraft.sessionCleanupEnabled ? "Automatización activa" : "Automatización deshabilitada",
+      calloutText: savedDraft.sessionCleanupEnabled
+        ? "La tarea está configurada y disponible para ejecución programada."
+        : "La tarea no se ejecutará hasta que sea habilitada.",
+      footer: "Recomendado para liberar sesiones antiguas y reducir bloqueos operativos por sesiones persistentes.",
       tone: savedDraft.sessionCleanupEnabled ? "active" : "inactive",
       status: savedDraft.sessionCleanupEnabled ? "Habilitada" : "Deshabilitada",
       details: [
@@ -550,6 +565,12 @@ export const MaintenancePanel = () => {
     {
       key: "summary-temp",
       title: "Limpieza de temporales",
+      description: "Eliminación controlada de archivos temporales.",
+      calloutTitle: savedDraft.tempCleanupEnabled ? "Retención configurada" : "Limpieza deshabilitada",
+      calloutText: savedDraft.tempCleanupEnabled
+        ? "Los archivos temporales serán conservados por el periodo definido antes de su limpieza."
+        : "No se eliminarán archivos temporales automáticamente.",
+      footer: "Útil para evitar acumulación de archivos generados por procesos PDF, exportaciones o cargas intermedias.",
       tone: savedDraft.tempCleanupEnabled ? "active" : "inactive",
       status: savedDraft.tempCleanupEnabled ? "Habilitada" : "Deshabilitada",
       details: [
@@ -562,6 +583,9 @@ export const MaintenancePanel = () => {
     {
       key: "summary-queues",
       title: "Observabilidad de colas",
+      description: "Monitoreo de umbrales activos por tipo de cola.",
+      calloutTitle: "Colas bajo supervisión",
+      calloutText: "Los umbrales permiten detectar acumulación o atraso operacional.",
       tone:
         savedDraft.monitorMaintenanceQueueEnabled ||
         savedDraft.monitorMinutesQueueEnabled ||
@@ -580,34 +604,31 @@ export const MaintenancePanel = () => {
         ].filter(Boolean).length > 0
           ? "Monitoreo activo"
           : "Monitoreo inactivo",
-      details: [
+      queues: [
         {
-          label: "queue:minutes",
-          value: savedDraft.monitorMinutesQueueEnabled
-            ? `Activa / umbral ${savedDraft.minutesQueueWarningThreshold}`
-            : "Inactiva",
+          label: "Procesamiento de minutas",
+          enabled: savedDraft.monitorMinutesQueueEnabled,
+          threshold: savedDraft.minutesQueueWarningThreshold,
         },
         {
-          label: "queue:email",
-          value: savedDraft.monitorEmailQueueEnabled
-            ? `Activa / umbral ${savedDraft.emailQueueWarningThreshold}`
-            : "Inactiva",
+          label: "Correos y notificaciones",
+          enabled: savedDraft.monitorEmailQueueEnabled,
+          threshold: savedDraft.emailQueueWarningThreshold,
         },
         {
-          label: "queue:maintenance",
-          value: savedDraft.monitorMaintenanceQueueEnabled
-            ? `Activa / umbral ${savedDraft.maintenanceQueueWarningThreshold}`
-            : "Inactiva",
+          label: "Procesos de mantenimiento",
+          enabled: savedDraft.monitorMaintenanceQueueEnabled,
+          threshold: savedDraft.maintenanceQueueWarningThreshold,
         },
         {
-          label: "queue:pdf",
-          value: savedDraft.monitorPdfQueueEnabled
-            ? `Activa / umbral ${savedDraft.pdfQueueWarningThreshold}`
-            : "Inactiva",
+          label: "Generación de documentos PDF",
+          enabled: savedDraft.monitorPdfQueueEnabled,
+          threshold: savedDraft.pdfQueueWarningThreshold,
         },
         {
-          label: "queue:dlq",
-          value: savedDraft.monitorDlqEnabled ? `Activa / umbral ${savedDraft.dlqWarningThreshold}` : "Inactiva",
+          label: "Trabajos fallidos pendientes",
+          enabled: savedDraft.monitorDlqEnabled,
+          threshold: savedDraft.dlqWarningThreshold,
         },
       ],
     },
@@ -635,49 +656,127 @@ export const MaintenancePanel = () => {
           </StatusBadge>
         )}
       >
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <MaintenanceField label="Estado actual" hint="Modo aplicado por marker">
-            <MaintenanceInput value={OPERATION_MODE_LABELS[operationMode] || operationMode} disabled />
-          </MaintenanceField>
-          <MaintenanceField label="Origen" hint="Fuente del estado operativo">
-            <MaintenanceInput value={operationState.source || "default"} disabled />
-          </MaintenanceField>
-          <MaintenanceField label="Inicio" hint="Momento de activación">
-            <MaintenanceInput value={formatDateTime(operationState.startedAt)} disabled />
-          </MaintenanceField>
-        </div>
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(260px,0.85fr)_minmax(360px,1.55fr)_minmax(240px,0.8fr)]">
+          <div className="rounded-2xl border border-gray-200 bg-white/45 px-5 py-5 dark:border-gray-700 dark:bg-slate-950/20">
+            <div className="mb-5 flex items-center gap-3">
+              <Icon name="FaShield" className="h-4 w-4 text-primary-500 dark:text-primary-300" />
+              <h3 className={`text-sm font-semibold ${TXT_TITLE}`}>Estado operativo</h3>
+            </div>
+            <MaintenanceField label="Estado actual">
+              <MaintenanceInput value={OPERATION_MODE_LABELS[operationMode] || operationMode} disabled />
+            </MaintenanceField>
+            <div className="mt-4">
+              <MaintenanceField label="Origen">
+                <MaintenanceInput value={operationState.source || "default"} disabled />
+              </MaintenanceField>
+            </div>
+            <div className="mt-4">
+              <MaintenanceField label="Inicio">
+                <MaintenanceInput value={formatDateTime(operationState.startedAt)} disabled />
+              </MaintenanceField>
+            </div>
+          </div>
 
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800/60 dark:bg-amber-900/20">
-          <p className={`text-xs font-semibold uppercase tracking-wide ${TXT_META}`}>Motivo registrado</p>
-          <p className="mt-2 text-sm font-medium text-amber-900 dark:text-amber-100">
-            {operationReason || "Sin bloqueo operativo activo."}
-          </p>
-        </div>
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50/40 px-5 py-5 dark:border-emerald-800/50 dark:bg-emerald-950/10">
+            <div className="mb-5 flex items-center gap-3">
+              <Icon name="FaCircleInfo" className="h-4 w-4 text-primary-500 dark:text-primary-300" />
+              <h3 className={`text-sm font-semibold ${TXT_TITLE}`}>Mensaje operativo</h3>
+            </div>
 
-        <div className="flex flex-wrap gap-2">
-          <ActionButton
-            label="Solo lectura"
-            variant="warning"
-            size="sm"
-            icon={<Icon name="FaLock" />}
-            disabled={isChangingOperationMode || operationMode === "read_only"}
-            onClick={() => handleOperationModeChange("read_only")}
-          />
-          <ActionButton
-            label="Mantenimiento"
-            variant="danger"
-            size="sm"
-            icon={<Icon name="FaShield" />}
-            disabled={isChangingOperationMode || operationMode === "maintenance"}
-            onClick={() => handleOperationModeChange("maintenance")}
-          />
-          <ActionButton
-            label="Modo normal"
-            variant="success"
-            size="sm"
-            icon={<Icon name="check" />}
-            disabled={isChangingOperationMode || operationMode === "normal"}
-            onClick={() => handleOperationModeChange("normal")}
+            <div className="rounded-2xl border border-gray-200 bg-white/70 px-5 py-4 text-sm leading-6 text-gray-700 dark:border-gray-700 dark:bg-slate-950/30 dark:text-gray-200">
+              <p className="font-semibold text-gray-900 dark:text-gray-100">Finalidad de esta sección</p>
+              <p className="mt-2">
+                Permite administrar el modo operativo del sitio para detener escrituras, cerrar acceso controladamente o restaurar la operación normal.
+              </p>
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-gray-700/10 bg-gray-950/5 px-5 py-4 text-sm leading-6 dark:border-gray-700 dark:bg-gray-950/50">
+              <div className="flex items-center gap-2">
+                <Icon
+                  name={operationMode === "normal" ? "FaCircleCheck" : "FaTriangleExclamation"}
+                  className={operationMode === "normal" ? "h-4 w-4 text-emerald-500" : "h-4 w-4 text-amber-400"}
+                />
+                <p className={operationMode === "normal" ? "font-semibold text-emerald-700 dark:text-emerald-300" : "font-semibold text-amber-700 dark:text-amber-200"}>
+                  {operationMode === "normal"
+                    ? "Sin bloqueo operativo activo"
+                    : `Sistema en modo ${OPERATION_MODE_LABELS[operationMode] || operationMode}`}
+                </p>
+              </div>
+              <p className={`mt-4 ${TXT_BODY}`}>
+                {operationMode === "normal"
+                  ? "El sitio permite lectura, escritura y operación administrativa normal."
+                  : "El sitio tiene restricciones operativas activas según el modo seleccionado."}
+              </p>
+              <p className={`mt-3 ${TXT_BODY}`}>
+                {operationReason || "No existe un mensaje de bloqueo informado por el administrador."}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex min-h-full flex-col rounded-2xl border border-gray-200 bg-white/45 px-5 py-5 dark:border-gray-700 dark:bg-slate-950/20">
+            <div className="mb-5 flex items-center gap-3">
+              <Icon name="FaGears" className="h-4 w-4 text-primary-500 dark:text-primary-300" />
+              <h3 className={`text-sm font-semibold ${TXT_TITLE}`}>Acciones</h3>
+            </div>
+            <div className="flex flex-1 flex-col justify-center gap-5 py-6">
+              <ActionButton
+                label="Activar solo lectura"
+                variant="warning"
+                size="md"
+                icon={<Icon name="FaLock" />}
+                className="w-full"
+                disabled={isChangingOperationMode || operationMode === "read_only"}
+                onClick={() => handleOperationModeChange("read_only")}
+              />
+              <ActionButton
+                label="Activar mantenimiento"
+                variant="danger"
+                size="md"
+                icon={<Icon name="FaShield" />}
+                className="w-full border border-error-500/30 bg-error-700/85 hover:bg-error-700 dark:border-error-400/25 dark:bg-error-700/75 dark:hover:bg-error-700"
+                disabled={isChangingOperationMode || operationMode === "maintenance"}
+                onClick={() => handleOperationModeChange("maintenance")}
+              />
+            </div>
+            <div className="mt-4">
+              <p className={`text-xs font-semibold uppercase tracking-wide ${TXT_META}`}>Estado actual</p>
+              <ActionButton
+                label={operationMode === "normal" ? "Modo normal activo" : "Volver a modo normal"}
+                variant="success"
+                size="md"
+                icon={<Icon name="check" />}
+                className="mt-3 w-full"
+                disabled={isChangingOperationMode || operationMode === "normal"}
+                onClick={() => handleOperationModeChange("normal")}
+              />
+            </div>
+          </div>
+        </div>
+      </SectionCard>
+
+      <SectionCard
+        title="Solicitudes de alta"
+        icon="FaUserPlus"
+        description="Controla si el login permite solicitar creación de usuario y notificar a administradores."
+      >
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
+            <div className="flex items-center gap-3">
+              <h3 className={`text-base font-semibold ${TXT_TITLE}`}>Botón Solicitar alta</h3>
+              <StatusBadge tone={draft.accessRequestEnabled ? "active" : "inactive"}>
+                {draft.accessRequestEnabled ? "Visible en login" : "Oculto"}
+              </StatusBadge>
+            </div>
+            <p className={`mt-2 text-sm ${TXT_BODY}`}>
+              Al habilitarlo, el login muestra un formulario público. Cada solicitud queda registrada, notifica a usuarios ADMIN y envía confirmación al solicitante.
+            </p>
+            <p className={`mt-2 text-xs ${TXT_META}`}>
+              La notificación administrativa incluye un acceso a Teams con los datos precargados para crear el usuario.
+            </p>
+          </div>
+          <MaintenanceToggle
+            checked={draft.accessRequestEnabled}
+            onChange={(value) => updateDraft("accessRequestEnabled", value)}
           />
         </div>
       </SectionCard>
@@ -822,27 +921,19 @@ export const MaintenancePanel = () => {
           title="Observabilidad Técnica"
           icon="FaServer"
           description="Centraliza umbrales y activación de alertas; la lectura de carga actual vive en la pestaña Colas."
-          actions={(
-            <div className="flex flex-wrap items-center justify-end gap-3">
-              <StatusBadge tone={hasActiveRuntime ? "warning" : "inactive"}>
-                {hasActiveRuntime ? "Refresco rápido 5s" : "Refresco normal 30s"}
-              </StatusBadge>
-              <p className={`text-xs ${TXT_META}`}>Última lectura: {formatDateTime(lastStatusRefreshAt)}</p>
-            </div>
-          )}
         >
           <div className="divide-y divide-gray-200 dark:divide-gray-700">
             <div className="pb-6">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                   <div className="flex items-center gap-3">
-                    <h3 className={`text-base font-semibold ${TXT_TITLE}`}>Monitoreo de queue:maintenance</h3>
+                    <h3 className={`text-base font-semibold ${TXT_TITLE}`}>Procesos de mantenimiento</h3>
                     <StatusBadge tone={draft.monitorMaintenanceQueueEnabled ? "info" : "inactive"}>
                       {draft.monitorMaintenanceQueueEnabled ? "Activa" : "Inactiva"}
                     </StatusBadge>
                   </div>
                   <p className={`mt-2 text-sm ${TXT_BODY}`}>
-                    Si está activa, eleva alertas operativas cuando la cola supera su umbral y puede notificar por campana y correo.
+                    Supervisa trabajos administrativos como limpiezas, restauraciones y tareas internas del sistema.
                   </p>
                 </div>
                 <MaintenanceToggle
@@ -861,7 +952,7 @@ export const MaintenancePanel = () => {
                     onChange={(event) => updateDraft("maintenanceQueueWarningThreshold", Number(event.target.value || 0))}
                   />
                 </MaintenanceField>
-                <MaintenanceField label="Cola monitoreada" hint="Origen observado">
+                <MaintenanceField label="Identificador técnico" hint="Origen observado por Redis">
                   <MaintenanceInput value="Redis list: queue:maintenance" disabled />
                 </MaintenanceField>
               </div>
@@ -871,13 +962,13 @@ export const MaintenancePanel = () => {
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                   <div className="flex items-center gap-3">
-                    <h3 className={`text-base font-semibold ${TXT_TITLE}`}>Monitoreo de queue:minutes</h3>
+                    <h3 className={`text-base font-semibold ${TXT_TITLE}`}>Procesamiento de minutas</h3>
                     <StatusBadge tone={draft.monitorMinutesQueueEnabled ? "info" : "inactive"}>
                       {draft.monitorMinutesQueueEnabled ? "Activa" : "Inactiva"}
                     </StatusBadge>
                   </div>
                   <p className={`mt-2 text-sm ${TXT_BODY}`}>
-                    Si está activa, vigila la cola principal de minutas y dispara alertas cuando se acumula carga sobre el umbral.
+                    Vigila el trabajo pendiente asociado a creación, análisis y procesamiento de minutas.
                   </p>
                 </div>
                 <MaintenanceToggle
@@ -896,7 +987,7 @@ export const MaintenancePanel = () => {
                     onChange={(event) => updateDraft("minutesQueueWarningThreshold", Number(event.target.value || 0))}
                   />
                 </MaintenanceField>
-                <MaintenanceField label="Cola monitoreada" hint="Origen observado">
+                <MaintenanceField label="Identificador técnico" hint="Origen observado por Redis">
                   <MaintenanceInput value="Redis list: queue:minutes" disabled />
                 </MaintenanceField>
               </div>
@@ -906,13 +997,13 @@ export const MaintenancePanel = () => {
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                   <div className="flex items-center gap-3">
-                    <h3 className={`text-base font-semibold ${TXT_TITLE}`}>Monitoreo de queue:email</h3>
+                    <h3 className={`text-base font-semibold ${TXT_TITLE}`}>Correos y notificaciones</h3>
                     <StatusBadge tone={draft.monitorEmailQueueEnabled ? "info" : "inactive"}>
                       {draft.monitorEmailQueueEnabled ? "Activa" : "Inactiva"}
                     </StatusBadge>
                   </div>
                   <p className={`mt-2 text-sm ${TXT_BODY}`}>
-                    Si está activa, vigila el despacho de correo y notificaciones encoladas para alertar acumulaciones anómalas.
+                    Supervisa el despacho pendiente de correos, avisos y notificaciones enviadas por el sistema.
                   </p>
                 </div>
                 <MaintenanceToggle
@@ -931,7 +1022,7 @@ export const MaintenancePanel = () => {
                     onChange={(event) => updateDraft("emailQueueWarningThreshold", Number(event.target.value || 0))}
                   />
                 </MaintenanceField>
-                <MaintenanceField label="Cola monitoreada" hint="Origen observado">
+                <MaintenanceField label="Identificador técnico" hint="Origen observado por Redis">
                   <MaintenanceInput value="Redis list: queue:email" disabled />
                 </MaintenanceField>
               </div>
@@ -941,13 +1032,13 @@ export const MaintenancePanel = () => {
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                   <div className="flex items-center gap-3">
-                    <h3 className={`text-base font-semibold ${TXT_TITLE}`}>Monitoreo de queue:pdf</h3>
+                    <h3 className={`text-base font-semibold ${TXT_TITLE}`}>Generación de documentos PDF</h3>
                     <StatusBadge tone={draft.monitorPdfQueueEnabled ? "info" : "inactive"}>
                       {draft.monitorPdfQueueEnabled ? "Activa" : "Inactiva"}
                     </StatusBadge>
                   </div>
                   <p className={`mt-2 text-sm ${TXT_BODY}`}>
-                    Si está activa, vigila el renderizado y la publicación de artefactos PDF para alertar acumulaciones anómalas.
+                    Controla el trabajo pendiente de renderizado, publicación y generación de documentos PDF.
                   </p>
                 </div>
                 <MaintenanceToggle
@@ -966,7 +1057,7 @@ export const MaintenancePanel = () => {
                     onChange={(event) => updateDraft("pdfQueueWarningThreshold", Number(event.target.value || 0))}
                   />
                 </MaintenanceField>
-                <MaintenanceField label="Cola monitoreada" hint="Origen observado">
+                <MaintenanceField label="Identificador técnico" hint="Origen observado por Redis">
                   <MaintenanceInput value="Redis list: queue:pdf" disabled />
                 </MaintenanceField>
               </div>
@@ -976,13 +1067,13 @@ export const MaintenancePanel = () => {
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                   <div className="flex items-center gap-3">
-                    <h3 className={`text-base font-semibold ${TXT_TITLE}`}>Monitoreo de DLQ</h3>
+                    <h3 className={`text-base font-semibold ${TXT_TITLE}`}>Trabajos fallidos pendientes</h3>
                     <StatusBadge tone={draft.monitorDlqEnabled ? "danger" : "inactive"}>
                       {draft.monitorDlqEnabled ? "Activa" : "Inactiva"}
                     </StatusBadge>
                   </div>
                   <p className={`mt-2 text-sm ${TXT_BODY}`}>
-                    Si está activa, prioriza los jobs fallidos enviados a la DLQ y dispara alertas cuando la cola supera su umbral.
+                    Supervisa trabajos que fallaron y quedaron pendientes de revisión o reproceso operativo.
                   </p>
                 </div>
                 <MaintenanceToggle
@@ -1001,9 +1092,26 @@ export const MaintenancePanel = () => {
                     onChange={(event) => updateDraft("dlqWarningThreshold", Number(event.target.value || 0))}
                   />
                 </MaintenanceField>
-                <MaintenanceField label="Cola monitoreada" hint="Origen observado">
+                <MaintenanceField label="Identificador técnico" hint="Origen observado por Redis">
                   <MaintenanceInput value="Redis list: queue:dlq" disabled />
                 </MaintenanceField>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 rounded-2xl border border-gray-200 bg-white/45 px-5 py-4 dark:border-gray-700 dark:bg-slate-950/20">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className={`text-sm font-semibold ${TXT_TITLE}`}>Seguimiento de lectura</p>
+                <p className={`mt-1 text-xs ${TXT_META}`}>
+                  El panel actualiza el estado técnico con refresco rápido cuando hay rutinas activas y con refresco espaciado en operación normal.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <StatusBadge tone={hasActiveRuntime ? "warning" : "inactive"}>
+                  {hasActiveRuntime ? "Refresco rápido 5s" : "Refresco normal"}
+                </StatusBadge>
+                <p className={`text-xs ${TXT_META}`}>Última lectura: {formatDateTime(lastStatusRefreshAt)}</p>
               </div>
             </div>
           </div>
@@ -1013,26 +1121,68 @@ export const MaintenancePanel = () => {
       <SectionCard
         title="Resumen de configuración"
         icon="FaClockRotateLeft"
-        description="Vista rápida de lo que quedó definido actualmente en esta pantalla."
+        description="Vista rápida de la configuración activa, últimas ejecuciones y parámetros de monitoreo operacional."
       >
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
           {maintenanceSummaryItems.map((item) => (
             <div
               key={item.key}
-              className="rounded-[24px] border border-gray-200/80 bg-slate-50/80 p-5 shadow-sm dark:border-gray-700/80 dark:bg-slate-900/40"
+              className="flex min-h-full flex-col rounded-2xl border border-gray-200 bg-white/45 p-5 dark:border-gray-700 dark:bg-slate-950/20"
             >
               <div className="flex items-start justify-between gap-3">
-                <h3 className={`text-base font-semibold ${TXT_TITLE}`}>{item.title}</h3>
+                <div>
+                  <h3 className={`text-base font-semibold ${TXT_TITLE}`}>{item.title}</h3>
+                  <p className={`mt-2 text-sm ${TXT_META}`}>{item.description}</p>
+                </div>
                 <StatusBadge tone={item.tone}>{item.status}</StatusBadge>
               </div>
-              <div className="mt-4 space-y-3">
-                {item.details.map((detail) => (
-                  <div key={`${item.key}-${detail.label}`}>
-                    <p className={`text-xs font-semibold uppercase tracking-wide ${TXT_META}`}>{detail.label}</p>
-                    <p className={`mt-1 text-sm ${TXT_TITLE}`}>{detail.value}</p>
+
+              <div className="mt-5 rounded-xl border border-gray-200 bg-white/55 px-4 py-3 dark:border-gray-700 dark:bg-slate-900/30">
+                <div className="flex items-start gap-3">
+                  <Icon
+                    name={item.key === "summary-queues" ? "FaShield" : "FaCircleCheck"}
+                    className="mt-0.5 h-4 w-4 text-emerald-500 dark:text-emerald-300"
+                  />
+                  <div>
+                    <p className={`text-sm font-semibold ${TXT_TITLE}`}>{item.calloutTitle}</p>
+                    <p className={`mt-1 text-xs leading-5 ${TXT_META}`}>{item.calloutText}</p>
                   </div>
-                ))}
+                </div>
               </div>
+
+              {item.key === "summary-queues" ? (
+                <div className="mt-5 space-y-3">
+                  {item.queues.map((queue) => (
+                    <div
+                      key={`${item.key}-${queue.label}`}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white/55 px-4 py-3 dark:border-gray-700 dark:bg-slate-900/30"
+                    >
+                      <div>
+                        <p className={`text-sm font-semibold uppercase tracking-wide ${TXT_TITLE}`}>{queue.label}</p>
+                        <p className={`mt-1 text-xs ${TXT_META}`}>Umbral configurado: {queue.threshold}</p>
+                      </div>
+                      <StatusBadge tone={queue.enabled ? "active" : "inactive"}>
+                        {queue.enabled ? "Activa" : "Inactiva"}
+                      </StatusBadge>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-5 space-y-3">
+                  {item.details.map((detail) => (
+                    <div key={`${item.key}-${detail.label}`}>
+                      <p className={`text-xs font-semibold uppercase tracking-wide ${TXT_META}`}>{detail.label}</p>
+                      <div className="mt-2 rounded-xl border border-gray-200 bg-white/55 px-3 py-2 text-sm text-gray-800 dark:border-gray-700 dark:bg-slate-900/30 dark:text-gray-100">
+                        {detail.value}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {item.footer ? (
+                <p className={`mt-auto pt-6 text-xs leading-5 ${TXT_META}`}>{item.footer}</p>
+              ) : null}
             </div>
           ))}
         </div>

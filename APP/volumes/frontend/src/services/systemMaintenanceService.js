@@ -3,7 +3,14 @@ import { extractErrorMessage } from "@/utils/errors";
 
 const BASE = "/v1/system/maintenance";
 const REQUEST_TIMEOUT_MS = 45000;
-const PUBLIC_STATE_TIMEOUT_MS = 5000;
+const PUBLIC_STATE_TIMEOUT_MS = 10000;
+const PUBLIC_STATE_CACHE_MS = 1200;
+
+let publicStateInFlight = null;
+let publicStateCache = {
+  expiresAt: 0,
+  value: null,
+};
 
 const isTimeoutError = (error) =>
   error?.code === "ECONNABORTED" ||
@@ -39,6 +46,21 @@ const request = async (config, fallbackMessage) => {
 const unwrap = (res) => {
   const data = res?.data ?? {};
   return data?.result ?? data;
+};
+
+const getCachedPublicState = () => {
+  const now = Date.now();
+  if (publicStateCache.value && publicStateCache.expiresAt > now) {
+    return publicStateCache.value;
+  }
+  return null;
+};
+
+const setCachedPublicState = (value) => {
+  publicStateCache = {
+    value,
+    expiresAt: Date.now() + PUBLIC_STATE_CACHE_MS,
+  };
 };
 
 const systemMaintenanceService = {
@@ -77,15 +99,29 @@ const systemMaintenanceService = {
   },
 
   async getPublicOperationState() {
-    const res = await request(
+    const cached = getCachedPublicState();
+    if (cached) return cached;
+
+    if (publicStateInFlight) return publicStateInFlight;
+
+    publicStateInFlight = request(
       {
         method: "get",
         url: `${BASE}/operation-state/public`,
         timeout: PUBLIC_STATE_TIMEOUT_MS,
       },
       "No fue posible obtener el modo operativo del sistema."
-    );
-    return unwrap(res);
+    )
+      .then((res) => {
+        const state = unwrap(res);
+        setCachedPublicState(state);
+        return state;
+      })
+      .finally(() => {
+        publicStateInFlight = null;
+      });
+
+    return publicStateInFlight;
   },
 
   async setOperationMode(mode, reason = "") {

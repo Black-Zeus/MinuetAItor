@@ -111,12 +111,12 @@ def get_public_operation_state_endpoint(
     response_model=SystemOperationStateResponse,
     status_code=status.HTTP_200_OK,
 )
-def set_operation_state_endpoint(
+async def set_operation_state_endpoint(
     body: SystemOperationModeRequest,
     session: UserSession = Depends(require_roles("ADMIN")),
     db: Session = Depends(get_db),
 ):
-    return set_system_operation_mode(
+    return await set_system_operation_mode(
         db,
         mode=body.mode,
         reason=body.reason,

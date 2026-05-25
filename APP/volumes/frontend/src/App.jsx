@@ -1,4 +1,4 @@
-import React, { useLayoutEffect } from "react";
+import React, { useEffect, useLayoutEffect } from "react";
 import AppRouter from "@/routes/AppRouter";
 import useBaseSiteStore from "@store/baseSiteStore";
 import { isDev, isQA } from "@/utils/environment";
@@ -22,6 +22,20 @@ function App() {
 
   useLayoutEffect(() => {
     applyThemeToDocument(theme);
+  }, [theme]);
+
+  useEffect(() => {
+    if (theme !== "system") return undefined;
+
+    const media = window.matchMedia?.("(prefers-color-scheme: dark)");
+    if (!media) return undefined;
+
+    const handleSystemThemeChange = () => {
+      applyThemeToDocument("system");
+    };
+
+    media.addEventListener?.("change", handleSystemThemeChange);
+    return () => media.removeEventListener?.("change", handleSystemThemeChange);
   }, [theme]);
 
   return (

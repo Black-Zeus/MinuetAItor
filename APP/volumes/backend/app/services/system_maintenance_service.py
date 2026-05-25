@@ -56,6 +56,7 @@ DEFAULT_SETTINGS = {
     "monitor_dlq_enabled": True,
     "dlq_warning_threshold": 10,
     "queue_monitor_state_json": "{}",
+    "access_request_enabled": True,
 }
 
 EXPECTED_SYSTEM_MAINTENANCE_COLUMNS = {
@@ -76,6 +77,7 @@ EXPECTED_SYSTEM_MAINTENANCE_COLUMNS = {
     "monitor_dlq_enabled",
     "dlq_warning_threshold",
     "queue_monitor_state_json",
+    "access_request_enabled",
 }
 
 MANUAL_ACTIONS = {
@@ -154,7 +156,8 @@ def ensure_system_maintenance_schema_access(db: Session) -> None:
         raise BadRequestException(
             "La configuración de mantenimiento quedó desfasada respecto del código actual. "
             "Aplica los scripts SQL 20260517_1920_alter_system_maintenance_settings_queue_thresholds.sql "
-            "y 20260517_1950_alter_system_maintenance_queue_monitoring.sql antes de usar este módulo."
+            "20260517_1950_alter_system_maintenance_queue_monitoring.sql y "
+            "20260524_2025_schema_access_requests.sql antes de usar este módulo."
         )
 
 
@@ -278,7 +281,7 @@ def get_system_operation_state(db: Session) -> dict:
     }
 
 
-def set_system_operation_mode(
+async def set_system_operation_mode(
     db: Session,
     *,
     mode: str,
@@ -380,7 +383,20 @@ def set_system_operation_mode(
         entity_id=audit_entity_id,
         details=audit_details,
     )
-    return get_system_operation_state(db)
+    operation_state = get_system_operation_state(db)
+    await publish_maintenance_event(
+        status="updated",
+        scope="operation_state",
+        action="set_operation_mode",
+        message=f"Modo operativo actualizado a {operation_state.get('mode') or 'normal'}.",
+        trigger="manual",
+        actor_user_id=actor_user_id,
+        metadata={
+            "operationState": operation_state,
+            "previousState": previous_state,
+        },
+    )
+    return operation_state
 
 
 def _base_query(db: Session):
@@ -437,6 +453,7 @@ def _build_config_response(obj: SystemMaintenanceSetting) -> dict:
         "pdf_queue_warning_threshold": int(obj.pdf_queue_warning_threshold),
         "monitor_dlq_enabled": bool(obj.monitor_dlq_enabled),
         "dlq_warning_threshold": int(obj.dlq_warning_threshold),
+        "access_request_enabled": bool(getattr(obj, "access_request_enabled", True)),
         "created_at": _iso(obj.created_at),
         "updated_at": _iso(obj.updated_at),
         "created_by": _user_ref(obj.created_by_user),
@@ -929,6 +946,7 @@ def update_system_maintenance_settings(
     obj.pdf_queue_warning_threshold = body.pdf_queue_warning_threshold
     obj.monitor_dlq_enabled = body.monitor_dlq_enabled
     obj.dlq_warning_threshold = body.dlq_warning_threshold
+    obj.access_request_enabled = body.access_request_enabled
     if not obj.created_by:
         obj.created_by = updated_by_id
     obj.updated_by = updated_by_id

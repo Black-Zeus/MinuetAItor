@@ -17,6 +17,7 @@ SESSION_PREFIX = "session"
 SESSION_EVENTS_PREFIX = "events:auth:sessions"
 AUTH_SSE_KEEPALIVE_SEC = 15
 AUTH_SSE_VALIDATE_SEC = 5
+AUTH_SSE_MAX_CONNECTION_SEC = 55
 
 
 def get_session_redis_key(user_id: str, jti: str) -> str:
@@ -78,11 +79,16 @@ async def stream_session_events(session: UserSession) -> AsyncGenerator[str, Non
     logger.info("[auth-sse] Suscrito | user=%s jti=%s", session.user_id, session.jti)
 
     try:
-        last_ping_at = time.monotonic()
+        started_at = time.monotonic()
+        last_ping_at = started_at
         last_validation_at = last_ping_at
 
         while True:
             now = time.monotonic()
+            if now - started_at >= AUTH_SSE_MAX_CONNECTION_SEC:
+                yield _auth_sse_event("keepalive", {"reason": "connection_recycle"})
+                break
+
             if now - last_ping_at >= AUTH_SSE_KEEPALIVE_SEC:
                 yield _auth_sse_event("keepalive", {})
                 last_ping_at = now

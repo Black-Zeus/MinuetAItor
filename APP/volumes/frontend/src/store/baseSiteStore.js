@@ -29,7 +29,7 @@ const LAYOUT_DEFAULT    = { columns: 2, breakpoints: { lg: 2, md: 2, sm: 1 } };
 const NAV_HISTORY_MAX   = 10; // máximo de entradas en historial
 
 const normalizeTheme = (theme) =>
-  ["light", "dark", "system"].includes(theme) ? theme : "dark";
+  ["light", "dark", "system"].includes(theme) ? theme : "system";
 
 const normalizeDensity = (density) =>
   ["compact", "comfortable"].includes(density) ? density : "comfortable";
@@ -77,7 +77,7 @@ const normalizeRemoteWidgets = (dashboardWidgets = []) => {
 };
 
 const initialState = {
-  theme:    "dark",
+  theme:    "system",
   accent:   "#6366f1",
   language: "es-CL",
   sidebar:  { ...SIDEBAR_DEFAULT },
