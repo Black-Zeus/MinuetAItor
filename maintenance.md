@@ -575,6 +575,14 @@ Reglas:
 - No borrar paquetes en estado `running`, `verifying`, `restoring` o `locked`.
 - Registrar auditoria de cada paquete eliminado.
 
+Antes de calcular candidatos, el backend debe reconciliar el catalogo de BD contra la carpeta fisica de respaldos.
+La UI lee desde `system_backup_artifacts`, pero ese catalogo debe reflejar el filesystem:
+
+- Paquetes `backup-*.tar.gz` presentes en carpeta y ausentes en BD se registran como `origin_type=filesystem`.
+- Registros `available` cuyo archivo fisico ya no exista pasan a `status=missing`.
+- Registros `missing` cuyo archivo fisico reaparece vuelven a `status=available`.
+- `purge` solo considera artefactos `available` y nunca elimina el ultimo valido por scope.
+
 Ejemplo:
 
 ```txt
@@ -612,25 +620,28 @@ minimos protegidos:
 
 1. Administrador selecciona paquete.
 2. Backend valida permisos.
-3. Backend valida manifest, checksum, scope y compatibilidad de version.
-4. Backend adquiere lock exclusivo.
-5. Backend escribe marker file de restore en la raiz operativa del backend.
-6. Backend activa `maintenance_restore`.
-7. Backend envia correo de inicio a todos los usuarios con perfil administrador.
-8. Backend revoca todas las sesiones salvo la del operador que inicio restore.
-9. Backend bloquea nuevas conexiones normales.
-10. Backup-worker limpia MariaDB mediante truncate controlado.
-11. Backup-worker restaura data MariaDB.
-12. Backup-worker limpia buckets MinIO controlados.
-13. Backup-worker restaura objetos MinIO.
-14. Backup-worker ejecuta validacion post-restore.
-15. Al terminar, se revocan todas las sesiones, incluida la del operador.
-16. Se limpia Redis y colas operativas.
-17. Se descartan tareas diferidas previas al restore.
-18. Backend envia correo de termino a todos los usuarios con perfil administrador.
-19. Backend elimina o marca como completado el marker file.
-20. Backend deja el sistema en estado `normal` o `clear`.
-21. Usuarios deben iniciar sesion nuevamente.
+3. Backend reconcilia carpeta fisica de respaldos contra `system_backup_artifacts`.
+4. Backend valida manifest, checksum, scope y compatibilidad de version.
+5. Backend genera un respaldo preventivo del mismo scope que el restore solicitado.
+6. Backend valida que el respaldo preventivo quedo `available`.
+7. Backend adquiere lock exclusivo.
+8. Backend escribe marker file de restore en la raiz operativa del backend.
+9. Backend activa `maintenance_restore`.
+10. Backend envia correo de inicio a todos los usuarios con perfil administrador.
+11. Backend revoca todas las sesiones salvo la del operador que inicio restore.
+12. Backend bloquea nuevas conexiones normales.
+13. Backup-worker limpia MariaDB mediante truncate controlado.
+14. Backup-worker restaura data MariaDB.
+15. Backup-worker limpia buckets MinIO controlados.
+16. Backup-worker restaura objetos MinIO.
+17. Backup-worker ejecuta validacion post-restore.
+18. Al terminar, se revocan todas las sesiones, incluida la del operador.
+19. Se limpia Redis y colas operativas.
+20. Se descartan tareas diferidas previas al restore.
+21. Backend envia correo de termino a todos los usuarios con perfil administrador.
+22. Backend elimina o marca como completado el marker file.
+23. Backend deja el sistema en estado `normal` o `clear`.
+24. Usuarios deben iniciar sesion nuevamente.
 
 Regla clave:
 
@@ -647,6 +658,14 @@ Restore debe soportar los tres scopes:
 - `full`: ejecuta subflujo MariaDB y subflujo MinIO.
 
 La seleccion del subflujo se deriva desde `metadata.json`, `manifest.json` y checksums. La UI puede mostrarlo como una sola accion de restore, pero internamente el backend y el backup-worker deben validar y enrutar segun el scope del paquete.
+
+Regla de respaldo preventivo antes de restore:
+
+- Restore `database` genera primero un backup `database`.
+- Restore `objects` genera primero un backup `objects`.
+- Restore `full` genera primero un backup `full`.
+- El respaldo preventivo debe quedar marcado como `origin_type=pre_restore`.
+- Si el respaldo preventivo falla, el restore no inicia.
 
 ## Flujo de backup purge
 
