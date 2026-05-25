@@ -3,12 +3,13 @@
  * Página de Login - MinuetAItor
  */
 
-import React, { useState, useLayoutEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { FaSun, FaMoon, FaEye, FaEyeSlash, FaCircleExclamation } from 'react-icons/fa6';
+import { FaSun, FaMoon, FaEye, FaEyeSlash, FaCircleExclamation, FaTriangleExclamation } from 'react-icons/fa6';
 import useAuthStore from '@store/authStore';
 import useBaseSiteStore from '@store/baseSiteStore';
 import { login as apiLogin } from '@/services/authService';
+import systemMaintenanceService from '@/services/systemMaintenanceService';
 import { APP_VERSION } from '@/utils/environment';
 import { applyThemeToDocument, resolveThemeMode } from '@/utils/theme';
 
@@ -24,8 +25,12 @@ const LoginPage = () => {
 
     // ── CAMBIO 2: la key de localStorage cambió de 'minuteAItor-base-site' → 'site-storage' ──
     useLayoutEffect(() => {
-        const stored = localStorage.getItem('site-storage'); // ← era 'minuteAItor-base-site'
-        if (!stored) setTheme('dark');
+        const stored = localStorage.getItem('site-storage') || localStorage.getItem('minuteAItor-base-site');
+        if (!stored) {
+            setTheme('dark');
+            applyThemeToDocument('dark');
+            return;
+        }
         applyThemeToDocument(theme);
     }, []);
 
@@ -37,14 +42,58 @@ const LoginPage = () => {
     const [password, setPassword]     = useState('');
     const [showPass, setShowPass]     = useState(false);
     const [error, setError]           = useState('');
+    const [errorTitle, setErrorTitle] = useState('Acceso denegado');
+    const [errorTone, setErrorTone]   = useState('error');
+    const [operationMode, setOperationMode] = useState('normal');
+    const [operationType, setOperationType] = useState('');
+
+    useEffect(() => {
+        let alive = true;
+        systemMaintenanceService.getPublicOperationState()
+            .then((state) => {
+                if (!alive) return;
+                const mode = state?.mode || 'normal';
+                const type = state?.operationType || '';
+                setOperationMode(mode);
+                setOperationType(type);
+                if (mode === 'normal') return;
+                const isReadOnly = mode === 'read_only';
+                const isManual = String(type).startsWith('manual_');
+                setErrorTitle(isReadOnly ? 'Sistema en solo lectura' : 'Sistema en mantenimiento');
+                setErrorTone('maintenance');
+                setError(
+                    isReadOnly
+                        ? 'Puedes ingresar para consultar datos. Las acciones de creación, edición y eliminación estarán bloqueadas.'
+                        : isManual
+                            ? 'El acceso general está cerrado. Solo usuarios ADMIN pueden ingresar para administrar el modo operativo.'
+                            : 'El acceso está temporalmente cerrado porque el sistema está en modo mantenimiento.'
+                );
+            })
+            .catch(() => {});
+        return () => {
+            alive = false;
+        };
+    }, []);
 
     const from = location.state?.from || '/';
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
+        setErrorTitle('Acceso denegado');
+        setErrorTone(operationMode === 'normal' ? 'error' : 'maintenance');
+
+        const isManualOperation = String(operationType).startsWith('manual_');
+        if (operationMode === 'maintenance' && !isManualOperation) {
+            setErrorTitle('Sistema en mantenimiento');
+            setError(
+                'El acceso está temporalmente cerrado porque el sistema está en modo mantenimiento.'
+            );
+            return;
+        }
 
         if (!credential || !password) {
+            setErrorTitle('Datos requeridos');
             setError('Por favor, completa todos los campos.');
             return;
         }
@@ -53,14 +102,25 @@ const LoginPage = () => {
             const tokenResponse = await apiLogin({ credential, password });
             // storeLogin ahora también dispara sessionStore.loadFromApi() automáticamente
             storeLogin(tokenResponse);
+            if (operationMode === 'maintenance' && isManualOperation) {
+                navigate('/settings/system?tab=maintenance', { replace: true });
+                return;
+            }
             navigate(from, { replace: true });
         } catch (err) {
             const status = err?.status ?? 0;
             if (status === 401) {
+                setErrorTitle('Credenciales incorrectas');
                 setError('Las credenciales ingresadas no son válidas. Por favor, inténtalo de nuevo.');
+            } else if (status === 503 && err?.maintenance) {
+                setErrorTitle(err?.title || 'Sistema en mantenimiento');
+                setErrorTone('maintenance');
+                setError(err?.message || 'No se puede acceder porque el sistema está en modo mantenimiento.');
             } else if (status === 0) {
+                setErrorTitle('Sin conexión');
                 setError('No se pudo conectar al servidor. Verifica tu conexión e intenta nuevamente.');
             } else {
+                setErrorTitle(err?.title || 'Acceso denegado');
                 setError(err?.title || err?.message || 'Ocurrió un error al iniciar sesión.');
             }
         }
@@ -194,17 +254,22 @@ const LoginPage = () => {
                             </header>
 
                             {error && (
-                                <div className="
+                                <div className={`
                                     flex items-start gap-3 px-4 py-3.5
                                     rounded-xl text-sm
-                                    bg-red-500/10 border border-red-500/40
-                                    text-red-300
+                                    ${errorTone === 'maintenance'
+                                        ? 'bg-amber-500/10 border border-amber-500/40 text-amber-200'
+                                        : 'bg-red-500/10 border border-red-500/40 text-red-300'}
                                     animate-pulse-once
-                                ">
-                                    <FaCircleExclamation className="w-4 h-4 mt-0.5 flex-shrink-0 text-red-400" />
+                                `}>
+                                    {errorTone === 'maintenance' ? (
+                                        <FaTriangleExclamation className="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-300" />
+                                    ) : (
+                                        <FaCircleExclamation className="w-4 h-4 mt-0.5 flex-shrink-0 text-red-400" />
+                                    )}
                                     <div>
-                                        <p className="font-medium text-red-200">Acceso denegado</p>
-                                        <p className="mt-0.5 text-red-300/80">{error}</p>
+                                        <p className={errorTone === 'maintenance' ? 'font-medium text-amber-100' : 'font-medium text-red-200'}>{errorTitle}</p>
+                                        <p className={errorTone === 'maintenance' ? 'mt-0.5 text-amber-100/80' : 'mt-0.5 text-red-300/80'}>{error}</p>
                                     </div>
                                 </div>
                             )}

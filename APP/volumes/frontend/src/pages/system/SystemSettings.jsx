@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import ActionButton from "@/components/ui/button/ActionButton";
 import Icon from "@/components/ui/icon/iconManager";
@@ -23,21 +24,98 @@ import {
   Header,
   SectionCard,
   TabNav,
+  TABS,
 } from "@/pages/system/SystemSettingsShared";
 import aiProviderConfigService from "@/services/aiProviderConfigService";
 import smtpConfigService from "@/services/smtpConfigService";
+import systemMaintenanceService from "@/services/systemMaintenanceService";
 import useAbortableRequestScope from "@/hooks/useAbortableRequestScope";
+import { ensureWriteOperationAllowed } from "@/utils/operationModeGuard";
+
+const LOCKED_OPERATION_TAB_IDS = new Set(["maintenance", "backups"]);
 
 const SystemSettings = () => {
   const requestScope = useAbortableRequestScope();
-  const [activeTab, setActiveTab] = useState("summary");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const queryTab = searchParams.get("tab");
+  const [activeTab, setActiveTab] = useState(() =>
+    TABS.some((tab) => tab.id === queryTab) ? queryTab : "summary"
+  );
   const [smtpItems, setSmtpItems] = useState([]);
   const [aiItems, setAiItems] = useState([]);
   const [aiProviderCatalog, setAiProviderCatalog] = useState([]);
   const [isSmtpLoading, setIsSmtpLoading] = useState(false);
   const [isAiLoading, setIsAiLoading] = useState(false);
+  const [operationMode, setOperationMode] = useState(null);
 
   useDocumentTitle("Configuración del Sistema");
+
+  const validTabIds = useMemo(() => new Set(TABS.map((tab) => tab.id)), []);
+  const isOperationChecking = operationMode === null;
+  const isMaintenanceMode = operationMode === "maintenance";
+  const shouldRestrictTabs = isOperationChecking || isMaintenanceMode;
+  const visibleTabs = useMemo(
+    () => (shouldRestrictTabs ? TABS.filter((tab) => LOCKED_OPERATION_TAB_IDS.has(tab.id)) : TABS),
+    [shouldRestrictTabs]
+  );
+  const effectiveActiveTab = shouldRestrictTabs
+    ? (LOCKED_OPERATION_TAB_IDS.has(activeTab) ? activeTab : "maintenance")
+    : activeTab;
+
+  useEffect(() => {
+    if (queryTab && validTabIds.has(queryTab) && queryTab !== activeTab && !shouldRestrictTabs) {
+      setActiveTab(queryTab);
+    }
+  }, [activeTab, queryTab, shouldRestrictTabs, validTabIds]);
+
+  useEffect(() => {
+    if (!shouldRestrictTabs || LOCKED_OPERATION_TAB_IDS.has(activeTab)) return;
+    setActiveTab("maintenance");
+    setSearchParams((currentParams) => {
+      const nextParams = new URLSearchParams(currentParams);
+      nextParams.set("tab", "maintenance");
+      return nextParams;
+    }, { replace: true });
+  }, [activeTab, setSearchParams, shouldRestrictTabs]);
+
+  useEffect(() => {
+    let alive = true;
+    systemMaintenanceService.getPublicOperationState()
+      .then((state) => {
+        if (!alive) return;
+        const mode = state?.mode || "normal";
+        setOperationMode(mode);
+        if (mode === "maintenance") {
+          const nextTab = LOCKED_OPERATION_TAB_IDS.has(queryTab) ? queryTab : "maintenance";
+          setActiveTab(nextTab);
+          setSearchParams((currentParams) => {
+            const nextParams = new URLSearchParams(currentParams);
+            nextParams.set("tab", nextTab);
+            return nextParams;
+          }, { replace: true });
+        }
+      })
+      .catch(() => {
+        if (alive) setOperationMode("normal");
+      });
+    return () => {
+      alive = false;
+    };
+  }, [queryTab, setSearchParams]);
+
+  const handleTabChange = (nextTab) => {
+    if (shouldRestrictTabs && !LOCKED_OPERATION_TAB_IDS.has(nextTab)) return;
+    setActiveTab(nextTab);
+    setSearchParams((currentParams) => {
+      const nextParams = new URLSearchParams(currentParams);
+      if (nextTab === "summary") {
+        nextParams.delete("tab");
+      } else {
+        nextParams.set("tab", nextTab);
+      }
+      return nextParams;
+    }, { replace: true });
+  };
 
   const loadSmtpConfigs = async ({ signal } = {}) => {
     setIsSmtpLoading(true);
@@ -83,16 +161,20 @@ const SystemSettings = () => {
   };
 
   useEffect(() => {
+    if (shouldRestrictTabs) return;
+    if (!["summary", "integrations"].includes(effectiveActiveTab)) return;
     const requestConfig = requestScope.createRequestConfig();
     loadSmtpConfigs({ signal: requestConfig.signal });
-  }, [requestScope]);
+  }, [effectiveActiveTab, requestScope, shouldRestrictTabs]);
 
   useEffect(() => {
+    if (shouldRestrictTabs) return;
+    if (!["summary", "integrations"].includes(effectiveActiveTab)) return;
     const catalogRequest = requestScope.createRequestConfig();
     const listRequest = requestScope.createRequestConfig();
     loadAiProviderCatalog({ signal: catalogRequest.signal });
     loadAiConfigs({ signal: listRequest.signal });
-  }, [requestScope]);
+  }, [effectiveActiveTab, requestScope, shouldRestrictTabs]);
 
   const aiProviderLabelMap = useMemo(
     () =>
@@ -104,7 +186,10 @@ const SystemSettings = () => {
     [aiProviderCatalog]
   );
 
-  const openCreateModal = () => {
+  const openCreateModal = async () => {
+    const allowed = await ensureWriteOperationAllowed({ actionLabel: "Nueva configuración SMTP" });
+    if (!allowed) return;
+
     ModalManager.show({
       type: "custom",
       title: "Nueva configuración SMTP",
@@ -116,6 +201,8 @@ const SystemSettings = () => {
           mode={SMTP_MODAL_MODES.CREATE}
           config={null}
           onSubmit={async (payload) => {
+            const allowed = await ensureWriteOperationAllowed({ actionLabel: "Crear configuración SMTP" });
+            if (!allowed) throw new Error("Operación bloqueada por el modo operativo del sistema.");
             const created = await smtpConfigService.create(payload);
             toastSuccess("Configuración SMTP creada", `Se guardó "${created?.name ?? "la configuración"}".`);
             ModalManager.closeAll();
@@ -223,7 +310,10 @@ const SystemSettings = () => {
     });
   };
 
-  const openCreateAiModal = () => {
+  const openCreateAiModal = async () => {
+    const allowed = await ensureWriteOperationAllowed({ actionLabel: "Nueva configuración AI" });
+    if (!allowed) return;
+
     ModalManager.show({
       type: "custom",
       title: "Nueva configuración AI",
@@ -236,6 +326,8 @@ const SystemSettings = () => {
           config={null}
           providerCatalog={aiProviderCatalog}
           onSubmit={async (payload) => {
+            const allowed = await ensureWriteOperationAllowed({ actionLabel: "Crear configuración AI" });
+            if (!allowed) throw new Error("Operación bloqueada por el modo operativo del sistema.");
             const created = await aiProviderConfigService.create(payload);
             toastSuccess("Configuración AI creada", `Se guardó "${created?.name ?? "la configuración"}".`);
             ModalManager.closeAll();
@@ -410,11 +502,11 @@ const SystemSettings = () => {
   return (
     <div className="space-y-6">
       <Header />
-      <TabNav activeTab={activeTab} onTabChange={setActiveTab} />
+      <TabNav activeTab={effectiveActiveTab} onTabChange={handleTabChange} tabs={visibleTabs} />
 
-      {activeTab === "summary" && <SummaryPanel smtpItems={smtpItems} aiItems={aiItems} />}
+      {effectiveActiveTab === "summary" && <SummaryPanel smtpItems={smtpItems} aiItems={aiItems} />}
 
-      {activeTab === "integrations" && (
+      {effectiveActiveTab === "integrations" && (
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
           <div className="space-y-6">
             <SectionCard
@@ -471,11 +563,11 @@ const SystemSettings = () => {
         </div>
       )}
 
-      {activeTab === "maintenance" && <MaintenancePanel />}
+      {effectiveActiveTab === "maintenance" && <MaintenancePanel />}
 
-      {activeTab === "queues" && <QueuesPanel />}
+      {effectiveActiveTab === "queues" && <QueuesPanel />}
 
-      {activeTab === "backups" && <BackupsPanel />}
+      {effectiveActiveTab === "backups" && <BackupsPanel />}
     </div>
   );
 };

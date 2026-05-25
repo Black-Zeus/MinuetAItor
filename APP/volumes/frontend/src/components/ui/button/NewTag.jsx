@@ -11,6 +11,7 @@ import ModalManager from "@/components/ui/modal";
 import tagService   from "@/services/tagService";
 import TagsModal, { TAGS_MODAL_MODES } from "@/pages/tags/TagsModal";
 import { toastSuccess, toastError } from "@/components/common/toast/toastHelpers";
+import { ensureWriteOperationAllowed } from "@/utils/operationModeGuard";
 
 import logger from "@/utils/logger";
 const tagLog = logger.scope("new-tag");
@@ -31,6 +32,9 @@ const toApiPayload = (formData) => ({
 const NewTag = ({ onCreated, categories = [] }) => {
 
   const handleSubmit = async (payload) => {
+    const allowed = await ensureWriteOperationAllowed({ actionLabel: "Crear etiqueta" });
+    if (!allowed) throw new Error("Operación bloqueada por el modo operativo del sistema.");
+
     const apiPayload = toApiPayload(payload);
     tagLog.log("Creating tag:", apiPayload);
 
@@ -40,7 +44,10 @@ const NewTag = ({ onCreated, categories = [] }) => {
     onCreated?.(created);
   };
 
-  const handleClick = () => {
+  const handleClick = async () => {
+    const allowed = await ensureWriteOperationAllowed({ actionLabel: "Nueva Etiqueta" });
+    if (!allowed) return;
+
     ModalManager.show({
       type:        "custom",
       title:       "Nueva Etiqueta",

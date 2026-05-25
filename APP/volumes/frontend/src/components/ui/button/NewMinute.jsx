@@ -19,6 +19,7 @@ import projectService from "@/services/projectService";
 import profileService, { profileCategoryService } from "@/services/profileService";
 import useSessionStore from "@/store/sessionStore";
 import useMinuteNotificationStore from "@/store/minuteNotificationStore";
+import { ensureWriteOperationAllowed } from "@/utils/operationModeGuard";
 
 import logger from "@/utils/logger";
 const minLog = logger.scope("minute");
@@ -1043,7 +1044,10 @@ const NewMinute = ({ onSuccess }) => {
   const addPending = useMinuteNotificationStore((s) => s.addPending);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleNewMinute = () => {
+  const handleNewMinute = async () => {
+    const allowed = await ensureWriteOperationAllowed({ actionLabel: "Nueva Minuta" });
+    if (!allowed) return;
+
     ModalManager.show({
       type:       "custom",
       title:      "Asistente de Preparación de Minutas",
@@ -1054,6 +1058,9 @@ const NewMinute = ({ onSuccess }) => {
         <NewMinuteFormWithCatalog
           isSubmitting={isSubmitting}
           onSubmit={async (formData, catalog) => {
+            const allowed = await ensureWriteOperationAllowed({ actionLabel: "Crear minuta" });
+            if (!allowed) return;
+
             setIsSubmitting(true);
             try {
               const payload = buildPayload({

@@ -125,7 +125,7 @@ export const INITIAL_MAINTENANCE_DRAFT = {
 export const INITIAL_BACKUPS_DRAFT = {
   backupRetentionDays: 14,
   backupHistoryVisible: true,
-  backupPurgeQueue: "queue:maintenance / backup_purge",
+  backupPurgeQueue: "queue:backups / backup_purge",
   policies: {
     database: {
       enabled: true,
@@ -170,7 +170,7 @@ export const BACKUP_POLICY_DEFINITIONS = [
     shortLabel: "BD",
     icon: "FaDatabase",
     source: "MariaDB",
-    queue: "queue:maintenance / db_backup",
+    queue: "queue:backups / db_backup",
     description: "Respalda la base de datos operativa para restauraciones de estructura y datos.",
     formatOptions: [
       { value: "sql_gzip", label: "SQL comprimido (.sql.gz)" },
@@ -183,7 +183,7 @@ export const BACKUP_POLICY_DEFINITIONS = [
     shortLabel: "Adjuntos",
     icon: "paperclip",
     source: "Adjuntos y artefactos",
-    queue: "queue:maintenance / object_backup",
+    queue: "queue:backups / object_backup",
     description: "Respalda adjuntos y artefactos almacenados fuera de la base de datos.",
     formatOptions: [
       { value: "tar_gzip", label: "Tar comprimido (.tar.gz)" },
@@ -196,7 +196,7 @@ export const BACKUP_POLICY_DEFINITIONS = [
     shortLabel: "FULL",
     icon: "FaGears",
     source: "MariaDB + objetos + configuración",
-    queue: "queue:maintenance / full_backup",
+    queue: "queue:backups / full_backup",
     description: "Agrupa un paquete integral para restauración completa del sistema.",
     formatOptions: [
       { value: "tar_gzip", label: "Tar comprimido (.tar.gz)" },
@@ -465,10 +465,10 @@ export const Header = () => (
   </div>
 );
 
-export const TabNav = ({ activeTab, onTabChange }) => (
+export const TabNav = ({ activeTab, onTabChange, tabs = TABS }) => (
   <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
-    <div className="grid grid-cols-1 lg:grid-cols-5">
-      {TABS.map((tab) => {
+    <div className={tabs.length === 1 ? "grid grid-cols-1" : "grid grid-cols-1 lg:grid-cols-5"}>
+      {tabs.map((tab) => {
         const isActive = activeTab === tab.id;
         return (
           <button

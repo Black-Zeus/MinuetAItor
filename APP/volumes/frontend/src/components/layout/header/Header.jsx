@@ -15,7 +15,10 @@ import useBaseSiteStore   from '@store/baseSiteStore';
 import useAuthStore       from '@store/authStore';
 import useSessionStore    from '@store/sessionStore';
 
-const Header = () => {
+const Header = ({
+  isOperationLocked = false,
+  operationLabel = 'mantenimiento',
+}) => {
   const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
 
@@ -30,9 +33,13 @@ const Header = () => {
   };
 
   const userMenuItems = [
-    { label: 'Mi Perfil',      icon: 'FaPerson',      onClick: () => navigate('/settings/userProfile') },
-    { label: 'Configuración',  icon: 'FaGear',        onClick: () => navigate('/settings/system') },
-    { label: 'Ayuda & Soporte',icon: 'FaCircleInfo',  onClick: () => navigate('/help') },
+    ...(isOperationLocked ? [] : [
+      { label: 'Mi Perfil',      icon: 'FaPerson',      onClick: () => navigate('/settings/userProfile') },
+    ]),
+    { label: 'Configuración',  icon: 'FaGear',        onClick: () => navigate('/settings/system?tab=maintenance') },
+    ...(isOperationLocked ? [] : [
+      { label: 'Ayuda & Soporte',icon: 'FaCircleInfo',  onClick: () => navigate('/help') },
+    ]),
   ];
 
   const userName     = userDisplay?.fullName  || userDisplay?.username || 'Usuario';
@@ -47,14 +54,20 @@ const Header = () => {
 
       {/* RIGHT */}
       <div className="flex items-center space-x-4">
-        <HeaderSearch
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Buscar Minutas..."
-        />
+        {isOperationLocked ? (
+          <div className="hidden md:flex items-center rounded-lg border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-sm font-semibold text-amber-700 dark:text-amber-200">
+            Sistema en modo {operationLabel}
+          </div>
+        ) : (
+          <HeaderSearch
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Buscar Minutas..."
+          />
+        )}
         <div className="flex items-center space-x-2">
           <HeaderThemeToggle onClick={toggleTheme} currentTheme={theme} />
-          <HeaderNotificationsBell />
+          {!isOperationLocked && <HeaderNotificationsBell />}
         </div>
         <HeaderDivider />
         <HeaderUserMenu

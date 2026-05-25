@@ -11,6 +11,7 @@ import ModalManager from "@/components/ui/modal";
 
 import TeamsModal, { TEAMS_MODAL_MODES } from "@/pages/teams/TeamsModal";
 import teamsService from "@/services/teamsService";
+import { ensureWriteOperationAllowed } from "@/utils/operationModeGuard";
 
 import logger from "@/utils/logger";
 const teamsLog = logger.scope("teams");
@@ -68,7 +69,10 @@ const toApiPayload = (formData) => {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const NewTeams = ({ onCreated }) => {
-  const handleOpen = () => {
+  const handleOpen = async () => {
+    const allowed = await ensureWriteOperationAllowed({ actionLabel: "Nuevo Usuario" });
+    if (!allowed) return;
+
     ModalManager.show({
       type:        "custom",
       title:       "Crear Nuevo Usuario",
@@ -79,6 +83,8 @@ const NewTeams = ({ onCreated }) => {
         <TeamsModal
           mode={TEAMS_MODAL_MODES.CREATE}
           onSubmit={async (formData) => {
+            const allowed = await ensureWriteOperationAllowed({ actionLabel: "Crear usuario" });
+            if (!allowed) throw new Error("Operación bloqueada por el modo operativo del sistema.");
             const payload = toApiPayload(formData);
             teamsLog.log("[NewTeams] Creando usuario:", payload);
             return await teamsService.create(payload);

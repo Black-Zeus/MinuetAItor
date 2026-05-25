@@ -24,7 +24,7 @@ import { toastSuccess, toastError } from "@/components/common/toast/toastHelpers
 
 const SSE_BASE = "/api/v1/minutes";
 
-export const useMinuteSSE = () => {
+export const useMinuteSSE = (enabled = true) => {
   const getPendingList = useMinuteNotificationStore((s) => s.getPendingList);
   const removePending  = useMinuteNotificationStore((s) => s.removePending);
   const pending        = useMinuteNotificationStore((s) => s.pending);
@@ -34,7 +34,13 @@ export const useMinuteSSE = () => {
   const sourcesRef = useRef(new Map());
 
   useEffect(() => {
-    if (!accessToken) return;
+    if (!enabled || !accessToken) {
+      for (const es of sourcesRef.current.values()) {
+        es.close();
+      }
+      sourcesRef.current.clear();
+      return;
+    }
 
     const pendingList   = getPendingList();
     const activeSources = sourcesRef.current;
@@ -105,7 +111,7 @@ export const useMinuteSSE = () => {
         activeSources.delete(txId);
       }
     }
-  }, [pending, accessToken, getPendingList, removePending]);
+  }, [enabled, pending, accessToken, getPendingList, removePending]);
 
   // Cleanup definitivo al desmontar Layout (logout / cierre de tab)
   useEffect(() => {

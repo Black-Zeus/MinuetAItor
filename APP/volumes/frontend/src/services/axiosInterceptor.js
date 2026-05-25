@@ -344,7 +344,11 @@ axiosInstance.interceptors.response.use(
     const message = extractErrorMessage(resData, error.message);
 
     if (status !== 401) {
-      await showToastBySemantics(status, code, message);
+      if (status === 503 && resData?.maintenance) {
+        await notify.warning(message || "El sistema está en modo mantenimiento.");
+      } else {
+        await showToastBySemantics(status, code, message);
+      }
     }
 
     return Promise.reject(error);

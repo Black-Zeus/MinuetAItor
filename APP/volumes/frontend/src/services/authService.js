@@ -54,6 +54,18 @@ class AuthService {
       if (shouldLog()) console.log("✅ Login successful");
       return result; // { access_token, token_type, expires_in }
     } catch (error) {
+      if (error?.response?.status === 503 && error?.response?.data?.maintenance) {
+        const maintenance = error.response.data.maintenance;
+        const mode = maintenance?.mode === "read_only" ? "solo lectura" : "mantenimiento";
+        throw {
+          code: "SYSTEM_MAINTENANCE",
+          status: 503,
+          title: maintenance?.mode === "read_only" ? "Sistema en solo lectura" : "Sistema en mantenimiento",
+          message: `No se puede acceder porque el sistema está en modo ${mode}.`,
+          action: "Intenta nuevamente cuando una persona administradora reactive el modo normal.",
+          maintenance,
+        };
+      }
       const formattedError = getFormattedError(error);
       if (shouldLog()) console.error("❌ Login failed:", formattedError);
       throw formattedError;

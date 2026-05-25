@@ -11,6 +11,7 @@ import ModalManager   from "@/components/ui/modal";
 import profileService from "@/services/profileService";
 import ProfilesCatalogModal, { PROFILE_MODAL_MODES } from "@/pages/profiles/ProfilesCatalogModal";
 import { toastSuccess, toastError } from "@/components/common/toast/toastHelpers";
+import { ensureWriteOperationAllowed } from "@/utils/operationModeGuard";
 
 import logger from "@/utils/logger";
 const profileLog = logger.scope("new-profile");
@@ -42,6 +43,9 @@ const toApiPayload = (formData, categories = []) => {
 const NewProfilesCatalog = ({ categories = [], onCreated }) => {
 
   const handleSubmit = async (payload) => {
+    const allowed = await ensureWriteOperationAllowed({ actionLabel: "Crear perfil AI" });
+    if (!allowed) throw new Error("Operación bloqueada por el modo operativo del sistema.");
+
     const apiPayload = toApiPayload(payload, categories);
     profileLog.log("Creating profile:", apiPayload);
 
@@ -51,7 +55,10 @@ const NewProfilesCatalog = ({ categories = [], onCreated }) => {
     onCreated?.(created);
   };
 
-  const handleClick = () => {
+  const handleClick = async () => {
+    const allowed = await ensureWriteOperationAllowed({ actionLabel: "Nuevo Perfil AI" });
+    if (!allowed) return;
+
     ModalManager.show({
       type:       "custom",
       title:      "Nuevo Perfil AI",

@@ -4,17 +4,17 @@ import ActionButton from "@/components/ui/button/ActionButton";
 import Icon from "@/components/ui/icon/iconManager";
 import ModalManager from "@/components/ui/modal";
 import { toastError, toastSuccess } from "@/components/common/toast/toastHelpers";
+import systemBackupsService from "@/services/systemBackupsService";
 import { BackupDashboardView } from "@/pages/system/backups/BackupDashboardView";
 import { BackupHistoryView } from "@/pages/system/backups/BackupHistoryView";
 import { BackupRecoveryView } from "@/pages/system/backups/BackupRecoveryView";
 import { BackupScheduleView } from "@/pages/system/backups/BackupScheduleView";
 import { BackupTechnicalView } from "@/pages/system/backups/BackupTechnicalView";
 import { BackupsPanelTabs } from "@/pages/system/backups/BackupsPanelTabs";
+import { SYSTEM_BACKUPS_RUNTIME_EVENT } from "@/hooks/useSystemBackupsSSE";
 import {
   BACKUP_DESTINATION_LABELS,
-  BACKUP_HISTORY_ITEMS,
   BACKUP_POLICY_DEFINITIONS,
-  BACKUP_STORAGE_ROOT_CONTAINER,
   BACKUP_STORAGE_ROOT_HOST,
   BACKUP_VERIFICATION_LABELS,
   DraftModeNotice,
@@ -28,10 +28,70 @@ import {
   clonePlainObject,
   formatBytes,
   formatDateTime,
-  inferImportPackageAnalysis,
   openCronPlannerModal,
   validateCronExpression,
 } from "@/pages/system/SystemSettingsShared";
+
+const BACKUP_SCOPE_LABELS = {
+  database: "BD",
+  objects: "Adjuntos",
+  full: "FULL",
+};
+
+const BACKUP_ORIGIN_LABELS = {
+  manual: "Manual",
+  scheduled: "Automático",
+  filesystem: "Sistema",
+  imported: "Importado",
+  pre_restore: "Pre-restore",
+};
+
+const BACKUP_STATUS_META = {
+  available: { label: "Disponible", tone: "active" },
+  queued: { label: "Solicitado", tone: "info" },
+  running: { label: "En ejecución", tone: "warning" },
+  completed: { label: "Completado", tone: "active" },
+  failed: { label: "Fallido", tone: "danger" },
+  missing: { label: "No encontrado", tone: "warning" },
+  purged: { label: "Purgado", tone: "inactive" },
+};
+
+const getPolicyDefinition = (scope) =>
+  BACKUP_POLICY_DEFINITIONS.find((candidate) => candidate.id === scope);
+
+const normalizeBackupConfig = (config) => ({
+  ...clonePlainObject(INITIAL_BACKUPS_DRAFT),
+  ...config,
+  policies: {
+    ...clonePlainObject(INITIAL_BACKUPS_DRAFT.policies),
+    ...(config?.policies || {}),
+  },
+});
+
+const normalizeBackupHistoryItem = (item) => {
+  const rawScope = String(item?.scope || "").toLowerCase();
+  const policyDefinition = getPolicyDefinition(rawScope);
+  const itemType = item?.itemType || item?.item_type || "artifact";
+  const isActiveOperation = itemType === "operation" && ["queued", "running"].includes(item?.status);
+  const statusMeta = isActiveOperation
+    ? { label: "Procesando", tone: "warning" }
+    : BACKUP_STATUS_META[item?.status] || { label: item?.status || "—", tone: "info" };
+  return {
+    ...item,
+    itemType,
+    isActiveOperation,
+    rawStatus: item?.status,
+    scope: BACKUP_SCOPE_LABELS[rawScope] || item?.scope || "FULL",
+    rawScope,
+    source: policyDefinition?.source || "MariaDB + objetos",
+    originType: BACKUP_ORIGIN_LABELS[item?.originType] || item?.originType || "Automático",
+    exportedAt: item?.createdAt,
+    status: statusMeta.label,
+    tone: statusMeta.tone,
+    storagePath: item?.storagePath || item?.filePath || item?.message || "—",
+    restoreImpact: `limpiará la persistencia activa del ámbito ${BACKUP_SCOPE_LABELS[rawScope] || item?.scope || "seleccionado"} antes de cargar desde cero el contenido del paquete`,
+  };
+};
 
 const RestoreBackupModal = ({ item, onClose, onConfirm }) => (
   <div className="flex w-full justify-center px-4">
@@ -123,9 +183,22 @@ const RestoreBackupModal = ({ item, onClose, onConfirm }) => (
   </div>
 );
 
-const ImportBackupPackageModal = ({ onClose, onAnalyze }) => {
+const ImportBackupPackageModal = ({ onClose, onImport }) => {
   const inputRef = useRef(null);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const handleImport = async () => {
+    if (!selectedFile || isUploading) return;
+    setIsUploading(true);
+    try {
+      await onImport(selectedFile);
+      setIsUploading(false);
+      onClose();
+    } catch (_error) {
+      setIsUploading(false);
+    }
+  };
 
   return (
     <div className="flex w-full justify-center px-4">
@@ -135,7 +208,7 @@ const ImportBackupPackageModal = ({ onClose, onAnalyze }) => {
             <div>
               <h2 className={`text-xl font-semibold ${TXT_TITLE}`}>Importar paquete externo</h2>
               <p className={`mt-2 text-sm ${TXT_BODY}`}>
-                Selecciona un paquete de respaldo para analizarlo antes de permitir la importación.
+                Selecciona un paquete de respaldo para copiarlo a la carpeta oficial y registrarlo en el historial.
               </p>
             </div>
             <ActionButton
@@ -153,7 +226,7 @@ const ImportBackupPackageModal = ({ onClose, onAnalyze }) => {
           <input
             ref={inputRef}
             type="file"
-            accept=".tar,.tar.gz,.tgz,.zip,.sql,.sql.gz"
+            accept=".tar.gz,.tgz,application/gzip"
             className="hidden"
             onChange={(event) => {
               const file = event.target.files?.[0] ?? null;
@@ -166,7 +239,7 @@ const ImportBackupPackageModal = ({ onClose, onAnalyze }) => {
               <div>
                 <p className={`text-sm font-medium ${TXT_TITLE}`}>Carga de archivo</p>
                 <p className={`mt-2 text-sm ${TXT_BODY}`}>
-                  El análisis no importa el paquete todavía. Solo inspecciona el archivo y resume el alcance detectado.
+                  El paquete quedará disponible junto a los respaldos generados por el sistema y se marcará como importado.
                 </p>
               </div>
 
@@ -201,13 +274,14 @@ const ImportBackupPackageModal = ({ onClose, onAnalyze }) => {
             variant="soft"
             size="sm"
             onClick={onClose}
+            disabled={isUploading}
           />
           <ActionButton
-            label="Analizar paquete"
+            label={isUploading ? "Importando..." : "Importar paquete"}
             variant="primary"
             size="sm"
-            onClick={() => selectedFile && onAnalyze(selectedFile)}
-            disabled={!selectedFile}
+            onClick={handleImport}
+            disabled={!selectedFile || isUploading}
           />
         </div>
       </div>
@@ -318,32 +392,23 @@ const IMPORT_EXECUTION_STEPS = [
   "Guardando resultado",
 ];
 
-const RESTORE_EXECUTION_STEPS_BY_SCOPE = {
-  BD: [
-    "Validando respaldo de base de datos",
-    "Limpiando base de datos activa",
-    "Restaurando estructura y datos",
-    "Registrando resultado de restauración",
-  ],
-  Adjuntos: [
-    "Validando respaldo de objetos",
-    "Limpiando objetos y adjuntos activos",
-    "Restaurando buckets y artefactos",
-    "Registrando resultado de restauración",
-  ],
-  MinIO: [
-    "Validando respaldo de objetos",
-    "Limpiando objetos y adjuntos activos",
-    "Restaurando buckets y artefactos",
-    "Registrando resultado de restauración",
-  ],
-  FULL: [
-    "Validando respaldo completo",
-    "Limpiando persistencia activa",
-    "Restaurando base de datos",
-    "Restaurando objetos y configuración",
-    "Registrando resultado de restauración",
-  ],
+const RESTORE_PHASE_STEPS = [
+  { phase: "validating_package", label: "Validando paquete y checksums" },
+  { phase: "creating_pre_restore_backup", label: "Generando respaldo previo" },
+  { phase: "restoring_database", label: "Restaurando MariaDB" },
+  { phase: "restoring_objects", label: "Restaurando MinIO" },
+  { phase: "registering_results", label: "Registrando auditoría y catálogo" },
+  { phase: "clearing_runtime", label: "Limpiando sesiones y runtime" },
+  { phase: "completed", label: "Finalizado" },
+];
+
+const getRestorePhaseSteps = (item) => {
+  const scope = String(item?.rawScope || item?.scope || "").toLowerCase();
+  return RESTORE_PHASE_STEPS.filter((step) => {
+    if (step.phase === "restoring_database") return scope !== "objects" && scope !== "adjuntos" && scope !== "minio";
+    if (step.phase === "restoring_objects") return scope !== "database" && scope !== "bd";
+    return true;
+  });
 };
 
 const ImportBackupExecutionModal = ({ analysis, onComplete }) => {
@@ -430,26 +495,35 @@ const ImportBackupExecutionModal = ({ analysis, onComplete }) => {
   );
 };
 
-const RestoreBackupExecutionModal = ({ item, onComplete }) => {
-  const steps = RESTORE_EXECUTION_STEPS_BY_SCOPE[item?.scope] ?? RESTORE_EXECUTION_STEPS_BY_SCOPE.FULL;
-  const [currentStep, setCurrentStep] = useState(0);
+const RestoreBackupExecutionModal = ({ item, operationId, onComplete }) => {
+  const steps = getRestorePhaseSteps(item);
+  const [phase, setPhase] = useState("validating_package");
+  const [status, setStatus] = useState("running");
+  const [message, setMessage] = useState("Esperando eventos del backup-worker.");
 
   useEffect(() => {
-    if (currentStep >= steps.length) {
-      const doneTimer = window.setTimeout(() => {
-        onComplete?.();
-      }, 900);
-      return () => window.clearTimeout(doneTimer);
-    }
+    const handleRuntimeEvent = (event) => {
+      const payload = event?.detail || {};
+      if (payload?.action !== "restore_backup") return;
+      if (operationId && payload?.operation_id !== operationId) return;
+      const nextPhase = payload?.metadata?.phase;
+      if (nextPhase) setPhase(nextPhase);
+      if (payload?.status) setStatus(payload.status);
+      if (payload?.message) setMessage(payload.message);
+      if (["success", "error"].includes(payload?.status)) {
+        window.setTimeout(() => {
+          onComplete?.(payload);
+        }, payload.status === "success" ? 2500 : 6000);
+      }
+    };
 
-    const stepTimer = window.setTimeout(() => {
-      setCurrentStep((prev) => prev + 1);
-    }, 900);
+    window.addEventListener(SYSTEM_BACKUPS_RUNTIME_EVENT, handleRuntimeEvent);
+    return () => window.removeEventListener(SYSTEM_BACKUPS_RUNTIME_EVENT, handleRuntimeEvent);
+  }, [operationId, onComplete]);
 
-    return () => window.clearTimeout(stepTimer);
-  }, [currentStep, steps.length, onComplete]);
-
-  const isDone = currentStep >= steps.length;
+  const currentStep = Math.max(0, steps.findIndex((step) => step.phase === phase));
+  const isDone = status === "success";
+  const isError = status === "error" || phase === "failed";
 
   return (
     <div className="flex w-full justify-center px-4">
@@ -457,41 +531,46 @@ const RestoreBackupExecutionModal = ({ item, onComplete }) => {
         <div className="border-b border-gray-100 px-6 py-5 dark:border-gray-700">
           <div className="flex items-center gap-3">
             <h2 className={`text-xl font-semibold ${TXT_TITLE}`}>Proceso de restauración</h2>
-            <StatusBadge tone={isDone ? "active" : "warning"}>
-              {isDone ? "Completado" : "En curso"}
+            <StatusBadge tone={isError ? "danger" : isDone ? "active" : "warning"}>
+              {isError ? "Con error" : isDone ? "Completado" : "En curso"}
             </StatusBadge>
           </div>
           <p className={`mt-2 text-sm ${TXT_BODY}`}>
-            Se está ejecutando la restauración del paquete `{item?.name || "seleccionado"}` con alcance {item?.scope || "FULL"}.
+            {message || `Restaurando el paquete ${item?.name || "seleccionado"}.`}
           </p>
         </div>
 
         <div className="space-y-5 px-6 py-6">
           <div className="rounded-2xl border border-amber-200 bg-amber-50/70 px-5 py-4 dark:border-amber-800/60 dark:bg-amber-950/10">
             <p className={`text-sm ${TXT_BODY}`}>
-              Las tareas mostradas a continuación están alineadas con el tipo de restauración seleccionado y se ejecutan sobre la persistencia activa del sistema.
+              Estos pasos se actualizan con eventos reales emitidos por el backup-worker.
             </p>
           </div>
 
           <div className="space-y-3">
             {steps.map((step, index) => {
-              const isCompleted = index < currentStep;
-              const isActive = index === currentStep && !isDone;
+              const isCompleted = isDone || index < currentStep;
+              const isActive = index === currentStep && !isDone && !isError;
+              const isFailed = isError && index === currentStep;
 
               return (
                 <div
-                  key={`restore-step-${step}`}
+                  key={`restore-step-${step.phase}`}
                   className={[
                     "flex items-center gap-4 rounded-2xl border px-4 py-4 transition",
-                    isCompleted
-                      ? "border-green-200 bg-green-50/70 dark:border-green-800/60 dark:bg-green-950/10"
-                      : isActive
-                        ? "border-amber-200 bg-amber-50/70 dark:border-amber-800/60 dark:bg-amber-950/10"
-                        : "border-gray-200 bg-slate-50/70 dark:border-gray-700 dark:bg-slate-900/30",
+                    isFailed
+                      ? "border-red-200 bg-red-50/70 dark:border-red-800/60 dark:bg-red-950/10"
+                      : isCompleted
+                        ? "border-green-200 bg-green-50/70 dark:border-green-800/60 dark:bg-green-950/10"
+                        : isActive
+                          ? "border-amber-200 bg-amber-50/70 dark:border-amber-800/60 dark:bg-amber-950/10"
+                          : "border-gray-200 bg-slate-50/70 dark:border-gray-700 dark:bg-slate-900/30",
                   ].join(" ")}
                 >
                   <div className="flex h-9 w-9 items-center justify-center rounded-full border border-current/10 bg-white dark:bg-gray-800">
-                    {isCompleted ? (
+                    {isFailed ? (
+                      <Icon name="FaXmark" className="h-4 w-4 text-red-600 dark:text-red-400" />
+                    ) : isCompleted ? (
                       <Icon name="check" className="h-4 w-4 text-green-600 dark:text-green-400" />
                     ) : isActive ? (
                       <Icon name="spinner" className="h-4 w-4 animate-spin text-amber-600 dark:text-amber-400" />
@@ -500,9 +579,9 @@ const RestoreBackupExecutionModal = ({ item, onComplete }) => {
                     )}
                   </div>
                   <div className="min-w-0">
-                    <p className={`text-sm font-semibold ${TXT_TITLE}`}>{step}</p>
+                    <p className={`text-sm font-semibold ${TXT_TITLE}`}>{step.label}</p>
                     <p className={`mt-1 text-xs ${TXT_META}`}>
-                      {isCompleted ? "Tarea completada" : isActive ? "Tarea en ejecución" : "Pendiente"}
+                      {isFailed ? "Falló en este paso" : isCompleted ? "Tarea completada" : isActive ? "Tarea en ejecución" : "Pendiente"}
                     </p>
                   </div>
                 </div>
@@ -652,10 +731,80 @@ export const BackupsPanel = () => {
   });
   const [draft, setDraft] = useState(() => clonePlainObject(INITIAL_BACKUPS_DRAFT));
   const [savedDraft, setSavedDraft] = useState(() => clonePlainObject(INITIAL_BACKUPS_DRAFT));
-  const [historyItems, setHistoryItems] = useState(BACKUP_HISTORY_ITEMS);
-  const [latestImportAnalysis, setLatestImportAnalysis] = useState(null);
+  const [historyItems, setHistoryItems] = useState([]);
+  const [latestImportAnalysis] = useState(null);
   const [selectedRecoveryItem, setSelectedRecoveryItem] = useState(null);
+  const [selectedRecoveryInspection, setSelectedRecoveryInspection] = useState(null);
+  const [isInspectingBackup, setIsInspectingBackup] = useState(false);
+  const [isImportingBackup, setIsImportingBackup] = useState(false);
   const [cronErrors, setCronErrors] = useState({});
+  const [isLoadingBackups, setIsLoadingBackups] = useState(true);
+  const [backupStatus, setBackupStatus] = useState(null);
+
+  const loadBackups = async ({ silent = false } = {}) => {
+    if (!silent) setIsLoadingBackups(true);
+    try {
+      const [config, history, status] = await Promise.all([
+        systemBackupsService.getConfig(),
+        systemBackupsService.getHistory(100),
+        systemBackupsService.getStatus(),
+      ]);
+      const normalizedConfig = normalizeBackupConfig(config);
+      setDraft(clonePlainObject(normalizedConfig));
+      setSavedDraft(clonePlainObject(normalizedConfig));
+      setHistoryItems((history?.items || []).map(normalizeBackupHistoryItem));
+      setBackupStatus(status);
+    } catch (error) {
+      toastError("Respaldos no disponibles", error?.message || "No fue posible cargar el módulo de respaldos.");
+    } finally {
+      if (!silent) setIsLoadingBackups(false);
+    }
+  };
+
+  const refreshBackups = async () => {
+    try {
+      const [history, status] = await Promise.all([
+        systemBackupsService.getHistory(100),
+        systemBackupsService.getStatus(),
+      ]);
+      setHistoryItems((history?.items || []).map(normalizeBackupHistoryItem));
+      setBackupStatus(status);
+    } catch (error) {
+      toastError("Actualización fallida", error?.message || "No fue posible actualizar el historial.");
+    }
+  };
+
+  useEffect(() => {
+    loadBackups();
+  }, []);
+
+  useEffect(() => {
+    const handleBackupRuntimeUpdate = (event) => {
+      const payload = event?.detail || {};
+      if (!["success", "error", "cancelled"].includes(payload?.status)) return;
+
+      refreshBackups();
+
+      const purged = Array.isArray(payload?.metadata?.purged) ? payload.metadata.purged : [];
+      const purgedIds = purged.map((entry) => String(entry?.id || "")).filter(Boolean);
+      const selectedId = String(selectedRecoveryItem?.id || "");
+
+      if (
+        payload?.status === "success" &&
+        payload?.action === "backup_purge" &&
+        selectedId &&
+        (String(payload?.artifact_id || "") === selectedId || purgedIds.includes(selectedId))
+      ) {
+        setSelectedRecoveryItem(null);
+        setSelectedRecoveryInspection(null);
+      }
+    };
+
+    window.addEventListener(SYSTEM_BACKUPS_RUNTIME_EVENT, handleBackupRuntimeUpdate);
+    return () => {
+      window.removeEventListener(SYSTEM_BACKUPS_RUNTIME_EVENT, handleBackupRuntimeUpdate);
+    };
+  }, [selectedRecoveryItem?.id]);
 
   const updateDraft = (key, value) => {
     setDraft((prev) => ({ ...prev, [key]: value }));
@@ -751,8 +900,15 @@ export const BackupsPanel = () => {
 
     if (!confirmed) return;
 
-    setSavedDraft(clonePlainObject(draft));
-    toastSuccess("Respaldos actualizados", "Las políticas de respaldo quedaron actualizadas.");
+    try {
+      const updatedConfig = await systemBackupsService.updateConfig(draft);
+      const normalizedConfig = normalizeBackupConfig(updatedConfig);
+      setDraft(clonePlainObject(normalizedConfig));
+      setSavedDraft(clonePlainObject(normalizedConfig));
+      toastSuccess("Respaldos actualizados", "Las políticas de respaldo quedaron actualizadas.");
+    } catch (error) {
+      toastError("No se pudo guardar", error?.message || "No fue posible actualizar la configuración de respaldos.");
+    }
   };
 
   const backupSummaryItems = [
@@ -785,6 +941,7 @@ export const BackupsPanel = () => {
         { label: "Historial", value: savedDraft.backupHistoryVisible ? "Visible" : "Oculto" },
         { label: "Purge", value: "Interno y silencioso" },
         { label: "Cola técnica", value: savedDraft.backupPurgeQueue || "—" },
+        { label: "Jobs pendientes", value: backupStatus?.queue?.size ?? 0 },
         { label: "Ruta host", value: BACKUP_STORAGE_ROOT_HOST },
         { label: "Cobertura", value: "BD, Adjuntos y Full" },
       ],
@@ -795,13 +952,41 @@ export const BackupsPanel = () => {
   const successfulBackupCount = historyItems.filter((item) => item.tone === "active" || item.status === "Completado").length;
   const failedBackupCount = historyItems.filter((item) => item.tone === "danger" || item.status === "Fallido").length;
 
-  const handleDownloadBackup = (item) => {
-    toastSuccess("Descarga preparada", `Se preparó la descarga de "${item.name}".`);
+  const handleDownloadBackup = async (item) => {
+    try {
+      const result = await systemBackupsService.downloadArtifact(item.id);
+      const url = window.URL.createObjectURL(result.blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = result.filename || item.name || "backup.tar.gz";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toastSuccess("Descarga iniciada", `Se inició la descarga de "${item.name}".`);
+    } catch (error) {
+      toastError("No se pudo descargar", error?.message || "No fue posible descargar el paquete de respaldo.");
+    }
   };
 
-  const handleAnalyzeBackup = (item) => {
+  const handleAnalyzeBackup = async (item) => {
     setSelectedRecoveryItem(item);
+    setSelectedRecoveryInspection(null);
     setActiveBackupTab("recovery");
+    setIsInspectingBackup(true);
+    try {
+      const inspection = await systemBackupsService.inspectArtifact(item.id);
+      setSelectedRecoveryInspection(inspection);
+      if (inspection?.isValid) {
+        toastSuccess("Respaldo inspeccionado", "El paquete fue leído y sus checksums internos son válidos.");
+      } else {
+        toastError("Respaldo con observaciones", "El paquete fue leído, pero presenta errores de inspección.");
+      }
+    } catch (error) {
+      toastError("No se pudo inspeccionar", error?.message || "No fue posible leer el contenido del respaldo.");
+    } finally {
+      setIsInspectingBackup(false);
+    }
   };
 
   const handleRunManualBackup = async (policyId) => {
@@ -818,33 +1003,51 @@ export const BackupsPanel = () => {
 
     if (!confirmed) return;
 
-    const now = new Date();
-    const stamp = [
-      now.getFullYear(),
-      String(now.getMonth() + 1).padStart(2, "0"),
-      String(now.getDate()).padStart(2, "0"),
-      String(now.getHours()).padStart(2, "0"),
-      String(now.getMinutes()).padStart(2, "0"),
-    ].join("");
-    const extension = policy.fileFormat === "sql_plain" ? "sql" : policy.fileFormat === "tar_plain" ? "tar" : policy.fileFormat === "zip_bundle" ? "zip" : policy.fileFormat === "sql_gzip" ? "sql.gz" : "tar.gz";
-    const name = `${policyId}-manual-${stamp}.${extension}`;
-    const item = {
-      id: `manual-${policyId}-${Date.now()}`,
-      name,
-      scope: policyDefinition.shortLabel,
-      source: policyDefinition.source,
-      originType: "Manual",
-      createdAt: now.toISOString(),
-      exportedAt: now.toISOString(),
-      sizeBytes: 0,
-      storagePath: `${policy.pathPrefix}/${name}`,
-      status: "Solicitado",
-      tone: "info",
-      restoreImpact: `limpiará la persistencia activa del ámbito ${policyDefinition.shortLabel} antes de cargar desde cero el contenido del paquete`,
-    };
+    try {
+      const result = await systemBackupsService.runBackup(policyId);
+      await refreshBackups();
+      toastSuccess(
+        "Respaldo manual solicitado",
+        result?.jobId
+          ? `${policyDefinition.title} quedó encolado con job ${result.jobId}.`
+          : `${policyDefinition.title} quedó encolado para ejecución.`
+      );
+    } catch (error) {
+      toastError("No se pudo solicitar", error?.message || "No fue posible encolar el respaldo manual.");
+    }
+  };
 
-    setHistoryItems((prev) => [item, ...prev]);
-    toastSuccess("Respaldo manual solicitado", `${policyDefinition.title} quedó registrado en el historial.`);
+  const handleSyncCatalog = async () => {
+    try {
+      const result = await systemBackupsService.syncCatalog();
+      await refreshBackups();
+      toastSuccess(
+        "Catálogo sincronizado",
+        `Escaneados: ${result?.scannedCount ?? 0}. Nuevos: ${result?.discoveredCount ?? 0}. Faltantes: ${result?.missingCount ?? 0}.`
+      );
+    } catch (error) {
+      toastError("Sincronización fallida", error?.message || "No fue posible sincronizar el catálogo de respaldos.");
+    }
+  };
+
+  const handleImportPackage = async (file) => {
+    if (!file || isImportingBackup) return;
+    setIsImportingBackup(true);
+    try {
+      const result = await systemBackupsService.importPackage(file);
+      await refreshBackups();
+      toastSuccess(
+        "Paquete importado",
+        result?.artifact?.name
+          ? `${result.artifact.name} quedó registrado como importado.`
+          : result?.message || "El paquete quedó registrado en el historial."
+      );
+    } catch (error) {
+      toastError("Importación fallida", error?.message || "No fue posible importar el paquete.");
+      throw error;
+    } finally {
+      setIsImportingBackup(false);
+    }
   };
 
   const openImportPackageModal = () => {
@@ -857,181 +1060,139 @@ export const BackupsPanel = () => {
       content: (
         <ImportBackupPackageModal
           onClose={() => ModalManager.closeAll()}
-          onAnalyze={(file) => {
-            ModalManager.closeAll();
-            ModalManager.show({
-              type: "custom",
-              title: "Analizando paquete",
-              size: "clientWide",
-              showHeader: false,
-              showFooter: false,
-              closeOnBackdrop: false,
-              content: <ImportBackupAnalysisLoadingModal />,
-            });
-
-            window.setTimeout(() => {
-              const analysis = inferImportPackageAnalysis(file);
-              setLatestImportAnalysis(analysis);
-              ModalManager.closeAll();
-              ModalManager.show({
-                type: "custom",
-                title: "Resumen del paquete",
-                size: "clientWide",
-                showHeader: false,
-                showFooter: false,
-                content: (
-                  <ImportBackupSummaryModal
-                    analysis={analysis}
-                    onClose={() => ModalManager.closeAll()}
-                    onImport={() => {
-                      toastSuccess("Registro iniciado", "El paquete se está registrando en el historial.");
-                      ModalManager.closeAll();
-                      ModalManager.show({
-                        type: "custom",
-                        title: "Registro de importación",
-                        size: "clientWide",
-                        showHeader: false,
-                        showFooter: false,
-                        closeOnBackdrop: false,
-                        content: (
-                          <ImportBackupExecutionModal
-                            analysis={analysis}
-                            onComplete={() => {
-                              const importedItem = {
-                                id: `imported-${Date.now()}`,
-                                name: analysis?.file?.name || "paquete-importado",
-                                scope: analysis?.scope || "FULL",
-                                source: analysis?.source || "MariaDB + objetos + configuración",
-                                originType: "Importado",
-                                createdAt: new Date().toISOString(),
-                                exportedAt: analysis?.file?.lastModified ? new Date(analysis.file.lastModified).toISOString() : null,
-                                sizeBytes: analysis?.file?.size || 0,
-                                storagePath: `${BACKUP_STORAGE_ROOT_CONTAINER}/imports/${analysis?.file?.name || "paquete-importado"}`,
-                                status: "Importado",
-                                tone: "warning",
-                                restoreImpact: analysis?.restoreImpact || "limpiará la persistencia activa antes de cargar desde cero el contenido del paquete",
-                              };
-                              setHistoryItems((prev) => [importedItem, ...prev]);
-                              setSelectedRecoveryItem(importedItem);
-                              ModalManager.closeAll();
-                              ModalManager.show({
-                                type: "custom",
-                                title: "Paquete registrado",
-                                size: "clientWide",
-                                showHeader: false,
-                                showFooter: false,
-                                closeOnBackdrop: false,
-                                content: (
-                                  <CompletedProcessModal
-                                    title="Paquete registrado"
-                                    description={
-                                      analysis?.file?.name
-                                        ? `El paquete "${analysis.file.name}" quedó disponible en Historial y preparado para Recuperación.`
-                                        : "El paquete seleccionado quedó disponible en Historial y preparado para Recuperación."
-                                    }
-                                    onClose={() => ModalManager.closeAll()}
-                                  />
-                                ),
-                              });
-                            }}
-                          />
-                        ),
-                      });
-                    }}
-                  />
-                ),
-              });
-            }, 1400);
-          }}
+          onImport={handleImportPackage}
         />
       ),
     });
   };
 
-  const handleRestoreBackup = (item) => {
-    ModalManager.show({
-      type: "custom",
-      title: `Restaurar respaldo ${item.scope}`,
-      size: "clientWide",
-      showHeader: false,
-      showFooter: false,
-      content: (
-        <RestoreBackupModal
-          item={item}
-          onClose={() => ModalManager.closeAll()}
-          onConfirm={async () => {
-            ModalManager.closeAll();
-            const confirmed = await ModalManager.confirm({
-              title: `Confirmar restauración ${item.scope || "respaldo"}`,
-              message: (
-                <>
-                  <p>{`¿Deseas restaurar el paquete "${item.name || "seleccionado"}"?`}</p>
-                  <p className="mt-2">
-                    {`Esta acción limpiará la persistencia vigente del ámbito ${item.scope || "seleccionado"} y cargará la información desde cero.`}
-                  </p>
-                </>
-              ),
-            });
+  const handleRestoreBackup = async () => {
+    if (!selectedRecoveryItem) return;
 
-            if (!confirmed) return;
+    if (!selectedRecoveryInspection?.isValid) {
+      toastError("Inspección requerida", "Analiza el paquete y valida sus checksums antes de restaurar.");
+      return;
+    }
 
-            ModalManager.show({
-              type: "custom",
-              title: "Proceso de restauración",
-              size: "clientWide",
-              showHeader: false,
-              showFooter: false,
-              closeOnBackdrop: false,
-              content: (
-                <RestoreBackupExecutionModal
-                  item={item}
-                  onComplete={() => {
-                    ModalManager.closeAll();
-                    ModalManager.show({
-                      type: "custom",
-                      title: "Restauración terminada",
-                      size: "clientWide",
-                      showHeader: false,
-                      showFooter: false,
-                      closeOnBackdrop: false,
-                      content: (
-                        <CompletedRestartModal
-                          title="Restauración terminada"
-                          description={
-                            item?.name
-                              ? `El paquete "${item.name}" fue restaurado correctamente.`
-                              : "El respaldo seleccionado fue restaurado correctamente."
-                          }
-                          onClose={() => ModalManager.closeAll()}
-                        />
-                      ),
-                    });
-                  }}
-                />
-              ),
-            });
-          }}
-        />
-      ),
-    });
-  };
-
-  const handleDeleteBackup = async (item) => {
     const confirmed = await ModalManager.confirm({
-      title: "Eliminar respaldo",
-      message: `¿Deseas eliminar "${item.name}" del historial? Esta acción quitará el paquete listado de la vista administrativa.`,
-      confirmText: "Eliminar",
+      title: "Restaurar respaldo",
+      message: (
+        <>
+          <p>{`¿Deseas restaurar "${selectedRecoveryItem.name}"?`}</p>
+          <p className="mt-2">
+            El sistema quedará en mantenimiento, se generará un respaldo previo del mismo tipo y luego se cargará el contenido validado del paquete.
+          </p>
+          <p className="mt-2 font-semibold">Esta acción limpiará la persistencia activa del ámbito seleccionado y no se puede deshacer desde la UI.</p>
+        </>
+      ),
+      confirmText: "Restaurar",
       cancelText: "Cancelar",
     });
 
     if (!confirmed) return;
 
-    setHistoryItems((prev) => prev.filter((candidate) => candidate.id !== item.id));
-    if (selectedRecoveryItem?.id === item.id) {
-      setSelectedRecoveryItem(null);
+    try {
+      const result = await systemBackupsService.restoreArtifact(selectedRecoveryItem.id);
+      await refreshBackups();
+      toastSuccess(
+        "Restauración solicitada",
+        result?.jobId
+          ? `La restauración quedó encolada con job ${result.jobId}.`
+          : "La restauración quedó encolada para ejecución segura."
+      );
+      ModalManager.show({
+        type: "custom",
+        title: "Proceso de restauración",
+        size: "clientWide",
+        showHeader: false,
+        showFooter: false,
+        closeOnBackdrop: false,
+        content: (
+          <RestoreBackupExecutionModal
+            item={selectedRecoveryItem}
+            operationId={result?.operationId}
+            onComplete={(payload) => {
+              refreshBackups();
+              if (payload?.status === "success") {
+                ModalManager.closeAll();
+              }
+            }}
+          />
+        ),
+      });
+    } catch (error) {
+      toastError("No se pudo restaurar", error?.message || "No fue posible solicitar la restauración del respaldo.");
     }
-    toastSuccess("Respaldo eliminado", `Se eliminó "${item.name}" del historial visible.`);
   };
+
+  const handleDeleteBackup = async (item) => {
+    const sameScopeAvailableCount = historyItems.filter(
+      (candidate) => candidate.rawScope === item.rawScope && candidate.status === "Disponible"
+    ).length;
+    const isLastAvailableOfScope = item.status === "Disponible" && sameScopeAvailableCount <= 1;
+    const confirmed = await ModalManager.confirm({
+      title: "Eliminar respaldo manualmente",
+      message: (
+        <>
+          <p>{`¿Deseas eliminar "${item.name}"?`}</p>
+          <p className="mt-2">
+            {isLastAvailableOfScope
+              ? `Este es el último respaldo disponible de tipo ${item.scope}.`
+              : `Aún existen otros respaldos disponibles de tipo ${item.scope}.`}
+          </p>
+          <p className="mt-2 font-semibold">Esta acción no se puede deshacer.</p>
+        </>
+      ),
+      confirmText: "Eliminar respaldo",
+      cancelText: "Cancelar",
+    });
+
+    if (!confirmed) return;
+
+    try {
+      await systemBackupsService.purgeArtifact(item.id);
+      await refreshBackups();
+      toastSuccess("Eliminación solicitada", "La eliminación manual del respaldo quedó encolada.");
+    } catch (error) {
+      toastError("No se pudo eliminar", error?.message || "No fue posible solicitar la eliminación manual del respaldo.");
+    }
+  };
+
+  const handleCancelBackupOperation = async (item) => {
+    const confirmed = await ModalManager.confirm({
+      title: "Cancelar operación de respaldo",
+      message: (
+        <>
+          <p>{`¿Deseas cancelar "${item.name}"?`}</p>
+          <p className="mt-2">
+            Solo se cancelan operaciones que siguen en cola. Si el worker ya la tomó, el backend rechazará la cancelación.
+          </p>
+        </>
+      ),
+      confirmText: "Cancelar operación",
+      cancelText: "Volver",
+    });
+
+    if (!confirmed) return;
+
+    try {
+      const result = await systemBackupsService.cancelOperation(item.id);
+      await refreshBackups();
+      toastSuccess("Operación cancelada", result?.message || "La operación fue cerrada administrativamente.");
+    } catch (error) {
+      toastError("No se pudo cancelar", error?.message || "No fue posible cancelar la operación de respaldo.");
+    }
+  };
+
+  if (isLoadingBackups) {
+    return (
+      <div className="rounded-2xl border border-gray-200 bg-white px-6 py-8 text-center dark:border-gray-700 dark:bg-gray-800">
+        <Icon name="spinner" className="mx-auto h-8 w-8 animate-spin text-primary-600 dark:text-primary-300" />
+        <p className={`mt-4 text-sm font-semibold ${TXT_TITLE}`}>Cargando respaldos</p>
+        <p className={`mt-2 text-sm ${TXT_BODY}`}>Consultando configuración, historial y estado operativo.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -1075,14 +1236,19 @@ export const BackupsPanel = () => {
           onAnalyze={handleAnalyzeBackup}
           onDelete={handleDeleteBackup}
           onDownload={handleDownloadBackup}
+          onCancelOperation={handleCancelBackupOperation}
           onImportPackage={openImportPackageModal}
           onRunManualBackup={handleRunManualBackup}
+          onSyncCatalog={handleSyncCatalog}
         />
       ) : null}
 
       {activeBackupTab === "recovery" ? (
         <BackupRecoveryView
+          inspection={selectedRecoveryInspection}
+          isInspecting={isInspectingBackup}
           selectedRecoveryItem={selectedRecoveryItem}
+          onDownload={handleDownloadBackup}
           onRestore={handleRestoreBackup}
         />
       ) : null}

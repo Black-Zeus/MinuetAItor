@@ -3,6 +3,7 @@ import { extractErrorMessage } from "@/utils/errors";
 
 const BASE = "/v1/system/maintenance";
 const REQUEST_TIMEOUT_MS = 45000;
+const PUBLIC_STATE_TIMEOUT_MS = 5000;
 
 const isTimeoutError = (error) =>
   error?.code === "ECONNABORTED" ||
@@ -71,6 +72,30 @@ const systemMaintenanceService = {
         url: `${BASE}/status`,
       },
       "No fue posible obtener el estado actual de mantenimiento."
+    );
+    return unwrap(res);
+  },
+
+  async getPublicOperationState() {
+    const res = await request(
+      {
+        method: "get",
+        url: `${BASE}/operation-state/public`,
+        timeout: PUBLIC_STATE_TIMEOUT_MS,
+      },
+      "No fue posible obtener el modo operativo del sistema."
+    );
+    return unwrap(res);
+  },
+
+  async setOperationMode(mode, reason = "") {
+    const res = await request(
+      {
+        method: "post",
+        url: `${BASE}/operation-state`,
+        data: { mode, reason },
+      },
+      "No fue posible cambiar el modo operativo del sistema."
     );
     return unwrap(res);
   },

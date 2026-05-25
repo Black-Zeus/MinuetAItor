@@ -49,13 +49,13 @@ export const renderBasicModal = ({
                       {type === 'danger' && 'Peligro:'}
                     </strong>
                     {message && (
-                      <div className="mt-1">
-                        {typeof message === 'string' ? (
-                          <p>{message}</p>
-                        ) : (
-                          message
-                        )}
-                      </div>
+                      typeof message === 'string' ? (
+                        <span className="ml-1">{message}</span>
+                      ) : (
+                        <div className="mt-1">
+                          {message}
+                        </div>
+                      )
                     )}
                   </div>
                 </div>

@@ -44,6 +44,151 @@ const RUNTIME_STATUS_TONES = {
 };
 
 const ACTIVE_RUNTIME_STATUSES = new Set(["queued", "running"]);
+const OPERATION_MODE_LABELS = {
+  normal: "Normal",
+  read_only: "Solo lectura",
+  maintenance: "Mantenimiento",
+};
+const OPERATION_MODE_TONES = {
+  normal: "active",
+  read_only: "warning",
+  maintenance: "danger",
+};
+const OPERATION_REASON_OPTIONS = {
+  read_only: [
+    "Solo lectura por validación de auditoría.",
+    "Solo lectura por revisión operativa.",
+    "Solo lectura previo a ventana de mantenimiento.",
+    "Solo lectura por verificación posterior a restauración.",
+  ],
+  maintenance: [
+    "Modo mantenimiento activado administrativamente.",
+    "Mantenimiento por recuperación o restauración.",
+    "Mantenimiento por validación de respaldos.",
+    "Mantenimiento por intervención operativa programada.",
+  ],
+};
+
+const OperationModeReasonModal = ({ mode, onCancel, onConfirm }) => {
+  const label = OPERATION_MODE_LABELS[mode] || mode;
+  const options = OPERATION_REASON_OPTIONS[mode] || [];
+  const defaultReason = options[0] || `Modo ${label} activado administrativamente.`;
+  const [selectedReason, setSelectedReason] = useState(defaultReason);
+  const [customReason, setCustomReason] = useState("");
+  const isOther = selectedReason === "__other__";
+  const finalReason = (isOther ? customReason : selectedReason).trim();
+
+  return (
+    <div className="w-full max-w-2xl rounded-2xl border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-800">
+      <div className="border-b border-gray-100 px-6 py-5 dark:border-gray-700">
+        <h2 className={`text-xl font-semibold ${TXT_TITLE}`}>Activar modo {label}</h2>
+        <p className={`mt-2 text-sm ${TXT_BODY}`}>
+          Registra el motivo operativo. Este texto quedará asociado al estado del sistema y visible para administración.
+        </p>
+      </div>
+
+      <div className="space-y-5 px-6 py-6">
+        <div className="space-y-3">
+          {options.map((reason) => (
+            <label
+              key={reason}
+              className={[
+                "flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 transition",
+                selectedReason === reason
+                  ? "border-primary-400 bg-primary-50/60 dark:border-primary-600 dark:bg-primary-900/20"
+                  : "border-gray-200 bg-white hover:border-primary-300 dark:border-gray-700 dark:bg-gray-800",
+              ].join(" ")}
+            >
+              <input
+                type="radio"
+                name="operation-reason"
+                checked={selectedReason === reason}
+                onChange={() => setSelectedReason(reason)}
+                className="mt-1"
+              />
+              <span className={`text-sm ${TXT_TITLE}`}>{reason}</span>
+            </label>
+          ))}
+
+          <label
+            className={[
+              "flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 transition",
+              isOther
+                ? "border-primary-400 bg-primary-50/60 dark:border-primary-600 dark:bg-primary-900/20"
+                : "border-gray-200 bg-white hover:border-primary-300 dark:border-gray-700 dark:bg-gray-800",
+            ].join(" ")}
+          >
+            <input
+              type="radio"
+              name="operation-reason"
+              checked={isOther}
+              onChange={() => setSelectedReason("__other__")}
+              className="mt-1"
+            />
+            <span className={`text-sm ${TXT_TITLE}`}>Otro motivo</span>
+          </label>
+        </div>
+
+        {isOther ? (
+          <MaintenanceField label="Motivo personalizado" hint="Describe brevemente por qué se activa este modo.">
+            <textarea
+              value={customReason}
+              onChange={(event) => setCustomReason(event.target.value)}
+              rows={4}
+              maxLength={500}
+              autoFocus
+              className={[
+                "w-full resize-none rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none transition",
+                "focus:border-primary-400 focus:ring-2 focus:ring-primary-100 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:focus:ring-primary-900/40",
+              ].join(" ")}
+              placeholder={`Ej: ${defaultReason}`}
+            />
+          </MaintenanceField>
+        ) : null}
+      </div>
+
+      <div className="flex flex-col-reverse gap-2 border-t border-gray-100 px-6 py-4 dark:border-gray-700 sm:flex-row sm:justify-end">
+        <ActionButton
+          label="Cancelar"
+          variant="soft"
+          size="sm"
+          onClick={onCancel}
+        />
+        <ActionButton
+          label={`Activar ${label}`}
+          variant={mode === "maintenance" ? "danger" : "warning"}
+          size="sm"
+          icon={<Icon name={mode === "maintenance" ? "FaShield" : "FaLock"} />}
+          disabled={!finalReason}
+          onClick={() => onConfirm(finalReason)}
+        />
+      </div>
+    </div>
+  );
+};
+
+const openOperationModeReasonModal = ({ mode }) =>
+  new Promise((resolve) => {
+    const handleClose = (value = null) => {
+      ModalManager.closeAll();
+      resolve(value);
+    };
+
+    ModalManager.show({
+      type: "custom",
+      title: `Activar modo ${OPERATION_MODE_LABELS[mode] || mode}`,
+      size: "clientWide",
+      showHeader: false,
+      showFooter: false,
+      content: (
+        <OperationModeReasonModal
+          mode={mode}
+          onCancel={() => handleClose(null)}
+          onConfirm={(reason) => handleClose(reason)}
+        />
+      ),
+    });
+  });
 
 const toDraftShape = (payload) => ({
   sessionCleanupEnabled: Boolean(payload?.sessionCleanupEnabled),
@@ -125,6 +270,7 @@ export const MaintenancePanel = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [runningNowAction, setRunningNowAction] = useState("");
+  const [isChangingOperationMode, setIsChangingOperationMode] = useState(false);
   const [lastStatusRefreshAt, setLastStatusRefreshAt] = useState("");
   const runtimeRequestRef = useRef(null);
 
@@ -327,8 +473,42 @@ export const MaintenancePanel = () => {
     }
   };
 
+  const handleOperationModeChange = async (mode) => {
+    if (isChangingOperationMode) return;
+    const label = OPERATION_MODE_LABELS[mode] || mode;
+    let reason = "";
+
+    if (mode === "normal") {
+      const confirmed = await ModalManager.confirm({
+        title: "Volver a modo normal",
+        message: "¿Deseas retirar el bloqueo operativo y permitir nuevamente el uso normal del sistema?",
+        confirmText: "Volver a normal",
+        cancelText: "Cancelar",
+      });
+      if (!confirmed) return;
+    } else {
+      reason = await openOperationModeReasonModal({ mode });
+      if (!reason) return;
+    }
+
+    setIsChangingOperationMode(true);
+    try {
+      await systemMaintenanceService.setOperationMode(mode, reason);
+      await loadRuntimeStatus();
+      window.dispatchEvent(new CustomEvent(SYSTEM_MAINTENANCE_RUNTIME_EVENT));
+      toastSuccess("Modo operativo actualizado", `El sistema quedó en modo ${label}.`);
+    } catch (error) {
+      toastError("No se pudo cambiar el modo", error?.message ?? "La solicitud no pudo completarse.");
+    } finally {
+      setIsChangingOperationMode(false);
+    }
+  };
+
   const sessionRuntime = describeRuntime(runtimeStatus?.sessionCleanup);
   const tempRuntime = describeRuntime(runtimeStatus?.tempCleanup);
+  const operationState = runtimeStatus?.operationState || { mode: "normal" };
+  const operationMode = operationState.mode || "normal";
+  const operationReason = String(operationState.reason || "").trim();
   const hasActiveRuntime =
     ACTIVE_RUNTIME_STATUSES.has(sessionRuntime.rawStatus) ||
     ACTIVE_RUNTIME_STATUSES.has(tempRuntime.rawStatus);
@@ -444,6 +624,63 @@ export const MaintenancePanel = () => {
   return (
     <div className="space-y-6">
       {hasChanges ? <DraftModeNotice /> : null}
+
+      <SectionCard
+        title="Modo operativo del sitio"
+        icon="FaShield"
+        description="Permite cerrar administrativamente el acceso y detener escrituras usando el mismo marker operativo que utilizan las restauraciones."
+        actions={(
+          <StatusBadge tone={OPERATION_MODE_TONES[operationMode] || "inactive"}>
+            {OPERATION_MODE_LABELS[operationMode] || operationMode}
+          </StatusBadge>
+        )}
+      >
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <MaintenanceField label="Estado actual" hint="Modo aplicado por marker">
+            <MaintenanceInput value={OPERATION_MODE_LABELS[operationMode] || operationMode} disabled />
+          </MaintenanceField>
+          <MaintenanceField label="Origen" hint="Fuente del estado operativo">
+            <MaintenanceInput value={operationState.source || "default"} disabled />
+          </MaintenanceField>
+          <MaintenanceField label="Inicio" hint="Momento de activación">
+            <MaintenanceInput value={formatDateTime(operationState.startedAt)} disabled />
+          </MaintenanceField>
+        </div>
+
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800/60 dark:bg-amber-900/20">
+          <p className={`text-xs font-semibold uppercase tracking-wide ${TXT_META}`}>Motivo registrado</p>
+          <p className="mt-2 text-sm font-medium text-amber-900 dark:text-amber-100">
+            {operationReason || "Sin bloqueo operativo activo."}
+          </p>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <ActionButton
+            label="Solo lectura"
+            variant="warning"
+            size="sm"
+            icon={<Icon name="FaLock" />}
+            disabled={isChangingOperationMode || operationMode === "read_only"}
+            onClick={() => handleOperationModeChange("read_only")}
+          />
+          <ActionButton
+            label="Mantenimiento"
+            variant="danger"
+            size="sm"
+            icon={<Icon name="FaShield" />}
+            disabled={isChangingOperationMode || operationMode === "maintenance"}
+            onClick={() => handleOperationModeChange("maintenance")}
+          />
+          <ActionButton
+            label="Modo normal"
+            variant="success"
+            size="sm"
+            icon={<Icon name="check" />}
+            disabled={isChangingOperationMode || operationMode === "normal"}
+            onClick={() => handleOperationModeChange("normal")}
+          />
+        </div>
+      </SectionCard>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <SectionCard

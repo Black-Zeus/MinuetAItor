@@ -10,6 +10,13 @@ const MinuteViewPage = lazy(() => import("@/pages/minuteView/MinuteViewPage"));
 
 export const minutesRoutes = [
   {
+    path: "/minute",
+    component: MinutePage,
+    title: "Actas de Reunión",
+    requiresAuth: true,
+    roles: [],
+  },
+  {
     path: "/minutes",
     component: MinutePage,
     title: "Actas de Reunión",
