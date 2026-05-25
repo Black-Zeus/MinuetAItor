@@ -44,6 +44,20 @@ TEMPLATE_DEFINITIONS: dict[str, EmailTemplateDefinition] = {
         description="Notifica cambios de acceso y alcance sobre recursos confidenciales.",
         default_subject="Actualizacion de acceso y alcance",
     ),
+    "access_request_admin": EmailTemplateDefinition(
+        template_id="access_request_admin",
+        filename="access_request_admin.html",
+        title="Nueva solicitud de alta",
+        description="Notifica a administradores que una persona solicitó alta desde el login.",
+        default_subject="Nueva solicitud de alta · {{ REQUESTER_NAME }}",
+    ),
+    "access_request_ack": EmailTemplateDefinition(
+        template_id="access_request_ack",
+        filename="access_request_ack.html",
+        title="Solicitud de alta recibida",
+        description="Confirma al solicitante que su alta fue recibida y será atendida por un administrador.",
+        default_subject="Solicitud de alta recibida en {{ APP_NAME }}",
+    ),
     "account_created_set_password": EmailTemplateDefinition(
         template_id="account_created_set_password",
         filename="account_created_set_password.html",
@@ -134,6 +148,13 @@ TEMPLATE_DEFINITIONS: dict[str, EmailTemplateDefinition] = {
         title="Prueba de configuracion SMTP",
         description="Valida una configuracion SMTP con un correo HTML real.",
         default_subject="Prueba SMTP · {{ APP_NAME }}",
+    ),
+    "system_backup_result": EmailTemplateDefinition(
+        template_id="system_backup_result",
+        filename="system_backup_result.html",
+        title="Resultado de respaldo",
+        description="Informa el resultado final de una tarea de respaldo, restauración o limpieza.",
+        default_subject="{{ BACKUP_SUBJECT }}",
     ),
     "system_queue_alert": EmailTemplateDefinition(
         template_id="system_queue_alert",

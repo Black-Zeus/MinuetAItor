@@ -19,6 +19,9 @@ const toastByLevel = {
 const SUPPRESSED_TOAST_NOTIFICATION_TYPES = new Set([
   "minute.analysis.completed",
   "minute.analysis.failed",
+  "system.backup.completed",
+  "system.backup.failed",
+  "system.backup.cancelled",
 ]);
 
 const SUPPRESSED_TOAST_NOTIFICATION_TAGS = new Set([

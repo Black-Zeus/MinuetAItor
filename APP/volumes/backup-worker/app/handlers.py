@@ -8,6 +8,7 @@ import shutil
 import tarfile
 from pathlib import Path
 
+from core.backend_client import post_internal_json
 from core.config import settings
 from core.job import JobEnvelope
 from core.redis_client import get_redis
@@ -44,6 +45,21 @@ RESTORE_JOB_TYPES = {"restore_backup"}
 PLANNED_LATER_JOB_TYPES: set[str] = set()
 SUPPORTED_JOB_TYPES = GENERATE_JOB_TYPES | RESTORE_JOB_TYPES | PLANNED_LATER_JOB_TYPES
 
+SCOPE_LABELS = {
+    "database": "base de datos",
+    "objects": "objetos MinIO",
+    "full": "respaldo completo",
+    "all": "respaldos",
+}
+
+ACTION_LABELS = {
+    "db_backup": "Respaldo de base de datos",
+    "object_backup": "Respaldo de objetos",
+    "full_backup": "Respaldo completo",
+    "backup_purge": "Limpieza de respaldos",
+    "restore_backup": "Restauración de respaldo",
+}
+
 
 async def _publish_backup_event(
     *,
@@ -76,6 +92,191 @@ async def _publish_backup_event(
         await redis.publish(BACKUP_EVENTS_CHANNEL, json.dumps(payload, ensure_ascii=False))
     except Exception as exc:
         logger.warning("No se pudo publicar evento SSE de respaldos | status=%s scope=%s err=%s", status, scope, exc)
+
+
+def _actor_user_id(actor_snapshot: dict | None) -> str | None:
+    if not isinstance(actor_snapshot, dict):
+        return None
+    value = actor_snapshot.get("user_id") or actor_snapshot.get("userId")
+    return str(value).strip() or None
+
+
+def _notification_title(*, status: str, action: str) -> str:
+    label = ACTION_LABELS.get(action, "Tarea de respaldo")
+    if status == "success":
+        return f"{label} completado"
+    if status == "error":
+        return f"{label} fallido"
+    if status == "cancelled":
+        return f"{label} cancelado"
+    return f"{label} actualizado"
+
+
+def _notification_message(*, status: str, scope: str, trigger: str, message: str) -> str:
+    scope_label = SCOPE_LABELS.get(scope, scope or "respaldo")
+    trigger_label = "programada" if trigger == "scheduled" else "manual"
+
+    if status == "success":
+        prefix = f"La tarea {trigger_label} de {scope_label} finalizó correctamente."
+    elif status == "error":
+        prefix = f"La tarea {trigger_label} de {scope_label} terminó con error."
+    elif status == "cancelled":
+        prefix = f"La tarea {trigger_label} de {scope_label} fue cancelada."
+    else:
+        prefix = f"La tarea {trigger_label} de {scope_label} cambió de estado."
+
+    clean_message = str(message or "").strip()
+    return f"{prefix} {clean_message}".strip()
+
+
+def _policy_value(policy: dict | None, snake_key: str, camel_key: str, default=None):
+    if not isinstance(policy, dict):
+        return default
+    if snake_key in policy:
+        return policy.get(snake_key)
+    if camel_key in policy:
+        return policy.get(camel_key)
+    return default
+
+
+def _format_size(value) -> str:
+    try:
+        size = float(value)
+    except (TypeError, ValueError):
+        return "—"
+    units = ["B", "KB", "MB", "GB", "TB"]
+    unit_index = 0
+    while size >= 1024 and unit_index < len(units) - 1:
+        size /= 1024
+        unit_index += 1
+    return f"{size:.1f} {units[unit_index]}" if unit_index else f"{int(size)} {units[unit_index]}"
+
+
+def _backup_email_context(
+    *,
+    status: str,
+    scope: str,
+    action: str,
+    message: str,
+    trigger: str,
+    operation_id: str | None,
+    job_id: str | None,
+    artifact_id: str | None,
+    metadata: dict | None,
+) -> dict:
+    current_metadata = metadata or {}
+    status_label = {
+        "success": "Completado",
+        "error": "Fallido",
+        "cancelled": "Cancelado",
+    }.get(status, status)
+    trigger_label = "Automático" if trigger == "scheduled" else "Manual"
+    title = _notification_title(status=status, action=action)
+    return {
+        "APP_NAME": "MinuetAItor",
+        "BACKUP_SUBJECT": title,
+        "BACKUP_TITLE": title,
+        "BACKUP_MESSAGE": _notification_message(status=status, scope=scope, trigger=trigger, message=message),
+        "BACKUP_STATUS_LABEL": status_label,
+        "BACKUP_SCOPE_LABEL": SCOPE_LABELS.get(scope, scope or "respaldo"),
+        "BACKUP_ACTION_LABEL": ACTION_LABELS.get(action, action or "Tarea de respaldo"),
+        "BACKUP_TRIGGER_LABEL": trigger_label,
+        "BACKUP_OPERATION_ID": operation_id or "—",
+        "BACKUP_JOB_ID": job_id or "—",
+        "BACKUP_ARTIFACT_ID": artifact_id or "—",
+        "BACKUP_PACKAGE_NAME": current_metadata.get("name") or "—",
+        "BACKUP_SIZE_LABEL": _format_size(current_metadata.get("sizeBytes")),
+        "BACKUP_ERROR": current_metadata.get("error") or message or "Sin observaciones adicionales.",
+    }
+
+
+async def _create_backup_notification(
+    *,
+    status: str,
+    scope: str,
+    action: str,
+    message: str,
+    trigger: str,
+    operation_id: str | None,
+    job_id: str | None,
+    artifact_id: str | None = None,
+    actor_snapshot: dict | None = None,
+    metadata: dict | None = None,
+    policy: dict | None = None,
+) -> None:
+    if status not in {"success", "error", "cancelled"}:
+        return
+
+    notification_type = {
+        "success": "system.backup.completed",
+        "error": "system.backup.failed",
+        "cancelled": "system.backup.cancelled",
+    }[status]
+
+    email = str(_policy_value(policy, "notify_recipient_email", "notifyRecipientEmail", "") or "").strip()
+    email_enabled = bool(_policy_value(policy, "notify_by_email", "notifyByEmail", False)) and bool(email)
+    title = _notification_title(status=status, action=action)
+    message_text = _notification_message(
+        status=status,
+        scope=scope,
+        trigger=trigger,
+        message=message,
+    )
+
+    payload = {
+        "notificationType": notification_type,
+        "title": title,
+        "message": message_text,
+        "level": "success" if status == "success" else "error" if status == "error" else "warning",
+        "tags": [
+            "system",
+            "backup",
+            action,
+            status,
+            notification_type,
+        ],
+        "roleCodes": ["ADMIN"],
+        "scopeType": "system_backup_operation",
+        "scopeId": operation_id,
+        "actionUrl": None,
+        "actorUserId": _actor_user_id(actor_snapshot),
+        "metadata": {
+            "scope": scope,
+            "action": action,
+            "status": status,
+            "trigger": trigger,
+            "operationId": operation_id,
+            "jobId": job_id,
+            "artifactId": artifact_id,
+            **(metadata or {}),
+        },
+        "emailEnabled": email_enabled,
+        "emailTo": [email] if email_enabled else [],
+        "emailTemplateId": "system_backup_result",
+        "emailSubject": title,
+        "emailContext": _backup_email_context(
+            status=status,
+            scope=scope,
+            action=action,
+            message=message,
+            trigger=trigger,
+            operation_id=operation_id,
+            job_id=job_id,
+            artifact_id=artifact_id,
+            metadata=metadata,
+        ),
+    }
+
+    try:
+        await asyncio.to_thread(post_internal_json, "/internal/v1/notifications/ingest", payload)
+    except Exception as exc:
+        logger.warning(
+            "No se pudo crear notificación persistida de respaldo | status=%s scope=%s operation_id=%s err=%s",
+            status,
+            scope,
+            operation_id,
+            exc,
+        )
 
 
 async def handle_backup_job(job: JobEnvelope) -> None:
@@ -234,6 +435,19 @@ async def _handle_database_backup(job: JobEnvelope, backup_root: Path) -> None:
             actor_snapshot=actor_snapshot if isinstance(actor_snapshot, dict) else None,
             metadata={"name": package["name"], "sizeBytes": package["sizeBytes"]},
         )
+        await _create_backup_notification(
+            status="success",
+            scope=scope,
+            action="db_backup",
+            message="Respaldo de base de datos generado correctamente.",
+            trigger=trigger_source,
+            operation_id=operation_id,
+            job_id=job.job_id,
+            artifact_id=package["artifactId"],
+            actor_snapshot=actor_snapshot if isinstance(actor_snapshot, dict) else None,
+            metadata={"name": package["name"], "sizeBytes": package["sizeBytes"]},
+            policy=policy,
+        )
         logger.info(
             "Respaldo database generado | job_id=%s artifact_id=%s path=%s size=%s",
             job.job_id,
@@ -265,6 +479,19 @@ async def _handle_database_backup(job: JobEnvelope, backup_root: Path) -> None:
             actor_snapshot=actor_snapshot if isinstance(actor_snapshot, dict) else None,
             metadata={"error": str(exc)},
         )
+        if job.attempt >= settings.max_retries:
+            await _create_backup_notification(
+                status="error",
+                scope=scope,
+                action="db_backup",
+                message="Falló la generación del respaldo de base de datos.",
+                trigger=trigger_source,
+                operation_id=operation_id,
+                job_id=job.job_id,
+                actor_snapshot=actor_snapshot if isinstance(actor_snapshot, dict) else None,
+                metadata={"error": str(exc)},
+                policy=policy,
+            )
         raise
 
 
@@ -367,6 +594,19 @@ async def _handle_objects_backup(job: JobEnvelope, backup_root: Path) -> None:
             actor_snapshot=actor_snapshot if isinstance(actor_snapshot, dict) else None,
             metadata={"name": package["name"], "sizeBytes": package["sizeBytes"]},
         )
+        await _create_backup_notification(
+            status="success",
+            scope=scope,
+            action="object_backup",
+            message="Respaldo de objetos MinIO generado correctamente.",
+            trigger=trigger_source,
+            operation_id=operation_id,
+            job_id=job.job_id,
+            artifact_id=package["artifactId"],
+            actor_snapshot=actor_snapshot if isinstance(actor_snapshot, dict) else None,
+            metadata={"name": package["name"], "sizeBytes": package["sizeBytes"]},
+            policy=policy,
+        )
         logger.info(
             "Respaldo objects generado | job_id=%s artifact_id=%s path=%s size=%s",
             job.job_id,
@@ -398,6 +638,19 @@ async def _handle_objects_backup(job: JobEnvelope, backup_root: Path) -> None:
             actor_snapshot=actor_snapshot if isinstance(actor_snapshot, dict) else None,
             metadata={"error": str(exc)},
         )
+        if job.attempt >= settings.max_retries:
+            await _create_backup_notification(
+                status="error",
+                scope=scope,
+                action="object_backup",
+                message="Falló la generación del respaldo de objetos MinIO.",
+                trigger=trigger_source,
+                operation_id=operation_id,
+                job_id=job.job_id,
+                actor_snapshot=actor_snapshot if isinstance(actor_snapshot, dict) else None,
+                metadata={"error": str(exc)},
+                policy=policy,
+            )
         raise
 
 
@@ -500,6 +753,19 @@ async def _handle_full_backup(job: JobEnvelope, backup_root: Path) -> None:
             actor_snapshot=actor_snapshot if isinstance(actor_snapshot, dict) else None,
             metadata={"name": package["name"], "sizeBytes": package["sizeBytes"]},
         )
+        await _create_backup_notification(
+            status="success",
+            scope=scope,
+            action="full_backup",
+            message="Respaldo completo generado correctamente.",
+            trigger=trigger_source,
+            operation_id=operation_id,
+            job_id=job.job_id,
+            artifact_id=package["artifactId"],
+            actor_snapshot=actor_snapshot if isinstance(actor_snapshot, dict) else None,
+            metadata={"name": package["name"], "sizeBytes": package["sizeBytes"]},
+            policy=policy,
+        )
         logger.info(
             "Respaldo full generado | job_id=%s artifact_id=%s path=%s size=%s",
             job.job_id,
@@ -531,6 +797,19 @@ async def _handle_full_backup(job: JobEnvelope, backup_root: Path) -> None:
             actor_snapshot=actor_snapshot if isinstance(actor_snapshot, dict) else None,
             metadata={"error": str(exc)},
         )
+        if job.attempt >= settings.max_retries:
+            await _create_backup_notification(
+                status="error",
+                scope=scope,
+                action="full_backup",
+                message="Falló la generación del respaldo completo.",
+                trigger=trigger_source,
+                operation_id=operation_id,
+                job_id=job.job_id,
+                actor_snapshot=actor_snapshot if isinstance(actor_snapshot, dict) else None,
+                metadata={"error": str(exc)},
+                policy=policy,
+            )
         raise
 
 
@@ -942,6 +1221,18 @@ async def _handle_restore_backup(job: JobEnvelope, backup_root: Path) -> None:
             message="Restauración completada correctamente. Las sesiones fueron limpiadas.",
             metadata=result,
         )
+        await _create_backup_notification(
+            status="success",
+            scope=scope,
+            action="restore_backup",
+            message="Restauración completada correctamente. Las sesiones fueron limpiadas.",
+            trigger=trigger_source,
+            operation_id=operation_id,
+            job_id=job.job_id,
+            artifact_id=artifact_id,
+            actor_snapshot=actor,
+            metadata=result,
+        )
         await asyncio.sleep(0.5)
         await _flush_redis_after_restore()
         logger.warning(
@@ -985,6 +1276,19 @@ async def _handle_restore_backup(job: JobEnvelope, backup_root: Path) -> None:
             message="Falló la restauración segura.",
             metadata={"error": str(exc)},
         )
+        if job.attempt >= settings.max_retries:
+            await _create_backup_notification(
+                status="error",
+                scope=scope,
+                action="restore_backup",
+                message="Falló la restauración segura.",
+                trigger=trigger_source,
+                operation_id=operation_id,
+                job_id=job.job_id,
+                artifact_id=artifact_id,
+                actor_snapshot=actor,
+                metadata={"error": str(exc)},
+            )
         raise
     finally:
         _clear_maintenance_marker()
@@ -1122,6 +1426,21 @@ async def _handle_backup_purge(job: JobEnvelope, backup_root: Path) -> None:
             actor_snapshot=actor_snapshot if isinstance(actor_snapshot, dict) else None,
             metadata={**result, "purgeMode": purge_mode},
         )
+        await _create_backup_notification(
+            status="success",
+            scope=str(job.payload.get("scope") or "all"),
+            action="backup_purge",
+            message=(
+                f"Eliminación manual de respaldo completada ({len(purged)} purgados)."
+                if is_manual_artifact
+                else f"Limpieza de respaldos completada ({len(purged)} purgados)."
+            ),
+            trigger=str(job.payload.get("trigger_source") or "manual"),
+            operation_id=operation_id,
+            job_id=job.job_id,
+            actor_snapshot=actor_snapshot if isinstance(actor_snapshot, dict) else None,
+            metadata={**result, "purgeMode": purge_mode},
+        )
         logger.info(
             "Purge de respaldos completado | job_id=%s operation_id=%s purged=%d missing=%d",
             job.job_id,
@@ -1159,4 +1478,16 @@ async def _handle_backup_purge(job: JobEnvelope, backup_root: Path) -> None:
             actor_snapshot=actor_snapshot if isinstance(actor_snapshot, dict) else None,
             metadata={"error": str(exc), "purgeMode": purge_mode},
         )
+        if job.attempt >= settings.max_retries:
+            await _create_backup_notification(
+                status="error",
+                scope=str(job.payload.get("scope") or "all"),
+                action="backup_purge",
+                message="Falló la eliminación manual del respaldo." if is_manual_artifact else "Falló la limpieza de respaldos.",
+                trigger=str(job.payload.get("trigger_source") or "manual"),
+                operation_id=operation_id,
+                job_id=job.job_id,
+                actor_snapshot=actor_snapshot if isinstance(actor_snapshot, dict) else None,
+                metadata={"error": str(exc), "purgeMode": purge_mode},
+            )
         raise

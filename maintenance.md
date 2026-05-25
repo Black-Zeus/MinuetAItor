@@ -88,6 +88,12 @@ restore_backup
 backup_purge
 ```
 
+### Notificaciones operativas
+
+Las tareas de respaldo publican eventos SSE para el seguimiento en vivo y, al finalizar, generan una notificacion persistente en la campanita para administradores.
+
+Para notificaciones puramente informativas se debe omitir `actionUrl` o enviarlo como `null`. En ese caso la UI no muestra el boton "Abrir recurso". Si en otro flujo se requiere acceso directo al recurso afectado, basta con informar `actionUrl` con la ruta interna correspondiente.
+
 ### Scheduler
 
 El scheduler no deberia generar respaldos directamente.

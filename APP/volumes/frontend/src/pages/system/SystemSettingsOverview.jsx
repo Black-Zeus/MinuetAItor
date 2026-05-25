@@ -5,16 +5,59 @@ import Icon from "@/components/ui/icon/iconManager";
 import { toastError, toastSuccess } from "@/components/common/toast/toastHelpers";
 import { SMTP_TEST_IDLE_MESSAGE, SmtpTestDialogPanel } from "@/pages/system/SmtpConfigModal";
 import {
+  BACKUP_POLICY_DEFINITIONS,
+  INITIAL_BACKUPS_DRAFT,
+  INITIAL_MAINTENANCE_DRAFT,
   StatusBadge,
   TXT_BODY,
   TXT_META,
   TXT_TITLE,
+  describeCronExpression,
   formatDateTime,
   getProviderLabel,
   maskTokenHint,
   statusClasses,
 } from "@/pages/system/SystemSettingsShared";
 import smtpConfigService from "@/services/smtpConfigService";
+
+const normalizeMaintenanceSummaryConfig = (config) => ({
+  ...INITIAL_MAINTENANCE_DRAFT,
+  ...(config || {}),
+});
+
+const normalizeBackupsSummaryConfig = (config) => ({
+  ...INITIAL_BACKUPS_DRAFT,
+  ...(config || {}),
+  policies: {
+    ...INITIAL_BACKUPS_DRAFT.policies,
+    ...(config?.policies || {}),
+  },
+});
+
+const scheduleBadgeTone = (enabled) => (enabled ? "active" : "inactive");
+
+const ScheduleItem = ({ icon, title, enabled, cron, description }) => {
+  const cronDescription = describeCronExpression(cron || "");
+  return (
+    <div className="rounded-2xl border border-gray-100 bg-slate-50/80 px-4 py-4 dark:border-gray-700/80 dark:bg-slate-900/40">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <Icon name={icon} className="h-4 w-4 text-indigo-500 dark:text-indigo-300" />
+            <p className={`text-sm font-semibold ${TXT_TITLE}`}>{title}</p>
+          </div>
+          <p className={`mt-1 text-xs ${TXT_BODY}`}>{description}</p>
+        </div>
+        <StatusBadge tone={scheduleBadgeTone(enabled)}>{enabled ? "Programada" : "Inactiva"}</StatusBadge>
+      </div>
+      <div className="mt-4 rounded-xl border border-gray-200 bg-white px-3 py-3 dark:border-gray-700 dark:bg-slate-950/30">
+        <p className={`text-xs font-semibold uppercase tracking-wide ${TXT_META}`}>Cron</p>
+        <p className={`mt-1 text-sm font-medium ${TXT_TITLE}`}>{cron || "—"}</p>
+        <p className={`mt-1 text-xs ${TXT_META}`}>{cronDescription.text}</p>
+      </div>
+    </div>
+  );
+};
 
 export const SendSmtpTestModal = ({ config, onClose, onSent }) => {
   const [email, setEmail] = useState(String(config?.fromEmail || "").trim());
@@ -72,7 +115,7 @@ export const SendSmtpTestModal = ({ config, onClose, onSent }) => {
   );
 };
 
-export const SummaryPanel = ({ smtpItems, aiItems }) => {
+export const SummaryPanel = ({ smtpItems, aiItems, maintenanceConfig, backupsConfig }) => {
   const activeCount = smtpItems.filter((item) => item.isActive).length;
   const inactiveCount = smtpItems.length - activeCount;
   const aiActiveCount = aiItems.filter((item) => item.isActive).length;
@@ -81,6 +124,14 @@ export const SummaryPanel = ({ smtpItems, aiItems }) => {
   const activeAi = aiItems.find((item) => item.isActive) ?? null;
   const aiPendingValidationCount = aiItems.filter((item) => item.validationStatus && item.validationStatus !== "valid").length;
   const configuredChannels = Number(Boolean(activeSmtp)) + Number(Boolean(activeAi));
+  const maintenanceSummary = normalizeMaintenanceSummaryConfig(maintenanceConfig);
+  const backupsSummary = normalizeBackupsSummaryConfig(backupsConfig);
+  const enabledBackupPolicies = BACKUP_POLICY_DEFINITIONS.filter(
+    (policyDefinition) => backupsSummary.policies?.[policyDefinition.id]?.enabled
+  ).length;
+  const scheduledTasksCount = Number(Boolean(maintenanceSummary.sessionCleanupEnabled))
+    + Number(Boolean(maintenanceSummary.tempCleanupEnabled))
+    + enabledBackupPolicies;
   const summaryPanels = [
     {
       key: "smtp",
@@ -208,6 +259,70 @@ export const SummaryPanel = ({ smtpItems, aiItems }) => {
             </div>
           </div>
         ))}
+      </div>
+
+      <div className="overflow-hidden rounded-[26px] border border-gray-200/80 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+        <div className="border-b border-gray-100 px-6 py-5 dark:border-gray-700">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="rounded-2xl bg-indigo-50 p-3 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-300">
+                <Icon name="FaClock" className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className={`text-lg font-semibold ${TXT_TITLE}`}>Tareas programadas</h3>
+                <p className={`mt-1 text-sm ${TXT_BODY}`}>
+                  Vista rápida de automatizaciones activas en mantenimiento y respaldos.
+                </p>
+              </div>
+            </div>
+            <StatusBadge tone={scheduledTasksCount ? "active" : "inactive"}>
+              {scheduledTasksCount} activas
+            </StatusBadge>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-6 p-6 xl:grid-cols-2">
+          <div className="space-y-4">
+            <div>
+              <p className={`text-sm font-semibold ${TXT_TITLE}`}>Mantenimiento</p>
+              <p className={`mt-1 text-xs ${TXT_META}`}>Rutinas técnicas que el scheduler dispara contra el backend.</p>
+            </div>
+            <ScheduleItem
+              icon="FaClock"
+              title="Limpieza de sesiones"
+              enabled={maintenanceSummary.sessionCleanupEnabled}
+              cron={maintenanceSummary.sessionCleanupCron}
+              description="Cierre o limpieza controlada de sesiones técnicas antiguas."
+            />
+            <ScheduleItem
+              icon="FaGears"
+              title="Limpieza de temporales"
+              enabled={maintenanceSummary.tempCleanupEnabled}
+              cron={maintenanceSummary.tempCleanupCron}
+              description={`Elimina archivos temporales con retención de ${maintenanceSummary.tempCleanupMaxAgeDays} días.`}
+            />
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <p className={`text-sm font-semibold ${TXT_TITLE}`}>Respaldos</p>
+              <p className={`mt-1 text-xs ${TXT_META}`}>Políticas automáticas para base de datos, adjuntos y paquetes completos.</p>
+            </div>
+            {BACKUP_POLICY_DEFINITIONS.map((policyDefinition) => {
+              const policy = backupsSummary.policies?.[policyDefinition.id] || {};
+              return (
+                <ScheduleItem
+                  key={policyDefinition.id}
+                  icon={policyDefinition.icon}
+                  title={policyDefinition.title}
+                  enabled={Boolean(policy.enabled)}
+                  cron={policy.cron}
+                  description={policyDefinition.description}
+                />
+              );
+            })}
+          </div>
+        </div>
       </div>
     </div>
   );

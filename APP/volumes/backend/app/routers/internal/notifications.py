@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
@@ -7,8 +9,11 @@ from core.internal_auth import verify_internal_secret
 from db.session import get_db
 from schemas.internal_notifications import TriggerPendingPublicationRemindersResponse
 from schemas.notifications import InternalNotificationIngestRequest, InternalNotificationIngestResponse
+from services.email_queue import queue_templated_email
 from services.notification_service import enqueue_pending_publication_reminders
 from services.notification_center_service import create_in_app_notification
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/internal/v1/notifications",
@@ -53,4 +58,27 @@ async def ingest_notification_endpoint(
         actor_user_id=body.actor_user_id,
         metadata=body.metadata,
     )
+    if body.email_enabled and body.email_to:
+        try:
+            await queue_templated_email(
+                to=body.email_to,
+                template_id=body.email_template_id or "system_backup_result",
+                template_context=body.email_context,
+                subject=body.email_subject,
+                notification_context={
+                    "notification_type": body.notification_type,
+                    "scope_type": body.scope_type,
+                    "scope_id": body.scope_id,
+                    "tags": body.tags,
+                    "metadata": body.metadata,
+                    "actor_user_id": body.actor_user_id,
+                },
+            )
+        except Exception as exc:
+            logger.warning(
+                "No se pudo encolar correo para notificación interna | type=%s recipients=%s err=%s",
+                body.notification_type,
+                body.email_to,
+                exc,
+            )
     return result

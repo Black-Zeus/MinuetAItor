@@ -17,12 +17,12 @@ class BackupPolicyConfig(BaseModel):
     enabled: bool
     cron: str
     destination: str = "backend_shared"
-    path_prefix: str = Field(..., serialization_alias="pathPrefix")
-    file_format: str = Field(..., serialization_alias="fileFormat")
-    verification_mode: str = Field("manifest", serialization_alias="verificationMode")
-    notify_by_email: bool = Field(False, serialization_alias="notifyByEmail")
-    notify_recipient_name: str | None = Field(None, serialization_alias="notifyRecipientName")
-    notify_recipient_email: str | None = Field(None, serialization_alias="notifyRecipientEmail")
+    path_prefix: str = Field(..., alias="pathPrefix", serialization_alias="pathPrefix")
+    file_format: str = Field(..., alias="fileFormat", serialization_alias="fileFormat")
+    verification_mode: str = Field("manifest", alias="verificationMode", serialization_alias="verificationMode")
+    notify_by_email: bool = Field(False, alias="notifyByEmail", serialization_alias="notifyByEmail")
+    notify_recipient_name: str | None = Field(None, alias="notifyRecipientName", serialization_alias="notifyRecipientName")
+    notify_recipient_email: str | None = Field(None, alias="notifyRecipientEmail", serialization_alias="notifyRecipientEmail")
 
     @field_validator("cron")
     @classmethod
@@ -87,9 +87,9 @@ class ActorSnapshotResponse(BaseModel):
 
 
 class SystemBackupsConfigRequest(BaseModel):
-    backup_retention_days: int = Field(..., ge=1, le=365, serialization_alias="backupRetentionDays")
-    backup_history_visible: bool = Field(..., serialization_alias="backupHistoryVisible")
-    backup_purge_queue: str = Field("queue:backups / backup_purge", serialization_alias="backupPurgeQueue")
+    backup_retention_days: int = Field(..., ge=1, le=365, alias="backupRetentionDays", serialization_alias="backupRetentionDays")
+    backup_history_visible: bool = Field(..., alias="backupHistoryVisible", serialization_alias="backupHistoryVisible")
+    backup_purge_queue: str = Field("queue:backups / backup_purge", alias="backupPurgeQueue", serialization_alias="backupPurgeQueue")
     policies: BackupPoliciesConfig
 
     model_config = {"populate_by_name": True}

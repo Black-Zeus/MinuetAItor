@@ -28,6 +28,7 @@ import {
 } from "@/pages/system/SystemSettingsShared";
 import aiProviderConfigService from "@/services/aiProviderConfigService";
 import smtpConfigService from "@/services/smtpConfigService";
+import systemBackupsService from "@/services/systemBackupsService";
 import systemMaintenanceService from "@/services/systemMaintenanceService";
 import useAbortableRequestScope from "@/hooks/useAbortableRequestScope";
 import { ensureWriteOperationAllowed } from "@/utils/operationModeGuard";
@@ -47,13 +48,14 @@ const SystemSettings = () => {
   const [isSmtpLoading, setIsSmtpLoading] = useState(false);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [operationMode, setOperationMode] = useState(null);
+  const [summaryMaintenanceConfig, setSummaryMaintenanceConfig] = useState(null);
+  const [summaryBackupsConfig, setSummaryBackupsConfig] = useState(null);
 
   useDocumentTitle("Configuración del Sistema");
 
   const validTabIds = useMemo(() => new Set(TABS.map((tab) => tab.id)), []);
-  const isOperationChecking = operationMode === null;
   const isMaintenanceMode = operationMode === "maintenance";
-  const shouldRestrictTabs = isOperationChecking || isMaintenanceMode;
+  const shouldRestrictTabs = isMaintenanceMode;
   const visibleTabs = useMemo(
     () => (shouldRestrictTabs ? TABS.filter((tab) => LOCKED_OPERATION_TAB_IDS.has(tab.id)) : TABS),
     [shouldRestrictTabs]
@@ -175,6 +177,22 @@ const SystemSettings = () => {
     loadAiProviderCatalog({ signal: catalogRequest.signal });
     loadAiConfigs({ signal: listRequest.signal });
   }, [effectiveActiveTab, requestScope, shouldRestrictTabs]);
+
+  useEffect(() => {
+    if (shouldRestrictTabs || effectiveActiveTab !== "summary") return;
+    let alive = true;
+    Promise.allSettled([
+      systemMaintenanceService.getConfig(),
+      systemBackupsService.getConfig(),
+    ]).then(([maintenanceResult, backupsResult]) => {
+      if (!alive) return;
+      setSummaryMaintenanceConfig(maintenanceResult.status === "fulfilled" ? maintenanceResult.value : null);
+      setSummaryBackupsConfig(backupsResult.status === "fulfilled" ? backupsResult.value : null);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [effectiveActiveTab, shouldRestrictTabs]);
 
   const aiProviderLabelMap = useMemo(
     () =>
@@ -504,7 +522,14 @@ const SystemSettings = () => {
       <Header />
       <TabNav activeTab={effectiveActiveTab} onTabChange={handleTabChange} tabs={visibleTabs} />
 
-      {effectiveActiveTab === "summary" && <SummaryPanel smtpItems={smtpItems} aiItems={aiItems} />}
+      {effectiveActiveTab === "summary" && (
+        <SummaryPanel
+          smtpItems={smtpItems}
+          aiItems={aiItems}
+          maintenanceConfig={summaryMaintenanceConfig}
+          backupsConfig={summaryBackupsConfig}
+        />
+      )}
 
       {effectiveActiveTab === "integrations" && (
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
