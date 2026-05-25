@@ -65,12 +65,21 @@ def minio_endpoint_url() -> str:
 
 
 def run_command(command: list[str]) -> None:
-    subprocess.run(
+    result = subprocess.run(
         command,
-        check=True,
+        check=False,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
+    )
+    if result.returncode == 0:
+        return
+
+    stderr = (result.stderr or "").strip()
+    stdout = (result.stdout or "").strip()
+    details = stderr or stdout or "sin salida del comando"
+    raise RuntimeError(
+        f"Comando fallido ({result.returncode}): {' '.join(command)} | {details}"
     )
 
 
@@ -241,6 +250,7 @@ def archive_minio_buckets(
     data_relative_paths: list[str] = []
     for bucket in buckets:
         bucket_mirror_dir = mirror_root / bucket
+        ensure_minio_bucket(bucket)
         mirror_minio_bucket(bucket, bucket_mirror_dir)
         object_count, object_bytes = count_tree_files(bucket_mirror_dir)
         relative_path = f"minio/{bucket}/data.bucket.tar.gz"

@@ -156,6 +156,31 @@ class InternalNotificationIngestRequest(BaseModel):
         serialization_alias="actorUserId",
     )
     metadata: dict = {}
+    email_enabled: bool = Field(
+        False,
+        validation_alias="emailEnabled",
+        serialization_alias="emailEnabled",
+    )
+    email_to: list[str] = Field(
+        default_factory=list,
+        validation_alias="emailTo",
+        serialization_alias="emailTo",
+    )
+    email_template_id: str | None = Field(
+        None,
+        validation_alias="emailTemplateId",
+        serialization_alias="emailTemplateId",
+    )
+    email_subject: str | None = Field(
+        None,
+        validation_alias="emailSubject",
+        serialization_alias="emailSubject",
+    )
+    email_context: dict = Field(
+        default_factory=dict,
+        validation_alias="emailContext",
+        serialization_alias="emailContext",
+    )
 
     model_config = {"populate_by_name": True}
 

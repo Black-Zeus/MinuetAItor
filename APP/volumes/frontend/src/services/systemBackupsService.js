@@ -8,9 +8,26 @@ const isTimeoutError = (error) =>
   error?.code === "ECONNABORTED" ||
   String(error?.message || "").toLowerCase().includes("timeout");
 
+const extractValidationDetails = (data) => {
+  const details = data?.error?.details;
+  if (!Array.isArray(details) || !details.length) return "";
+
+  return details
+    .map((detail) => {
+      const field = String(detail?.field || "").trim();
+      const issue = String(detail?.issue || "").trim();
+      if (field && issue) return `${field}: ${issue}`;
+      return issue || field;
+    })
+    .filter(Boolean)
+    .join(" | ");
+};
+
 const toSystemBackupsError = (error, fallbackMessage) => {
   if (error?.response?.data) {
-    return new Error(extractErrorMessage(error.response.data, fallbackMessage));
+    const data = error.response.data;
+    const validationDetails = extractValidationDetails(data);
+    return new Error(validationDetails || data?.error?.message || extractErrorMessage(data, fallbackMessage));
   }
 
   if (isTimeoutError(error)) {

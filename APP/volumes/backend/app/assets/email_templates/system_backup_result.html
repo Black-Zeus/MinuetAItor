@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="x-apple-disable-message-reformatting" />
+    <meta name="format-detection" content="telephone=no,address=no,email=no,date=no,url=no" />
+    <title>{{ BACKUP_SUBJECT }}</title>
+</head>
+
+<body style="margin:0;padding:0;background:#060b18;color:#e7eefc;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"
+        style="background:#060b18;margin:0;padding:0;">
+        <tr>
+            <td align="center" style="padding:28px 12px;">
+                <table role="presentation" width="640" cellspacing="0" cellpadding="0" border="0"
+                    style="width:640px;max-width:640px;border-collapse:separate;border-spacing:0;">
+                    <tr>
+                        <td
+                            style="background:linear-gradient(180deg,#142b48 0%,#09162d 100%);border:1px solid rgba(255,255,255,0.08);border-bottom:none;border-radius:18px 18px 0 0;padding:18px 20px;">
+                            <div style="font-size:18px;line-height:22px;font-weight:700;color:#f1f6ff;">
+                                {{ APP_NAME }}
+                            </div>
+                            <div style="margin-top:6px;font-size:12px;line-height:18px;color:#a9c6ff;">
+                                Sistema · Respaldos automatizados
+                            </div>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td
+                            style="background:#07122a;border:1px solid rgba(255,255,255,0.08);border-top:none;border-bottom:none;padding:24px 20px 10px 20px;">
+                            <div
+                                style="font-size:22px;line-height:28px;font-weight:800;color:#f1f6ff;letter-spacing:-0.02em;">
+                                {{ BACKUP_TITLE }}
+                            </div>
+
+                            <div style="font-size:14px;line-height:22px;color:#c9d7f2;margin-top:12px;">
+                                {{ BACKUP_MESSAGE }}
+                            </div>
+
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"
+                                style="margin-top:16px;">
+                                <tr>
+                                    <td
+                                        style="background:rgba(9,22,52,0.9);border:1px solid rgba(255,255,255,0.12);border-radius:16px;padding:18px 16px;">
+                                        <div style="font-size:12px;line-height:16px;color:#9fb2d6;margin-bottom:10px;">
+                                            DETALLE DE LA TAREA
+                                        </div>
+                                        <table role="presentation" width="100%" cellspacing="0" cellpadding="0"
+                                            border="0">
+                                            <tr>
+                                                <td style="font-size:12px;line-height:18px;color:#9fb2d6;width:180px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.08);">Estado</td>
+                                                <td style="font-size:12px;line-height:18px;color:#f1f6ff;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.08);font-weight:700;">{{ BACKUP_STATUS_LABEL }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td style="font-size:12px;line-height:18px;color:#9fb2d6;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.08);">Ámbito</td>
+                                                <td style="font-size:12px;line-height:18px;color:#c9d7f2;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.08);">{{ BACKUP_SCOPE_LABEL }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td style="font-size:12px;line-height:18px;color:#9fb2d6;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.08);">Acción</td>
+                                                <td style="font-size:12px;line-height:18px;color:#c9d7f2;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.08);">{{ BACKUP_ACTION_LABEL }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td style="font-size:12px;line-height:18px;color:#9fb2d6;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.08);">Origen</td>
+                                                <td style="font-size:12px;line-height:18px;color:#c9d7f2;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.08);">{{ BACKUP_TRIGGER_LABEL }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td style="font-size:12px;line-height:18px;color:#9fb2d6;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.08);">Paquete</td>
+                                                <td style="font-size:12px;line-height:18px;color:#c9d7f2;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.08);">{{ BACKUP_PACKAGE_NAME }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td style="font-size:12px;line-height:18px;color:#9fb2d6;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.08);">Tamaño</td>
+                                                <td style="font-size:12px;line-height:18px;color:#c9d7f2;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.08);">{{ BACKUP_SIZE_LABEL }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td style="font-size:12px;line-height:18px;color:#9fb2d6;padding:6px 0;">Operación</td>
+                                                <td style="font-size:12px;line-height:18px;color:#c9d7f2;padding:6px 0;">{{ BACKUP_OPERATION_ID }}</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <div
+                                style="margin-top:14px;padding:14px 14px;border:1px solid rgba(148,163,184,0.18);border-radius:14px;background:rgba(15,23,42,0.70);">
+                                <div style="font-size:13px;line-height:18px;color:#dbeafe;font-weight:700;">
+                                    Observación
+                                </div>
+                                <div style="font-size:12px;line-height:18px;color:#c9d7f2;margin-top:6px;">
+                                    {{ BACKUP_ERROR }}
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td
+                            style="background:#07122a;border:1px solid rgba(255,255,255,0.08);border-top:none;border-radius:0 0 18px 18px;padding:12px 20px 20px 20px;">
+                            <div style="font-size:11px;line-height:16px;color:#7184a8;">
+                                Mensaje generado automáticamente por {{ APP_NAME }}. Job: {{ BACKUP_JOB_ID }} · Artefacto: {{ BACKUP_ARTIFACT_ID }}
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+
+</html>

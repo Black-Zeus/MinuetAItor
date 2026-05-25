@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 BACKUP_EVENTS_CHANNEL = "events:system:backups"
 BACKUP_SSE_KEEPALIVE_SEC = 15
+BACKUP_SSE_MAX_CONNECTION_SEC = 55
 
 
 def get_backup_events_channel() -> str:
@@ -71,10 +72,15 @@ async def stream_system_backup_events(session: UserSession) -> AsyncGenerator[st
     logger.info("[backup-sse] Suscrito | user=%s channel=%s", session.user_id, channel)
 
     try:
-        last_ping_at = time.monotonic()
+        started_at = time.monotonic()
+        last_ping_at = started_at
 
         while True:
             now = time.monotonic()
+            if now - started_at >= BACKUP_SSE_MAX_CONNECTION_SEC:
+                yield _backup_sse_event("keepalive", {"reason": "connection_recycle"})
+                break
+
             if now - last_ping_at >= BACKUP_SSE_KEEPALIVE_SEC:
                 yield _backup_sse_event("keepalive", {})
                 last_ping_at = now
