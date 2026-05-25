@@ -34,7 +34,7 @@ QUEUE_DEFINITIONS = [
         "priority": "Baja",
         "threshold_attr": "maintenance_queue_warning_threshold",
         "monitor_attr": "monitor_maintenance_queue_enabled",
-        "job_types": ["db_backup", "cleanup_sessions", "cleanup_temp_files"],
+        "job_types": ["cleanup_sessions", "cleanup_temp_files"],
         "tag": "queue.maintenance",
     },
     {
@@ -62,4 +62,3 @@ QUEUE_DEFINITIONS = [
         "tag": "queue.dlq",
     },
 ]
-

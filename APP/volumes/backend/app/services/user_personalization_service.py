@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from models.dashboard_widgets import DashboardWidget
@@ -57,7 +58,13 @@ def _ensure_profile(db: Session, user_id: str) -> UserProfile:
 
     profile = UserProfile(user_id=user_id)
     db.add(profile)
-    db.flush()
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        profile = _load_profile(db, user_id)
+        if not profile:
+            raise
     return profile
 
 

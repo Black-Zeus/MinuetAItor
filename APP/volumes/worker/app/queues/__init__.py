@@ -27,7 +27,6 @@ def register_all() -> None:
     registry.register("queue:email",       "email",           handle_email_job)
 
     # ── Cola: mantenimiento ───────────────────────────────────────────────────
-    registry.register("queue:maintenance", "db_backup",          handle_maintenance_job)
     registry.register("queue:maintenance", "cleanup_sessions",   handle_maintenance_job)
     registry.register("queue:maintenance", "cleanup_temp_files", handle_maintenance_job)
 

@@ -3,17 +3,20 @@ from __future__ import annotations
 import json
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from sqlalchemy.exc import OperationalError, ProgrammingError
+from sqlalchemy.exc import IntegrityError, OperationalError, ProgrammingError
 from sqlalchemy import func, inspect
 from sqlalchemy.orm import Session, joinedload
 
+from core.config import settings
 from core.datetime_utils import utc_now
 from core.datetime_utils import utc_now_db
 from core.exceptions import BadRequestException
 from db.redis import get_redis
 from models.roles import Role
+from models.system_backups import SystemOperationState
 from models.system_maintenance_setting import SystemMaintenanceSetting
 from models.user import User
 from models.user_roles import UserRole
@@ -26,6 +29,7 @@ from services.notification_center_service import create_in_app_notification
 from services.public_url_service import build_public_url
 from services.system_maintenance_events_service import publish_maintenance_event
 from services.system_queue_catalog import QUEUE_DEFINITIONS
+from repositories.audit_repository import write_audit
 
 SCHEDULER_TIMEZONE = "America/Santiago"
 MAINTENANCE_QUEUE = "queue:maintenance"
@@ -177,6 +181,208 @@ def _user_ref(user_obj) -> dict | None:
     }
 
 
+def _actor_snapshot(db: Session, user_id: str | None) -> dict | None:
+    if not user_id:
+        return None
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        return {"id": str(user_id), "username": None, "full_name": None}
+    return _user_ref(user)
+
+
+def _marker_path() -> Path:
+    return Path(settings.maintenance_state_file)
+
+
+def _read_operation_marker() -> dict | None:
+    path = _marker_path()
+    if not path.is_file():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _write_operation_marker(data: dict) -> None:
+    path = _marker_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _clear_operation_marker() -> None:
+    _marker_path().unlink(missing_ok=True)
+
+
+def _get_operation_state_row(db: Session) -> SystemOperationState | None:
+    try:
+        return db.query(SystemOperationState).filter(SystemOperationState.id == 1).first()
+    except Exception:
+        return None
+
+
+def _operation_state_response_from_marker(marker: dict) -> dict:
+    actor = marker.get("actor") if isinstance(marker.get("actor"), dict) else None
+    return {
+        "mode": str(marker.get("mode") or "maintenance"),
+        "operation_id": marker.get("operationId"),
+        "operation_type": marker.get("operationType") or marker.get("operation_type"),
+        "reason": marker.get("reason"),
+        "started_by": {
+            "id": str(actor.get("id") or actor.get("user_id") or actor.get("userId") or ""),
+            "username": actor.get("username"),
+            "full_name": actor.get("full_name") or actor.get("fullName"),
+        } if actor else None,
+        "started_at": marker.get("startedAt"),
+        "source": "marker_file",
+    }
+
+
+def get_system_operation_state(db: Session) -> dict:
+    marker = _read_operation_marker()
+    if marker:
+        return _operation_state_response_from_marker(marker)
+
+    row = _get_operation_state_row(db)
+    if not row or str(row.mode or "normal") == "normal":
+        return {
+            "mode": "normal",
+            "operation_id": None,
+            "operation_type": None,
+            "reason": None,
+            "started_by": None,
+            "started_at": None,
+            "source": "default",
+        }
+
+    actor = None
+    try:
+        raw_actor = json.loads(row.started_by_snapshot_json or "{}")
+        if isinstance(raw_actor, dict):
+            actor = {
+                "id": str(raw_actor.get("id") or raw_actor.get("user_id") or raw_actor.get("userId") or ""),
+                "username": raw_actor.get("username"),
+                "full_name": raw_actor.get("full_name") or raw_actor.get("fullName"),
+            }
+    except Exception:
+        actor = None
+    return {
+        "mode": row.mode,
+        "operation_id": row.operation_id,
+        "operation_type": row.operation_type,
+        "reason": row.reason,
+        "started_by": actor,
+        "started_at": _iso(row.started_at),
+        "source": "database",
+    }
+
+
+def set_system_operation_mode(
+    db: Session,
+    *,
+    mode: str,
+    reason: str | None,
+    actor_user_id: str,
+) -> dict:
+    normalized_mode = str(mode or "").strip()
+    if normalized_mode not in {"normal", "read_only", "maintenance"}:
+        raise BadRequestException("El modo operativo solicitado no es válido.")
+
+    actor = _actor_snapshot(db, actor_user_id)
+    now = utc_now_db()
+    row = _get_operation_state_row(db)
+    if not row:
+        row = SystemOperationState(id=1)
+        db.add(row)
+        try:
+            db.flush()
+        except IntegrityError:
+            db.rollback()
+            row = _get_operation_state_row(db)
+            if not row:
+                raise
+
+    previous_state = {
+        "mode": row.mode if row else "normal",
+        "operationId": row.operation_id if row else None,
+        "operationType": row.operation_type if row else None,
+        "reason": row.reason if row else None,
+        "startedBy": row.started_by if row else None,
+        "startedAt": _iso(row.started_at) if row else None,
+    }
+
+    if normalized_mode == "normal":
+        previous_operation_id = row.operation_id
+        row.mode = "normal"
+        row.operation_id = None
+        row.operation_type = None
+        row.reason = None
+        row.started_by = None
+        row.started_by_snapshot_json = None
+        row.allowed_session_jti = None
+        row.started_at = None
+        row.expires_at = None
+        row.metadata_json = None
+        row.updated_at = now
+        _clear_operation_marker()
+        audit_action = "system_operation_normalized"
+        audit_entity_id = previous_operation_id
+        audit_details = {
+            "mode": "normal",
+            "reason": reason or "Modo normal restaurado administrativamente.",
+            "previousState": previous_state,
+            "actor": actor,
+            "changedAt": now.replace(tzinfo=timezone.utc).isoformat(),
+        }
+    else:
+        operation_id = str(uuid.uuid4())
+        operation_type = "manual_read_only" if normalized_mode == "read_only" else "manual_maintenance"
+        marker = {
+            "mode": normalized_mode,
+            "operationId": operation_id,
+            "operationType": operation_type,
+            "reason": reason or ("Modo solo lectura activado administrativamente." if normalized_mode == "read_only" else "Modo mantenimiento activado administrativamente."),
+            "status": "running",
+            "actor": actor,
+            "startedAt": now.replace(tzinfo=timezone.utc).isoformat(),
+        }
+        row.mode = normalized_mode
+        row.operation_id = operation_id
+        row.operation_type = operation_type
+        row.reason = marker["reason"]
+        row.started_by = actor_user_id
+        row.started_by_snapshot_json = json.dumps(actor, ensure_ascii=False, sort_keys=True) if actor else None
+        row.allowed_session_jti = None
+        row.started_at = now
+        row.expires_at = None
+        row.metadata_json = json.dumps(marker, ensure_ascii=False, sort_keys=True)
+        row.updated_at = now
+        _write_operation_marker(marker)
+        audit_action = "system_read_only_enabled" if normalized_mode == "read_only" else "system_maintenance_enabled"
+        audit_entity_id = operation_id
+        audit_details = {
+            "mode": normalized_mode,
+            "operationId": operation_id,
+            "operationType": operation_type,
+            "reason": marker["reason"],
+            "previousState": previous_state,
+            "actor": actor,
+            "startedAt": marker["startedAt"],
+        }
+
+    db.commit()
+    write_audit(
+        db,
+        actor_user_id=actor_user_id,
+        action=audit_action,
+        entity_type="system_operation_state",
+        entity_id=audit_entity_id,
+        details=audit_details,
+    )
+    return get_system_operation_state(db)
+
+
 def _base_query(db: Session):
     return (
         db.query(SystemMaintenanceSetting)
@@ -203,8 +409,12 @@ def _get_singleton(db: Session, *, actor_user_id: str | None = None) -> SystemMa
         **DEFAULT_SETTINGS,
     )
     db.add(obj)
-    db.commit()
-    db.refresh(obj)
+    try:
+        db.commit()
+        db.refresh(obj)
+    except IntegrityError:
+        db.rollback()
+
     return _base_query(db).filter(SystemMaintenanceSetting.id == SYSTEM_MAINTENANCE_SINGLETON_ID).first()
 
 
@@ -772,6 +982,7 @@ async def get_system_maintenance_status(db: Session) -> dict:
         ),
         "session_cleanup": _build_runtime_status(obj, "session_cleanup"),
         "temp_cleanup": _build_runtime_status(obj, "temp_cleanup"),
+        "operation_state": get_system_operation_state(db),
         "scheduler_timezone": SCHEDULER_TIMEZONE,
     }
 

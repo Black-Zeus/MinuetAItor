@@ -2,6 +2,7 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     env_name: str = "dev"
+    app_version: str = ""
 
     geo_db_path: str = "/app/assets/dbGeo/dbip-city-lite.mmdb"
     
@@ -60,6 +61,7 @@ class Settings(BaseSettings):
     minio_port:          int = 9000
     minio_root_user:     str = "minioadmin"
     minio_root_password: str = ""
+    maintenance_state_file: str = "/app/maintenance_state.json"
 
     # Minutes config
     minutes_max_file_size_mb: int = 50
