@@ -189,6 +189,7 @@ services:
       - ./APP/volumes/backend/.env
     volumes:
       - ./APP/volumes/backend/app:/app
+      - ./APP/data/settings/mariadb/init:/app/data/settings/mariadb/init:ro
       - ./APP/data/settings/worker/prompts:/app/assets/prompts:ro
       - ./APP/data/backend_data:/app/remote_data
       - ./APP/logs/backend:/var/log/app
@@ -386,6 +387,7 @@ services:
     volumes:
       - ./APP/volumes/backup-worker/app:/app
       - ./APP/volumes/backend/app:/app/backend_app
+      - ./APP/data/settings/mariadb/init:/app/data/settings/mariadb/init:ro
       - ./APP/data/backend_data:/app/remote_data
       - ./APP/logs/backup-worker:/var/log/app
     command: watchmedo auto-restart --patterns='*.py' --recursive -- python -u /app/main.py

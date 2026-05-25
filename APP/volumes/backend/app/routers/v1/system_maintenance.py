@@ -11,6 +11,8 @@ from db.session import get_db
 from schemas.auth import UserSession
 from schemas.system_maintenance import (
     MaintenanceRunNowResponse,
+    SystemOperationModeRequest,
+    SystemOperationStateResponse,
     SystemMaintenanceConfigRequest,
     SystemMaintenanceConfigResponse,
     SystemMaintenanceStatusResponse,
@@ -20,7 +22,9 @@ from services.system_maintenance_events_service import maintenance_sse_headers, 
 from services.system_maintenance_service import (
     get_system_maintenance_settings,
     get_system_maintenance_status,
+    get_system_operation_state,
     run_system_maintenance_action_now,
+    set_system_operation_mode,
     update_system_maintenance_settings,
 )
 
@@ -77,6 +81,47 @@ async def get_status_endpoint(
     db: Session = Depends(get_db),
 ):
     return await get_system_maintenance_status(db)
+
+
+@router.get(
+    "/operation-state",
+    response_model=SystemOperationStateResponse,
+    status_code=status.HTTP_200_OK,
+)
+def get_operation_state_endpoint(
+    session: UserSession = Depends(require_roles("ADMIN")),
+    db: Session = Depends(get_db),
+):
+    return get_system_operation_state(db)
+
+
+@router.get(
+    "/operation-state/public",
+    response_model=SystemOperationStateResponse,
+    status_code=status.HTTP_200_OK,
+)
+def get_public_operation_state_endpoint(
+    db: Session = Depends(get_db),
+):
+    return get_system_operation_state(db)
+
+
+@router.post(
+    "/operation-state",
+    response_model=SystemOperationStateResponse,
+    status_code=status.HTTP_200_OK,
+)
+def set_operation_state_endpoint(
+    body: SystemOperationModeRequest,
+    session: UserSession = Depends(require_roles("ADMIN")),
+    db: Session = Depends(get_db),
+):
+    return set_system_operation_mode(
+        db,
+        mode=body.mode,
+        reason=body.reason,
+        actor_user_id=session.user_id,
+    )
 
 
 @router.get(

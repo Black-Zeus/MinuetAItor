@@ -1,11 +1,13 @@
 # main.py
+import json
 from contextlib import asynccontextmanager
+from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from fastapi.openapi.docs import get_swagger_ui_html
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 
 from core.config import settings
 from core.middleware import ResponseContractMiddleware, GeoBlockMiddleware, register_exception_handlers
@@ -43,6 +45,84 @@ app.add_middleware(
 )
 app.add_middleware(GeoBlockMiddleware)
 app.add_middleware(ResponseContractMiddleware)
+
+
+def _is_read_only_safe_request(request: Request) -> bool:
+    method = request.method.upper()
+    path = request.url.path
+
+    if method in {"GET", "HEAD", "OPTIONS"}:
+        return True
+
+    if method != "POST":
+        return False
+
+    safe_suffixes = (
+        "/list",
+        "/summary",
+        "/status",
+        "/catalog",
+        "/lookup",
+    )
+    safe_prefixes = (
+        "/v1/reports/management/",
+        "/v1/reports/audit/",
+        "/v1/ai-usage-events/",
+    )
+    safe_exact_paths = {
+        "/v1/auth/login",
+        "/v1/auth/logout",
+        "/v1/participants/resolve",
+    }
+
+    return (
+        path in safe_exact_paths
+        or path.endswith(safe_suffixes)
+        or any(path.startswith(prefix) for prefix in safe_prefixes)
+    )
+
+
+@app.middleware("http")
+async def maintenance_marker_read_only_middleware(request: Request, call_next):
+    marker_path = Path(settings.maintenance_state_file)
+    is_operation_state_endpoint = request.url.path.startswith("/v1/system/maintenance/operation-state")
+    is_system_backups_endpoint = request.url.path.startswith("/v1/system/backups")
+    is_login_endpoint = request.url.path == "/v1/auth/login"
+    if marker_path.is_file() and request.method.upper() not in {"GET", "HEAD", "OPTIONS"} and not is_operation_state_endpoint:
+        try:
+            marker = json.loads(marker_path.read_text(encoding="utf-8"))
+        except Exception:
+            marker = {}
+        operation_type = str(marker.get("operationType") or marker.get("operation_type") or "")
+        mode = marker.get("mode") or "maintenance"
+        if mode == "read_only" and _is_read_only_safe_request(request):
+            response = await call_next(request)
+            response.headers["X-System-Maintenance"] = "read_only"
+            return response
+        if operation_type.startswith("manual_") and (is_login_endpoint or is_system_backups_endpoint):
+            response = await call_next(request)
+            response.headers["X-System-Maintenance"] = str(mode)
+            return response
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "error",
+                "message": "El sistema está en modo mantenimiento." if mode == "maintenance" else "El sistema está en modo solo lectura.",
+                "maintenance": {
+                    "mode": mode,
+                    "operationId": marker.get("operationId"),
+                    "artifactId": marker.get("artifactId"),
+                    "scope": marker.get("scope"),
+                    "status": marker.get("status") or "running",
+                },
+            },
+            headers={"Retry-After": "30"},
+        )
+    response = await call_next(request)
+    if marker_path.is_file():
+        response.headers["X-System-Maintenance"] = "restore"
+    return response
+
 
 register_exception_handlers(app)
 
@@ -326,6 +406,11 @@ app.include_router(organization_settings_router, prefix="/v1")
 from routers.v1.system_maintenance import router as system_maintenance_router
 app.include_router(system_maintenance_router, prefix="/v1")
 
+# ── System Backups ────────────────────────────────────────────────────────────
+# [ACTIVO] Configuración, historial y encolado de respaldos
+from routers.v1.system_backups import router as system_backups_router
+app.include_router(system_backups_router, prefix="/v1")
+
 # ── System Queues ─────────────────────────────────────────────────────────────
 # [ACTIVO] Snapshot administrativo de colas Redis y su carga operativa
 from routers.v1.system_queues import router as system_queues_router
@@ -348,6 +433,8 @@ from routers.internal.maintenance import router as internal_maintenance_router
 app.include_router(internal_maintenance_router)
 from routers.internal.notifications import router as internal_notifications_router
 app.include_router(internal_notifications_router)
+from routers.internal.backups import router as internal_backups_router
+app.include_router(internal_backups_router)
 
 
 # ── System endpoints ──────────────────────────────────────────────────────────

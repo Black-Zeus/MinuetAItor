@@ -6,7 +6,6 @@ import time
 import urllib.error
 import urllib.request
 
-import redis
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 
@@ -16,17 +15,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger("scheduler")
 
-REDIS_HOST = os.environ.get("REDIS_HOST", "redis")
-REDIS_PORT = int(os.environ.get("REDIS_PORT", "6379"))
 BACKEND_INTERNAL_URL = os.environ.get("BACKEND_INTERNAL_URL", "http://backend:8000")
 INTERNAL_API_SECRET = os.environ.get("INTERNAL_API_SECRET", "-")
-
-r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
-
-
-def enqueue(queue: str, job: dict) -> None:
-    r.rpush(queue, json.dumps(job))
-    logger.info("Job encolado | queue=%s | type=%s", queue, job.get("type"))
 
 
 # ── Definición de jobs ────────────────────────────────────────────────────────
@@ -66,14 +56,6 @@ def job_pending_publication_reminders():
         logger.error("Reminder batch failed | err=%s", exc)
 
 
-def job_db_backup():
-    """Encola tarea de respaldo de base de datos."""
-    enqueue("queue:maintenance", {
-        "type":   "db_backup",
-        "target": "mariadb",
-    })
-
-
 def job_maintenance_tick():
     """Delegación de mantenimiento dinámico según configuración persistida."""
     try:
@@ -91,6 +73,25 @@ def job_maintenance_tick():
         logger.error("Maintenance tick failed | err=%s", exc)
 
 
+def job_system_backups_tick():
+    """Delegación de respaldos programados según configuración persistida."""
+    try:
+        result = _unwrap_contract(_post_internal("/internal/v1/system/backups/tick"))
+        logger.info(
+            "System backups tick OK | slot=%s | enqueued=%s",
+            result.get("currentSlot") or result.get("current_slot"),
+            ",".join(
+                f"{item.get('scope', '?')}:{item.get('action', '-')}"
+                for item in result.get("enqueued", [])
+            ) or "-",
+        )
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        logger.error("System backups tick HTTP error | status=%s body=%s", exc.code, body[:300])
+    except Exception as exc:
+        logger.error("System backups tick failed | err=%s", exc)
+
+
 # ── Configuración del scheduler ───────────────────────────────────────────────
 
 def main():
@@ -104,12 +105,12 @@ def main():
         name="Reminder minutas pendientes",
     )
 
-    # Respaldo BD — todos los días a las 2:00am
+    # Respaldos programados — delegados al backend para evaluar políticas
     scheduler.add_job(
-        job_db_backup,
-        CronTrigger(hour=2, minute=0),
-        id="db_backup",
-        name="Respaldo base de datos",
+        job_system_backups_tick,
+        CronTrigger(),
+        id="system_backups_tick",
+        name="Tick respaldos programados",
     )
 
     # Tick de mantenimiento dinámico — cada minuto

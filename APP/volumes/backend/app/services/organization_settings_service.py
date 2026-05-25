@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 from fastapi import UploadFile
 from sqlalchemy import inspect
-from sqlalchemy.exc import OperationalError, ProgrammingError
+from sqlalchemy.exc import IntegrityError, OperationalError, ProgrammingError
 from sqlalchemy.orm import Session, joinedload
 
 from core.datetime_utils import utc_now_db
@@ -180,8 +180,11 @@ def _get_singleton(db: Session, *, actor_user_id: str | None = None) -> Organiza
         **DEFAULT_VALUES,
     )
     db.add(obj)
-    db.commit()
-    db.refresh(obj)
+    try:
+        db.commit()
+        db.refresh(obj)
+    except IntegrityError:
+        db.rollback()
     return _base_query(db).filter(OrganizationSetting.id == ORGANIZATION_SETTINGS_SINGLETON_ID).first()
 
 

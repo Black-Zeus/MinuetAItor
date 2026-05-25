@@ -1,6 +1,8 @@
 # services/auth_service.py
+import json
 import uuid
 from datetime import datetime, timezone, timedelta
+from pathlib import Path
 
 from sqlalchemy.orm import Session
 from starlette.requests import Request
@@ -48,6 +50,19 @@ from utils.geo import get_geo
 from utils.network import get_client_ip
 from jose import jwt as jose_jwt
 from repositories.audit_repository import write_audit
+
+
+def _read_manual_operation_marker() -> dict | None:
+    marker_path = Path(settings.maintenance_state_file)
+    if not marker_path.is_file():
+        return None
+    try:
+        marker = json.loads(marker_path.read_text(encoding="utf-8"))
+    except Exception:
+        marker = {}
+    operation_type = str(marker.get("operationType") or marker.get("operation_type") or "")
+    return marker if operation_type.startswith("manual_") else None
+
 
 async def _is_session_online(user_id: str, jti: str) -> bool:
     return await session_exists(user_id, jti)
@@ -121,6 +136,10 @@ async def login(db: Session, credential: str, password: str, request: Request) -
     # ── Cargar roles/permisos ─────────────────────────
     user_full = get_user_with_roles_permissions(db, user.id)
     session = _build_user_session(user_full)
+    manual_marker = _read_manual_operation_marker()
+    manual_mode = str((manual_marker or {}).get("mode") or "")
+    if manual_mode == "maintenance" and "ADMIN" not in {str(role or "").upper() for role in session.roles}:
+        raise ForbiddenException("No se puede acceder porque el sistema está en modo mantenimiento.")
 
     expires = timedelta(minutes=settings.jwt_expire_minutes)
     token = create_access_token(

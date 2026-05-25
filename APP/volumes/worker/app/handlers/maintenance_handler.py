@@ -179,14 +179,6 @@ async def _notify_admins(
         logger.warning("No se pudo emitir notificación admin de maintenance | action=%s err=%s", action, exc)
 
 
-async def _handle_db_backup(payload: dict[str, Any]) -> tuple[int, str]:
-    target = payload.get("target", "mariadb")
-    logger.info("Iniciando backup | target=%s", target)
-    await asyncio.sleep(0)
-    logger.info("Backup completado | target=%s", target)
-    return 0, f"Respaldo placeholder ejecutado para {target}."
-
-
 async def _handle_cleanup_sessions(payload: dict[str, Any]) -> tuple[int, str]:
     mode = str(payload.get("mode") or "soft_logout").strip() or "soft_logout"
     SessionLocal = _get_db_session()
@@ -280,7 +272,6 @@ async def _handle_cleanup_temp_files(payload: dict[str, Any]) -> tuple[int, str]
 
 
 _ACTIONS: dict[str, Any] = {
-    "db_backup": _handle_db_backup,
     "cleanup_sessions": _handle_cleanup_sessions,
     "cleanup_temp_files": _handle_cleanup_temp_files,
 }

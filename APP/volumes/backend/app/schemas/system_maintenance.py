@@ -3,6 +3,7 @@ from __future__ import annotations
 from pydantic import BaseModel, Field, field_validator
 
 VALID_CLEANUP_MODES = ("soft_logout", "revoke_idle", "archive_only")
+VALID_OPERATION_MODES = ("normal", "read_only", "maintenance")
 
 
 def _normalize_cron_expression(value: str) -> str:
@@ -180,6 +181,33 @@ class MaintenanceRunNowResponse(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class SystemOperationModeRequest(BaseModel):
+    mode: str
+    reason: str | None = None
+
+    @field_validator("mode")
+    @classmethod
+    def validate_operation_mode(cls, value: str) -> str:
+        normalized = str(value or "").strip()
+        if normalized not in VALID_OPERATION_MODES:
+            raise ValueError("El modo operativo solicitado no es válido.")
+        return normalized
+
+    model_config = {"populate_by_name": True}
+
+
+class SystemOperationStateResponse(BaseModel):
+    mode: str
+    operation_id: str | None = Field(None, serialization_alias="operationId")
+    operation_type: str | None = Field(None, serialization_alias="operationType")
+    reason: str | None = None
+    started_by: UserRefResponse | None = Field(None, serialization_alias="startedBy")
+    started_at: str | None = Field(None, serialization_alias="startedAt")
+    source: str
+
+    model_config = {"populate_by_name": True}
+
+
 class SystemMaintenanceStatusResponse(BaseModel):
     minutes_queue: MaintenanceQueueStatusResponse = Field(..., serialization_alias="minutesQueue")
     email_queue: MaintenanceQueueStatusResponse = Field(..., serialization_alias="emailQueue")
@@ -188,6 +216,7 @@ class SystemMaintenanceStatusResponse(BaseModel):
     dlq: MaintenanceQueueStatusResponse
     session_cleanup: MaintenanceRuntimeStatusResponse = Field(..., serialization_alias="sessionCleanup")
     temp_cleanup: MaintenanceRuntimeStatusResponse = Field(..., serialization_alias="tempCleanup")
+    operation_state: SystemOperationStateResponse = Field(..., serialization_alias="operationState")
     scheduler_timezone: str = Field(..., serialization_alias="schedulerTimezone")
 
     model_config = {"populate_by_name": True}

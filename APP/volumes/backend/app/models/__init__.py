@@ -32,6 +32,14 @@ from models.email_delivery_events import EmailDeliveryEvent
 from models.organization_settings import OrganizationSetting
 from models.smtp_configs import SmtpConfig
 from models.system_maintenance_setting import SystemMaintenanceSetting
+from models.system_backups import (
+    SystemBackupArtifact,
+    SystemBackupAuditEvent,
+    SystemBackupOperation,
+    SystemBackupSetting,
+    SystemDeferredTask,
+    SystemOperationState,
+)
 
 # ── Entidades de negocio ──────────────────────────────────────────────────────
 from models.clients import Client
