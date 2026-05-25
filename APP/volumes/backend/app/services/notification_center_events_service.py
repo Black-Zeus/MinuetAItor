@@ -12,6 +12,7 @@ from schemas.auth import UserSession
 
 NOTIFICATION_EVENTS_PREFIX = "events:notifications"
 NOTIFICATION_SSE_KEEPALIVE_SEC = 15
+NOTIFICATION_SSE_MAX_CONNECTION_SEC = 55
 
 
 def get_notification_events_channel(user_id: str) -> str:
@@ -48,10 +49,15 @@ async def stream_user_notifications(session: UserSession) -> AsyncGenerator[str,
     await pubsub.subscribe(channel)
 
     try:
-        last_ping_at = time.monotonic()
+        started_at = time.monotonic()
+        last_ping_at = started_at
 
         while True:
             now = time.monotonic()
+            if now - started_at >= NOTIFICATION_SSE_MAX_CONNECTION_SEC:
+                yield _sse_event("keepalive", {"reason": "connection_recycle"})
+                break
+
             if now - last_ping_at >= NOTIFICATION_SSE_KEEPALIVE_SEC:
                 yield _sse_event("keepalive", {})
                 last_ping_at = now

@@ -35,6 +35,8 @@ export const API_ENDPOINTS = {
     CHANGE_PASSWORD_ADMIN: `${API_VERSION}/auth/change-password-by-admin`,
     FORGOT_PASSWORD: `${API_VERSION}/auth/forgot-password`,
     RESET_PASSWORD: `${API_VERSION}/auth/reset-password`,
+    ACCESS_REQUEST_STATUS: `${API_VERSION}/auth/access-request/status`,
+    ACCESS_REQUEST: `${API_VERSION}/auth/access-request`,
   },
 
   USERS: {

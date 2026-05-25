@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 MAINTENANCE_EVENTS_CHANNEL = "events:system:maintenance"
 MAINTENANCE_SSE_KEEPALIVE_SEC = 15
+MAINTENANCE_SSE_MAX_CONNECTION_SEC = 55
 
 
 def get_maintenance_events_channel() -> str:
@@ -72,10 +73,15 @@ async def stream_system_maintenance_events(session: UserSession) -> AsyncGenerat
     logger.info("[maintenance-sse] Suscrito | user=%s channel=%s", session.user_id, channel)
 
     try:
-        last_ping_at = time.monotonic()
+        started_at = time.monotonic()
+        last_ping_at = started_at
 
         while True:
             now = time.monotonic()
+            if now - started_at >= MAINTENANCE_SSE_MAX_CONNECTION_SEC:
+                yield _maintenance_sse_event("keepalive", {"reason": "connection_recycle"})
+                break
+
             if now - last_ping_at >= MAINTENANCE_SSE_KEEPALIVE_SEC:
                 yield _maintenance_sse_event("keepalive", {})
                 last_ping_at = now

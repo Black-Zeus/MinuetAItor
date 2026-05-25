@@ -6,6 +6,7 @@ import useSessionStore from "@/store/sessionStore";
 
 const SYSTEM_MAINTENANCE_EVENTS_URL = "/api/v1/system/maintenance/events";
 const SYSTEM_MAINTENANCE_RUNTIME_EVENT = "system-maintenance-runtime-update";
+export const SYSTEM_MAINTENANCE_SSE_STATE_EVENT = "system-maintenance-sse-state";
 
 const SCOPE_LABELS = {
   session_cleanup: "Limpieza de sesiones",
@@ -69,6 +70,14 @@ const buildToastCopy = (payload) => {
   };
 };
 
+const dispatchConnectionState = (connected) => {
+  window.dispatchEvent(
+    new CustomEvent(SYSTEM_MAINTENANCE_SSE_STATE_EVENT, {
+      detail: { connected: Boolean(connected) },
+    })
+  );
+};
+
 export const useSystemMaintenanceSSE = () => {
   const accessToken = useAuthStore((s) => s.accessToken);
   const roles = useSessionStore((s) => s.authz?.roles ?? []);
@@ -86,6 +95,7 @@ export const useSystemMaintenanceSSE = () => {
     const url = `${SYSTEM_MAINTENANCE_EVENTS_URL}?token=${encodeURIComponent(accessToken)}`;
     const source = new EventSource(url);
     sourceRef.current = source;
+    source.onopen = () => dispatchConnectionState(true);
 
     const handleUpdate = (event) => {
       const payload = parseEventPayload(event);
@@ -112,11 +122,13 @@ export const useSystemMaintenanceSSE = () => {
     source.addEventListener("maintenance_update", handleUpdate);
     source.addEventListener("keepalive", () => {});
     source.onerror = () => {
+      dispatchConnectionState(false);
       // EventSource reintenta automáticamente.
     };
 
     return () => {
       source.close();
+      dispatchConnectionState(false);
       if (sourceRef.current === source) {
         sourceRef.current = null;
       }

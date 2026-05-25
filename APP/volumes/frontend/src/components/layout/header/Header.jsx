@@ -11,6 +11,7 @@ import HeaderNotificationsBell from './HeaderNotificationsBell';
 import HeaderThemeToggle  from './HeaderThemeToggle';
 import HeaderDivider      from './HeaderDivider';
 import HeaderUserMenu     from './HeaderUserMenu';
+import personalizationService from '@/services/personalizationService';
 import useBaseSiteStore   from '@store/baseSiteStore';
 import useAuthStore       from '@store/authStore';
 import useSessionStore    from '@store/sessionStore';
@@ -22,7 +23,9 @@ const Header = ({
   const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
 
-  const { theme, toggleTheme } = useBaseSiteStore();
+  const theme = useBaseSiteStore((s) => s.theme);
+  const setTheme = useBaseSiteStore((s) => s.setTheme);
+  const hydratePersonalization = useBaseSiteStore((s) => s.hydratePersonalization);
   const logout       = useAuthStore((s) => s.logout);
   const getDisplayData = useSessionStore((s) => s.getDisplayData);
   const userDisplay  = getDisplayData();
@@ -30,6 +33,19 @@ const Header = ({
   const handleLogout = () => {
     logout('Manual logout');
     navigate('/login', { replace: true });
+  };
+
+  const handleThemeToggle = async () => {
+    const nextTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(nextTheme);
+
+    try {
+      const payload = useBaseSiteStore.getState().getPersonalizationSnapshot();
+      const persisted = await personalizationService.updateMyPersonalization(payload);
+      hydratePersonalization(persisted);
+    } catch {
+      // El cambio local se conserva; la próxima edición de personalización puede reintentar la sincronización.
+    }
   };
 
   const userMenuItems = [
@@ -66,7 +82,7 @@ const Header = ({
           />
         )}
         <div className="flex items-center space-x-2">
-          <HeaderThemeToggle onClick={toggleTheme} currentTheme={theme} />
+          <HeaderThemeToggle onClick={handleThemeToggle} currentTheme={theme} />
           {!isOperationLocked && <HeaderNotificationsBell />}
         </div>
         <HeaderDivider />

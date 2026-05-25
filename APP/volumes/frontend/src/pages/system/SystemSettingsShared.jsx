@@ -120,6 +120,7 @@ export const INITIAL_MAINTENANCE_DRAFT = {
   pdfQueueWarningThreshold: 10,
   monitorDlqEnabled: true,
   dlqWarningThreshold: 10,
+  accessRequestEnabled: true,
 };
 
 export const INITIAL_BACKUPS_DRAFT = {

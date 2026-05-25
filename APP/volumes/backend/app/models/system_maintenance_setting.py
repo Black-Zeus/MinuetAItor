@@ -30,6 +30,7 @@ class SystemMaintenanceSetting(Base):
     monitor_dlq_enabled = Column(Boolean, nullable=False, default=True)
     dlq_warning_threshold = Column(Integer, nullable=False, default=10)
     queue_monitor_state_json = Column(Text, nullable=True)
+    access_request_enabled = Column(Boolean, nullable=False, default=True)
 
     last_session_cleanup_enqueued_at = Column(DateTime, nullable=True)
     last_session_cleanup_enqueued_slot = Column(String(12), nullable=True)
