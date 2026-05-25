@@ -11,6 +11,11 @@ from schemas.auth import (
     ChangePasswordByAdminRequest, ForgotPasswordRequest, ResetPasswordRequest,
     ActiveSessionsResponse, LogoutSessionRequest, LogoutSessionResponse, LogoutAllSessionsResponse,
 )
+from schemas.access_requests import (
+    AccessRequestCreateRequest,
+    AccessRequestCreateResponse,
+    AccessRequestStatusResponse,
+)
 from schemas.personalization import (
     UserPersonalizationResponse,
     UserPersonalizationUpdateRequest,
@@ -27,6 +32,10 @@ from services.avatar_service import read_user_avatar, remove_user_avatar, save_u
 from services.user_personalization_service import (
     get_user_personalization,
     update_user_personalization,
+)
+from services.access_request_service import (
+    create_access_request,
+    is_access_request_enabled,
 )
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -55,6 +64,20 @@ async def current_user_or_token_dep(
 @router.post("/login", response_model=TokenResponse, status_code=status.HTTP_200_OK)
 async def login_endpoint(payload: LoginRequest, request: Request, db: Session = Depends(get_db)):
     return await login(db, payload.credential, payload.password, request)
+
+
+@router.get("/access-request/status", response_model=AccessRequestStatusResponse, status_code=status.HTTP_200_OK)
+def access_request_status_endpoint(db: Session = Depends(get_db)):
+    return {"enabled": is_access_request_enabled(db)}
+
+
+@router.post("/access-request", response_model=AccessRequestCreateResponse, status_code=status.HTTP_202_ACCEPTED)
+async def access_request_endpoint(
+    payload: AccessRequestCreateRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    return await create_access_request(db, payload, request)
 
 
 @router.post("/logout", status_code=status.HTTP_200_OK)

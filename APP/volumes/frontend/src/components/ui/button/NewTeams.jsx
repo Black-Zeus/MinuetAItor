@@ -4,7 +4,7 @@
  * Sigue el patrón: toApiPayload → service.create → onCreated
  */
 
-import React from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 import ActionButton from "@/components/ui/button/ActionButton";
 import Icon         from "@/components/ui/icon/iconManager";
 import ModalManager from "@/components/ui/modal";
@@ -68,8 +68,10 @@ const toApiPayload = (formData) => {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-const NewTeams = ({ onCreated }) => {
-  const handleOpen = async () => {
+const NewTeams = ({ onCreated, initialData = null, autoOpenKey = "" }) => {
+  const openedAutoKeyRef = useRef("");
+
+  const handleOpen = useCallback(async () => {
     const allowed = await ensureWriteOperationAllowed({ actionLabel: "Nuevo Usuario" });
     if (!allowed) return;
 
@@ -82,6 +84,7 @@ const NewTeams = ({ onCreated }) => {
       content: (
         <TeamsModal
           mode={TEAMS_MODAL_MODES.CREATE}
+          data={initialData || undefined}
           onSubmit={async (formData) => {
             const allowed = await ensureWriteOperationAllowed({ actionLabel: "Crear usuario" });
             if (!allowed) throw new Error("Operación bloqueada por el modo operativo del sistema.");
@@ -96,7 +99,13 @@ const NewTeams = ({ onCreated }) => {
         />
       ),
     });
-  };
+  }, [initialData, onCreated]);
+
+  useEffect(() => {
+    if (!autoOpenKey || openedAutoKeyRef.current === autoOpenKey) return;
+    openedAutoKeyRef.current = autoOpenKey;
+    void handleOpen();
+  }, [autoOpenKey, handleOpen]);
 
   return (
     <ActionButton

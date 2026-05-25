@@ -5,6 +5,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useLocation, useSearchParams } from "react-router-dom";
 import teamsService from "@/services/teamsService";
 
 import TeamsHeader  from "./TeamsHeader";
@@ -37,6 +38,14 @@ const TABLE_ITEMS_PER_PAGE = 100;
 const normalizeRole = (role) =>
   role ? String(role).toLowerCase() : "";
 
+const usernameFromEmail = (email) =>
+  String(email || "")
+    .split("@")[0]
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, ".")
+    .replace(/^[._-]+|[._-]+$/g, "")
+    .slice(0, 80);
+
 const calcStats = (users) => ({
   total:    users.length,
   active:   users.filter((u) => u.status === "active").length,
@@ -47,6 +56,8 @@ const calcStats = (users) => ({
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const Teams = () => {
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
   const [users,         setUsers]         = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [stats,         setStats]         = useState(calcStats([]));
@@ -62,6 +73,19 @@ const Teams = () => {
   const [viewMode, setViewMode] = useModuleViewMode(["base", "list", "table", "position"]);
   const [page, setPage] = useState(1);
   const itemsPerPage = viewMode === "table" ? TABLE_ITEMS_PER_PAGE : DEFAULT_ITEMS_PER_PAGE;
+  const accessRequestId = searchParams.get("accessRequestId") || "";
+  const initialNewUser = useMemo(() => {
+    if (!accessRequestId) return null;
+    const name = searchParams.get("name") || "";
+    const email = searchParams.get("email") || "";
+    const notes = searchParams.get("notes") || "";
+    return {
+      name,
+      email,
+      username: usernameFromEmail(email),
+      notes: notes ? `Solicitud de alta ${accessRequestId}: ${notes}` : `Solicitud de alta ${accessRequestId}.`,
+    };
+  }, [accessRequestId, searchParams]);
 
   // ── 1. Carga inicial ──────────────────────────────────────────────────────
 
@@ -181,7 +205,11 @@ const Teams = () => {
 
   return (
     <div className="space-y-6">
-      <TeamsHeader onCreated={handleCreated} />
+      <TeamsHeader
+        onCreated={handleCreated}
+        initialNewUser={initialNewUser}
+        autoOpenKey={accessRequestId ? `${accessRequestId}:${location.key}` : ""}
+      />
 
       <TeamsFilters
         filters={filters}

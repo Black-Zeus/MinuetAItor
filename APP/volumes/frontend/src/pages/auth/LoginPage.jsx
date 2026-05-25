@@ -8,10 +8,174 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { FaSun, FaMoon, FaEye, FaEyeSlash, FaCircleExclamation, FaTriangleExclamation } from 'react-icons/fa6';
 import useAuthStore from '@store/authStore';
 import useBaseSiteStore from '@store/baseSiteStore';
-import { login as apiLogin } from '@/services/authService';
+import {
+    getAccessRequestStatus,
+    login as apiLogin,
+    submitAccessRequest,
+} from '@/services/authService';
 import systemMaintenanceService from '@/services/systemMaintenanceService';
 import { APP_VERSION } from '@/utils/environment';
 import { applyThemeToDocument, resolveThemeMode } from '@/utils/theme';
+
+const AccessRequestModal = ({ onClose, onDisabled }) => {
+    const [form, setForm] = useState({ fullName: '', email: '', observation: '' });
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isCheckingStatus, setIsCheckingStatus] = useState(true);
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState(false);
+
+    useEffect(() => {
+        let alive = true;
+        getAccessRequestStatus()
+            .then((result) => {
+                if (!alive) return;
+                if (!result?.enabled) {
+                    onDisabled?.();
+                    return;
+                }
+                setIsCheckingStatus(false);
+            })
+            .catch(() => {
+                if (!alive) return;
+                setError('No fue posible validar si las solicitudes de alta están habilitadas.');
+                setIsCheckingStatus(false);
+            });
+
+        return () => {
+            alive = false;
+        };
+    }, [onDisabled]);
+
+    const handleChange = (field) => (event) => {
+        setForm((prev) => ({ ...prev, [field]: event.target.value }));
+        if (error) setError('');
+    };
+
+    const handleSubmit = async (event) => {
+        event.preventDefault();
+        setError('');
+        if (!form.fullName.trim() || !form.email.trim()) {
+            setError('Ingresa nombre y correo para enviar la solicitud.');
+            return;
+        }
+
+        let shouldResetSubmitting = true;
+        setIsSubmitting(true);
+        try {
+            const status = await getAccessRequestStatus();
+            if (!status?.enabled) {
+                shouldResetSubmitting = false;
+                onDisabled?.();
+                return;
+            }
+            await submitAccessRequest(form);
+            setSuccess(true);
+        } catch (err) {
+            setError(err?.message || 'No fue posible enviar la solicitud.');
+        } finally {
+            if (shouldResetSubmitting) setIsSubmitting(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 px-4 py-6 backdrop-blur-sm">
+            <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-white/10 bg-slate-900 shadow-2xl">
+                <div className="flex items-start justify-between gap-4 border-b border-white/10 px-6 py-5">
+                    <div>
+                        <h2 className="text-xl font-semibold text-white">Solicitar alta</h2>
+                        <p className="mt-1 text-sm text-slate-400">
+                            Completa tus datos para que un administrador revise la solicitud.
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-300 hover:bg-white/10"
+                    >
+                        Cerrar
+                    </button>
+                </div>
+
+                {success ? (
+                    <div className="space-y-5 px-6 py-6">
+                        <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-4 text-sm text-emerald-100">
+                            <p className="font-semibold">Solicitud recibida</p>
+                            <p className="mt-1 text-emerald-100/80">
+                                Notificamos a los administradores y enviamos una confirmación al correo indicado.
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="w-full rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-500"
+                        >
+                            Entendido
+                        </button>
+                    </div>
+                ) : isCheckingStatus ? (
+                    <div className="px-6 py-6">
+                        <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-4 text-sm text-slate-300">
+                            Validando disponibilidad de solicitudes de alta...
+                        </div>
+                    </div>
+                ) : (
+                    <form onSubmit={handleSubmit} className="space-y-4 px-6 py-6">
+                        {error ? (
+                            <div className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                                {error}
+                            </div>
+                        ) : null}
+
+                        <label className="block">
+                            <span className="text-sm font-medium text-slate-300">Nombre completo</span>
+                            <input
+                                type="text"
+                                value={form.fullName}
+                                onChange={handleChange('fullName')}
+                                autoFocus
+                                maxLength={200}
+                                className="mt-2 w-full rounded-xl border border-white/10 bg-slate-800 px-4 py-3 text-white outline-none transition focus:border-blue-400"
+                                placeholder="Ej: María González"
+                            />
+                        </label>
+
+                        <label className="block">
+                            <span className="text-sm font-medium text-slate-300">Correo electrónico</span>
+                            <input
+                                type="email"
+                                value={form.email}
+                                onChange={handleChange('email')}
+                                maxLength={200}
+                                className="mt-2 w-full rounded-xl border border-white/10 bg-slate-800 px-4 py-3 text-white outline-none transition focus:border-blue-400"
+                                placeholder="usuario@empresa.com"
+                            />
+                        </label>
+
+                        <label className="block">
+                            <span className="text-sm font-medium text-slate-300">Observación</span>
+                            <textarea
+                                value={form.observation}
+                                onChange={handleChange('observation')}
+                                rows={4}
+                                maxLength={1000}
+                                className="mt-2 w-full resize-none rounded-xl border border-white/10 bg-slate-800 px-4 py-3 text-white outline-none transition focus:border-blue-400"
+                                placeholder="Área, motivo o contexto para el alta..."
+                            />
+                        </label>
+
+                        <button
+                            type="submit"
+                            disabled={isSubmitting}
+                            className="w-full rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                            {isSubmitting ? 'Enviando solicitud...' : 'Enviar solicitud'}
+                        </button>
+                    </form>
+                )}
+            </div>
+        </div>
+    );
+};
 
 const LoginPage = () => {
     const navigate = useNavigate();
@@ -26,11 +190,7 @@ const LoginPage = () => {
     // ── CAMBIO 2: la key de localStorage cambió de 'minuteAItor-base-site' → 'site-storage' ──
     useLayoutEffect(() => {
         const stored = localStorage.getItem('site-storage') || localStorage.getItem('minuteAItor-base-site');
-        if (!stored) {
-            setTheme('dark');
-            applyThemeToDocument('dark');
-            return;
-        }
+        if (!stored) setTheme('system');
         applyThemeToDocument(theme);
     }, []);
 
@@ -46,9 +206,18 @@ const LoginPage = () => {
     const [errorTone, setErrorTone]   = useState('error');
     const [operationMode, setOperationMode] = useState('normal');
     const [operationType, setOperationType] = useState('');
+    const [accessRequestEnabled, setAccessRequestEnabled] = useState(false);
+    const [showAccessRequestModal, setShowAccessRequestModal] = useState(false);
 
     useEffect(() => {
         let alive = true;
+        getAccessRequestStatus()
+            .then((result) => {
+                if (alive) setAccessRequestEnabled(Boolean(result?.enabled));
+            })
+            .catch(() => {
+                if (alive) setAccessRequestEnabled(false);
+            });
         systemMaintenanceService.getPublicOperationState()
             .then((state) => {
                 if (!alive) return;
@@ -76,6 +245,35 @@ const LoginPage = () => {
     }, []);
 
     const from = location.state?.from || '/';
+
+    const handleOpenAccessRequestModal = async () => {
+        setError('');
+        try {
+            const result = await getAccessRequestStatus();
+            if (!result?.enabled) {
+                setAccessRequestEnabled(false);
+                setShowAccessRequestModal(false);
+                setErrorTitle('Solicitud de alta deshabilitada');
+                setErrorTone('maintenance');
+                setError('La solicitud de alta fue deshabilitada por un administrador.');
+                return;
+            }
+            setAccessRequestEnabled(true);
+            setShowAccessRequestModal(true);
+        } catch {
+            setErrorTitle('No se pudo validar la solicitud');
+            setErrorTone('error');
+            setError('No fue posible confirmar si la solicitud de alta está disponible.');
+        }
+    };
+
+    const handleAccessRequestDisabled = () => {
+        setAccessRequestEnabled(false);
+        setShowAccessRequestModal(false);
+        setErrorTitle('Solicitud de alta deshabilitada');
+        setErrorTone('maintenance');
+        setError('La solicitud de alta fue deshabilitada por un administrador.');
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -378,11 +576,19 @@ const LoginPage = () => {
                                     <a href="/forgot-password" className="font-medium text-blue-400 hover:text-blue-300 transition-colors">
                                         ¿Olvidaste tu contraseña?
                                     </a>
-                                    <span className="text-slate-600 select-none">·</span>
-                                    <a href="#" className="font-medium text-blue-400 hover:text-blue-300 transition-colors">
-                                        Solicitar alta
-                                    </a>
-                                    <span className="text-slate-600 select-none">·</span>
+                                    {accessRequestEnabled ? (
+                                        <>
+                                            <span className="text-slate-600 select-none">·</span>
+                                            <button
+                                                type="button"
+                                                onClick={handleOpenAccessRequestModal}
+                                                className="font-medium text-blue-400 transition-colors hover:text-blue-300"
+                                            >
+                                                Solicitar alta
+                                            </button>
+                                            <span className="text-slate-600 select-none">·</span>
+                                        </>
+                                    ) : null}
                                 </div>
                             </footer>
 
@@ -400,6 +606,13 @@ const LoginPage = () => {
                         v{APP_VERSION}
                     </span>
                 )}
+
+                {showAccessRequestModal ? (
+                    <AccessRequestModal
+                        onClose={() => setShowAccessRequestModal(false)}
+                        onDisabled={handleAccessRequestDisabled}
+                    />
+                ) : null}
 
             </div>
         </div>
