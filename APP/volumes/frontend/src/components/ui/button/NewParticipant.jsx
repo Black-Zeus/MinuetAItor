@@ -4,6 +4,7 @@ import Icon from "@/components/ui/icon/iconManager";
 import ModalManager from "@/components/ui/modal";
 import ParticipantsModal, { PARTICIPANTS_MODAL_MODES } from "@/pages/participants/ParticipantsModal";
 import participantsService from "@/services/participantsService";
+import { ensureWriteOperationAllowed } from "@/utils/operationModeGuard";
 
 const toApiPayload = (formData) => ({
   displayName: formData.displayName ?? "",
@@ -22,7 +23,10 @@ const toApiPayload = (formData) => ({
 });
 
 const NewParticipant = ({ onCreated }) => {
-  const handleOpen = () => {
+  const handleOpen = async () => {
+    const allowed = await ensureWriteOperationAllowed({ actionLabel: "Nuevo Participante" });
+    if (!allowed) return;
+
     ModalManager.show({
       type: "custom",
       title: "Nuevo Participante",
@@ -33,6 +37,8 @@ const NewParticipant = ({ onCreated }) => {
         <ParticipantsModal
           mode={PARTICIPANTS_MODAL_MODES.CREATE}
           onSubmit={async (formData) => {
+            const allowed = await ensureWriteOperationAllowed({ actionLabel: "Crear participante" });
+            if (!allowed) throw new Error("Operación bloqueada por el modo operativo del sistema.");
             return await participantsService.create(toApiPayload(formData));
           }}
           onSaved={async (created) => {

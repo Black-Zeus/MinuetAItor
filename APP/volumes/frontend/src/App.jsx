@@ -10,6 +10,7 @@ import AuthSessionEventsBridge from "./components/AuthSessionEventsBridge";
 import NotificationsEventsBridge from "./components/NotificationsEventsBridge";
 import RemoteSessionNoticeModal from "./components/RemoteSessionNoticeModal";
 import SystemMaintenanceEventsBridge from "./components/SystemMaintenanceEventsBridge";
+import SystemBackupsEventsBridge from "./components/SystemBackupsEventsBridge";
 
 // Solo exponer en desarrollo o QA, nunca en producción
 if (isDev() || isQA()) {
@@ -28,6 +29,7 @@ function App() {
       <AuthSessionEventsBridge />
       <NotificationsEventsBridge />
       <SystemMaintenanceEventsBridge />
+      <SystemBackupsEventsBridge />
       <AppRouter />
       <ToasterManager />
       <SessionExpiryModal />

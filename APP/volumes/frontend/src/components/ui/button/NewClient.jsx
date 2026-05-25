@@ -9,6 +9,7 @@ import { FaPlus } from 'react-icons/fa';
 import ModalManager from '@/components/ui/modal';
 import ClientModal, { CLIENT_MODAL_MODES } from '@/pages/clientes/ClientModal';
 import clientService from '@/services/clientService';
+import { ensureWriteOperationAllowed } from '@/utils/operationModeGuard';
 
 import logger from '@/utils/logger';
 const clientLog = logger.scope("client");
@@ -35,7 +36,10 @@ const toApiPayload = (formData) => ({
 
 const NewClient = ({ onCreated }) => {
 
-  const showClientWizard = useCallback(() => {
+  const showClientWizard = useCallback(async () => {
+    const allowed = await ensureWriteOperationAllowed({ actionLabel: "Nuevo Cliente" });
+    if (!allowed) return;
+
     ModalManager.show({
       type: 'custom',
       title: 'Crear Nuevo Cliente',
@@ -46,6 +50,8 @@ const NewClient = ({ onCreated }) => {
         <ClientModal
           mode={CLIENT_MODAL_MODES.CREATE}
           onSubmit={async (formData) => {
+            const allowed = await ensureWriteOperationAllowed({ actionLabel: "Crear cliente" });
+            if (!allowed) throw new Error("Operación bloqueada por el modo operativo del sistema.");
             const payload = toApiPayload(formData);
             return await clientService.create(payload);
           }}

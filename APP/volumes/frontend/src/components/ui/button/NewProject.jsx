@@ -9,6 +9,7 @@ import { FaPlus } from 'react-icons/fa';
 import ModalManager from '@/components/ui/modal';
 import ProjectModal, { PROJECT_MODAL_MODES } from '@/pages/project/ProjectModal';
 import projectService from '@/services/projectService';
+import { ensureWriteOperationAllowed } from '@/utils/operationModeGuard';
 
 import logger from '@/utils/logger';
 const projectLog = logger.scope("project");
@@ -31,7 +32,10 @@ const toApiPayload = (formData) => ({
 
 const NewProject = ({ onCreated, clientCatalog = [] }) => {
 
-  const showProjectWizard = useCallback(() => {
+  const showProjectWizard = useCallback(async () => {
+    const allowed = await ensureWriteOperationAllowed({ actionLabel: "Nuevo Proyecto" });
+    if (!allowed) return;
+
     ModalManager.show({
       type: 'custom',
       title: 'Crear Nuevo Proyecto',
@@ -43,6 +47,8 @@ const NewProject = ({ onCreated, clientCatalog = [] }) => {
           mode={PROJECT_MODAL_MODES.CREATE}
           clientCatalog={clientCatalog}
           onSubmit={async (formData) => {
+            const allowed = await ensureWriteOperationAllowed({ actionLabel: "Crear proyecto" });
+            if (!allowed) throw new Error("Operación bloqueada por el modo operativo del sistema.");
             const payload = toApiPayload(formData);
             return await projectService.create(payload);
           }}

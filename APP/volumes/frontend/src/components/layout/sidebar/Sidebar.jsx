@@ -14,6 +14,7 @@ const Sidebar = ({
     role: 'Administrador',
     isAdmin: true
   },
+  isOperationLocked = false,
   onModuleChange = () => {}
 }) => {
   const navigate = useNavigate();
@@ -25,7 +26,8 @@ const Sidebar = ({
 
   const activePath = pathname || '/';
 
-  const visibleModules = filterModulesByPermissions(SIDEBAR_MODULES, user);
+  const visibleModules = filterModulesByPermissions(SIDEBAR_MODULES, user)
+    .filter((module) => !isOperationLocked || module.id === 'system');
 
   const handleModuleClick = (module) => {
     // Historial (opcional)

@@ -4,8 +4,13 @@ import { extractErrorMessage } from "@/utils/errors";
 
 const unwrap = (response) => response?.data?.result ?? response?.data ?? {};
 
+const normalizeTheme = (value) => {
+  const theme = String(value || "").trim();
+  return ["light", "dark", "system"].includes(theme) ? theme : undefined;
+};
+
 const normalizePersonalization = (payload = {}) => ({
-  theme: String(payload?.theme || "light"),
+  theme: normalizeTheme(payload?.theme),
   density: String(payload?.density || "comfortable"),
   animations: Boolean(payload?.animations ?? true),
   sidebarCollapsed: Boolean(payload?.sidebarCollapsed ?? payload?.sidebar_collapsed ?? false),

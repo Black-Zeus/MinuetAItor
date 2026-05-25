@@ -38,6 +38,7 @@ export const BackupHistoryTable = ({
   onDelete,
   onDownload,
   onRestore,
+  onCancelOperation,
 }) => (
   <div className="space-y-5">
     {!isHistoryVisible ? (
@@ -72,6 +73,7 @@ export const BackupHistoryTable = ({
               const scopeMeta = getBackupScopeMeta(item.scope);
               const scopeLabel = getBackupScopeLabel(item.scope);
               const originMeta = getBackupOriginMeta(item.originType);
+              const isActiveOperation = Boolean(item.isActiveOperation);
               return (
                 <tr
                   key={item.id}
@@ -110,44 +112,61 @@ export const BackupHistoryTable = ({
                     <StatusBadge tone={item.tone}>{item.status}</StatusBadge>
                   </td>
                   <td className="py-4 text-right">
-                    <div className={`ml-auto grid ${actionMode === "recovery" || actionMode === "history" ? "w-[168px] grid-cols-3" : "w-[112px] grid-cols-2"} gap-2`}>
-                      <ActionButton
-                        variant="soft"
-                        size="xs"
-                        icon={<Icon name="FaDownload" />}
-                        tooltip="Descargar respaldo"
-                        onClick={() => onDownload(item)}
-                        className="w-full hover:scale-100 active:scale-100"
-                      />
-                      {actionMode === "recovery" ? (
+                    {isActiveOperation ? (
+                      item.rawStatus === "queued" ? (
+                        <div className="ml-auto grid w-[56px] grid-cols-1 gap-2">
+                          <ActionButton
+                            variant="soft"
+                            size="xs"
+                            icon={<Icon name="FaXmark" />}
+                            tooltip="Cancelar operación"
+                            onClick={() => onCancelOperation(item)}
+                            className="w-full hover:scale-100 active:scale-100"
+                          />
+                        </div>
+                      ) : (
+                        <span className={`text-xs font-semibold ${TXT_META}`}>Sin acciones</span>
+                      )
+                    ) : (
+                      <div className={`ml-auto grid ${actionMode === "recovery" || actionMode === "history" ? "w-[168px] grid-cols-3" : "w-[112px] grid-cols-2"} gap-2`}>
                         <ActionButton
                           variant="soft"
                           size="xs"
-                          icon={<Icon name="rotate" />}
-                          tooltip="Restaurar respaldo"
-                          onClick={() => onRestore(item)}
+                          icon={<Icon name="FaDownload" />}
+                          tooltip="Descargar respaldo"
+                          onClick={() => onDownload(item)}
                           className="w-full hover:scale-100 active:scale-100"
                         />
-                      ) : null}
-                      {actionMode === "history" ? (
+                        {actionMode === "recovery" ? (
+                          <ActionButton
+                            variant="soft"
+                            size="xs"
+                            icon={<Icon name="rotate" />}
+                            tooltip="Restaurar respaldo"
+                            onClick={() => onRestore(item)}
+                            className="w-full hover:scale-100 active:scale-100"
+                          />
+                        ) : null}
+                        {actionMode === "history" ? (
+                          <ActionButton
+                            variant={selectedItemId === item.id ? "primary" : "soft"}
+                            size="xs"
+                            icon={<Icon name="FaMagnifyingGlass" />}
+                            tooltip="Analizar para recuperación"
+                            onClick={() => onAnalyze(item)}
+                            className="w-full hover:scale-100 active:scale-100"
+                          />
+                        ) : null}
                         <ActionButton
-                          variant={selectedItemId === item.id ? "primary" : "soft"}
+                          variant="soft"
                           size="xs"
-                          icon={<Icon name="FaMagnifyingGlass" />}
-                          tooltip="Analizar para recuperación"
-                          onClick={() => onAnalyze(item)}
+                          icon={<Icon name="FaTrash" />}
+                          tooltip="Limpiar vencidos"
+                          onClick={() => onDelete(item)}
                           className="w-full hover:scale-100 active:scale-100"
                         />
-                      ) : null}
-                      <ActionButton
-                        variant="soft"
-                        size="xs"
-                        icon={<Icon name="FaTrash" />}
-                        tooltip="Eliminar respaldo"
-                        onClick={() => onDelete(item)}
-                        className="w-full hover:scale-100 active:scale-100"
-                      />
-                    </div>
+                      </div>
+                    )}
                   </td>
                 </tr>
               );
