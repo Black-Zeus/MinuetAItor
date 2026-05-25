@@ -45,7 +45,7 @@ const ResetPasswordPage = () => {
 
   useLayoutEffect(() => {
     const stored = localStorage.getItem('site-storage');
-    if (!stored) setTheme('dark');
+    if (!stored) setTheme('system');
     applyThemeToDocument(theme);
   }, []);
 
@@ -266,7 +266,7 @@ const ResetPasswordPage = () => {
                       Ingresar otra credencial
                     </button>
                     <Link
-                      to="/auth/forgot-password"
+                      to="/forgot-password"
                       className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition-colors hover:bg-blue-500"
                     >
                       <Icon name="redo" className="text-xs" />

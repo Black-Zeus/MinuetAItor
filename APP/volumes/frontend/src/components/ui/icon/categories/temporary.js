@@ -6,7 +6,9 @@
 import {
     // Iconos nuevos que se están implementando
     FaBars,
+    FaGrip,
     FaLayerGroup,
+    FaTable,
     FaTableCellsLarge,
 } from "react-icons/fa6";
 
@@ -18,7 +20,9 @@ export const temporaryIcons = {
 
     // Compatibilidad
     FaBars,
+    FaGrip,
     FaLayerGroup,
+    FaTable,
 
     layout: FaTableCellsLarge,
     FaTableCellsLarge
