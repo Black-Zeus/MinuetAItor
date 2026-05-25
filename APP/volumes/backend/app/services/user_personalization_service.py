@@ -10,7 +10,7 @@ from models.dashboard_widgets import DashboardWidget
 from models.user_dashboard_widgets import UserDashboardWidget
 from models.user_profiles import UserProfile
 
-DEFAULT_THEME = "light"
+DEFAULT_THEME = "system"
 DEFAULT_DENSITY = "comfortable"
 DEFAULT_ANIMATIONS = True
 DEFAULT_SIDEBAR_COLLAPSED = False

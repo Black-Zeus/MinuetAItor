@@ -19,7 +19,7 @@ const ForgotPasswordPage = () => {
 
   useLayoutEffect(() => {
     const stored = localStorage.getItem('site-storage');
-    if (!stored) setTheme('dark');
+    if (!stored) setTheme('system');
     applyThemeToDocument(theme);
   }, []);
 
@@ -140,7 +140,7 @@ const ForgotPasswordPage = () => {
             <div className="flex h-full flex-col gap-4">
               <header>
                 <Link
-                  to="/auth/login"
+                  to="/login"
                   className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-blue-400 transition-colors hover:text-blue-300"
                 >
                   <Icon name="arrowLeft" className="text-xs" />
