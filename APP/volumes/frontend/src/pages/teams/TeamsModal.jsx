@@ -748,7 +748,7 @@ const TeamsModal = ({ mode, data, onSubmit, onClose, onSaved }) => {
 
   const initial = useMemo(() => normalizeUser(data), [data]);
 
-  const [formData, setFormData] = useState(() => (isCreate ? normalizeUser({}) : initial));
+  const [formData, setFormData] = useState(() => initial);
   const [errors, setErrors] = useState({});
   const [currentStep, setCurrentStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
@@ -756,7 +756,7 @@ const TeamsModal = ({ mode, data, onSubmit, onClose, onSaved }) => {
   const [catProjects, setCatProjects] = useState([]);
 
   useEffect(() => {
-    setFormData(isCreate ? normalizeUser({}) : initial);
+    setFormData(initial);
     setErrors({});
     setCurrentStep(0);
     setSubmitting(false);

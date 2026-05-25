@@ -28,6 +28,7 @@ from models.ai_model_pricing import AiModelPricing
 from models.ai_usage_events import AiUsageEvent
 from models.notifications import Notification
 from models.notification_recipients import NotificationRecipient
+from models.access_requests import AccessRequest
 from models.email_delivery_events import EmailDeliveryEvent
 from models.organization_settings import OrganizationSetting
 from models.smtp_configs import SmtpConfig
@@ -92,7 +93,7 @@ __all__ = [
     "RecordType", "RecordStatus", "VersionStatus",
     "DashboardWidget", "AiProfileCategory",
     "AiProviderConfig", "AiModelPricing", "AiUsageEvent",
-    "Notification", "NotificationRecipient", "EmailDeliveryEvent",
+    "Notification", "NotificationRecipient", "AccessRequest", "EmailDeliveryEvent",
     "OrganizationSetting",
     "SmtpConfig",
     "SystemMaintenanceSetting",

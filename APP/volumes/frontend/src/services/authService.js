@@ -282,6 +282,40 @@ class AuthService {
     }
   }
 
+  async getAccessRequestStatus() {
+    try {
+      const response = await api.get(API_ENDPOINTS.AUTH.ACCESS_REQUEST_STATUS, { timeout: 5000 });
+      const data = response?.data?.result ?? response?.data ?? {};
+      return { enabled: Boolean(data?.enabled) };
+    } catch (error) {
+      const formattedError = getFormattedError(error);
+      if (shouldLog()) console.error("❌ Access request status failed:", formattedError);
+      throw formattedError;
+    }
+  }
+
+  async submitAccessRequest(payload) {
+    try {
+      if (!payload?.fullName?.trim()) throw new Error("Nombre requerido");
+      if (!payload?.email?.trim()) throw new Error("Email requerido");
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(payload.email)) throw new Error("El formato del email no es válido");
+
+      const response = await api.post(API_ENDPOINTS.AUTH.ACCESS_REQUEST, {
+        fullName: payload.fullName.trim(),
+        email: payload.email.trim().toLowerCase(),
+        observation: payload.observation?.trim() || null,
+      });
+
+      return response?.data?.result ?? response?.data ?? { success: true };
+    } catch (error) {
+      const formattedError = getFormattedError(error);
+      if (shouldLog()) console.error("❌ Access request failed:", formattedError);
+      throw formattedError;
+    }
+  }
+
   /**
    * Reset password
    * POST /v1/auth/reset-password
@@ -396,6 +430,8 @@ export const changePassword = (data) => authService.changePassword(data);
 export const changePasswordByAdmin = (data) => authService.changePasswordByAdmin(data);
 export const forgotPassword = (email) => authService.forgotPassword(email);
 export const resetPassword = (data) => authService.resetPassword(data);
+export const getAccessRequestStatus = () => authService.getAccessRequestStatus();
+export const submitAccessRequest = (payload) => authService.submitAccessRequest(payload);
 
 export const hasAccessToken = () => authService.hasAccessToken();
 export const hasValidTokens = () => authService.hasValidTokens();

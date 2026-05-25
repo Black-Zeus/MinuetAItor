@@ -8,13 +8,13 @@ import React from "react";
 import ModuleHeader from "@/components/common/page/ModuleHeader";
 import NewTeams  from "@/components/ui/button/NewTeams";
 
-const TeamsHeader = ({ onCreated }) => {
+const TeamsHeader = ({ onCreated, initialNewUser = null, autoOpenKey = "" }) => {
   return (
     <ModuleHeader
       icon="FaUsers"
       title="Equipo"
       description="Gestión de usuarios y permisos del sistema"
-      actions={<NewTeams onCreated={onCreated} />}
+      actions={<NewTeams onCreated={onCreated} initialData={initialNewUser} autoOpenKey={autoOpenKey} />}
     />
   );
 };
