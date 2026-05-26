@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session, joinedload
 from core.config import settings
 from core.datetime_utils import utc_now, utc_now_db
 from core.exceptions import BadRequestException, ConflictException
+from core.network_guard import assert_safe_outbound_url
 from models.ai_provider_configs import AiProviderConfig
 from schemas.ai_provider_configs import (
     AIProviderCatalogEntryResponse,
@@ -257,6 +258,7 @@ def _validate_base_url(value: str) -> str:
     parsed = urlparse(value)
     if parsed.scheme not in {"http", "https"} or not parsed.netloc:
         raise BadRequestException("La URL base debe iniciar con http:// o https:// y contener un host válido")
+    assert_safe_outbound_url(value)
     return value.rstrip("/")
 
 
@@ -596,6 +598,7 @@ def _extract_model_options(provider_type: str, payload: Any) -> list[dict[str, s
 
 
 def _fetch_remote_json(url: str, values: dict[str, Any]) -> Any:
+    assert_safe_outbound_url(url)
     request = Request(
         url,
         method="GET",
@@ -717,6 +720,7 @@ def _run_remote_validation(values: dict[str, Any]) -> tuple[str, str, Any | None
             None,
         )
 
+    assert_safe_outbound_url(validation_url)
     request = Request(
         validation_url,
         method="GET",

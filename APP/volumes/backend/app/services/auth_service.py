@@ -1,4 +1,5 @@
 # services/auth_service.py
+import hashlib
 import json
 import uuid
 from datetime import datetime, timezone, timedelta
@@ -10,6 +11,7 @@ from starlette.requests import Request
 from core.config import settings
 from core.datetime_utils import utc_now, utc_now_db
 from core.exceptions import BadRequestException, ForbiddenException, UnauthorizedException
+from core.rate_limit import enforce_rate_limit, rate_limit_key
 from core.security import verify_password, create_access_token, decode_access_token, hash_password
 from db.session import SessionLocal
 from db.redis import get_redis
@@ -50,6 +52,13 @@ from utils.geo import get_geo
 from utils.network import get_client_ip
 from jose import jwt as jose_jwt
 from repositories.audit_repository import write_audit
+
+
+def _audit_identifier(value: str | None) -> str | None:
+    clean = str(value or "").strip().lower()
+    if not clean:
+        return None
+    return hashlib.sha256(clean.encode("utf-8")).hexdigest()
 
 
 def _read_manual_operation_marker() -> dict | None:
@@ -118,18 +127,39 @@ def _resolve_session_identity(user_id: str, username: str | None, full_name: str
 
 
 async def login(db: Session, credential: str, password: str, request: Request) -> TokenResponse:
+    ip_v4, ip_v6 = get_client_ip(request)
+    ip = ip_v4 or ip_v6 or "unknown"
+    await enforce_rate_limit(
+        rate_limit_key("auth-login", ip, credential),
+        limit=10,
+        window_seconds=15 * 60,
+        message="Demasiados intentos de inicio de sesión. Intenta nuevamente más tarde.",
+    )
+
     user = get_user_by_credential(db, credential)
 
     if not user or not verify_password(password, user.password_hash):
+        if user:
+            write_audit(
+                db,
+                actor_user_id=user.id,
+                action="LOGIN_FAILED",
+                entity_type="user",
+                entity_id=user.id,
+                details={
+                    "credential_hash": _audit_identifier(credential),
+                    "ip": ip,
+                    "reason": "invalid_password",
+                },
+            )
         raise UnauthorizedException("Credenciales inválidas")
 
     if not user.is_active:
         raise ForbiddenException("Cuenta desactivada")
 
     # ── Geo + Device ──────────────────────────────────
-    ip_v4, ip_v6 = get_client_ip(request)
-    ip = ip_v4 or ip_v6
-    geo = get_geo(ip) if ip else {}
+    requester_ip = ip_v4 or ip_v6
+    geo = get_geo(requester_ip) if requester_ip else {}
     user_agent_str = request.headers.get("User-Agent")
     device = get_device_string(user_agent_str)
 
@@ -170,6 +200,14 @@ async def login(db: Session, credential: str, password: str, request: Request) -
     # ── Actualizar last_login_at ──────────────────────
     user.last_login_at = utc_now_db()
     db.commit()
+    write_audit(
+        db,
+        actor_user_id=user.id,
+        action="LOGIN_SUCCESS",
+        entity_type="user",
+        entity_id=user.id,
+        details={"ip": requester_ip, "device": device},
+    )
 
     return TokenResponse(access_token=token, expires_in=ttl)
 
@@ -178,6 +216,14 @@ async def logout(session: UserSession, db: Session) -> None:
     redis = get_redis()
     await redis.delete(get_session_redis_key(session.user_id, session.jti))
     mark_logout(db, session.jti)
+    write_audit(
+        db,
+        actor_user_id=session.user_id,
+        action="LOGOUT",
+        entity_type="user_session",
+        entity_id=session.jti,
+        details={"username": session.username},
+    )
 
 
 async def list_active_sessions(session: UserSession, db: Session) -> ActiveSessionsResponse:
@@ -487,6 +533,14 @@ async def change_password(
 
     user.password_hash = hash_password(payload.new_password)
     db.commit()
+    write_audit(
+        db,
+        actor_user_id=session.user_id,
+        action="CHANGE_PASSWORD",
+        entity_type="user",
+        entity_id=user.id,
+        details={"sessions_revoked": bool(payload.revoke_sessions)},
+    )
 
     await enqueue_password_changed_email(
         db,
@@ -616,9 +670,17 @@ async def forgot_password(
     request: Request | None = None,
 ) -> None:
     ip_v4, ip_v6 = get_client_ip(request) if request else (None, None)
+    ip = ip_v4 or ip_v6 or "unknown"
+    normalized_email = email.strip().lower()
+    await enforce_rate_limit(
+        rate_limit_key("auth-forgot-password", ip, normalized_email),
+        limit=5,
+        window_seconds=60 * 60,
+        message="Demasiadas solicitudes de recuperación. Intenta nuevamente más tarde.",
+    )
     await enqueue_recover_password_email(
         db,
-        email=email.strip().lower(),
+        email=normalized_email,
         request_origin="auth.forgot-password",
         request_ip=ip_v4 or ip_v6,
         request_ua=request.headers.get("User-Agent") if request else None,
@@ -631,6 +693,12 @@ async def reset_password(
     otp_code: str | None,
     new_password: str,
 ) -> None:
+    await enforce_rate_limit(
+        rate_limit_key("auth-reset-password", token or "", otp_code or ""),
+        limit=10,
+        window_seconds=15 * 60,
+        message="Demasiados intentos de recuperación. Intenta nuevamente más tarde.",
+    )
     token_payload = None
     if token and token.strip():
         token_payload = await consume_password_reset_token(token.strip())
@@ -650,6 +718,18 @@ async def reset_password(
 
     user.password_hash = hash_password(new_password)
     db.commit()
+    write_audit(
+        db,
+        actor_user_id=user.id,
+        action="RESET_PASSWORD",
+        entity_type="user",
+        entity_id=user.id,
+        details={
+            "used_token": bool(token and token.strip()),
+            "used_otp": bool(otp_code and otp_code.strip()),
+            "purpose": token_payload.get("purpose"),
+        },
+    )
 
     await enqueue_password_changed_email(
         db,

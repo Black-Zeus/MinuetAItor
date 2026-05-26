@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from core.authz import require_roles
 from db.session import get_db
 from schemas.ai_provider_configs import (
     AIProviderCatalogEntryResponse,
@@ -29,30 +29,22 @@ from services.ai_provider_configs_service import (
     update_ai_provider_config,
     validate_ai_provider_config,
 )
-from services.auth_service import get_current_user
 
 router = APIRouter(prefix="/ai-provider-configs", tags=["AI Provider Configs"])
-bearer = HTTPBearer()
-
-
-async def current_user_dep(
-    credentials: HTTPAuthorizationCredentials = Depends(bearer),
-) -> UserSession:
-    return await get_current_user(credentials.credentials)
 
 
 @router.post("/list", response_model=AIProviderConfigListResponse, status_code=status.HTTP_200_OK)
 def list_endpoint(
     body: AIProviderConfigFilterRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     return list_ai_provider_configs(db, body)
 
 
 @router.get("/catalog", response_model=list[AIProviderCatalogEntryResponse], status_code=status.HTTP_200_OK)
 def catalog_endpoint(
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     return list_ai_provider_catalog()
 
@@ -61,7 +53,7 @@ def catalog_endpoint(
 def get_endpoint(
     id: str,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     return get_ai_provider_config(db, id)
 
@@ -70,7 +62,7 @@ def get_endpoint(
 def create_endpoint(
     body: AIProviderConfigCreateRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     return create_ai_provider_config(db, body, created_by_id=session.user_id)
 
@@ -79,7 +71,7 @@ def create_endpoint(
 def discover_models_endpoint(
     body: AIProviderConfigDiscoverModelsRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     return discover_ai_provider_models(db, body)
 
@@ -89,7 +81,7 @@ def update_endpoint(
     id: str,
     body: AIProviderConfigUpdateRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     return update_ai_provider_config(db, id, body, updated_by_id=session.user_id)
 
@@ -99,7 +91,7 @@ def activate_endpoint(
     id: str,
     body: AIProviderConfigActivateRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     if not body.is_active:
         return deactivate_ai_provider_config(db, id, updated_by_id=session.user_id)
@@ -110,7 +102,7 @@ def activate_endpoint(
 def deactivate_endpoint(
     id: str,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     return deactivate_ai_provider_config(db, id, updated_by_id=session.user_id)
 
@@ -119,7 +111,7 @@ def deactivate_endpoint(
 def validate_endpoint(
     body: AIProviderConfigValidateRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     return validate_ai_provider_config(db, body, validated_by_id=session.user_id)
 
@@ -128,6 +120,6 @@ def validate_endpoint(
 def delete_endpoint(
     id: str,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     return delete_ai_provider_config(db, id, deleted_by_id=session.user_id)

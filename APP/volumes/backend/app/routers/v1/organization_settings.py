@@ -7,6 +7,7 @@ from core.authz import require_roles
 from db.session import get_db
 from schemas.auth import UserSession
 from schemas.organization_settings import OrganizationSettingsRequest, OrganizationSettingsResponse
+from services.upload_validation import safe_content_disposition
 from services.organization_settings_service import (
     delete_organization_banner,
     delete_organization_logo,
@@ -29,7 +30,11 @@ def organization_logo_endpoint(
     return Response(
         content=content,
         media_type=content_type,
-        headers={"Cache-Control": "public, max-age=300"},
+        headers={
+            "Cache-Control": "public, max-age=300",
+            "Content-Disposition": safe_content_disposition("organization-logo", disposition="inline"),
+            "X-Content-Type-Options": "nosniff",
+        },
     )
 
 
@@ -58,7 +63,11 @@ def organization_banner_endpoint(
     return Response(
         content=content,
         media_type=content_type,
-        headers={"Cache-Control": "public, max-age=300"},
+        headers={
+            "Cache-Control": "public, max-age=300",
+            "Content-Disposition": safe_content_disposition("organization-banner", disposition="inline"),
+            "X-Content-Type-Options": "nosniff",
+        },
     )
 
 

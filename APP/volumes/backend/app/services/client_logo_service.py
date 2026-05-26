@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 import uuid
 from io import BytesIO
 
@@ -14,6 +13,7 @@ from db.minio_client import get_minio_client
 from models.buckets import Bucket
 from models.clients import Client
 from models.objects import Object
+from services.upload_validation import validate_uploaded_image
 
 CLIENT_LOGO_BUCKET = "minuetaitor-attach"
 CLIENT_LOGO_PREFIX = "client-logos"
@@ -23,11 +23,8 @@ ALLOWED_CLIENT_LOGO_TYPES = {"image/jpeg", "image/png"}
 logger = logging.getLogger(__name__)
 
 
-def build_client_logo_key(client_id: str, object_id: str, filename: str | None = None) -> str:
-    suffix = Path(filename or "").suffix.lower()
-    if not suffix:
-        suffix = ".bin"
-    return f"{CLIENT_LOGO_PREFIX}/{client_id}/{object_id}{suffix}"
+def build_client_logo_key(client_id: str, object_id: str, file_ext: str) -> str:
+    return f"{CLIENT_LOGO_PREFIX}/{client_id}/{object_id}.{file_ext}"
 
 
 def build_client_logo_url(client_id: str, object_id: str | None) -> str | None:
@@ -64,22 +61,20 @@ async def save_client_logo(
     *,
     actor_user_id: str | None,
 ) -> str:
-    content_type = (file.content_type or "").lower()
-    if content_type not in ALLOWED_CLIENT_LOGO_TYPES:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Formato de logo no soportado. Usa JPEG o PNG.",
-        )
-
     content = await file.read()
     if not content:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="El archivo esta vacio.")
     if len(content) > MAX_CLIENT_LOGO_BYTES:
         raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="El logo supera 2 MB.")
+    content_type, file_ext = validate_uploaded_image(
+        content=content,
+        declared_content_type=file.content_type,
+        allowed_types=ALLOWED_CLIENT_LOGO_TYPES,
+        label="logo",
+    )
 
     object_id = str(uuid.uuid4())
-    object_key = build_client_logo_key(str(client.id), object_id, file.filename)
-    file_ext = Path(file.filename or "").suffix.lower().lstrip(".") or "bin"
+    object_key = build_client_logo_key(str(client.id), object_id, file_ext)
     bucket_id = _get_attach_bucket_id(db)
 
     minio = get_minio_client()

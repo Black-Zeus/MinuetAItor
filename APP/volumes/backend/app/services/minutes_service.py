@@ -949,6 +949,7 @@ async def get_minute_pdf_preview_job_status(preview_id: str) -> dict[str, Any]:
             "preview_id": preview_id,
             "status": "ready",
             "size_bytes": int(getattr(stat, "size", 0) or 0),
+            "record_id": meta.get("record_id"),
         }
     except Exception:
         ttl = await redis.ttl(_pdf_preview_meta_key(preview_id))
@@ -956,7 +957,20 @@ async def get_minute_pdf_preview_job_status(preview_id: str) -> dict[str, Any]:
             "preview_id": preview_id,
             "status": "processing",
             "expires_in": max(int(ttl or 0), 0),
+            "record_id": meta.get("record_id"),
         }
+
+
+async def get_minute_pdf_preview_record_id(preview_id: str) -> str:
+    redis = get_redis()
+    raw_meta = await redis.get(_pdf_preview_meta_key(preview_id))
+    if not raw_meta:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "pdf_preview_not_found", "message": "La vista previa ya expiró o no existe."},
+        )
+    meta = json.loads(raw_meta)
+    return str(meta.get("record_id") or "")
 
 
 async def get_minute_pdf_preview_job_result(preview_id: str) -> bytes:
@@ -1377,6 +1391,7 @@ def list_minutes(
     prepared_by_user_id: Optional[str] = None,
     participant_user_id: Optional[str] = None,
     exclude_prepared_by_user_id: Optional[str] = None,
+    session = None,
 ):
     return minute_query.list_minutes(
         db=db,
@@ -1389,6 +1404,7 @@ def list_minutes(
         prepared_by_user_id=prepared_by_user_id,
         participant_user_id=participant_user_id,
         exclude_prepared_by_user_id=exclude_prepared_by_user_id,
+        session=session,
     )
 
 
@@ -1399,6 +1415,7 @@ def list_minute_reprocess_history(
     client_id: Optional[str] = None,
     project_id: Optional[str] = None,
     prepared_by_user_id: Optional[str] = None,
+    session = None,
 ) -> MinuteReprocessHistoryResponse:
     return minute_query.list_minute_reprocess_history(
         db=db,
@@ -1407,6 +1424,7 @@ def list_minute_reprocess_history(
         client_id=client_id,
         project_id=project_id,
         prepared_by_user_id=prepared_by_user_id,
+        session=session,
     )
 
 
@@ -1417,6 +1435,7 @@ def list_minute_cycle_times(
     client_id: Optional[str] = None,
     project_id: Optional[str] = None,
     prepared_by_user_id: Optional[str] = None,
+    session = None,
 ) -> MinuteCycleTimeResponse:
     return minute_query.list_minute_cycle_times(
         db=db,
@@ -1425,6 +1444,7 @@ def list_minute_cycle_times(
         client_id=client_id,
         project_id=project_id,
         prepared_by_user_id=prepared_by_user_id,
+        session=session,
     )
 
     from schemas.minutes         import MinuteListResponse, MinuteListItem, MinuteTagItem

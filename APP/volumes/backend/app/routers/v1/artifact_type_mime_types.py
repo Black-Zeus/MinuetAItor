@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from core.authz import require_roles
 from db.session import get_db
 from schemas.auth import UserSession
 from schemas.artifact_type_mime_types import (
@@ -61,7 +62,7 @@ def get_endpoint(
 def create_endpoint(
     body: ArtifactTypeMimeTypeCreateRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     return create_artifact_type_mime_type(db, body, created_by_id=session.user_id)
 
@@ -76,7 +77,7 @@ def update_endpoint(
     mime_type_id: int,
     body: ArtifactTypeMimeTypeUpdateRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     return update_artifact_type_mime_type(
         db,
@@ -91,7 +92,7 @@ def update_endpoint(
 def status_endpoint(
     body: ArtifactTypeMimeTypeStatusRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     return change_artifact_type_mime_type_status(
         db,
@@ -110,7 +111,7 @@ def delete_endpoint(
     artifact_type_id: int,
     mime_type_id: int,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     delete_artifact_type_mime_type(db, artifact_type_id, mime_type_id, deleted_by_id=session.user_id)
     return None

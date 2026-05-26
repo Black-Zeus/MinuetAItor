@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import json
 import uuid
 from datetime import datetime
 from typing import Any
@@ -389,6 +390,12 @@ def _report_preview_meta_key(preview_id: str) -> str:
     return f"{REPORT_PREVIEW_META_PREFIX}{preview_id}"
 
 
+def _redis_text(value: Any) -> str:
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="ignore")
+    return str(value or "")
+
+
 async def start_report_pdf_preview_job(
     db: Session,
     session: UserSession,
@@ -423,7 +430,13 @@ async def start_report_pdf_preview_job(
         await redis.setex(
             _report_preview_meta_key(preview_id),
             REPORT_PREVIEW_RESPONSE_TTL_SECONDS,
-            response_key,
+            json.dumps(
+                {
+                    "response_key": response_key,
+                    "user_id": str(session.user_id),
+                    "report_key": payload.report_key,
+                }
+            ),
         )
         await minute_queue.enqueue_job(QUEUE_PDF, envelope)
     except Exception as exc:
@@ -442,14 +455,39 @@ async def start_report_pdf_preview_job(
     }
 
 
-async def get_report_pdf_preview_job_status(preview_id: str) -> dict[str, Any]:
+async def _get_report_preview_response_key(preview_id: str, session: UserSession) -> str:
     redis = get_redis()
-    response_key = await redis.get(_report_preview_meta_key(preview_id))
+    raw_meta = await redis.get(_report_preview_meta_key(preview_id))
+    if not raw_meta:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "report_pdf_preview_not_found", "message": "La vista previa ya expiró o no existe."},
+        )
+
+    raw_meta_text = _redis_text(raw_meta)
+    try:
+        meta = json.loads(raw_meta_text)
+    except (TypeError, ValueError):
+        meta = {"response_key": raw_meta_text}
+
+    if str(meta.get("user_id") or "") != str(session.user_id):
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "report_pdf_preview_not_found", "message": "La vista previa ya expiró o no existe."},
+        )
+
+    response_key = str(meta.get("response_key") or "")
     if not response_key:
         raise HTTPException(
             status_code=404,
             detail={"error": "report_pdf_preview_not_found", "message": "La vista previa ya expiró o no existe."},
         )
+    return response_key
+
+
+async def get_report_pdf_preview_job_status(preview_id: str, session: UserSession) -> dict[str, Any]:
+    redis = get_redis()
+    response_key = await _get_report_preview_response_key(preview_id, session)
 
     encoded_pdf = await redis.get(response_key)
     if encoded_pdf:
@@ -463,15 +501,10 @@ async def get_report_pdf_preview_job_status(preview_id: str) -> dict[str, Any]:
     }
 
 
-async def get_report_pdf_preview_job_result(preview_id: str) -> bytes:
+async def get_report_pdf_preview_job_result(preview_id: str, session: UserSession) -> bytes:
     redis = get_redis()
     meta_key = _report_preview_meta_key(preview_id)
-    response_key = await redis.get(meta_key)
-    if not response_key:
-        raise HTTPException(
-            status_code=404,
-            detail={"error": "report_pdf_preview_not_found", "message": "La vista previa ya expiró o no existe."},
-        )
+    response_key = await _get_report_preview_response_key(preview_id, session)
 
     encoded_pdf = await redis.get(response_key)
     if not encoded_pdf:

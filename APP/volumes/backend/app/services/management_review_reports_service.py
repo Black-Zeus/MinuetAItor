@@ -9,6 +9,8 @@ from models.projects import Project
 from models.record_version_observation import RecordVersionObservation
 from models.record_versions import RecordVersion
 from models.records import Record
+from schemas.auth import UserSession
+from services.access_control_service import apply_record_scope_filter
 
 
 def _date_start(value):
@@ -23,7 +25,7 @@ def _date_end(value):
     return datetime.combine(value, time.max)
 
 
-def list_management_review_observations(db: Session, filters) -> dict:
+def list_management_review_observations(db: Session, session: UserSession, filters) -> dict:
     q = (
         db.query(RecordVersionObservation, Record, RecordVersion, Client, Project)
         .join(Record, Record.id == RecordVersionObservation.record_id)
@@ -32,6 +34,7 @@ def list_management_review_observations(db: Session, filters) -> dict:
         .outerjoin(Project, Project.id == Record.project_id)
         .filter(Record.deleted_at.is_(None))
     )
+    q = apply_record_scope_filter(q, db, session, Record)
 
     if filters.date_from:
         q = q.filter(RecordVersionObservation.created_at >= _date_start(filters.date_from))

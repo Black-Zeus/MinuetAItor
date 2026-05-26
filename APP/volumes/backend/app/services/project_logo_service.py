@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import uuid
 from io import BytesIO
-from pathlib import Path
 
 from fastapi import HTTPException, UploadFile, status
 from minio.error import S3Error
@@ -13,6 +12,7 @@ from db.minio_client import get_minio_client
 from models.buckets import Bucket
 from models.objects import Object
 from models.projects import Project
+from services.upload_validation import validate_uploaded_image
 
 PROJECT_LOGO_BUCKET = "minuetaitor-attach"
 PROJECT_LOGO_PREFIX = "project-logos"
@@ -21,11 +21,8 @@ MAX_PROJECT_LOGO_BYTES = 2 * 1024 * 1024
 ALLOWED_PROJECT_LOGO_TYPES = {"image/jpeg", "image/png"}
 
 
-def build_project_logo_key(project_id: str, object_id: str, filename: str | None = None) -> str:
-    suffix = Path(filename or "").suffix.lower()
-    if not suffix:
-        suffix = ".bin"
-    return f"{PROJECT_LOGO_PREFIX}/{project_id}/{object_id}{suffix}"
+def build_project_logo_key(project_id: str, object_id: str, file_ext: str) -> str:
+    return f"{PROJECT_LOGO_PREFIX}/{project_id}/{object_id}.{file_ext}"
 
 
 def build_project_logo_url(project_id: str, object_id: str | None) -> str | None:
@@ -62,22 +59,20 @@ async def save_project_logo(
     *,
     actor_user_id: str | None,
 ) -> str:
-    content_type = (file.content_type or "").lower()
-    if content_type not in ALLOWED_PROJECT_LOGO_TYPES:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Formato de logo no soportado. Usa JPEG o PNG.",
-        )
-
     content = await file.read()
     if not content:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="El archivo esta vacio.")
     if len(content) > MAX_PROJECT_LOGO_BYTES:
         raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="El logo supera 2 MB.")
+    content_type, file_ext = validate_uploaded_image(
+        content=content,
+        declared_content_type=file.content_type,
+        allowed_types=ALLOWED_PROJECT_LOGO_TYPES,
+        label="logo",
+    )
 
     object_id = str(uuid.uuid4())
-    object_key = build_project_logo_key(str(project.id), object_id, file.filename)
-    file_ext = Path(file.filename or "").suffix.lower().lstrip(".") or "bin"
+    object_key = build_project_logo_key(str(project.id), object_id, file_ext)
     bucket_id = _get_attach_bucket_id(db)
 
     minio = get_minio_client()

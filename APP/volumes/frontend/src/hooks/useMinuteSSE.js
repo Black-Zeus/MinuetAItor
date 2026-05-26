@@ -6,21 +6,21 @@
  *
  * Flujo:
  *  - Observa useMinuteNotificationStore.pending (Map de transacciones en vuelo).
- *  - Por cada transacción nueva abre un EventSource a:
- *      GET /api/v1/minutes/{transactionId}/events?token={jwt}
+ *  - Por cada transacción nueva abre un stream SSE autenticado a:
+ *      GET /api/v1/minutes/{transactionId}/events
  *  - Al recibir "completed" → toast de éxito + refresca lista si estamos en /minutes.
  *  - Al recibir "failed"    → toast de error.
  *  - Al recibir "keepalive" → ignorado.
  *  - Cierra el EventSource y llama removePending() al recibir evento terminal.
  *
- * NOTA: EventSource no soporta headers custom → token se pasa como ?token=...
- * El backend (minutes.py) lee ese param como fallback a Authorization header.
+ * El stream usa fetch para enviar Authorization sin exponer el JWT en la URL.
  */
 
 import { useEffect, useRef } from "react";
 import useMinuteNotificationStore from "@/store/minuteNotificationStore";
 import useAuthStore from "@/store/authStore";
 import { toastSuccess, toastError } from "@/components/common/toast/toastHelpers";
+import { createAuthorizedEventStream } from "@/utils/authorizedEventStream";
 
 const SSE_BASE = "/api/v1/minutes";
 
@@ -51,8 +51,8 @@ export const useMinuteSSE = (enabled = true) => {
 
       if (activeSources.has(transactionId)) continue;
 
-      const url = `${SSE_BASE}/${transactionId}/events?token=${encodeURIComponent(accessToken)}`;
-      const es  = new EventSource(url);
+      const url = `${SSE_BASE}/${transactionId}/events`;
+      const es = createAuthorizedEventStream(url, accessToken);
 
       es.addEventListener("completed", () => {
         toastSuccess(

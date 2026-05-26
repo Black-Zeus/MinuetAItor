@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { API_ENDPOINTS } from "@/constants";
 import useAuthStore from "@/store/authStore";
+import { createAuthorizedEventStream } from "@/utils/authorizedEventStream";
 
 const decodeJwtPayload = (jwt) => {
   try {
@@ -35,8 +36,8 @@ export const useAuthSessionSSE = () => {
     const currentJti = payload?.jti;
     if (!currentJti) return;
 
-    const url = `/api${API_ENDPOINTS.AUTH.SESSION_EVENTS}?token=${encodeURIComponent(accessToken)}`;
-    const source = new EventSource(url);
+    const url = `/api${API_ENDPOINTS.AUTH.SESSION_EVENTS}`;
+    const source = createAuthorizedEventStream(url, accessToken);
     sourceRef.current = source;
 
     const handleSessionRevoked = (event) => {
@@ -78,4 +79,3 @@ export const useAuthSessionSSE = () => {
     };
   }, [accessToken, logout, openRemoteLogoutNotice]);
 };
-

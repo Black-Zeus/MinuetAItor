@@ -11,6 +11,7 @@ from fastapi.responses import Response, StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from core.authz import require_permissions
 from db.session import get_db
 from db.redis import get_redis
 from schemas.auth import UserSession
@@ -41,6 +42,7 @@ from services.minutes_service import (
     get_minute_attachment_blob,
     generate_minute_pdf_preview,
     get_minute_pdf_preview_job_result,
+    get_minute_pdf_preview_record_id,
     get_minute_pdf_preview_job_status,
     get_minute_detail,
     reprocess_minute,
@@ -58,11 +60,13 @@ from services.minute_views_service import (
     list_editor_minute_observations,
     resolve_editor_minute_observation,
 )
+from services.access_control_service import ensure_record_read_access, ensure_record_write_access
+from services.upload_validation import safe_content_disposition
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/minutes", tags=["Minutes"])
-bearer = HTTPBearer(auto_error=False)   # auto_error=False para no fallar cuando viene por ?token=
+bearer = HTTPBearer(auto_error=False)
 
 SSE_CHANNEL         = "events:minutes"
 SSE_KEEPALIVE_SEC   = 15
@@ -73,25 +77,22 @@ SSE_TERMINAL_EVENTS = {"completed", "failed"}
 async def current_user_dep(
     credentials: HTTPAuthorizationCredentials = Depends(bearer),
 ) -> UserSession:
+    if not credentials:
+        raise HTTPException(status_code=401, detail="No se proporcionó token de autenticación.")
     return await get_current_user(credentials.credentials)
 
 
 async def current_user_or_token_dep(
     credentials: HTTPAuthorizationCredentials = Depends(bearer),
-    token: str | None = Query(None, description="JWT para autenticación via SSE (EventSource no soporta headers)"),
 ) -> UserSession:
     """
     Dependencia de autenticación flexible para el endpoint SSE.
 
-    EventSource del browser no permite enviar el header Authorization,
-    por lo que acepta el JWT como query param ?token=...
-
-    Prioridad: header Authorization > query param ?token=
+    El frontend usa fetch streaming para enviar Authorization sin exponer JWT en URL.
     """
-    jwt = (credentials.credentials if credentials else None) or token
-    if not jwt:
+    if not credentials:
         raise HTTPException(status_code=401, detail="No se proporcionó token de autenticación.")
-    return await get_current_user(jwt)
+    return await get_current_user(credentials.credentials)
 
 
 # ─── POST /generate ───────────────────────────────────────────────────────────
@@ -106,7 +107,7 @@ async def generate_endpoint(
     input_json: str              = Form(..., description="JSON serializado con MinuteGenerateRequest"),
     files:      list[UploadFile] = File(..., description="Archivos adjuntos (transcripción, resumen, etc.)"),
     db:         Session          = Depends(get_db),
-    session:    UserSession      = Depends(current_user_dep),
+    session:    UserSession      = Depends(require_permissions("records.create")),
 ):
     try:
         data    = json.loads(input_json)
@@ -149,6 +150,7 @@ def cycle_times_endpoint(
         client_id=client_id,
         project_id=project_id,
         prepared_by_user_id=session.user_id if mine_as_preparer else None,
+        session=session,
     )
 
 
@@ -174,6 +176,7 @@ def reprocess_history_endpoint(
         client_id=client_id,
         project_id=project_id,
         prepared_by_user_id=session.user_id if mine_as_preparer else None,
+        session=session,
     )
 
 
@@ -188,6 +191,8 @@ async def pdf_preview_job_status_endpoint(
     preview_id: str,
     session: UserSession = Depends(current_user_dep),
 ):
+    record_id = await get_minute_pdf_preview_record_id(preview_id)
+    ensure_record_read_access(db, session, record_id)
     return await get_minute_pdf_preview_job_status(preview_id)
 
 
@@ -200,11 +205,16 @@ async def pdf_preview_job_result_endpoint(
     preview_id: str,
     session: UserSession = Depends(current_user_dep),
 ):
+    record_id = await get_minute_pdf_preview_record_id(preview_id)
+    ensure_record_read_access(db, session, record_id)
     pdf_bytes = await get_minute_pdf_preview_job_result(preview_id)
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": 'inline; filename="minute-preview.pdf"'},
+        headers={
+            "Content-Disposition": safe_content_disposition("minute-preview.pdf", disposition="inline"),
+            "X-Content-Type-Options": "nosniff",
+        },
     )
 
 
@@ -219,6 +229,7 @@ def get_detail_endpoint(
     db:        Session     = Depends(get_db),
     session:   UserSession = Depends(current_user_dep),
 ):
+    ensure_record_read_access(db, session, record_id)
     return get_minute_detail(db=db, record_id=record_id)
 
 
@@ -235,6 +246,7 @@ async def save_endpoint(
     db:        Session     = Depends(get_db),
     session:   UserSession = Depends(current_user_dep),
 ):
+    ensure_record_write_access(db, session, record_id, permissions=("records.update",))
     await save_minute_draft(db=db, record_id=record_id, content=body.content)
     return {"ok": True}
 
@@ -250,6 +262,7 @@ async def pdf_preview_job_endpoint(
     db: Session = Depends(get_db),
     session: UserSession = Depends(current_user_dep),
 ):
+    ensure_record_read_access(db, session, record_id)
     return await start_minute_pdf_preview_job(
         db=db,
         record_id=record_id,
@@ -268,6 +281,7 @@ async def pdf_preview_endpoint(
     db:        Session     = Depends(get_db),
     session:   UserSession = Depends(current_user_dep),
 ):
+    ensure_record_read_access(db, session, record_id)
     pdf_bytes = await generate_minute_pdf_preview(
         db=db,
         record_id=record_id,
@@ -276,7 +290,10 @@ async def pdf_preview_endpoint(
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": 'inline; filename="minute-preview.pdf"'},
+        headers={
+            "Content-Disposition": safe_content_disposition("minute-preview.pdf", disposition="inline"),
+            "X-Content-Type-Options": "nosniff",
+        },
     )
 
 
@@ -292,6 +309,7 @@ def attachment_query_endpoint(
     db: Session = Depends(get_db),
     session: UserSession = Depends(current_user_dep),
 ):
+    ensure_record_read_access(db, session, record_id)
     file_bytes, mime_type, filename = get_minute_attachment_blob(
         db=db,
         record_id=record_id,
@@ -301,7 +319,10 @@ def attachment_query_endpoint(
     return Response(
         content=file_bytes,
         media_type=mime_type,
-        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+        headers={
+            "Content-Disposition": safe_content_disposition(filename),
+            "X-Content-Type-Options": "nosniff",
+        },
     )
 
 
@@ -316,6 +337,7 @@ def attachment_endpoint(
     db:        Session = Depends(get_db),
     session:   UserSession = Depends(current_user_dep),
 ):
+    ensure_record_read_access(db, session, record_id)
     file_bytes, mime_type, filename = get_minute_attachment_blob(
         db=db,
         record_id=record_id,
@@ -325,7 +347,10 @@ def attachment_endpoint(
     return Response(
         content=file_bytes,
         media_type=mime_type,
-        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+        headers={
+            "Content-Disposition": safe_content_disposition(filename),
+            "X-Content-Type-Options": "nosniff",
+        },
     )
 
 
@@ -340,6 +365,7 @@ def observations_endpoint(
     db: Session = Depends(get_db),
     session: UserSession = Depends(current_user_dep),
 ):
+    ensure_record_read_access(db, session, record_id)
     return list_editor_minute_observations(db, record_id=record_id)
 
 
@@ -362,6 +388,7 @@ async def resolve_observation_endpoint(
         resolution_type=body.resolution_type,
         editor_comment=body.editor_comment,
         actor_user_id=session.user_id,
+        session=session,
     )
 
 
@@ -379,6 +406,7 @@ async def transition_endpoint(
     db:        Session     = Depends(get_db),
     session:   UserSession = Depends(current_user_dep),
 ):
+    ensure_record_write_access(db, session, record_id, permissions=("records.publish", "records.update"))
     return await transition_minute(
         db             = db,
         record_id      = record_id,
@@ -400,6 +428,7 @@ async def reprocess_endpoint(
     db: Session = Depends(get_db),
     session: UserSession = Depends(current_user_dep),
 ):
+    ensure_record_write_access(db, session, record_id, permissions=("records.update",))
     return await reprocess_minute(
         db=db,
         record_id=record_id,
@@ -419,6 +448,7 @@ async def send_email_endpoint(
     db: Session = Depends(get_db),
     session: UserSession = Depends(current_user_dep),
 ):
+    ensure_record_read_access(db, session, record_id)
     return await send_minute_email(
         db=db,
         record_id=record_id,
@@ -441,7 +471,10 @@ async def status_endpoint(
     session:        UserSession = Depends(current_user_dep),
 ):
     """Consulta puntual del estado. Útil para recuperar estado al recargar la página."""
-    return await get_minute_status(db, transaction_id)
+    tx_status = await get_minute_status(db, transaction_id)
+    if tx_status.record_id:
+        ensure_record_read_access(db, session, tx_status.record_id)
+    return tx_status
 
 
 # ─── GET /{transaction_id}/events  (SSE) ──────────────────────────────────────
@@ -460,8 +493,7 @@ async def events_endpoint(
     Server-Sent Events — el cliente escucha aquí hasta recibir "completed" o "failed".
 
     Autenticación:
-        - Header Authorization: Bearer <token>  (clientes que pueden enviar headers)
-        - Query param ?token=<jwt>              (EventSource del browser, que NO soporta headers)
+        - Header Authorization: Bearer <token>
 
     Eventos:
         keepalive  → ping cada 15s (el cliente los ignora)
@@ -471,6 +503,8 @@ async def events_endpoint(
     Si la transacción ya terminó al conectarse, responde inmediatamente sin suscribir a Pub/Sub.
     """
     tx_status = await get_minute_status(db, transaction_id)
+    if tx_status.record_id:
+        ensure_record_read_access(db, session, tx_status.record_id)
 
     # Si ya terminó → responder de inmediato sin suscribir a Pub/Sub
     if tx_status.status in SSE_TERMINAL_EVENTS:
@@ -513,6 +547,7 @@ def pdf_endpoint(
       draft     → minuetaitor-draft/drafts/{record_id}/draft_current.pdf
       published → minuetaitor-published/published/{record_id}/final.pdf
     """
+    ensure_record_read_access(db, session, record_id)
     from db.minio_client import get_minio_client
 
     if type == "published":
@@ -545,6 +580,7 @@ def pdf_endpoint(
             "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
             "Pragma": "no-cache",
             "Expires": "0",
+            "X-Content-Type-Options": "nosniff",
         },
     )
 
@@ -562,6 +598,7 @@ def versions_endpoint(
     db:        Session     = Depends(get_db),
     session:   UserSession = Depends(current_user_dep),
 ):
+    ensure_record_read_access(db, session, record_id)
     return get_minute_versions(db=db, record_id=record_id)
 
 
@@ -595,6 +632,7 @@ def list_endpoint(
         prepared_by_user_id=session.user_id if mine_as_preparer else None,
         participant_user_id=session.user_id if mine_as_participant else None,
         exclude_prepared_by_user_id=session.user_id if exclude_mine_as_preparer else None,
+        session=session,
     )
 
 

@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session, joinedload
 from core.config import settings
 from core.datetime_utils import utc_now, utc_now_db
 from core.exceptions import BadRequestException
+from core.network_guard import assert_safe_outbound_host
 from models.smtp_configs import SmtpConfig
 from services.email_template_service import render_email_template, resolve_default_logo_path
 from schemas.smtp_configs import (
@@ -254,6 +255,7 @@ def _open_smtp_client(config_values: dict[str, Any]) -> smtplib.SMTP:
     host = config_values["host"]
     port = int(config_values["port"])
     timeout_seconds = int(config_values["timeout_seconds"])
+    assert_safe_outbound_host(host)
 
     if config_values.get("use_ssl"):
         return smtplib.SMTP_SSL(host=host, port=port, timeout=timeout_seconds)

@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from core.authz import current_user_dep
 from db.session import get_db
 from schemas.auth import UserSession
+from services.upload_validation import safe_content_disposition
 from schemas.clients import (
     ClientCreateRequest,
     ClientFilterRequest,
@@ -53,6 +54,8 @@ def logo_endpoint(
         media_type=content_type,
         headers={
             "Cache-Control": "public, max-age=300",
+            "Content-Disposition": safe_content_disposition("client-logo", disposition="inline"),
+            "X-Content-Type-Options": "nosniff",
         },
     )
 

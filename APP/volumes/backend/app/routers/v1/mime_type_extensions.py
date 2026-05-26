@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from core.authz import require_roles
 from db.session import get_db
 from schemas.auth import UserSession
 from schemas.mime_type_extensions import (
@@ -72,7 +73,7 @@ def list_endpoint(
 def create_endpoint(
     body: MimeTypeExtensionCreateRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     return create_mime_type_extension(db, body, created_by_id=session.user_id)
 
@@ -87,7 +88,7 @@ def update_endpoint(
     file_extension_id: int,
     body: MimeTypeExtensionUpdateRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     return update_mime_type_extension(
         db,
@@ -108,7 +109,7 @@ def status_endpoint(
     file_extension_id: int,
     body: MimeTypeExtensionStatusRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     return change_mime_type_extension_status(
         db,
@@ -127,7 +128,7 @@ def delete_endpoint(
     mime_type_id: int,
     file_extension_id: int,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     delete_mime_type_extension(
         db,

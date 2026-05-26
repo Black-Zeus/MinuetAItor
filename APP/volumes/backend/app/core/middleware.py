@@ -33,6 +33,34 @@ def _json_response(status_code: int, body: dict) -> JSONResponse:
     return JSONResponse(status_code=status_code, content=body)
 
 
+_SENSITIVE_VALIDATION_FIELDS = {
+    "authorization",
+    "access_token",
+    "refresh_token",
+    "token",
+    "otp",
+    "otp_code",
+    "password",
+    "current_password",
+    "new_password",
+    "confirm_password",
+    "secret",
+    "api_key",
+}
+
+
+def _is_sensitive_validation_field(loc: object) -> bool:
+    if not isinstance(loc, (list, tuple)):
+        parts = [str(loc).lower()]
+    else:
+        parts = [str(part).lower() for part in loc]
+    return any(
+        sensitive == part or sensitive in part
+        for part in parts
+        for sensitive in _SENSITIVE_VALIDATION_FIELDS
+    )
+
+
 # ── GeoBlock ──────────────────────────────────────────
 
 class GeoBlockMiddleware(BaseHTTPMiddleware):
@@ -144,7 +172,7 @@ def register_exception_handlers(app: FastAPI) -> None:
             ErrorDetail(
                 field=" -> ".join(str(l) for l in e["loc"] if l != "body"),
                 issue=e["msg"],
-                value=e.get("input"),
+                value="[redacted]" if _is_sensitive_validation_field(e.get("loc")) else e.get("input"),
             )
             for e in exc.errors()
         ]

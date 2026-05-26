@@ -10,6 +10,8 @@ from models.clients import Client
 from models.email_delivery_events import EmailDeliveryEvent
 from models.projects import Project
 from models.records import Record
+from schemas.auth import UserSession
+from services.access_control_service import apply_record_scope_filter, is_admin
 
 
 def _json_list(value: Any) -> list[str]:
@@ -31,14 +33,15 @@ def _clean(value: Any, fallback: str = "") -> str:
     return raw or fallback
 
 
-def list_management_email_deliveries(db: Session, filters) -> dict:
-    q = db.query(EmailDeliveryEvent)
-    if filters.client or filters.project:
-        q = (
-            q.join(Record, Record.id == EmailDeliveryEvent.record_id)
-            .outerjoin(Client, Client.id == Record.client_id)
-            .outerjoin(Project, Project.id == Record.project_id)
-        )
+def list_management_email_deliveries(db: Session, session: UserSession, filters) -> dict:
+    q = (
+        db.query(EmailDeliveryEvent)
+        .outerjoin(Record, Record.id == EmailDeliveryEvent.record_id)
+        .outerjoin(Client, Client.id == Record.client_id)
+        .outerjoin(Project, Project.id == Record.project_id)
+    )
+    if not is_admin(session):
+        q = apply_record_scope_filter(q, db, session, Record)
 
     if filters.date_from:
         q = q.filter(EmailDeliveryEvent.event_at >= datetime.combine(filters.date_from, time.min))

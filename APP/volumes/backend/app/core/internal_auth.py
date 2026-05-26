@@ -23,7 +23,7 @@ from __future__ import annotations
 import logging
 import secrets
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, Request, status
 
 from core.config import settings
 
@@ -33,6 +33,7 @@ _HEADER_NAME = "x-internal-secret"
 
 
 def verify_internal_secret(
+    request: Request,
     x_internal_secret: str | None = Header(default=None, alias="x-internal-secret"),
 ) -> None:
     """
@@ -56,7 +57,11 @@ def verify_internal_secret(
         )
 
     if not x_internal_secret:
-        logger.warning("Intento de acceso interno sin header X-Internal-Secret")
+        logger.warning(
+            "Intento de acceso interno sin header X-Internal-Secret | ip=%s path=%s",
+            request.client.host if request.client else "-",
+            request.url.path,
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="missing_internal_secret",
@@ -67,7 +72,11 @@ def verify_internal_secret(
         configured_secret.encode("utf-8"),
         x_internal_secret.encode("utf-8"),
     ):
-        logger.warning("Intento de acceso interno con secret inválido")
+        logger.warning(
+            "Intento de acceso interno con secret inválido | ip=%s path=%s",
+            request.client.host if request.client else "-",
+            request.url.path,
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="invalid_internal_secret",

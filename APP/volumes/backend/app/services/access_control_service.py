@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from core.authz import has_any_permission, has_role
 from core.exceptions import ForbiddenException
 from models.projects import Project
+from models.records import Record
 from models.user_client_acl import UserClientAcl
 from models.user_clients import UserClient
 from models.user_profiles import AssignmentModeEnum, UserProfile
@@ -164,5 +165,82 @@ def apply_project_scope_filter(query, db: Session, session: UserSession, project
                 UserClientAcl.client_id.isnot(None),
             )
         )
+        .distinct()
+    )
+
+
+def _get_record_for_access(db: Session, record_id: str) -> Record:
+    record = (
+        db.query(Record)
+        .filter(Record.id == record_id, Record.deleted_at.is_(None))
+        .first()
+    )
+    if not record:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Minuta no encontrada")
+    return record
+
+
+def _is_record_actor(record: Record, session: UserSession) -> bool:
+    user_id = str(session.user_id)
+    return user_id in {
+        str(getattr(record, "prepared_by_user_id", "") or ""),
+        str(getattr(record, "created_by", "") or ""),
+        str(getattr(record, "updated_by", "") or ""),
+    }
+
+
+def ensure_record_read_access(db: Session, session: UserSession, record_id: str) -> None:
+    if is_admin(session):
+        return
+
+    record = _get_record_for_access(db, record_id)
+    if _is_record_actor(record, session):
+        return
+
+    if record.project_id:
+        ensure_project_read_access(db, session, str(record.project_id))
+        return
+    ensure_client_read_access(db, session, str(record.client_id))
+
+
+def ensure_record_write_access(
+    db: Session,
+    session: UserSession,
+    record_id: str,
+    *,
+    permissions: set[str] | list[str] | tuple[str, ...] = ("records.update",),
+) -> None:
+    ensure_record_read_access(db, session, record_id)
+    if is_admin(session):
+        return
+    if has_any_permission(session, permissions):
+        return
+    raise ForbiddenException("No tienes permisos para modificar esta minuta")
+
+
+def apply_record_scope_filter(query, db: Session, session: UserSession, record_model=Record):
+    if can_access_all_clients(db, session):
+        return query
+
+    accessible_client_ids = get_accessible_client_ids(db, session)
+    user_id = session.user_id
+    predicates = [
+        record_model.prepared_by_user_id == user_id,
+        record_model.created_by == user_id,
+        record_model.updated_by == user_id,
+    ]
+    if accessible_client_ids:
+        predicates.append(record_model.client_id.in_(accessible_client_ids))
+
+    return (
+        query.outerjoin(
+            UserProjectACL,
+            (UserProjectACL.project_id == record_model.project_id)
+            & (UserProjectACL.user_id == user_id)
+            & (UserProjectACL.deleted_at.is_(None))
+            & (UserProjectACL.is_active.is_(True)),
+        )
+        .filter(or_(*predicates, UserProjectACL.project_id.isnot(None)))
         .distinct()
     )

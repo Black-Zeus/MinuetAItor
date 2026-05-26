@@ -17,9 +17,36 @@ Formato mínimo en Redis (JSON):
 from __future__ import annotations
 
 import json
+import re
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
+
+MAX_ATTEMPT = 20
+SAFE_TOKEN_RE = re.compile(r"^[A-Za-z0-9_.:-]{1,80}$")
+
+
+def _clean_queue(value: Any) -> str:
+    if isinstance(value, bytes):
+        value = value.decode("utf-8", errors="strict")
+    queue = str(value or "").strip()
+    if not SAFE_TOKEN_RE.fullmatch(queue):
+        raise ValueError("Cola de Redis inválida.")
+    return queue
+
+
+def _clean_type(value: Any) -> str:
+    job_type = str(value or "").strip()
+    if not SAFE_TOKEN_RE.fullmatch(job_type):
+        raise ValueError("Tipo de job inválido.")
+    return job_type
+
+
+def _clean_attempt(value: Any) -> int:
+    attempt = int(value or 1)
+    if attempt < 1 or attempt > MAX_ATTEMPT:
+        raise ValueError("Intento de job fuera de rango.")
+    return attempt
 
 
 @dataclass
@@ -51,7 +78,10 @@ class JobEnvelope:
         Formato nuevo:  { job_id, type, queue, attempt, payload }
         Formato legado: { type, to, subject, body, ... }
         """
+        queue_name = _clean_queue(queue)
         data = json.loads(raw)
+        if not isinstance(data, dict):
+            raise ValueError("El job debe ser un objeto JSON.")
 
         # Detectar formato legado: no tiene clave "payload"
         if "payload" not in data:
@@ -59,18 +89,21 @@ class JobEnvelope:
             job_type = data.pop("type", "unknown")
             envelope = cls(
                 job_id  = data.pop("job_id", str(uuid.uuid4())),
-                type    = job_type,
-                queue   = queue,
-                attempt = data.pop("attempt", 1),
+                type    = _clean_type(job_type),
+                queue   = queue_name,
+                attempt = _clean_attempt(data.pop("attempt", 1)),
                 payload = data,   # lo que queda son los campos del job
             )
         else:
+            payload = data["payload"]
+            if not isinstance(payload, dict):
+                raise ValueError("El payload del job debe ser un objeto JSON.")
             envelope = cls(
                 job_id  = data.get("job_id", str(uuid.uuid4())),
-                type    = data["type"],
-                queue   = data.get("queue", queue),
-                attempt = data.get("attempt", 1),
-                payload = data["payload"],
+                type    = _clean_type(data["type"]),
+                queue   = queue_name,
+                attempt = _clean_attempt(data.get("attempt", 1)),
+                payload = payload,
             )
 
         return envelope

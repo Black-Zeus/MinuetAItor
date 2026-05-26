@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     
     # Internal API — autenticación entre servicios Docker (worker → backend)
     internal_api_secret: str = "-"
+    allow_private_provider_hosts: bool = True
+    cors_allowed_origins: list[str] = []
 
     # Geo
     geo_db_path: str = "/app/assets/dbGeo/dbip-city-lite.mmdb"

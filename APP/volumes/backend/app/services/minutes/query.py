@@ -12,6 +12,7 @@ from models.record_status_transitions import RecordStatusTransition
 from models.record_versions import RecordVersion
 from models.records import Record
 from models.user import User
+from schemas.auth import UserSession
 from schemas.minutes import (
     MinuteCycleTimeItem,
     MinuteCycleTimeResponse,
@@ -25,6 +26,7 @@ from schemas.minutes import (
     MinuteVersionItem,
     MinuteVersionsResponse,
 )
+from services.access_control_service import apply_record_scope_filter
 from services.minutes.attachments import list_minute_input_attachments
 from services.minutes.constants import (
     BUCKET_DRAFT,
@@ -187,6 +189,7 @@ def list_minutes(
     prepared_by_user_id: Optional[str] = None,
     participant_user_id: Optional[str] = None,
     exclude_prepared_by_user_id: Optional[str] = None,
+    session: UserSession | None = None,
 ) -> MinuteListResponse:
     from models.clients import Client
     from models.minute_transaction import MinuteTransaction
@@ -195,6 +198,8 @@ def list_minutes(
     from models.record_version_participant import RecordVersionParticipant
 
     query = db.query(Record).filter(Record.deleted_at.is_(None))
+    if session is not None:
+        query = apply_record_scope_filter(query, db, session, Record)
 
     if q:
         term = f"%{q.strip()}%"
@@ -375,6 +380,7 @@ def list_minute_reprocess_history(
     client_id: Optional[str] = None,
     project_id: Optional[str] = None,
     prepared_by_user_id: Optional[str] = None,
+    session: UserSession | None = None,
 ) -> MinuteReprocessHistoryResponse:
     from models.ai_usage_events import AiUsageEvent
     from models.minute_transaction import MinuteTransaction
@@ -385,6 +391,8 @@ def list_minute_reprocess_history(
         .join(Record, Record.id == MinuteTransaction.record_id)
         .filter(Record.deleted_at.is_(None))
     )
+    if session is not None:
+        tx_query = apply_record_scope_filter(tx_query, db, session, Record)
 
     if client_id:
         tx_query = tx_query.filter(Record.client_id == client_id)
@@ -523,10 +531,13 @@ def list_minute_cycle_times(
     client_id: Optional[str] = None,
     project_id: Optional[str] = None,
     prepared_by_user_id: Optional[str] = None,
+    session: UserSession | None = None,
 ) -> MinuteCycleTimeResponse:
     from models.record_statuses import RecordStatus
 
     record_query = db.query(Record).filter(Record.deleted_at.is_(None))
+    if session is not None:
+        record_query = apply_record_scope_filter(record_query, db, session, Record)
 
     if client_id:
         record_query = record_query.filter(Record.client_id == client_id)

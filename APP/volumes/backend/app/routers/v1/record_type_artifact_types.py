@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from core.authz import require_roles
 from db.session import get_db
 from schemas.auth import UserSession
 from schemas.record_type_artifact_types import (
@@ -49,7 +50,7 @@ def list_endpoint(
 def create_endpoint(
     body: RecordTypeArtifactTypesCreateRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     return create_record_type_artifact_type(db, body, created_by_id=session.user_id)
 
@@ -78,7 +79,7 @@ def update_endpoint(
     artifact_type_id: int,
     body: RecordTypeArtifactTypesUpdateRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     return update_record_type_artifact_type(
         db,
@@ -93,7 +94,7 @@ def update_endpoint(
 def status_endpoint(
     body: RecordTypeArtifactTypesStatusRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     return change_record_type_artifact_type_status(
         db,
@@ -112,7 +113,7 @@ def delete_endpoint(
     record_type_id: int,
     artifact_type_id: int,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     delete_record_type_artifact_type(db, record_type_id, artifact_type_id, deleted_by_id=session.user_id)
     return None

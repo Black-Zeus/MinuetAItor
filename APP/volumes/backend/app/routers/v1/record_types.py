@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Response, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from core.authz import require_roles
 from db.session import get_db
 from schemas.auth import UserSession
 from schemas.record_types import (
@@ -58,7 +59,7 @@ def list_endpoint(
 def create_endpoint(
     body: RecordTypeCreateRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     return create_record_type(db, body, created_by_id=session.user_id)
 
@@ -68,7 +69,7 @@ def update_endpoint(
     id: int,
     body: RecordTypeUpdateRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     return update_record_type(db, id, body, updated_by_id=session.user_id)
 
@@ -78,7 +79,7 @@ def status_endpoint(
     id: int,
     body: RecordTypeStatusRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     return change_record_type_status(db, id, is_active=body.is_active, updated_by_id=session.user_id)
 
@@ -87,7 +88,7 @@ def status_endpoint(
 def delete_endpoint(
     id: int,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     delete_record_type(db, id, deleted_by_id=session.user_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

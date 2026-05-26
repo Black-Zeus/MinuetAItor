@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from core.authz import require_roles
 from db.session import get_db
 from schemas.auth import UserSession
 from schemas.objects import (
@@ -13,7 +13,6 @@ from schemas.objects import (
     ObjectListResponse,
     ObjectResponse,
 )
-from services.auth_service import get_current_user
 from services.objects_service import (
     create_object,
     delete_object,
@@ -22,13 +21,6 @@ from services.objects_service import (
 )
 
 router = APIRouter(prefix="/objects", tags=["Objects"])
-bearer = HTTPBearer()
-
-
-async def current_user_dep(
-    credentials: HTTPAuthorizationCredentials = Depends(bearer),
-) -> UserSession:
-    return await get_current_user(credentials.credentials)
 
 
 # CRÍTICO: /list antes que GET /{id}
@@ -36,7 +28,7 @@ async def current_user_dep(
 def list_endpoint(
     body: ObjectFilterRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     return list_objects(db, body)
 
@@ -45,7 +37,7 @@ def list_endpoint(
 def get_endpoint(
     id: str,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     return get_object(db, id)
 
@@ -54,7 +46,7 @@ def get_endpoint(
 def create_endpoint(
     body: ObjectCreateRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     return create_object(db, body, created_by_id=session.user_id)
 
@@ -63,7 +55,7 @@ def create_endpoint(
 def delete_endpoint(
     id: str,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     delete_object(db, id, deleted_by_id=session.user_id)
     return None

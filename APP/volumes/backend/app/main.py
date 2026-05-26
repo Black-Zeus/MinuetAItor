@@ -38,13 +38,25 @@ app = FastAPI(
 # ── Middlewares ───────────────────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"] if settings.env_name == "dev" else [],
+    allow_origins=["*"] if settings.env_name == "dev" else settings.cors_allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 app.add_middleware(GeoBlockMiddleware)
 app.add_middleware(ResponseContractMiddleware)
+
+
+@app.middleware("http")
+async def security_headers_middleware(request: Request, call_next):
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+    if settings.env_name == "prod":
+        response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+    return response
 
 
 def _is_read_only_safe_request(request: Request) -> bool:
@@ -136,7 +148,7 @@ register_exception_handlers(app)
 # ═════════════════════════════════════════════════════════════════════════════
 
 # ── AI Profile Categories (catálogo) ──────────────────────────────────────────
-# [ACTIVO] TODO: [RBAC] Restringir POST/PUT/DELETE/PATCH a rol admin
+# [ACTIVO] RBAC: lectura autenticada, mutaciones solo ADMIN
 from routers.v1.ai_profile_categories import router as ai_profile_categories_router
 app.include_router(ai_profile_categories_router, prefix="/v1")
 
@@ -146,12 +158,12 @@ from routers.v1.ai_profiles import router as ai_profiles_router
 app.include_router(ai_profiles_router, prefix="/v1")
 
 # ── AI Provider Configs ───────────────────────────────────────────────────────
-# [ACTIVO] TODO: [RBAC] Restringir mutaciones a rol admin
+# [ACTIVO] RBAC: solo ADMIN
 from routers.v1.ai_provider_configs import router as ai_provider_configs_router
 app.include_router(ai_provider_configs_router, prefix="/v1")
 
 # ── AI Usage Events ───────────────────────────────────────────────────────────
-# [ACTIVO] TODO: [RBAC] Restringir lectura según política del módulo de métricas
+# [ACTIVO] RBAC: requiere audit.read y aplica scope por cliente/proyecto
 from routers.v1.ai_usage_events import router as ai_usage_events_router
 app.include_router(ai_usage_events_router, prefix="/v1")
 
@@ -166,17 +178,17 @@ from routers.v1.ai_tags import router as ai_tags_router
 app.include_router(ai_tags_router, prefix="/v1")
 
 # ── Artifact States (catálogo) ────────────────────────────────────────────────
-# [ACTIVO] TODO: [RBAC] Restringir POST/PUT/DELETE/PATCH a rol admin
+# [ACTIVO] RBAC: lectura autenticada, mutaciones solo ADMIN
 from routers.v1.artifact_states import router as artifact_states_router
 app.include_router(artifact_states_router, prefix="/v1")
 
 # ── Artifact Type MIME Types (catálogo relacional de sistema) ─────────────────
-# [ACTIVO] TODO: [RBAC] Restringir POST/PUT/DELETE/PATCH a rol admin
+# [ACTIVO] RBAC: lectura autenticada, mutaciones solo ADMIN
 from routers.v1.artifact_type_mime_types import router as artifact_type_mime_types_router
 app.include_router(artifact_type_mime_types_router, prefix="/v1")
 
 # ── Artifact Types (catálogo) ─────────────────────────────────────────────────
-# [ACTIVO] TODO: [RBAC] Restringir POST/PUT/DELETE/PATCH a rol admin
+# [ACTIVO] RBAC: lectura autenticada, mutaciones solo ADMIN
 from routers.v1.artifact_types import router as artifact_types_router
 app.include_router(artifact_types_router, prefix="/v1")
 
@@ -186,7 +198,7 @@ from routers.v1.auth import router as auth_router
 app.include_router(auth_router, prefix="/v1")
 
 # ── Buckets (configuración de storage) ───────────────────────────────────────
-# [ACTIVO] TODO: [RBAC] Restringir POST/PUT/DELETE/PATCH a rol admin
+# [ACTIVO] RBAC: lectura autenticada, mutaciones solo ADMIN
 from routers.v1.buckets import router as buckets_router
 app.include_router(buckets_router, prefix="/v1")
 
@@ -196,7 +208,7 @@ from routers.v1.clients import router as clients_router
 app.include_router(clients_router, prefix="/v1")
 
 # ── Dashboard Widgets (catálogo) ───────────────────────────────────────────────
-# [ACTIVO] TODO: [RBAC] Restringir POST/PUT/DELETE/PATCH a rol admin
+# [ACTIVO] RBAC: lectura autenticada, mutaciones solo ADMIN
 from routers.v1.dashboard_widgets import router as dashboard_widgets_router
 app.include_router(dashboard_widgets_router, prefix="/v1")
 
@@ -205,17 +217,17 @@ from routers.v1.dashboard import router as dashboard_router
 app.include_router(dashboard_router, prefix="/v1")
 
 # ── File Extensions (catálogo de sistema) ─────────────────────────────────────
-# [ACTIVO] TODO: [RBAC] Restringir POST/PUT/DELETE/PATCH a rol admin
+# [ACTIVO] RBAC: lectura autenticada, mutaciones solo ADMIN
 from routers.v1.file_extensions import router as file_extensions_router
 app.include_router(file_extensions_router, prefix="/v1")
 
 # ── MIME Type Extensions (catálogo relacional de sistema) ─────────────────────
-# [ACTIVO] TODO: [RBAC] Restringir POST/PUT/DELETE/PATCH a rol admin
+# [ACTIVO] RBAC: lectura autenticada, mutaciones solo ADMIN
 from routers.v1.mime_type_extensions import router as mime_type_extensions_router
 app.include_router(mime_type_extensions_router, prefix="/v1")
 
 # ── MIME Types (catálogo de sistema) ──────────────────────────────────────────
-# [ACTIVO] TODO: [RBAC] Restringir POST/PUT/DELETE/PATCH a rol admin
+# [ACTIVO] RBAC: lectura autenticada, mutaciones solo ADMIN
 from routers.v1.mime_types import router as mime_types_router
 app.include_router(mime_types_router, prefix="/v1")
 
@@ -257,17 +269,17 @@ from routers.v1.record_drafts import router as record_drafts_router
 app.include_router(record_drafts_router, prefix="/v1")
 
 # ── Record Statuses (catálogo) ────────────────────────────────────────────────
-# [ACTIVO] TODO: [RBAC] Restringir POST/PUT/DELETE/PATCH a rol admin
+# [ACTIVO] RBAC: lectura autenticada, mutaciones solo ADMIN
 from routers.v1.record_statuses import router as record_statuses_router
 app.include_router(record_statuses_router, prefix="/v1")
 
 # ── Record Type Artifact Types (catálogo relacional) ──────────────────────────
-# [ACTIVO] TODO: [RBAC] Restringir POST/PUT/DELETE/PATCH a rol admin
+# [ACTIVO] RBAC: lectura autenticada, mutaciones solo ADMIN
 from routers.v1.record_type_artifact_types import router as record_type_artifact_types_router
 app.include_router(record_type_artifact_types_router, prefix="/v1")
 
 # ── Record Types (catálogo) ───────────────────────────────────────────────────
-# [ACTIVO] TODO: [RBAC] Restringir POST/PUT/DELETE/PATCH a rol admin
+# [ACTIVO] RBAC: lectura autenticada, mutaciones solo ADMIN
 from routers.v1.record_types import router as record_types_router
 app.include_router(record_types_router, prefix="/v1")
 
@@ -328,7 +340,7 @@ app.include_router(reports_router, prefix="/v1")
 # app.include_router(system_router, prefix="/v1")
 
 # ── Tag Categories (catálogo) ──────────────────────────────────────────────────
-# [ACTIVO] TODO: [RBAC] Restringir POST/PUT/DELETE/PATCH a rol admin
+# [ACTIVO] RBAC: lectura autenticada, mutaciones solo ADMIN
 from routers.v1.tag_categories import router as tag_categories_router
 app.include_router(tag_categories_router, prefix="/v1")
 
@@ -383,7 +395,7 @@ app.include_router(user_roles_router, prefix="/v1")
 # app.include_router(user_sessions_router, prefix="/v1")
 
 # ── Version Statuses (catálogo) ───────────────────────────────────────────────
-# [ACTIVO] TODO: [RBAC] Restringir POST/PUT/DELETE/PATCH a rol admin
+# [ACTIVO] RBAC: lectura autenticada, mutaciones solo ADMIN
 from routers.v1.version_statuses import router as version_statuses_router
 app.include_router(version_statuses_router, prefix="/v1")
 
@@ -449,6 +461,8 @@ def health():
 
 @app.get("/v1/docs", include_in_schema=False)
 async def custom_swagger_ui():
+    if settings.env_name == "prod":
+        return JSONResponse(status_code=404, content={"detail": "Not Found"})
     return get_swagger_ui_html(
         openapi_url="/api/v1/openapi.json",
         title="MinuetAItor API - Swagger UI",

@@ -905,6 +905,8 @@ def _safe_extract_package(package_path: Path, destination: Path) -> None:
             target = (destination / member.name).resolve(strict=False)
             if target != root and root not in target.parents:
                 raise ValueError(f"Ruta insegura dentro del paquete: {member.name}")
+            if member.issym() or member.islnk() or member.isdev():
+                raise ValueError(f"Tipo de miembro no permitido dentro del paquete: {member.name}")
         archive.extractall(destination)
 
 
