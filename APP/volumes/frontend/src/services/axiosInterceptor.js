@@ -203,13 +203,13 @@ axiosInstance.interceptors.request.use(
 
     config.metadata = { startTime: new Date() };
 
-    axiosLog.group(`REQUEST: ${String(config.method || "").toUpperCase()} ${getBaseUrl()}${config.url}`);
-    if (config.data) axiosLog.debug("Data", config.data);
-    if (config.params) axiosLog.debug("Params", config.params);
-    if (config.headers?.Authorization) {
-      axiosLog.debug("Token", String(config.headers.Authorization).substring(0, 24) + "…");
-    }
-    axiosLog.groupEnd();
+    axiosLog.debug("Request", {
+      method: String(config.method || "").toUpperCase(),
+      url: `${getBaseUrl()}${config.url}`,
+      hasBody: Boolean(config.data),
+      hasParams: Boolean(config.params),
+      hasAuthorization: Boolean(config.headers?.Authorization),
+    });
 
     return config;
   },
@@ -291,13 +291,13 @@ axiosInstance.interceptors.response.use(
       return axiosInstance(originalRequest);
     }
 
-    axiosLog.group(
-      `ERROR: ${String(originalRequest?.method || "").toUpperCase()} ${originalRequest?.url} — ${error.response?.status || "Network Error"
-      }`
-    );
-    if (error.response?.data) axiosLog.error("Error Data", error.response.data);
-    axiosLog.error("Full Error", { message: error?.message, error });
-    axiosLog.groupEnd();
+    axiosLog.error("Request failed", {
+      method: String(originalRequest?.method || "").toUpperCase(),
+      url: originalRequest?.url,
+      status: error.response?.status || null,
+      code: error?.code || null,
+      message: error?.message,
+    });
 
     // ── 401: intenta refresh salvo que sea endpoint de auth ──────────────────
     if (error.response?.status === 401 && !originalRequest?._retry) {

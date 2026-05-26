@@ -13,13 +13,15 @@ from models.record_versions import RecordVersion
 from models.records import Record
 from models.tag_categories import TagCategory
 from models.tags import Tag
+from schemas.auth import UserSession
+from services.access_control_service import apply_record_scope_filter
 
 
 def _record_activity_date_expr():
     return func.coalesce(Record.document_date, func.date(RecordVersion.published_at))
 
 
-def _apply_record_scope_filters(q, filters, date_expr):
+def _apply_record_scope_filters(q, db: Session, session: UserSession, filters, date_expr):
     q = q.filter(
         Record.deleted_at.is_(None),
         RecordVersion.deleted_at.is_(None),
@@ -34,7 +36,7 @@ def _apply_record_scope_filters(q, filters, date_expr):
     if filters.project:
         q = q.filter(Project.name == filters.project)
 
-    return q
+    return apply_record_scope_filter(q, db, session, Record)
 
 
 def _label_for_filtered_client(filters) -> str:
@@ -45,7 +47,7 @@ def _label_for_filtered_project(filters) -> str:
     return filters.project if filters.project else ""
 
 
-def list_minutes_by_tag(db: Session, filters) -> list[dict]:
+def list_minutes_by_tag(db: Session, session: UserSession, filters) -> list[dict]:
     date_expr = _record_activity_date_expr()
     q = (
         db.query(
@@ -69,7 +71,7 @@ def list_minutes_by_tag(db: Session, filters) -> list[dict]:
         .outerjoin(TagCategory, TagCategory.id == Tag.category_id)
         .filter(Tag.deleted_at.is_(None))
     )
-    q = _apply_record_scope_filters(q, filters, date_expr)
+    q = _apply_record_scope_filters(q, db, session, filters, date_expr)
     rows = (
         q.group_by(Tag.id, Tag.name, Tag.source, Tag.status, Tag.is_active, TagCategory.name)
         .order_by(func.count(func.distinct(Record.id)).desc(), Tag.name.asc())
@@ -99,7 +101,7 @@ def list_minutes_by_tag(db: Session, filters) -> list[dict]:
     ]
 
 
-def list_detected_ai_tags(db: Session, filters) -> list[dict]:
+def list_detected_ai_tags(db: Session, session: UserSession, filters) -> list[dict]:
     date_expr = _record_activity_date_expr()
     q = (
         db.query(
@@ -118,7 +120,7 @@ def list_detected_ai_tags(db: Session, filters) -> list[dict]:
         .join(Client, Client.id == Record.client_id)
         .outerjoin(Project, Project.id == Record.project_id)
     )
-    q = _apply_record_scope_filters(q, filters, date_expr)
+    q = _apply_record_scope_filters(q, db, session, filters, date_expr)
     rows = (
         q.group_by(AITag.id, AITag.slug, AITag.is_active)
         .order_by(func.count(RecordVersionAiTag.record_version_id).desc(), AITag.slug.asc())
@@ -146,7 +148,7 @@ def list_detected_ai_tags(db: Session, filters) -> list[dict]:
     ]
 
 
-def list_ai_tag_conversions_report(db: Session, filters) -> list[dict]:
+def list_ai_tag_conversions_report(db: Session, session: UserSession, filters) -> list[dict]:
     date_expr = _record_activity_date_expr()
     q = (
         db.query(
@@ -171,7 +173,7 @@ def list_ai_tag_conversions_report(db: Session, filters) -> list[dict]:
         .outerjoin(Tag, Tag.id == AiTagConversion.tag_id)
         .outerjoin(TagCategory, TagCategory.id == Tag.category_id)
     )
-    q = _apply_record_scope_filters(q, filters, date_expr)
+    q = _apply_record_scope_filters(q, db, session, filters, date_expr)
     rows = (
         q.group_by(AITag.id, AITag.slug, Tag.id, Tag.name, TagCategory.name)
         .order_by(func.count(RecordVersionAiTag.record_version_id).desc(), AITag.slug.asc())
@@ -211,7 +213,7 @@ def list_ai_tag_conversions_report(db: Session, filters) -> list[dict]:
     return output
 
 
-def list_topic_trends(db: Session, filters) -> list[dict]:
+def list_topic_trends(db: Session, session: UserSession, filters) -> list[dict]:
     date_expr = _record_activity_date_expr()
     period_expr = func.date_format(date_expr, "%Y-%m")
     q = (
@@ -233,7 +235,7 @@ def list_topic_trends(db: Session, filters) -> list[dict]:
         .outerjoin(TagCategory, TagCategory.id == Tag.category_id)
         .filter(Tag.deleted_at.is_(None))
     )
-    q = _apply_record_scope_filters(q, filters, date_expr)
+    q = _apply_record_scope_filters(q, db, session, filters, date_expr)
     rows = (
         q.group_by(period_expr, Tag.id, Tag.name, TagCategory.name)
         .order_by(period_expr.desc(), func.count(func.distinct(Record.id)).desc(), Tag.name.asc())
@@ -262,14 +264,14 @@ def list_topic_trends(db: Session, filters) -> list[dict]:
     ]
 
 
-def list_management_topic_report(db: Session, filters) -> dict:
+def list_management_topic_report(db: Session, session: UserSession, filters) -> dict:
     handlers = {
         "minutes-by-tag": list_minutes_by_tag,
         "detected-ai-tags": list_detected_ai_tags,
         "ai-tag-conversions": list_ai_tag_conversions_report,
         "topic-trends": list_topic_trends,
     }
-    items = handlers[filters.report_type](db, filters)
+    items = handlers[filters.report_type](db, session, filters)
     return {
         "items": items,
         "total": len(items),

@@ -40,6 +40,9 @@ SYSTEM_BACKUP_SETTINGS_SINGLETON_ID = 1
 SYSTEM_OPERATION_STATE_SINGLETON_ID = 1
 BACKUP_STORAGE_ROOT = "/app/remote_data/backups"
 BACKUP_PACKAGE_GLOB = "backup-*.tar.gz"
+BACKUP_IMPORT_MAX_BYTES = 5 * 1024 * 1024 * 1024
+BACKUP_IMPORT_MAX_MEMBERS = 50_000
+BACKUP_IMPORT_MAX_UNCOMPRESSED_BYTES = 25 * 1024 * 1024 * 1024
 SCHEDULER_TIMEZONE = "America/Santiago"
 BACKUP_TICK_LOCK_KEY = "lock:system:backups:tick"
 BACKUP_TICK_LOCK_TTL_SEC = 90
@@ -185,6 +188,45 @@ def _parse_checksums_file(value: str | None) -> dict[str, str]:
         digest, relative_path = parts
         checksums[relative_path.strip()] = digest.strip()
     return checksums
+
+
+def _is_safe_tar_member_name(member_name: str) -> bool:
+    path = Path(str(member_name or ""))
+    if path.is_absolute():
+        return False
+    return ".." not in path.parts
+
+
+def _is_expected_backup_member(member_name: str) -> bool:
+    return (
+        member_name in {"metadata.json", "manifest.json", "checksums.sha256"}
+        or member_name.startswith("mariadb/")
+        or member_name.startswith("minio/")
+    )
+
+
+def _validate_backup_tar_members(archive: tarfile.TarFile) -> set[str]:
+    member_names: set[str] = set()
+    total_size = 0
+    for index, member in enumerate(archive.getmembers(), start=1):
+        if index > BACKUP_IMPORT_MAX_MEMBERS:
+            raise BadRequestException("El paquete contiene demasiados miembros internos.")
+
+        if not _is_safe_tar_member_name(member.name) or not _is_expected_backup_member(member.name):
+            raise BadRequestException(f"Miembro inseguro o inesperado dentro del paquete: {member.name}")
+
+        if member.issym() or member.islnk() or member.isdev():
+            raise BadRequestException(f"El paquete contiene un tipo de miembro no permitido: {member.name}")
+
+        if member.isfile():
+            total_size += int(member.size or 0)
+            if total_size > BACKUP_IMPORT_MAX_UNCOMPRESSED_BYTES:
+                raise BadRequestException("El tamaño descomprimido del paquete excede el límite permitido.")
+        elif not member.isdir():
+            raise BadRequestException(f"El paquete contiene un tipo de miembro no permitido: {member.name}")
+
+        member_names.add(member.name)
+    return member_names
 
 
 def _scope_from_backup_path(path: Path, metadata: dict | None) -> str | None:
@@ -922,7 +964,11 @@ def inspect_system_backup_artifact(db: Session, *, artifact_id: str) -> dict:
 
     try:
         with tarfile.open(package_path, "r:gz") as archive:
-            member_names = set(archive.getnames())
+            try:
+                member_names = _validate_backup_tar_members(archive)
+            except BadRequestException as exc:
+                errors.append(str(exc))
+                member_names = set(archive.getnames())
             metadata = _read_backup_package_json(package_path, "metadata.json") or {}
             manifest = _read_backup_package_json(package_path, "manifest.json") or {}
             checksums = _parse_checksums_file(_read_backup_package_text(package_path, "checksums.sha256"))
@@ -1084,9 +1130,16 @@ def _import_destination_path(scope: str) -> Path:
 
 
 def _validate_import_package(path: Path, original_filename: str) -> tuple[dict, dict, str]:
+    clean_name = Path(str(original_filename or "")).name
+    if not clean_name.endswith(".tar.gz"):
+        raise BadRequestException("El archivo seleccionado debe tener extensión .tar.gz.")
+
+    if path.stat().st_size > BACKUP_IMPORT_MAX_BYTES:
+        raise BadRequestException("El paquete excede el tamaño máximo permitido para importación.")
+
     try:
         with tarfile.open(path, "r:gz") as archive:
-            members = set(archive.getnames())
+            members = _validate_backup_tar_members(archive)
     except tarfile.TarError as exc:
         raise BadRequestException("El archivo seleccionado no es un paquete tar.gz válido.") from exc
     except OSError as exc:
@@ -1100,6 +1153,25 @@ def _validate_import_package(path: Path, original_filename: str) -> tuple[dict, 
     manifest = _read_backup_package_json(path, "manifest.json")
     if not metadata or not manifest:
         raise BadRequestException("El paquete no contiene metadata.json o manifest.json válidos.")
+
+    checksums = _parse_checksums_file(_read_backup_package_text(path, "checksums.sha256"))
+    if not checksums:
+        raise BadRequestException("El paquete no contiene checksums.sha256 válido.")
+    for relative_path in checksums:
+        if not _is_safe_tar_member_name(relative_path) or not _is_expected_backup_member(relative_path):
+            raise BadRequestException(f"checksums.sha256 referencia una ruta insegura: {relative_path}")
+        if relative_path not in members:
+            raise BadRequestException(f"checksums.sha256 referencia un archivo faltante: {relative_path}")
+    try:
+        with tarfile.open(path, "r:gz") as archive:
+            for relative_path, expected_sha256 in checksums.items():
+                actual_sha256 = _sha256_tar_member(archive, relative_path)
+                if not actual_sha256 or actual_sha256 != expected_sha256:
+                    raise BadRequestException(f"Checksum interno no coincide: {relative_path}")
+    except tarfile.TarError as exc:
+        raise BadRequestException("El archivo seleccionado no es un paquete tar.gz válido.") from exc
+    except OSError as exc:
+        raise BadRequestException("No fue posible verificar el paquete seleccionado.") from exc
 
     scope = _scope_from_backup_path(Path(original_filename), metadata)
     if scope not in BACKUP_SCOPES:

@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from starlette.requests import Request
 
 from core.datetime_utils import utc_now, utc_now_db
+from core.rate_limit import enforce_rate_limit, rate_limit_key
 from core.security import create_access_token, decode_access_token
 from db.minio_client import get_minio_client
 from db.redis import get_redis
@@ -29,12 +30,15 @@ from schemas.minute_views import (
     MinuteViewSessionResponse,
     MinuteViewVisitorInfo,
 )
+from schemas.auth import UserSession
+from services.access_control_service import ensure_record_write_access
 from schemas.minute_observations import (
     MinuteObservationItem,
     MinuteObservationListResponse,
     MinuteObservationResolveResponse,
 )
 from services.notification_center_service import create_in_app_notification
+from services.email_queue import queue_templated_email
 from services.minutes_service import get_minute_detail, get_minute_versions
 from services.notification_service import enqueue_minute_guest_observation_email
 from utils.device import get_device_string
@@ -43,6 +47,7 @@ from utils.network import get_client_ip
 VISITOR_SESSION_PREFIX = "visitor-session"
 VISITOR_OTP_TTL_MINUTES = 30
 VISITOR_SESSION_TTL_HOURS = 8
+VISITOR_OBSERVATION_LIMIT_PER_HOUR = 12
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +93,17 @@ def _generate_otp() -> str:
     return f"{secrets.randbelow(1_000_000):06d}"
 
 
+def _generic_otp_request_response(record_id: str, email: str) -> MinuteViewAccessRequestResponse:
+    expires_at = _utcnow() + timedelta(minutes=VISITOR_OTP_TTL_MINUTES)
+    return MinuteViewAccessRequestResponse(
+        request_id=str(uuid.uuid4()),
+        record_id=str(record_id or "").strip(),
+        email=_normalize_email(email),
+        expires_at=expires_at.isoformat(),
+        message="Si el correo tiene acceso a la minuta, se enviará un código de un solo uso.",
+    )
+
+
 def _resolve_record_or_404(db: Session, record_id: str) -> Record:
     record = db.query(Record).filter(Record.id == record_id, Record.deleted_at.is_(None)).first()
     if not record:
@@ -130,14 +146,26 @@ async def request_minute_view_otp(
     email: str,
     request: Request,
 ) -> MinuteViewAccessRequestResponse:
-    record = _resolve_record_or_404(db, record_id)
-    participant = _resolve_active_participant(db, record, email)
     normalized_email = _normalize_email(email)
+    ip_v4, ip_v6 = get_client_ip(request)
+    requester_ip = ip_v4 or ip_v6 or "unknown"
+    await enforce_rate_limit(
+        rate_limit_key("minute-view-otp-request", record_id, normalized_email, requester_ip),
+        limit=5,
+        window_seconds=60 * 60,
+        message="Demasiadas solicitudes de acceso para esta minuta. Intenta nuevamente más tarde.",
+    )
+
+    try:
+        record = _resolve_record_or_404(db, record_id)
+        participant = _resolve_active_participant(db, record, email)
+    except HTTPException as exc:
+        if exc.status_code in {403, 404, 409}:
+            return _generic_otp_request_response(record_id, normalized_email)
+        raise
 
     otp_code = _generate_otp()
     expires_at = _utcnow() + timedelta(minutes=VISITOR_OTP_TTL_MINUTES)
-    ip_v4, ip_v6 = get_client_ip(request)
-    requester_ip = ip_v4 or ip_v6
 
     access_request = VisitorAccessRequest(
         id=str(uuid.uuid4()),
@@ -176,7 +204,7 @@ async def request_minute_view_otp(
         record_id=record.id,
         email=normalized_email,
         expires_at=expires_at.isoformat(),
-        message="Se envió un código de acceso de un solo uso al correo indicado.",
+        message="Si el correo tiene acceso a la minuta, se enviará un código de un solo uso.",
     )
 
 
@@ -190,6 +218,14 @@ async def verify_minute_view_otp(
 ) -> MinuteViewSessionResponse:
     record = _resolve_record_or_404(db, record_id)
     normalized_email = _normalize_email(email)
+    ip_v4, ip_v6 = get_client_ip(request)
+    requester_ip = ip_v4 or ip_v6 or "unknown"
+    await enforce_rate_limit(
+        rate_limit_key("minute-view-otp-verify", record_id, normalized_email, requester_ip),
+        limit=10,
+        window_seconds=30 * 60,
+        message="Demasiados intentos de validación. Intenta nuevamente más tarde.",
+    )
     otp_hash = _hash_otp(record_id, normalized_email, str(otp_code or "").strip())
     now = _utcnow()
     now_db = now.replace(tzinfo=None)
@@ -205,7 +241,7 @@ async def verify_minute_view_otp(
         .first()
     )
     if not access_request:
-        raise HTTPException(status_code=401, detail="No existe una solicitud de acceso activa para ese correo")
+        raise HTTPException(status_code=401, detail="El código es inválido o expiró")
 
     access_request.attempt_count = int(access_request.attempt_count or 0) + 1
     access_request.last_attempt_at = now_db
@@ -223,7 +259,6 @@ async def verify_minute_view_otp(
     session_id = str(uuid.uuid4())
     jti = str(uuid.uuid4())
     expires_at = now + timedelta(hours=VISITOR_SESSION_TTL_HOURS)
-    ip_v4, ip_v6 = get_client_ip(request)
     session = VisitorSession(
         id=session_id,
         record_id=record.id,
@@ -291,6 +326,19 @@ async def get_current_visitor_session(token: str, record_id: str, db: Session) -
     session_expires_at = _as_utc(session.expires_at) if session else None
     if not session or (session_expires_at and session_expires_at < _utcnow()):
         raise HTTPException(status_code=401, detail="La sesión visitante ya no está disponible")
+
+    record = _resolve_record_or_404(db, record_id)
+    participant = (
+        db.query(RecordVersionParticipant)
+        .filter(
+            RecordVersionParticipant.id == session.record_version_participant_id,
+            RecordVersionParticipant.record_version_id == record.active_version_id,
+            RecordVersionParticipant.email.ilike(session.email),
+        )
+        .first()
+    )
+    if not participant:
+        raise HTTPException(status_code=401, detail="La sesión visitante ya no está disponible")
     return session
 
 
@@ -305,11 +353,19 @@ async def logout_current_visitor_session(token: str, record_id: str, db: Session
     await redis.delete(_visitor_session_key(record_id, str(payload.get("jti") or "")))
 
 
-def _build_observation_groups(db: Session, record_id: str, active_version_id: str | None) -> list[MinuteViewObservationGroup]:
+def _build_observation_groups(
+    db: Session,
+    record_id: str,
+    active_version_id: str | None,
+    visitor_session: VisitorSession,
+) -> list[MinuteViewObservationGroup]:
     versions_response = get_minute_versions(db, record_id)
     observations = (
         db.query(RecordVersionObservation)
         .filter(RecordVersionObservation.record_id == record_id)
+        .filter(
+            RecordVersionObservation.visitor_session_id == visitor_session.id
+        )
         .order_by(RecordVersionObservation.created_at.desc(), RecordVersionObservation.id.desc())
         .all()
     )
@@ -374,7 +430,7 @@ def get_minute_view_detail(
         content=detail.content,
         content_type=detail.content_type,
         versions=versions,
-        observation_groups=_build_observation_groups(db, record_id, record.active_version_id),
+        observation_groups=_build_observation_groups(db, record_id, record.active_version_id, visitor_session),
         current_version_id=str(record.active_version_id) if record.active_version_id else None,
         current_version_num=int(record.latest_version_num) if record.latest_version_num else None,
     )
@@ -393,19 +449,11 @@ def get_minute_view_pdf_bytes(db: Session, *, record_id: str) -> tuple[bytes, st
         pdf_bytes = obj.read()
         obj.close()
         obj.release_conn()
-    except Exception:
-        try:
-            bucket = "minuetaitor-draft"
-            key = f"drafts/{record_id}/draft_current.pdf"
-            obj = minio.get_object(bucket, key)
-            pdf_bytes = obj.read()
-            obj.close()
-            obj.release_conn()
-        except Exception as exc:
-            raise HTTPException(status_code=404, detail="No existe un PDF disponible para esta minuta") from exc
+    except Exception as exc:
+        raise HTTPException(status_code=404, detail="No existe un PDF publicado disponible para esta minuta") from exc
 
     if not pdf_bytes:
-        raise HTTPException(status_code=404, detail="No existe un PDF disponible para esta minuta")
+        raise HTTPException(status_code=404, detail="No existe un PDF publicado disponible para esta minuta")
     return pdf_bytes, f"minute-{record_id}.pdf"
 
 
@@ -419,6 +467,12 @@ async def create_minute_view_observation(
     record = _resolve_record_or_404(db, record_id)
     if not record.active_version_id:
         raise HTTPException(status_code=409, detail="La minuta no tiene una versión activa para registrar observaciones")
+    await enforce_rate_limit(
+        rate_limit_key("minute-view-observation", record_id, visitor_session.email, visitor_session.id),
+        limit=VISITOR_OBSERVATION_LIMIT_PER_HOUR,
+        window_seconds=60 * 60,
+        message="Demasiadas observaciones registradas para esta minuta. Intenta nuevamente más tarde.",
+    )
 
     participant = (
         db.query(RecordVersionParticipant)
@@ -570,6 +624,7 @@ async def resolve_editor_minute_observation(
     resolution_type: str,
     editor_comment: str,
     actor_user_id: str,
+    session: UserSession | None = None,
 ) -> MinuteObservationResolveResponse:
     observation = (
         db.query(RecordVersionObservation)
@@ -578,6 +633,8 @@ async def resolve_editor_minute_observation(
     )
     if not observation:
         raise HTTPException(status_code=404, detail="Observación no encontrada")
+    if session is not None:
+        ensure_record_write_access(db, session, str(observation.record_id), permissions=("records.update",))
     if str(observation.status or "").strip().lower() != "new":
         raise HTTPException(status_code=409, detail="La observación ya fue resuelta y no puede modificarse nuevamente")
 

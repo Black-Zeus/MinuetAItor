@@ -28,6 +28,7 @@ from schemas.system_backups import (
 from services.auth_service import get_current_user
 from services.system_backup_events_service import backup_sse_headers, stream_system_backup_events
 from services.system_backups_service import (
+    BACKUP_IMPORT_MAX_BYTES,
     cancel_system_backup_operation,
     get_system_backups_config,
     get_system_backups_history,
@@ -52,13 +53,11 @@ IMPORT_TEMP_ROOT = Path("/app/remote_data/backups/.incoming")
 
 async def current_admin_or_token_dep(
     credentials: HTTPAuthorizationCredentials = Depends(sse_bearer),
-    token: str | None = Query(None, description="JWT para autenticación vía SSE"),
 ) -> UserSession:
-    jwt = (credentials.credentials if credentials else None) or token
-    if not jwt:
+    if not credentials:
         raise HTTPException(status_code=401, detail="No se proporcionó token de autenticación.")
 
-    session = await get_current_user(jwt)
+    session = await get_current_user(credentials.credentials)
     if not has_role(session, "ADMIN"):
         raise ForbiddenException("No tienes los roles requeridos para esta operación")
     return session
@@ -144,10 +143,14 @@ async def import_backup_package_endpoint(
     temp_path = IMPORT_TEMP_ROOT / f"{uuid.uuid4().hex}.upload"
     try:
         with temp_path.open("wb") as output:
+            total_bytes = 0
             while True:
                 chunk = await file.read(1024 * 1024)
                 if not chunk:
                     break
+                total_bytes += len(chunk)
+                if total_bytes > BACKUP_IMPORT_MAX_BYTES:
+                    raise HTTPException(status_code=413, detail="El paquete excede el tamaño máximo permitido.")
                 output.write(chunk)
 
         if temp_path.stat().st_size <= 0:
@@ -233,6 +236,7 @@ def download_backup_artifact_endpoint(
         path=download["path"],
         filename=download["filename"],
         media_type="application/gzip",
+        headers={"X-Content-Type-Options": "nosniff"},
     )
 
 

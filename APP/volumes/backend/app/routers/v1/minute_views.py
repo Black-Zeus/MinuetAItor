@@ -22,6 +22,7 @@ from services.minute_views_service import (
     request_minute_view_otp,
     verify_minute_view_otp,
 )
+from services.upload_validation import safe_content_disposition
 
 router = APIRouter(prefix="/minutes/public", tags=["MinuteViews"])
 
@@ -99,7 +100,10 @@ async def pdf_endpoint(
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+        headers={
+            "Content-Disposition": safe_content_disposition(filename, disposition="inline"),
+            "X-Content-Type-Options": "nosniff",
+        },
     )
 
 

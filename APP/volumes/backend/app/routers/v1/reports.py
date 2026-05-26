@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Response, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from core.authz import require_permissions
 from db.session import get_db
 from schemas.auth import UserSession
 from schemas.management_topic_reports import (
@@ -27,7 +27,6 @@ from schemas.audit_reports import (
     AuditReportResponse,
 )
 from schemas.report_exports import ReportPdfPreviewRequest
-from services.auth_service import get_current_user
 from services.management_topic_reports_service import list_management_topic_report
 from services.reports_service import (
     generate_report_pdf_preview,
@@ -35,15 +34,9 @@ from services.reports_service import (
     get_report_pdf_preview_job_status,
     start_report_pdf_preview_job,
 )
+from services.upload_validation import safe_content_disposition
 
 router = APIRouter(prefix="/reports", tags=["Reports"])
-bearer = HTTPBearer(auto_error=False)
-
-
-async def current_user_dep(
-    credentials: HTTPAuthorizationCredentials = Depends(bearer),
-) -> UserSession:
-    return await get_current_user(credentials.credentials)
 
 
 @router.post(
@@ -55,11 +48,11 @@ async def current_user_dep(
 def audit_events_endpoint(
     body: AuditReportRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_permissions("audit.read")),
 ):
     from services.audit_reports_service import list_audit_report
 
-    return list_audit_report(db, body)
+    return list_audit_report(db, session, body)
 
 
 @router.post(
@@ -71,11 +64,11 @@ def audit_events_endpoint(
 def management_commitment_items_endpoint(
     body: ManagementCommitmentReportRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_permissions("records.read")),
 ):
     from services.management_commitment_reports_service import list_management_commitment_items
 
-    return list_management_commitment_items(db, body)
+    return list_management_commitment_items(db, session, body)
 
 
 @router.post(
@@ -87,11 +80,11 @@ def management_commitment_items_endpoint(
 def management_email_deliveries_endpoint(
     body: ManagementEmailDeliveryReportRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_permissions("records.read")),
 ):
     from services.management_email_delivery_reports_service import list_management_email_deliveries
 
-    return list_management_email_deliveries(db, body)
+    return list_management_email_deliveries(db, session, body)
 
 
 @router.post(
@@ -103,11 +96,11 @@ def management_email_deliveries_endpoint(
 def management_review_observations_endpoint(
     body: ManagementReviewObservationRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_permissions("records.read")),
 ):
     from services.management_review_reports_service import list_management_review_observations
 
-    return list_management_review_observations(db, body)
+    return list_management_review_observations(db, session, body)
 
 
 @router.post(
@@ -119,9 +112,9 @@ def management_review_observations_endpoint(
 def management_topic_analytics_endpoint(
     body: ManagementTopicReportRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_permissions("records.read")),
 ):
-    return list_management_topic_report(db, body)
+    return list_management_topic_report(db, session, body)
 
 
 @router.post(
@@ -132,7 +125,7 @@ def management_topic_analytics_endpoint(
 async def report_pdf_preview_job_endpoint(
     body: ReportPdfPreviewRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_permissions("records.read")),
 ):
     return await start_report_pdf_preview_job(
         db=db,
@@ -148,9 +141,9 @@ async def report_pdf_preview_job_endpoint(
 )
 async def report_pdf_preview_job_status_endpoint(
     preview_id: str,
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_permissions("records.read")),
 ):
-    return await get_report_pdf_preview_job_status(preview_id)
+    return await get_report_pdf_preview_job_status(preview_id, session)
 
 
 @router.get(
@@ -160,13 +153,16 @@ async def report_pdf_preview_job_status_endpoint(
 )
 async def report_pdf_preview_job_result_endpoint(
     preview_id: str,
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_permissions("records.read")),
 ):
-    pdf_bytes = await get_report_pdf_preview_job_result(preview_id)
+    pdf_bytes = await get_report_pdf_preview_job_result(preview_id, session)
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": 'inline; filename="report-preview.pdf"'},
+        headers={
+            "Content-Disposition": safe_content_disposition("report-preview.pdf", disposition="inline"),
+            "X-Content-Type-Options": "nosniff",
+        },
     )
 
 
@@ -178,7 +174,7 @@ async def report_pdf_preview_job_result_endpoint(
 async def report_pdf_preview_endpoint(
     body: ReportPdfPreviewRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_permissions("records.read")),
 ):
     pdf_bytes = await generate_report_pdf_preview(
         db=db,
@@ -188,5 +184,8 @@ async def report_pdf_preview_endpoint(
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": 'inline; filename="report-preview.pdf"'},
+        headers={
+            "Content-Disposition": safe_content_disposition("report-preview.pdf", disposition="inline"),
+            "X-Content-Type-Options": "nosniff",
+        },
     )

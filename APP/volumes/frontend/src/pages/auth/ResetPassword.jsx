@@ -42,6 +42,7 @@ const ResetPasswordPage = () => {
   const [success, setSuccess] = useState(false);
   const [tokenInvalid, setTokenInvalid] = useState(false);
   const [countdown, setCountdown] = useState(5);
+  const [loadedTokenFromQuery, setLoadedTokenFromQuery] = useState(Boolean(tokenFromQuery.trim()));
 
   useLayoutEffect(() => {
     const stored = localStorage.getItem('site-storage');
@@ -56,8 +57,11 @@ const ResetPasswordPage = () => {
   const isDark = resolveThemeMode(theme) === 'dark';
 
   useEffect(() => {
+    if (!tokenFromQuery.trim()) return;
+    setLoadedTokenFromQuery(true);
     setForm((prev) => (prev.token === tokenFromQuery ? prev : { ...prev, token: tokenFromQuery }));
-  }, [tokenFromQuery]);
+    navigate('/reset-password', { replace: true });
+  }, [navigate, tokenFromQuery]);
 
   useEffect(() => {
     if (!success) return;
@@ -135,7 +139,7 @@ const ResetPasswordPage = () => {
 
   const strength = form.password ? getStrength(form.password) : null;
   const passwordsMatch = form.password && form.confirm && form.password === form.confirm;
-  const hasTokenFromQuery = Boolean(tokenFromQuery.trim());
+  const hasTokenFromQuery = loadedTokenFromQuery || Boolean(tokenFromQuery.trim());
 
   return (
     <div className="min-h-screen grid place-items-center bg-gradient-to-b from-slate-800 to-slate-900 px-4 py-10 transition-colors duration-300 dark:from-slate-900 dark:to-black sm:px-6 lg:px-12">

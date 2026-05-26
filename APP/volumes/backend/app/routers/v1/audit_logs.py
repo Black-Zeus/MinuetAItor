@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from core.authz import require_permissions, require_roles
 from db.session import get_db
 from schemas.auth import UserSession
 from schemas.audit_logs import (
@@ -14,7 +14,6 @@ from schemas.audit_logs import (
     AuditLogResponse,
     # AuditLogUpdateRequest eliminado — audit_log es inmutable (no expone PUT)
 )
-from services.auth_service import get_current_user
 from services.audit_logs_service import (
     create_audit_log,
     get_audit_log,
@@ -22,20 +21,13 @@ from services.audit_logs_service import (
 )
 
 router = APIRouter(prefix="/audit-logs", tags=["AuditLogs"])
-bearer = HTTPBearer()
-
-
-async def current_user_dep(
-    credentials: HTTPAuthorizationCredentials = Depends(bearer),
-) -> UserSession:
-    return await get_current_user(credentials.credentials)
 
 
 @router.get("/{id}", response_model=AuditLogResponse, status_code=status.HTTP_200_OK)
 def get_endpoint(
     id: int,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_permissions("audit.read")),
 ):
     return get_audit_log(db, id)
 
@@ -44,7 +36,7 @@ def get_endpoint(
 def list_endpoint(
     body: AuditLogFilterRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_permissions("audit.read")),
 ):
     return list_audit_logs(db, body)
 
@@ -53,7 +45,7 @@ def list_endpoint(
 def create_endpoint(
     body: AuditLogCreateRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     return create_audit_log(db, body, created_by_id=session.user_id)
 

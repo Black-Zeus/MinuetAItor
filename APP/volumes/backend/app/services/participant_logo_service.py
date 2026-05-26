@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import uuid
 from io import BytesIO
-from pathlib import Path
 
 from fastapi import HTTPException, UploadFile, status
 from minio.error import S3Error
@@ -13,6 +12,7 @@ from db.minio_client import get_minio_client
 from models.buckets import Bucket
 from models.objects import Object
 from models.participant import Participant
+from services.upload_validation import validate_uploaded_image
 
 PARTICIPANT_LOGO_BUCKET = "minuetaitor-attach"
 PARTICIPANT_LOGO_PREFIX = "participant-logos"
@@ -21,11 +21,8 @@ MAX_PARTICIPANT_LOGO_BYTES = 2 * 1024 * 1024
 ALLOWED_PARTICIPANT_LOGO_TYPES = {"image/jpeg", "image/png"}
 
 
-def build_participant_logo_key(participant_id: str, object_id: str, filename: str | None = None) -> str:
-    suffix = Path(filename or "").suffix.lower()
-    if not suffix:
-        suffix = ".bin"
-    return f"{PARTICIPANT_LOGO_PREFIX}/{participant_id}/{object_id}{suffix}"
+def build_participant_logo_key(participant_id: str, object_id: str, file_ext: str) -> str:
+    return f"{PARTICIPANT_LOGO_PREFIX}/{participant_id}/{object_id}.{file_ext}"
 
 
 def build_participant_logo_url(participant_id: str, object_id: str | None) -> str | None:
@@ -62,22 +59,20 @@ async def save_participant_logo(
     *,
     actor_user_id: str | None,
 ) -> str:
-    content_type = (file.content_type or "").lower()
-    if content_type not in ALLOWED_PARTICIPANT_LOGO_TYPES:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Formato de logo no soportado. Usa JPEG o PNG.",
-        )
-
     content = await file.read()
     if not content:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="El archivo esta vacio.")
     if len(content) > MAX_PARTICIPANT_LOGO_BYTES:
         raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="El logo supera 2 MB.")
+    content_type, file_ext = validate_uploaded_image(
+        content=content,
+        declared_content_type=file.content_type,
+        allowed_types=ALLOWED_PARTICIPANT_LOGO_TYPES,
+        label="logo",
+    )
 
     object_id = str(uuid.uuid4())
-    object_key = build_participant_logo_key(str(participant.id), object_id, file.filename)
-    file_ext = Path(file.filename or "").suffix.lower().lstrip(".") or "bin"
+    object_key = build_participant_logo_key(str(participant.id), object_id, file_ext)
     bucket_id = _get_attach_bucket_id(db)
 
     minio = get_minio_client()

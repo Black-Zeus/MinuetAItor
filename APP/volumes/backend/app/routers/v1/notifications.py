@@ -56,12 +56,10 @@ async def current_user_dep(
 
 async def current_user_or_token_dep(
     credentials: HTTPAuthorizationCredentials = Depends(sse_bearer),
-    token: str | None = Query(None, description="JWT para autenticación vía SSE"),
 ) -> UserSession:
-    jwt = (credentials.credentials if credentials else None) or token
-    if not jwt:
+    if not credentials:
         raise HTTPException(status_code=401, detail="No se proporcionó token de autenticación.")
-    return await get_current_user(jwt)
+    return await get_current_user(credentials.credentials)
 
 
 @router.get(

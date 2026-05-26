@@ -48,21 +48,21 @@ WHERE r.code='ADMIN' AND p.is_active=1;
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id
 FROM roles r JOIN permissions p
-  ON p.code IN ('records.read','records.create','records.update','records.publish','audit.read')
+  ON p.code IN ('records.read','records.create','records.update','records.publish')
 WHERE r.code='EDITOR';
 
 -- VIEWER
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id
 FROM roles r JOIN permissions p
-  ON p.code IN ('records.read','audit.read')
+  ON p.code IN ('records.read')
 WHERE r.code='VIEWER';
 
 -- DELETER
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id
 FROM roles r JOIN permissions p
-  ON p.code IN ('records.read','records.soft_delete','records.hard_delete','audit.read')
+  ON p.code IN ('records.read','records.soft_delete','records.hard_delete')
 WHERE r.code='DELETER';
 
 

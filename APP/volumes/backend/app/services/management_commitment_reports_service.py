@@ -12,6 +12,8 @@ from models.record_version_agreements import RecordVersionAgreement
 from models.record_version_requirements import RecordVersionRequirement
 from models.records import Record
 from models.record_versions import RecordVersion
+from schemas.auth import UserSession
+from services.access_control_service import apply_record_scope_filter
 
 
 def _activity_date_expr():
@@ -50,7 +52,7 @@ def _clean_text(value: str | None, fallback: str) -> str:
     return raw or fallback
 
 
-def list_management_commitment_items(db: Session, filters) -> dict:
+def list_management_commitment_items(db: Session, session: UserSession, filters) -> dict:
     date_expr = _activity_date_expr()
 
     agreement_q = (
@@ -62,6 +64,7 @@ def list_management_commitment_items(db: Session, filters) -> dict:
         .filter(Record.deleted_at.is_(None))
         .filter(Record.active_version_id == RecordVersionAgreement.record_version_id)
     )
+    agreement_q = apply_record_scope_filter(agreement_q, db, session, Record)
 
     requirement_q = (
         db.query(RecordVersionRequirement, Record, Client, Project, RecordVersion)
@@ -72,6 +75,7 @@ def list_management_commitment_items(db: Session, filters) -> dict:
         .filter(Record.deleted_at.is_(None))
         .filter(Record.active_version_id == RecordVersionRequirement.record_version_id)
     )
+    requirement_q = apply_record_scope_filter(requirement_q, db, session, Record)
 
     if filters.date_from:
         agreement_q = agreement_q.filter(date_expr >= filters.date_from)

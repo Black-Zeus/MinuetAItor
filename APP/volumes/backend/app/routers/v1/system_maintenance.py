@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
@@ -34,13 +34,11 @@ sse_bearer = HTTPBearer(auto_error=False)
 
 async def current_admin_or_token_dep(
     credentials: HTTPAuthorizationCredentials = Depends(sse_bearer),
-    token: str | None = Query(None, description="JWT para autenticación vía SSE"),
 ) -> UserSession:
-    jwt = (credentials.credentials if credentials else None) or token
-    if not jwt:
+    if not credentials:
         raise HTTPException(status_code=401, detail="No se proporcionó token de autenticación.")
 
-    session = await get_current_user(jwt)
+    session = await get_current_user(credentials.credentials)
     if not has_role(session, "ADMIN"):
         raise ForbiddenException("No tienes los roles requeridos para esta operación")
     return session

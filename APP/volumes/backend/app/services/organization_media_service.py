@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from io import BytesIO
-from pathlib import Path
 import uuid
 
 from fastapi import HTTPException, UploadFile, status
@@ -13,6 +12,7 @@ from db.minio_client import get_minio_client
 from models.buckets import Bucket
 from models.objects import Object
 from models.organization_settings import OrganizationSetting
+from services.upload_validation import validate_uploaded_image
 
 ORGANIZATION_MEDIA_BUCKET = "minuetaitor-attach"
 ORGANIZATION_MEDIA_BUCKET_CODE = "attachments_container"
@@ -49,11 +49,8 @@ def get_organization_banner_url_if_exists(obj: OrganizationSetting) -> str | Non
     return build_organization_banner_url(str(banner_object.id))
 
 
-def _build_media_key(prefix: str, object_id: str, filename: str | None = None) -> str:
-    suffix = Path(filename or "").suffix.lower()
-    if not suffix:
-        suffix = ".bin"
-    return f"{prefix}/{object_id}{suffix}"
+def _build_media_key(prefix: str, object_id: str, file_ext: str) -> str:
+    return f"{prefix}/{object_id}.{file_ext}"
 
 
 def _get_attach_bucket_id(db: Session) -> int:
@@ -81,13 +78,6 @@ async def _save_media(
     prefix: str,
     max_bytes: int,
 ) -> str:
-    content_type = (file.content_type or "").lower()
-    if content_type not in ALLOWED_ORGANIZATION_MEDIA_TYPES:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Formato de imagen no soportado. Usa JPEG o PNG.",
-        )
-
     content = await file.read()
     if not content:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="El archivo esta vacio.")
@@ -97,10 +87,15 @@ async def _save_media(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             detail=f"La imagen supera {limit_mb} MB.",
         )
+    content_type, file_ext = validate_uploaded_image(
+        content=content,
+        declared_content_type=file.content_type,
+        allowed_types=ALLOWED_ORGANIZATION_MEDIA_TYPES,
+        label="imagen",
+    )
 
     object_id = str(uuid.uuid4())
-    object_key = _build_media_key(prefix, object_id, file.filename)
-    file_ext = Path(file.filename or "").suffix.lower().lstrip(".") or "bin"
+    object_key = _build_media_key(prefix, object_id, file_ext)
     bucket_id = _get_attach_bucket_id(db)
 
     minio = get_minio_client()

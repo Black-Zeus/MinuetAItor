@@ -1,5 +1,5 @@
 # routers/v1/auth.py
-from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, Response, UploadFile, status
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
@@ -29,6 +29,7 @@ from services.auth_service import (
 )
 from services.session_events_service import auth_sse_headers, stream_session_events
 from services.avatar_service import read_user_avatar, remove_user_avatar, save_user_avatar
+from services.upload_validation import safe_content_disposition
 from services.user_personalization_service import (
     get_user_personalization,
     update_user_personalization,
@@ -51,12 +52,10 @@ async def current_user_dep(
 
 async def current_user_or_token_dep(
     credentials: HTTPAuthorizationCredentials = Depends(sse_bearer),
-    token: str | None = Query(None, description="JWT para autenticación vía SSE"),
 ) -> UserSession:
-    jwt = (credentials.credentials if credentials else None) or token
-    if not jwt:
+    if not credentials:
         raise HTTPException(status_code=401, detail="No se proporcionó token de autenticación.")
-    return await get_current_user(jwt)
+    return await get_current_user(credentials.credentials)
 
 
 # ── Auth base ─────────────────────────────────────────
@@ -195,6 +194,8 @@ def user_avatar_endpoint(user_id: str, db: Session = Depends(get_db)):
         media_type=content_type,
         headers={
             "Cache-Control": "public, max-age=300",
+            "Content-Disposition": safe_content_disposition("avatar", disposition="inline"),
+            "X-Content-Type-Options": "nosniff",
         },
     )
 

@@ -4,6 +4,7 @@ import { toastError, toastInfo, toastSuccess, toastWarn } from "@/components/com
 import useAuthStore from "@/store/authStore";
 import useNotificationsStore from "@/store/notificationsStore";
 import notificationsService, { normalizeNotificationItem } from "@/services/notificationsService";
+import { createAuthorizedEventStream } from "@/utils/authorizedEventStream";
 
 const NOTIFICATIONS_EVENTS_URL = "/api/v1/notifications/events";
 const NOTIFICATIONS_CENTER_EVENT = "notifications-center-updated";
@@ -90,8 +91,8 @@ export const useNotificationsSSE = () => {
 
     hydratePreview();
 
-    const url = `${NOTIFICATIONS_EVENTS_URL}?token=${encodeURIComponent(accessToken)}`;
-    const source = new EventSource(url);
+    const url = NOTIFICATIONS_EVENTS_URL;
+    const source = createAuthorizedEventStream(url, accessToken);
     sourceRef.current = source;
 
     const notifyUi = (payload = {}) => {

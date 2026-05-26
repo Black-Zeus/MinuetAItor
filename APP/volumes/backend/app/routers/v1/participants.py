@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from db.session import get_db
 from schemas.auth import UserSession
+from services.upload_validation import safe_content_disposition
 from schemas.participants import (
     ParticipantCreateRequest,
     ParticipantEmailLookupRequest,
@@ -54,6 +55,8 @@ def logo_endpoint(
         media_type=content_type,
         headers={
             "Cache-Control": "public, max-age=300",
+            "Content-Disposition": safe_content_disposition("participant-logo", disposition="inline"),
+            "X-Content-Type-Options": "nosniff",
         },
     )
 

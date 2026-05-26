@@ -14,10 +14,12 @@ from models.projects import Project
 from models.record_version_observation import RecordVersionObservation
 from models.records import Record
 from models.user import User
-from models.user_sessions import UserSession
+from models.user_sessions import UserSession as UserSessionModel
 from models.visitor_access_request import VisitorAccessRequest
 from models.visitor_session import VisitorSession
+from schemas.auth import UserSession
 from schemas.audit_reports import AuditReportRequest, AuditReportResponse, AuditReportRow
+from services.access_control_service import apply_record_scope_filter, is_admin
 
 
 ACTION_LABELS = {
@@ -47,32 +49,32 @@ ENTITY_LABELS = {
 }
 
 
-def list_audit_report(db: Session, payload: AuditReportRequest) -> AuditReportResponse:
+def list_audit_report(db: Session, session: UserSession, payload: AuditReportRequest) -> AuditReportResponse:
     report_type = payload.report_type
     if report_type == "user-sessions":
-        items = _user_sessions(db, payload)
+        items = _user_sessions(db, session, payload)
     elif report_type == "remote-session-closes":
-        items = _audit_logs(db, payload, actions={"LOGOUT_SESSION", "LOGOUT_ALL_OTHER_SESSIONS"})
+        items = _audit_logs(db, session, payload, actions={"LOGOUT_SESSION", "LOGOUT_ALL_OTHER_SESSIONS"})
     elif report_type == "password-changes":
-        items = _audit_logs(db, payload, actions={"CHANGE_PASSWORD_BY_ADMIN"})
+        items = _audit_logs(db, session, payload, actions={"CHANGE_PASSWORD_BY_ADMIN"})
     elif report_type == "available-audit-activity":
-        items = _audit_logs(db, payload)
+        items = _audit_logs(db, session, payload)
     elif report_type == "changes-by-entity":
-        items = _audit_grouped(db, payload, "entity")
+        items = _audit_grouped(db, session, payload, "entity")
     elif report_type == "changes-by-actor":
-        items = _audit_grouped(db, payload, "actor")
+        items = _audit_grouped(db, session, payload, "actor")
     elif report_type == "changes-by-period":
-        items = _audit_grouped(db, payload, "period")
+        items = _audit_grouped(db, session, payload, "period")
     elif report_type == "system-sendmail":
-        items = _email_events(db, payload)
+        items = _email_events(db, session, payload)
     elif report_type == "minute-otp-requests":
-        items = _visitor_access_requests(db, payload)
+        items = _visitor_access_requests(db, session, payload)
     elif report_type == "guest-sessions":
-        items = _visitor_sessions(db, payload)
+        items = _visitor_sessions(db, session, payload)
     elif report_type == "external-observations-evidence":
-        items = _external_observations(db, payload)
+        items = _external_observations(db, session, payload)
     elif report_type == "external-access-by-minute":
-        items = _external_access_by_minute(db, payload)
+        items = _external_access_by_minute(db, session, payload)
     else:
         items = []
 
@@ -180,21 +182,23 @@ def _audit_detail(action: str, details: dict[str, Any], entity_id: str | None) -
     return " · ".join(readable) or "Evento auditado"
 
 
-def _user_sessions(db: Session, payload: AuditReportRequest) -> list[AuditReportRow]:
+def _user_sessions(db: Session, session: UserSession, payload: AuditReportRequest) -> list[AuditReportRow]:
     query = (
-        db.query(UserSession, User)
-        .join(User, User.id == UserSession.user_id)
-        .filter(*_range(UserSession.created_at, payload))
+        db.query(UserSessionModel, User)
+        .join(User, User.id == UserSessionModel.user_id)
+        .filter(*_range(UserSessionModel.created_at, payload))
     )
+    if not is_admin(session):
+        query = query.filter(UserSessionModel.user_id == session.user_id)
     actor = _like(payload.actor)
     if actor:
         query = query.filter(or_(User.username.ilike(actor), User.full_name.ilike(actor), User.email.ilike(actor)))
     if payload.status == "active":
-        query = query.filter(UserSession.logged_out_at.is_(None))
+        query = query.filter(UserSessionModel.logged_out_at.is_(None))
     elif payload.status == "closed":
-        query = query.filter(UserSession.logged_out_at.is_not(None))
+        query = query.filter(UserSessionModel.logged_out_at.is_not(None))
 
-    rows = query.order_by(UserSession.created_at.desc()).limit(payload.limit).all()
+    rows = query.order_by(UserSessionModel.created_at.desc()).limit(payload.limit).all()
     items = []
     for session, user in rows:
         status = "active" if session.logged_out_at is None else "closed"
@@ -217,12 +221,14 @@ def _user_sessions(db: Session, payload: AuditReportRequest) -> list[AuditReport
     return items
 
 
-def _audit_logs(db: Session, payload: AuditReportRequest, actions: set[str] | None = None) -> list[AuditReportRow]:
+def _audit_logs(db: Session, session: UserSession, payload: AuditReportRequest, actions: set[str] | None = None) -> list[AuditReportRow]:
     query = (
         db.query(AuditLog, User)
         .join(User, User.id == AuditLog.actor_user_id)
         .filter(*_range(AuditLog.event_at, payload))
     )
+    if not is_admin(session):
+        query = query.filter(AuditLog.actor_user_id == session.user_id)
     if actions:
         query = query.filter(AuditLog.action.in_(actions))
     if payload.entity_type:
@@ -249,10 +255,12 @@ def _audit_logs(db: Session, payload: AuditReportRequest, actions: set[str] | No
     return items
 
 
-def _audit_grouped(db: Session, payload: AuditReportRequest, group_by: str) -> list[AuditReportRow]:
+def _audit_grouped(db: Session, session: UserSession, payload: AuditReportRequest, group_by: str) -> list[AuditReportRow]:
     filters = _range(AuditLog.event_at, payload)
     if payload.entity_type:
         filters.append(AuditLog.entity_type == payload.entity_type)
+    if not is_admin(session):
+        filters.append(AuditLog.actor_user_id == session.user_id)
 
     if group_by == "entity":
         rows = (
@@ -332,13 +340,19 @@ def _audit_grouped(db: Session, payload: AuditReportRequest, group_by: str) -> l
     ]
 
 
-def _email_events(db: Session, payload: AuditReportRequest) -> list[AuditReportRow]:
-    query = db.query(EmailDeliveryEvent).filter(*_range(EmailDeliveryEvent.event_at, payload))
+def _email_events(db: Session, session: UserSession, payload: AuditReportRequest) -> list[AuditReportRow]:
+    query = (
+        db.query(EmailDeliveryEvent, Record)
+        .outerjoin(Record, Record.id == EmailDeliveryEvent.record_id)
+        .filter(*_range(EmailDeliveryEvent.event_at, payload))
+    )
+    if not is_admin(session):
+        query = apply_record_scope_filter(query, db, session, Record)
     if payload.status:
         query = query.filter(EmailDeliveryEvent.status == payload.status)
     rows = query.order_by(EmailDeliveryEvent.event_at.desc()).limit(payload.limit).all()
     items = []
-    for event in rows:
+    for event, record in rows:
         recipients = ", ".join(_json_list(event.to_json)[:3])
         items.append(AuditReportRow(
             id=event.id,
@@ -356,7 +370,7 @@ def _email_events(db: Session, payload: AuditReportRequest) -> list[AuditReportR
     return items
 
 
-def _visitor_access_requests(db: Session, payload: AuditReportRequest) -> list[AuditReportRow]:
+def _visitor_access_requests(db: Session, session: UserSession, payload: AuditReportRequest) -> list[AuditReportRow]:
     query = (
         db.query(VisitorAccessRequest, Record, Client, Project)
         .join(Record, Record.id == VisitorAccessRequest.record_id)
@@ -364,6 +378,7 @@ def _visitor_access_requests(db: Session, payload: AuditReportRequest) -> list[A
         .outerjoin(Project, Project.id == Record.project_id)
         .filter(*_range(VisitorAccessRequest.created_at, payload))
     )
+    query = apply_record_scope_filter(query, db, session, Record)
     query = _record_filters(query, payload, Client, Project)
     if payload.status:
         query = query.filter(VisitorAccessRequest.delivery_status == payload.status)
@@ -390,7 +405,7 @@ def _visitor_access_requests(db: Session, payload: AuditReportRequest) -> list[A
     ]
 
 
-def _visitor_sessions(db: Session, payload: AuditReportRequest) -> list[AuditReportRow]:
+def _visitor_sessions(db: Session, session: UserSession, payload: AuditReportRequest) -> list[AuditReportRow]:
     query = (
         db.query(VisitorSession, Record, Client, Project)
         .join(Record, Record.id == VisitorSession.record_id)
@@ -398,6 +413,7 @@ def _visitor_sessions(db: Session, payload: AuditReportRequest) -> list[AuditRep
         .outerjoin(Project, Project.id == Record.project_id)
         .filter(*_range(VisitorSession.created_at, payload))
     )
+    query = apply_record_scope_filter(query, db, session, Record)
     query = _record_filters(query, payload, Client, Project)
     if payload.status == "active":
         query = query.filter(VisitorSession.revoked_at.is_(None), VisitorSession.expires_at >= datetime.utcnow())
@@ -428,7 +444,7 @@ def _visitor_sessions(db: Session, payload: AuditReportRequest) -> list[AuditRep
     return items
 
 
-def _external_observations(db: Session, payload: AuditReportRequest) -> list[AuditReportRow]:
+def _external_observations(db: Session, session: UserSession, payload: AuditReportRequest) -> list[AuditReportRow]:
     query = (
         db.query(RecordVersionObservation, Record, Client, Project)
         .join(Record, Record.id == RecordVersionObservation.record_id)
@@ -436,6 +452,7 @@ def _external_observations(db: Session, payload: AuditReportRequest) -> list[Aud
         .outerjoin(Project, Project.id == Record.project_id)
         .filter(*_range(RecordVersionObservation.created_at, payload))
     )
+    query = apply_record_scope_filter(query, db, session, Record)
     query = _record_filters(query, payload, Client, Project)
     if payload.status:
         query = query.filter(RecordVersionObservation.status == payload.status)
@@ -460,7 +477,7 @@ def _external_observations(db: Session, payload: AuditReportRequest) -> list[Aud
     ]
 
 
-def _external_access_by_minute(db: Session, payload: AuditReportRequest) -> list[AuditReportRow]:
+def _external_access_by_minute(db: Session, session: UserSession, payload: AuditReportRequest) -> list[AuditReportRow]:
     activity_at = func.coalesce(
         VisitorSession.created_at,
         VisitorAccessRequest.created_at,
@@ -484,6 +501,7 @@ def _external_access_by_minute(db: Session, payload: AuditReportRequest) -> list
         .outerjoin(VisitorSession, VisitorSession.record_id == Record.id)
         .outerjoin(RecordVersionObservation, RecordVersionObservation.record_id == Record.id)
     )
+    query = apply_record_scope_filter(query, db, session, Record)
     query = _record_filters(query, payload, Client, Project)
     grouped = query.group_by(Record.id, Record.title, Client.name, Project.name).having(
         or_(

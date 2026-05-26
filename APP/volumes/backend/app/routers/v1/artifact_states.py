@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Response, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from core.authz import require_roles
 from db.session import get_db
 from schemas.auth import UserSession
 from schemas.artifact_states import (
@@ -58,7 +59,7 @@ def list_endpoint(
 def create_endpoint(
     body: ArtifactStateCreateRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     return create_artifact_state(db, body, created_by_id=session.user_id)
 
@@ -68,7 +69,7 @@ def update_endpoint(
     id: int,
     body: ArtifactStateUpdateRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     return update_artifact_state(db, id, body, updated_by_id=session.user_id)
 
@@ -78,7 +79,7 @@ def status_endpoint(
     id: int,
     body: ArtifactStateStatusRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     return change_artifact_state_status(db, id, is_active=body.is_active, updated_by_id=session.user_id)
 
@@ -87,7 +88,7 @@ def status_endpoint(
 def delete_endpoint(
     id: int,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     delete_artifact_state(db, id, deleted_by_id=session.user_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

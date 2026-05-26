@@ -3,6 +3,7 @@ import { useEffect, useRef } from "react";
 import { toastError, toastInfo, toastSuccess, toastWarn } from "@/components/common/toast/toastHelpers";
 import useAuthStore from "@/store/authStore";
 import useSessionStore from "@/store/sessionStore";
+import { createAuthorizedEventStream } from "@/utils/authorizedEventStream";
 
 export const SYSTEM_BACKUPS_RUNTIME_EVENT = "system-backups-runtime-update";
 
@@ -84,8 +85,8 @@ export const useSystemBackupsSSE = () => {
 
     if (!accessToken || !isAdmin) return;
 
-    const url = `${SYSTEM_BACKUPS_EVENTS_URL}?token=${encodeURIComponent(accessToken)}`;
-    const source = new EventSource(url);
+    const url = SYSTEM_BACKUPS_EVENTS_URL;
+    const source = createAuthorizedEventStream(url, accessToken);
     sourceRef.current = source;
 
     const handleUpdate = (event) => {

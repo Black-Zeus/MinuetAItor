@@ -1,9 +1,10 @@
 # services/file_sanitizer.py
 """
 Valida archivos de usuario SIN modificar su contenido.
-Solo verifica que sea texto plano seguro de procesar.
+Verifica tipo permitido, tamano, hash, firmas basicas y texto UTF-8.
 """
 import hashlib
+import json
 import logging
 
 logger = logging.getLogger(__name__)
@@ -61,6 +62,25 @@ def verify_utf8_for_text(content: bytes, mime_type: str, filename: str) -> None:
             )
 
 
+def verify_content_signature(content: bytes, mime_type: str, filename: str) -> None:
+    """Comprueba firmas minimas para formatos binarios aceptados."""
+    if mime_type == "application/pdf" and not content.startswith(b"%PDF-"):
+        raise FileSanitizationError(f"Archivo '{filename}' no parece ser un PDF valido")
+
+    if mime_type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+        if not content.startswith(b"PK\x03\x04") or b"[Content_Types].xml" not in content[:65536]:
+            raise FileSanitizationError(f"Archivo '{filename}' no parece ser un DOCX valido")
+
+    if mime_type == "application/msword" and not content.startswith(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"):
+        raise FileSanitizationError(f"Archivo '{filename}' no parece ser un DOC valido")
+
+    if mime_type == "application/json":
+        try:
+            json.loads(content.decode("utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            raise FileSanitizationError(f"Archivo '{filename}' no es JSON valido")
+
+
 def verify_size(content: bytes, filename: str, max_bytes: int = MAX_FILE_SIZE_BYTES) -> None:
     if len(content) > max_bytes:
         raise FileSanitizationError(
@@ -87,6 +107,7 @@ def sanitize_file(
     
     verify_size(content, filename, max_bytes)
     verify_sha256(content, expected_sha256)
+    verify_content_signature(content, mime_type, filename)
     verify_not_binary(content, filename)
     verify_utf8_for_text(content, mime_type, filename)
     

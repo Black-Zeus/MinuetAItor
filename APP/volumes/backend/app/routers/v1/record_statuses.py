@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from core.authz import require_roles
 from db.session import get_db
 from schemas.auth import UserSession
 from schemas.record_statuses import (
@@ -59,7 +60,7 @@ def list_endpoint(
 def create_endpoint(
     body: RecordStatusCreateRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     return create_record_status(db, body, created_by_id=session.user_id)
 
@@ -69,7 +70,7 @@ def update_endpoint(
     id: int,
     body: RecordStatusUpdateRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     return update_record_status(db, id, body, updated_by_id=session.user_id)
 
@@ -79,7 +80,7 @@ def status_endpoint(
     id: int,
     body: RecordStatusStatusRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     return change_record_status_status(db, id, is_active=body.is_active, updated_by_id=session.user_id)
 
@@ -88,7 +89,7 @@ def status_endpoint(
 def delete_endpoint(
     id: int,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     delete_record_status(db, id, deleted_by_id=session.user_id)
     return None

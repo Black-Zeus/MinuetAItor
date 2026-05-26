@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from core.authz import require_roles
 from db.session import get_db
 from schemas.auth import UserSession
 from schemas.tag_categories import (
@@ -56,7 +57,7 @@ def list_endpoint(
 def create_endpoint(
     body: TagCategoryCreateRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     return create_tag_category(db, body, created_by_id=session.user_id)
 
@@ -66,7 +67,7 @@ def update_endpoint(
     id: int,
     body: TagCategoryUpdateRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     return update_tag_category(db, id, body, updated_by_id=session.user_id)
 
@@ -76,7 +77,7 @@ def status_endpoint(
     id: int,
     body: TagCategoryStatusRequest,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     return change_tag_category_status(db, id, is_active=body.is_active, updated_by_id=session.user_id)
 
@@ -85,7 +86,7 @@ def status_endpoint(
 def delete_endpoint(
     id: int,
     db: Session = Depends(get_db),
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     delete_tag_category(db, id, deleted_by_id=session.user_id)
     return None
