@@ -7,11 +7,11 @@ POST /internal/v1/minutes/commit, que a su vez solo acepta requests
 del worker (verificados por X-Internal-Secret).
 
 Responsabilidades:
-  - Crear RecordVersion (snapshot)
+  - Crear RecordVersion técnica v0 (snapshot IA auditable)
   - Crear RecordArtifacts (inputs + llm_output + canonical)
   - Subir JSON de output a MinIO (minuetaitor-json)
   - Actualizar MinuteTransaction (status=completed, tokens, run_id)
-  - Actualizar Record (status → ready-for-edit, latest_version_num, active_version_id)
+  - Actualizar Record (status → ready-for-edit, active_version_id; latest_version_num visible queda en 0)
   - Publicar evento SSE via Redis Pub/Sub para notificar al frontend
   - En caso de error: marcar tx y record como fallidos, publicar evento failed
 """
@@ -53,7 +53,6 @@ from services.minute_participants_service import (
     build_version_participants_from_content,
     persist_record_version_participants,
 )
-from services.record_version_commitment_items_service import sync_record_version_commitment_items
 from services.ai_usage_events_service import record_ai_usage_event
 from services.minutes.status_transitions import append_record_status_transition
 from services.notification_center_service import create_in_app_notification
@@ -462,8 +461,10 @@ def _execute_tx2(db: Session, body: MinuteCommitRequest) -> str:
         size_bytes=len(out_bytes), sha256=out_sha, created_by=by_id,
     ))
 
-    # Canonical output (mismo contenido en v1, editado en versiones posteriores)
-    can_key    = f"{rec_id}/schema_output_v1.json"
+    # Canonical output inicial. Se guarda como v0 porque es un snapshot técnico
+    # de auditoría; las versiones visibles comienzan cuando la minuta pasa a
+    # vista previa.
+    can_key    = f"{rec_id}/schema_output_v0.json"
     can_obj_id = str(uuid.uuid4())
     minio.put_object(
         BUCKET_JSON, can_key,
@@ -476,12 +477,12 @@ def _execute_tx2(db: Session, body: MinuteCommitRequest) -> str:
         size_bytes=len(canonical_bytes), sha256=canonical_sha, created_by=by_id,
     ))
 
-    # ── Crear RecordVersion ───────────────────────────────────────────────────
+    # ── Crear RecordVersion técnica ───────────────────────────────────────────
     ver_id  = str(uuid.uuid4())
     version = RecordVersion(
         id=ver_id,
         record_id=rec_id,
-        version_num=1,
+        version_num=0,
         status_id=version_status_id,
         published_by=by_id,
         schema_version="1.0",
@@ -503,13 +504,6 @@ def _execute_tx2(db: Session, body: MinuteCommitRequest) -> str:
         record_version_id=ver_id,
         participants=build_version_participants_from_content(body.ai_input_schema),
     )
-    sync_record_version_commitment_items(
-        db=db,
-        record_id=rec_id,
-        record_version_id=ver_id,
-        content=canonical_output,
-    )
-
     # ── Asociar versión a la transacción ─────────────────────────────────────
     tx.record_version_id = ver_id
 
@@ -544,7 +538,7 @@ def _execute_tx2(db: Session, body: MinuteCommitRequest) -> str:
         artifact_type_id=art_canonical_id,
         artifact_state_id=state_ready_id,
         object_id=can_obj_id,
-        natural_name="schema_output_v1.json",
+        natural_name="schema_output_v0.json",
         created_by=by_id,
     ))
 
@@ -562,7 +556,7 @@ def _execute_tx2(db: Session, body: MinuteCommitRequest) -> str:
     ready_status_id           = _get_status_id(db, RECORD_STATUS_READY)
     record.status_id          = ready_status_id
     record.active_version_id  = ver_id
-    record.latest_version_num = 1
+    record.latest_version_num = 0
     record.intro_snippet      = _extract_intro_snippet(canonical_output)
     record.updated_by         = by_id
     append_record_status_transition(

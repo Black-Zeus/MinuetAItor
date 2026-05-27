@@ -46,10 +46,10 @@ class MinuteCommitRequest(BaseModel):
       - Enviar este payload al backend
 
     El backend es responsable de:
-      - Crear RecordVersion
+      - Crear RecordVersion técnica v0
       - Crear RecordArtifacts (LLM original + canonical)
       - Actualizar MinuteTransaction (status, tokens, run_id)
-      - Actualizar Record (status → ready-for-edit, latest_version_num)
+      - Actualizar Record (status → ready-for-edit, active_version_id)
       - Subir JSON de output a MinIO (minuetaitor-json)
       - Publicar evento SSE vía Redis Pub/Sub
     """

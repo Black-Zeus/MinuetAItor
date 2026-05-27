@@ -24,6 +24,7 @@ from db.redis import get_redis
 from models.minute_transaction import MinuteTransaction
 from models.objects import Object
 from models.record_artifacts import RecordArtifact
+from models.record_version_observation import RecordVersionObservation
 from models.projects import Project
 from models.record_versions import RecordVersion
 from models.records import Record
@@ -100,6 +101,7 @@ VERSION_STATUS_FINAL      = "final"
 QUEUE_PDF = "queue:pdf"
 PDF_PREVIEW_META_PREFIX = "minute:pdf:preview:"
 PDF_PREVIEW_META_TTL_SECONDS = 180
+PUBLIC_MINUTE_EVENTS_CHANNEL_PREFIX = "events:minute:public"
 
 # Estados que no tienen contenido disponible para el editor
 _STATUSES_NO_CONTENT = {
@@ -208,14 +210,20 @@ def _extract_summary_from_minute_content(content: Optional[dict]) -> Optional[st
 
 def _load_minute_list_summary(minio, record_id: str, status_code: str, version_num: int) -> Optional[str]:
     if status_code == RECORD_STATUS_READY:
-        content = _read_json_from_minio(minio, BUCKET_JSON, f"{record_id}/schema_output_v1.json")
+        content = (
+            _read_json_from_minio(minio, BUCKET_JSON, f"{record_id}/schema_output_v0.json")
+            or _read_json_from_minio(minio, BUCKET_JSON, f"{record_id}/schema_output_v1.json")
+        )
         return _extract_summary_from_minute_content(content)
 
     if status_code == RECORD_STATUS_PENDING:
         draft = _read_json_from_minio(minio, BUCKET_DRAFT, f"{record_id}/draft_current.json")
         if draft is not None:
             return _extract_summary_from_minute_content(draft)
-        content = _read_json_from_minio(minio, BUCKET_JSON, f"{record_id}/schema_output_v1.json")
+        content = (
+            _read_json_from_minio(minio, BUCKET_JSON, f"{record_id}/schema_output_v0.json")
+            or _read_json_from_minio(minio, BUCKET_JSON, f"{record_id}/schema_output_v1.json")
+        )
         return _extract_summary_from_minute_content(content)
 
     if status_code in (RECORD_STATUS_PREVIEW, RECORD_STATUS_COMPLETED):
@@ -624,7 +632,7 @@ def get_minute_detail(db: Session, record_id: str) -> MinuteDetailResponse:
     para que el frontend sepa qué mapper aplicar.
 
     Reglas de content_type:
-      ready-for-edit → "ai_output"  (schema_output_v1.json, formato IA, inmutable)
+      ready-for-edit → "ai_output"  (schema_output_v0.json, formato IA, inmutable)
       pending        → "draft"      (draft_current.json, formato editor)
       preview        → "snapshot"   (schema_output_vN.json, formato editor)
       completed      → "snapshot"   (schema_output_vN.json, formato editor)
@@ -681,13 +689,16 @@ def get_minute_detail(db: Session, record_id: str) -> MinuteDetailResponse:
 
     if status_code == RECORD_STATUS_READY:
         # JSON original de la IA — inmutable, usa mapIAResponseToEditorState en el frontend
-        content      = _read_json_from_minio(minio, BUCKET_JSON, f"{record_id}/schema_output_v1.json")
+        content      = (
+            _read_json_from_minio(minio, BUCKET_JSON, f"{record_id}/schema_output_v0.json")
+            or _read_json_from_minio(minio, BUCKET_JSON, f"{record_id}/schema_output_v1.json")
+        )
         content_type = "ai_output"
 
     elif status_code == RECORD_STATUS_PENDING:
         # Draft en edición activa.
         # Intenta draft_current.json (formato editor, post-primer autosave).
-        # Si no existe todavía (recién entró a pending), carga el schema_output_v1.json
+        # Si no existe todavía (recién entró a pending), carga el snapshot inicial
         # y fuerza content_type="ai_output" para que el frontend use el mapper correcto.
         content = _read_json_from_minio(minio, BUCKET_DRAFT, f"{record_id}/draft_current.json")
         if content is not None:
@@ -695,7 +706,10 @@ def get_minute_detail(db: Session, record_id: str) -> MinuteDetailResponse:
         else:
             # Primera apertura del editor antes del primer autosave:
             # el draft aún no existe, se carga el JSON de la IA como punto de partida.
-            content      = _read_json_from_minio(minio, BUCKET_JSON, f"{record_id}/schema_output_v1.json")
+            content      = (
+                _read_json_from_minio(minio, BUCKET_JSON, f"{record_id}/schema_output_v0.json")
+                or _read_json_from_minio(minio, BUCKET_JSON, f"{record_id}/schema_output_v1.json")
+            )
             content_type = "ai_output"
             logger.info(f"[minutes] draft_current.json no encontrado para {record_id}, cargando ai_output como fallback")
 
@@ -760,12 +774,23 @@ async def save_minute_draft(db: Session, record_id: str, content: dict) -> None:
         raise HTTPException(status_code=500,
             detail={"error": "minio_write_error", "message": "Error al guardar el borrador."})
 
+    active_public_version = None
     if record.active_version_id:
+        active_public_version = (
+            db.query(RecordVersion)
+            .filter(
+                RecordVersion.id == record.active_version_id,
+                RecordVersion.version_num > 0,
+                RecordVersion.deleted_at.is_(None),
+            )
+            .first()
+        )
+    if active_public_version is not None:
         try:
             sync_record_version_commitment_items(
                 db=db,
                 record_id=record_id,
-                record_version_id=str(record.active_version_id),
+                record_version_id=str(active_public_version.id),
                 content=content,
             )
             db.commit()
@@ -866,6 +891,31 @@ def _pdf_preview_meta_key(preview_id: str) -> str:
     return f"{PDF_PREVIEW_META_PREFIX}{preview_id}"
 
 
+def _public_minute_events_channel(record_id: str) -> str:
+    return f"{PUBLIC_MINUTE_EVENTS_CHANNEL_PREFIX}:{record_id}"
+
+
+async def _publish_public_pdf_updated_event(record_id: str) -> None:
+    redis = get_redis()
+    payload = {
+        "event": "pdf_updated",
+        "recordId": str(record_id),
+        "ts": utc_now_db().isoformat(),
+    }
+    await redis.publish(_public_minute_events_channel(record_id), json.dumps(payload))
+
+
+async def _publish_public_minute_published_event(record_id: str) -> None:
+    redis = get_redis()
+    payload = {
+        "event": "minute_published",
+        "recordId": str(record_id),
+        "status": RECORD_STATUS_COMPLETED,
+        "ts": utc_now_db().isoformat(),
+    }
+    await redis.publish(_public_minute_events_channel(record_id), json.dumps(payload))
+
+
 async def start_minute_pdf_preview_job(db: Session, record_id: str, content: dict[str, Any]) -> dict[str, Any]:
     """
     Encola una vista previa PDF y retorna de inmediato.
@@ -930,6 +980,171 @@ async def start_minute_pdf_preview_job(db: Session, record_id: str, content: dic
         "status": "queued",
         "expires_in": PDF_PREVIEW_META_TTL_SECONDS,
     }
+
+
+async def save_minute_review_content(db: Session, record_id: str, content: dict[str, Any]) -> dict[str, Any]:
+    """
+    Persiste cambios editoriales permitidos durante preview sin regenerar PDF.
+    Usado para acciones como insertar observaciones en Alcance, donde no existe
+    el autosave de pending pero el contenido debe sobrevivir recargas.
+    """
+    from sqlalchemy.orm import joinedload
+    from models.record_statuses import RecordStatus
+
+    record = (
+        db.query(Record)
+        .options(
+            joinedload(Record.project).joinedload(Project.client),
+            joinedload(Record.created_by_user),
+        )
+        .filter(Record.id == record_id, Record.deleted_at.is_(None))
+        .first()
+    )
+    if record is None:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "record_not_found", "message": f"Minuta '{record_id}' no encontrada."},
+        )
+
+    status_row = db.query(RecordStatus).filter_by(id=record.status_id).first()
+    status_code = str(getattr(status_row, "code", "") or "").strip().lower()
+    if status_code != RECORD_STATUS_PREVIEW:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "invalid_status_for_review_content_save",
+                "message": "El contenido de revisión solo puede guardarse cuando la minuta está en vista previa.",
+            },
+        )
+
+    clean_content = minute_sanitizers.sanitize_editor_content(content)
+    minio = get_minio_client()
+
+    try:
+        draft_bytes = json.dumps(clean_content, ensure_ascii=False, indent=2).encode("utf-8")
+        minio.put_object(
+            bucket_name=BUCKET_DRAFT,
+            object_name=f"{record_id}/draft_current.json",
+            data=io.BytesIO(draft_bytes),
+            length=len(draft_bytes),
+            content_type="application/json",
+        )
+        version_num = int(record.latest_version_num or 1)
+        _write_json_to_minio(
+            minio,
+            BUCKET_JSON,
+            f"{record_id}/schema_output_v{version_num}.json",
+            clean_content,
+        )
+    except Exception as exc:
+        logger.error("[minutes] Error guardando contenido de revision | record=%s err=%s", record_id, exc)
+        raise HTTPException(
+            status_code=500,
+            detail={"error": "minio_write_error", "message": "No se pudo guardar el contenido de revisión."},
+        ) from exc
+
+    if record.active_version_id:
+        try:
+            sync_record_version_commitment_items(
+                db=db,
+                record_id=record_id,
+                record_version_id=str(record.active_version_id),
+                content=clean_content,
+            )
+            db.commit()
+        except SQLAlchemyError as exc:
+            db.rollback()
+            logger.error("[minutes] Error sincronizando reportería tras guardar contenido revision | record=%s err=%s", record_id, exc)
+            raise HTTPException(
+                status_code=500,
+                detail={"error": "db_projection_error", "message": "No se pudo actualizar la reportería de la minuta."},
+            ) from exc
+
+    return {"ok": True, "record_id": record_id, "status": "saved"}
+
+
+async def regenerate_minute_review_pdf(db: Session, record_id: str, content: dict[str, Any]) -> dict[str, Any]:
+    """
+    Regenera el PDF borrador visible en la vista publica mientras la minuta esta en revision.
+    Persiste el payload recibido como draft_current.json para que el PDF y el editor queden alineados.
+    """
+    record = (
+        db.query(Record)
+        .filter(Record.id == record_id, Record.deleted_at.is_(None))
+        .first()
+    )
+    if record is None:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "record_not_found", "message": f"Minuta '{record_id}' no encontrada."},
+        )
+
+    clean_content = minute_sanitizers.sanitize_editor_content(content)
+    minio = get_minio_client()
+    output_key = f"drafts/{record_id}/draft_current.pdf"
+
+    await save_minute_review_content(db, record_id, clean_content)
+
+    previous_last_modified = None
+    previous_etag = None
+    try:
+        previous_stat = minio.stat_object(BUCKET_DRAFT, output_key)
+        previous_last_modified = getattr(previous_stat, "last_modified", None)
+        previous_etag = getattr(previous_stat, "etag", None)
+    except Exception:
+        previous_last_modified = None
+        previous_etag = None
+
+    try:
+        from services.pdf_job_builder import build_pdf_job_on_save
+
+        envelope = build_pdf_job_on_save(record=record, draft_content=clean_content)
+        envelope["payload"]["minio_bucket"] = BUCKET_DRAFT
+        envelope["payload"]["minio_output_key"] = output_key
+        await minute_queue.enqueue_job(minute_constants.QUEUE_PDF, envelope)
+    except Exception as exc:
+        logger.error("[minutes] Error encolando regeneracion PDF revision | record=%s err=%s", record_id, exc)
+        raise HTTPException(
+            status_code=500,
+            detail={"error": "review_pdf_enqueue_error", "message": "No se pudo iniciar la regeneración del PDF."},
+        ) from exc
+
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + 45
+    last_error: Exception | None = None
+    pdf_size = 0
+
+    while loop.time() < deadline:
+        try:
+            stat = minio.stat_object(BUCKET_DRAFT, output_key)
+            current_last_modified = getattr(stat, "last_modified", None)
+            current_etag = getattr(stat, "etag", None)
+            pdf_size = int(getattr(stat, "size", 0) or 0)
+            if pdf_size > 0 and (
+                previous_last_modified is None
+                or (previous_etag is not None and current_etag is not None and current_etag != previous_etag)
+                or current_last_modified is None
+                or current_last_modified > previous_last_modified
+            ):
+                await _publish_public_pdf_updated_event(record_id)
+                return {
+                    "ok": True,
+                    "record_id": record_id,
+                    "status": "ready",
+                    "size_bytes": pdf_size,
+                }
+        except Exception as exc:
+            last_error = exc
+        await asyncio.sleep(0.75)
+
+    logger.error("[minutes] Timeout regenerando PDF revision | record=%s key=%s last_error=%s", record_id, output_key, last_error)
+    raise HTTPException(
+        status_code=504,
+        detail={
+            "error": "review_pdf_timeout",
+            "message": "El PDF tardó demasiado en regenerarse. Intenta nuevamente.",
+        },
+    )
 
 
 async def get_minute_pdf_preview_job_status(preview_id: str) -> dict[str, Any]:
@@ -1018,8 +1233,8 @@ async def transition_minute(
 
     Transiciones con lógica de datos:
       ready-for-edit → pending:
-        Copia schema_output_v1.json a draft_current.json.
-        Crea nueva RecordVersion (snapshot).
+        Copia el snapshot IA inicial a draft_current.json.
+        Conserva/normaliza una RecordVersion técnica v0 sin subir la versión visible.
 
       pending → preview:
         Lee draft_current.json (formato editor).
@@ -1058,6 +1273,7 @@ async def transition_minute(
                                f"Válidas: {sorted(allowed) or 'ninguna (estado terminal)'}."})
 
     target_status_id = minute_catalogs.get_catalog_id(db, RecordStatus, target_status)
+    target_status_row = db.query(RecordStatus).filter_by(id=target_status_id).first()
     snapshot_status_id = minute_catalogs.get_catalog_id(
         db,
         VersionStatus,
@@ -1079,36 +1295,88 @@ async def transition_minute(
         # Copia el JSON de la IA como punto de partida del draft.
         # Nota: el draft aún está en formato IA. El primer autosave lo convertirá
         # al formato editor. El frontend sabe distinguir por content_type.
-        content = _read_json_from_minio(minio, BUCKET_JSON, f"{record_id}/schema_output_v1.json")
+        content = (
+            _read_json_from_minio(minio, BUCKET_JSON, f"{record_id}/schema_output_v0.json")
+            or _read_json_from_minio(minio, BUCKET_JSON, f"{record_id}/schema_output_v1.json")
+        )
         if content is None:
             raise HTTPException(status_code=500,
                 detail={"error": "content_not_found", "message": "No se encontró el contenido base."})
 
         _write_json_to_minio(minio, BUCKET_DRAFT, f"{record_id}/draft_current.json", content)
 
-        new_version_num = int(record.latest_version_num) + 1
-        new_version_id  = str(uuid.uuid4())
-        new_version = RecordVersion(
-            id=new_version_id, record_id=record_id, version_num=new_version_num,
-            status_id=snapshot_status_id, published_by=actor_user_id,
-            schema_version="1.0", template_version="1.0",
-            summary_text=commit_message,
+        internal_snapshot_key = f"{record_id}/schema_output_v0.json"
+        snap_size = _write_json_to_minio(minio, BUCKET_JSON, internal_snapshot_key, content)
+        if (
+            db.query(Object)
+            .filter(Object.bucket_id == bucket_json_id, Object.object_key == internal_snapshot_key)
+            .first()
+            is None
+        ):
+            snap_sha = hashlib.sha256(
+                json.dumps(content, ensure_ascii=False, indent=2).encode("utf-8")
+            ).hexdigest()
+            db.add(
+                minute_storage.build_object_row(
+                    str(uuid.uuid4()),
+                    bucket_json_id,
+                    internal_snapshot_key,
+                    "application/json",
+                    "json",
+                    snap_size,
+                    snap_sha,
+                    actor_user_id,
+                )
+            )
+            db.flush()
+
+        new_version = (
+            db.query(RecordVersion)
+            .filter(
+                RecordVersion.record_id == record_id,
+                RecordVersion.version_num == 0,
+                RecordVersion.deleted_at.is_(None),
+            )
+            .first()
         )
-        db.add(new_version)
-        db.flush()
-        persist_record_version_participants(
-            db=db,
-            record_version_id=new_version_id,
-            participants=build_version_participants_from_content(content),
-        )
-        sync_record_version_commitment_items(
-            db=db,
-            record_id=record_id,
-            record_version_id=new_version_id,
-            content=content,
-        )
-        record.active_version_id  = new_version_id
-        record.latest_version_num = new_version_num
+        should_persist_internal_participants = False
+        if new_version is None:
+            legacy_initial_version = (
+                db.query(RecordVersion)
+                .filter(
+                    RecordVersion.record_id == record_id,
+                    RecordVersion.version_num == 1,
+                    RecordVersion.deleted_at.is_(None),
+                )
+                .order_by(RecordVersion.published_at.asc())
+                .first()
+            )
+            if legacy_initial_version is not None and int(record.latest_version_num or 0) <= 1:
+                legacy_initial_version.version_num = 0
+                legacy_initial_version.summary_text = legacy_initial_version.summary_text or "Snapshot IA inicial"
+                new_version = legacy_initial_version
+            else:
+                new_version = RecordVersion(
+                    id=str(uuid.uuid4()),
+                    record_id=record_id,
+                    version_num=0,
+                    status_id=snapshot_status_id,
+                    published_by=actor_user_id,
+                    schema_version="1.0",
+                    template_version="1.0",
+                    summary_text="Snapshot IA inicial",
+                )
+                db.add(new_version)
+                should_persist_internal_participants = True
+            db.flush()
+        if should_persist_internal_participants:
+            persist_record_version_participants(
+                db=db,
+                record_version_id=str(new_version.id),
+                participants=build_version_participants_from_content(content),
+            )
+        record.active_version_id = new_version.id
+        record.latest_version_num = 0
 
     # ── pending → preview ─────────────────────────────────────────────────────
     elif current_status_code == RECORD_STATUS_PENDING and target_status == RECORD_STATUS_PREVIEW:
@@ -1121,23 +1389,37 @@ async def transition_minute(
         new_version_num = int(record.latest_version_num) + 1
         snapshot_key    = f"{record_id}/schema_output_v{new_version_num}.json"
         snap_size       = _write_json_to_minio(minio, BUCKET_JSON, snapshot_key, draft_content)
-
-        snap_obj_id = str(uuid.uuid4())
         snap_sha    = hashlib.sha256(
             json.dumps(draft_content, ensure_ascii=False, indent=2).encode("utf-8")
         ).hexdigest()
-        db.add(
-            minute_storage.build_object_row(
-                snap_obj_id,
-                bucket_json_id,
-                snapshot_key,
-                "application/json",
-                "json",
-                snap_size,
-                snap_sha,
-                actor_user_id,
+        existing_snapshot_object = (
+            db.query(Object)
+            .filter(
+                Object.bucket_id == bucket_json_id,
+                Object.object_key == snapshot_key,
             )
+            .first()
         )
+        if existing_snapshot_object is not None:
+            existing_snapshot_object.content_type = "application/json"
+            existing_snapshot_object.file_ext = "json"
+            existing_snapshot_object.size_bytes = snap_size
+            existing_snapshot_object.sha256 = snap_sha
+            existing_snapshot_object.deleted_at = None
+            existing_snapshot_object.deleted_by = None
+        else:
+            db.add(
+                minute_storage.build_object_row(
+                    str(uuid.uuid4()),
+                    bucket_json_id,
+                    snapshot_key,
+                    "application/json",
+                    "json",
+                    snap_size,
+                    snap_sha,
+                    actor_user_id,
+                )
+            )
         db.flush()
 
         new_version_id = str(uuid.uuid4())
@@ -1177,6 +1459,21 @@ async def transition_minute(
 
     # ── preview → completed ───────────────────────────────────────────────────
     elif current_status_code == RECORD_STATUS_PREVIEW and target_status == RECORD_STATUS_COMPLETED:
+        pending_observation_count = (
+            db.query(RecordVersionObservation)
+            .filter(RecordVersionObservation.record_id == record_id)
+            .filter(RecordVersionObservation.status == "new")
+            .count()
+        )
+        if pending_observation_count:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Existen observaciones pendientes de procesar. "
+                    "Debes resolverlas antes de publicar la minuta."
+                ),
+            )
+
         active_version = db.query(RecordVersion).filter_by(id=record.active_version_id).first()
         if active_version:
             active_version.status_id = final_status_id
@@ -1217,6 +1514,11 @@ async def transition_minute(
     db.commit()
 
     logger.info(f"[minutes] Transición | record={record_id} {current_status_code} → {target_status}")
+    if current_status_code == RECORD_STATUS_PREVIEW and target_status == RECORD_STATUS_COMPLETED:
+        try:
+            await _publish_public_minute_published_event(record_id)
+        except Exception as event_exc:
+            logger.warning("[minutes] No se pudo publicar evento público de minuta publicada | record=%s err=%s", record_id, event_exc)
 
     project = db.query(Project).filter(Project.id == record.project_id).first() if record.project_id else None
     auto_send_on_preview = bool(getattr(project, "auto_send_on_preview", False))
@@ -1253,11 +1555,18 @@ async def transition_minute(
             title = "Minuta enviada a revisión"
             message = f'La minuta "{record.title}" cambió a estado de revisión.'
             tags = ["minute", "status", "preview", "minute.status.preview"]
+        elif current_status_code == RECORD_STATUS_PREVIEW and target_status == RECORD_STATUS_PENDING:
+            notification_type = "minute.status.changed"
+            title = "Minuta devuelta a edición"
+            message = f'La minuta "{record.title}" volvió de revisión a edición.'
+            tags = ["minute", "status", target_status, "minute.status.changed"]
         else:
             notification_type = "minute.status.changed"
             title = "Estado de minuta actualizado"
+            from_label = getattr(current_status_row, "name", None) or current_status_code
+            to_label = getattr(target_status_row, "name", None) or target_status
             message = (
-                f'La minuta "{record.title}" cambió de "{current_status_code}" a "{target_status}".'
+                f'La minuta "{record.title}" cambió de "{from_label}" a "{to_label}".'
             )
             tags = ["minute", "status", target_status, "minute.status.changed"]
 

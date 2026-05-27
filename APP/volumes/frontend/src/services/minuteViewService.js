@@ -74,6 +74,31 @@ export const createMinuteObservation = async (recordId, token, body) => {
   }
 };
 
+export const updateMinuteObservation = async (recordId, token, observationId, body) => {
+  try {
+    const response = await api.patch(
+      `/v1/minutes/public/${recordId}/observations/${observationId}`,
+      { body },
+      authHeaders(token)
+    );
+    return unwrap(response.data);
+  } catch (error) {
+    throw getFormattedError(error);
+  }
+};
+
+export const deleteMinuteObservation = async (recordId, token, observationId) => {
+  try {
+    await api.delete(
+      `/v1/minutes/public/${recordId}/observations/${observationId}`,
+      authHeaders(token)
+    );
+    return { success: true };
+  } catch (error) {
+    throw getFormattedError(error);
+  }
+};
+
 export const logoutMinuteViewSession = async (recordId, token) => {
   try {
     await api.post(`/v1/minutes/public/${recordId}/logout`, {}, authHeaders(token));

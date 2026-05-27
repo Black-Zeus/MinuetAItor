@@ -191,6 +191,14 @@ def _minute_edit_url(record_id: str, db: Session | None = None) -> str:
     return build_public_url(db, f"/minutes/process/{record_id}")
 
 
+def _minute_email_subject(record: Record, message: str) -> str:
+    clean_message = str(message or "").strip() or "Minuta"
+    project_name = str(getattr(getattr(record, "project", None), "name", "") or "").strip()
+    minute_title = str(getattr(record, "title", "") or "").strip() or "Minuta sin título"
+    context_label = f"{project_name} / {minute_title}" if project_name else minute_title
+    return f"{clean_message} {context_label}"
+
+
 def _reset_url(token: str, db: Session | None = None) -> str:
     return build_public_url(db, f"/reset-password?token={token}")
 
@@ -1076,7 +1084,7 @@ async def enqueue_minute_review_email(
         cc=delivery_plan.cc,
         template_id="sendMinute",
         context=context,
-        subject=subject,
+        subject=subject or _minute_email_subject(record, "Revisión de minuta"),
         attachments=[attachment] if attachment else None,
         notification_context={
             "notificationType": "email.sent",
@@ -1154,6 +1162,7 @@ async def enqueue_minute_officialized_email(db: Session, record_id: str, *, acto
         cc=delivery_plan.cc,
         template_id="minute_officialized_approved",
         context=context,
+        subject=_minute_email_subject(record, "Minuta oficializada"),
         attachments=[attachment] if attachment else None,
         notification_context={
             "notificationType": "email.sent",
@@ -1236,6 +1245,7 @@ async def enqueue_minute_guest_observation_email(
         to=delivery_plan.to,
         template_id="minute_guest_observation_received",
         context=context,
+        subject=_minute_email_subject(record, "Nueva observación de invitado"),
         inline_assets=branding.inline_assets,
         notification_context={
             "notificationType": "email.sent",

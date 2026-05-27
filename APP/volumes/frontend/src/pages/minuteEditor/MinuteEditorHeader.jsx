@@ -34,7 +34,7 @@ import { useNavigate } from "react-router-dom";
 import Icon from "@components/ui/icon/iconManager";
 import useMinuteEditorStore from "@/store/minuteEditorStore";
 import ModalManager from "@components/ui/modal";
-import { saveMinuteDraft, transitionMinute } from "@/services/minutesService";
+import { listMinuteObservations, saveMinuteDraft, transitionMinute } from "@/services/minutesService";
 import { toastSuccess } from "@/components/common/toast/toastHelpers";
 import { openPdfViewer } from "@/components/ui/pdf/PdfViewerModal";
 
@@ -130,6 +130,12 @@ const notifyAutoEmailQueued = (status) => {
   toastSuccess(title, message);
 };
 
+const countOpenObservations = (items = []) => (
+  Array.isArray(items)
+    ? items.filter((item) => String(item?.status || "").trim().toLowerCase() === "new").length
+    : 0
+);
+
 // ─────────────────────────────────────────────────────────────────────────────
 // STATUS BADGE
 // ─────────────────────────────────────────────────────────────────────────────
@@ -161,6 +167,7 @@ const TransitionModalContent = ({ transition, currentStatus, onConfirm, onCancel
 
   const fromMeta = STATUS_META[currentStatus]     ?? { label: currentStatus,     color: "gray" };
   const toMeta   = STATUS_META[transition.target] ?? { label: transition.target, color: "gray" };
+  const isPublication = transition.target === "completed";
 
   const handleConfirm = async () => {
     setSubmitting(true);
@@ -194,6 +201,16 @@ const TransitionModalContent = ({ transition, currentStatus, onConfirm, onCancel
           {transition.description}
         </p>
       </div>
+
+      {isPublication && (
+        <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-amber-50 dark:bg-amber-900/15 border border-amber-200/70 dark:border-amber-700/40 transition-theme">
+          <Icon name="triangleExclamation" className="text-amber-500 shrink-0 mt-0.5" />
+          <p className="text-sm text-amber-900 dark:text-amber-200 leading-relaxed transition-theme">
+            Esta acción publica la minuta como versión final y no se puede deshacer desde este flujo.
+            Confirma solo si ya revisaste el contenido y no quedan observaciones pendientes.
+          </p>
+        </div>
+      )}
 
       {/* Observación */}
       <div>
@@ -466,7 +483,11 @@ const SaveButton = ({ status, saving, onSaveDraft, onSaveAndReview }) => {
 // COMPONENTE PRINCIPAL
 // ─────────────────────────────────────────────────────────────────────────────
 
-const MinuteEditorHeader = ({ recordMeta, isReadOnly, onTransitionSuccess }) => {
+const MinuteEditorHeader = ({
+  recordMeta,
+  isReadOnly,
+  onTransitionSuccess,
+}) => {
   const navigate = useNavigate();
   const [saving,   setSaving]   = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -562,9 +583,37 @@ const MinuteEditorHeader = ({ recordMeta, isReadOnly, onTransitionSuccess }) => 
     });
   };
 
+  const showPendingObservationsBlock = (count) => {
+    ModalManager.warning({
+      title: "Observaciones pendientes",
+      message: `Existen ${count} observacion${count === 1 ? "" : "es"} pendiente${count === 1 ? "" : "s"} de procesar. Debes resolverlas antes de publicar la minuta.`,
+    });
+  };
+
+  const getFreshPendingObservationCount = async () => {
+    const data = await listMinuteObservations(recordId);
+    return countOpenObservations(data?.items || []);
+  };
+
   // ── Transición genérica (preview → completed / pending, y cancel) ──────────
-  const handleTransitionClick = (transition) => {
+  const handleTransitionClick = async (transition) => {
     setMenuOpen(false);
+    if (transition.target === "completed") {
+      try {
+        const pendingCount = await getFreshPendingObservationCount();
+        if (pendingCount > 0) {
+          showPendingObservationsBlock(pendingCount);
+          return;
+        }
+      } catch (err) {
+        ModalManager.error({
+          title: "No fue posible validar observaciones",
+          message: err?.message ?? "No se pudo confirmar si existen observaciones pendientes. Intenta nuevamente.",
+        });
+        return;
+      }
+    }
+
     ModalManager.custom({
       title: transition.label,
       size: "medium",

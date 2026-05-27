@@ -13,8 +13,8 @@ Endpoints:
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
+from core.authz import require_roles
 from core.config import settings
 from core.exceptions import ForbiddenException
 from db.redis import get_redis
@@ -28,7 +28,6 @@ from schemas.sendmail import (
     SendMailRequest,
     SendMailResponse,
 )
-from services.auth_service import get_current_user
 from services.sendmail_service import (
     clear_queue,
     enqueue_email,
@@ -38,7 +37,6 @@ from services.sendmail_service import (
 )
 
 router = APIRouter(prefix="/sendmail", tags=["Sendmail (Dev)"])
-bearer = HTTPBearer()
 
 
 # ── Guard de entorno ──────────────────────────────────────────────────────────
@@ -49,14 +47,6 @@ def _guard_dev_only() -> None:
         raise ForbiddenException(
             "Este endpoint no está disponible en producción."
         )
-
-
-# ── Auth dep ──────────────────────────────────────────────────────────────────
-
-async def current_user_dep(
-    credentials: HTTPAuthorizationCredentials = Depends(bearer),
-) -> UserSession:
-    return await get_current_user(credentials.credentials)
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -70,7 +60,7 @@ async def current_user_dep(
 )
 async def send_email_endpoint(
     body: SendMailRequest,
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     _guard_dev_only()
     redis = get_redis()
@@ -85,7 +75,7 @@ async def send_email_endpoint(
     description="Lista los templates de correo registrados para preview o envio.",
 )
 async def list_templates_endpoint(
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     _guard_dev_only()
     return get_available_templates()
@@ -100,7 +90,7 @@ async def list_templates_endpoint(
 )
 async def preview_template_endpoint(
     body: MailTemplatePreviewRequest,
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     _guard_dev_only()
     return preview_template(body)
@@ -114,7 +104,7 @@ async def preview_template_endpoint(
     description="Inspecciona los jobs pendientes en la cola sin consumirlos.",
 )
 async def queue_status_endpoint(
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     _guard_dev_only()
     redis = get_redis()
@@ -129,7 +119,7 @@ async def queue_status_endpoint(
     description="Elimina todos los jobs pendientes de la cola de email.",
 )
 async def clear_queue_endpoint(
-    session: UserSession = Depends(current_user_dep),
+    session: UserSession = Depends(require_roles("ADMIN")),
 ):
     _guard_dev_only()
     redis = get_redis()

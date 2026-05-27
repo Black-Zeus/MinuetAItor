@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 
-import { listMinuteObservations, resolveMinuteObservation } from "@/services/minutesService";
+import { listMinuteObservations, resolveMinuteObservation, saveMinuteReviewContent } from "@/services/minutesService";
 import Icon from "@components/ui/icon/iconManager";
 import ModalManager from "@components/ui/modal";
 import useMinuteEditorStore from "@/store/minuteEditorStore";
@@ -49,15 +49,69 @@ const actionLabelForStatus = (status) => ({
 const countPendingObservations = (items = []) =>
   items.filter((item) => item.status === "new" || item.status === "approved").length;
 
+const MINUTE_EDITOR_OBSERVATIONS_EVENT = "minute-editor-observations-updated";
+
+const buildResolutionForm = (form = {}) => {
+  const status = form.status || "approved";
+  const option = STATUS_OPTIONS.find((item) => item.status === status);
+  return {
+    ...form,
+    status,
+    resolutionType: option?.resolutionType ?? "none",
+  };
+};
+
 const MinuteEditorSectionObservations = ({ recordId, onPendingCountChange }) => {
   const scopeSections = useMinuteEditorStore((state) => state.scopeSections);
   const insertObservationIntoScope = useMinuteEditorStore((state) => state.insertObservationIntoScope);
+  const getExportPayload = useMinuteEditorStore((state) => state.getExportPayload);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [items, setItems] = useState([]);
   const [formsById, setFormsById] = useState({});
   const [savingId, setSavingId] = useState(null);
   const [expandedById, setExpandedById] = useState({});
+
+  const applyObservationSnapshot = useCallback((data) => {
+    setItems(Array.isArray(data?.items) ? data.items : []);
+    setFormsById((prev) => {
+      const next = { ...prev };
+      (data?.items || []).forEach((item) => {
+        next[item.id] = next[item.id] || {
+          status: "approved",
+          resolutionType: "manual_update",
+          editorComment: "",
+        };
+      });
+      return next;
+    });
+    setExpandedById((prev) => {
+      const next = { ...prev };
+      (data?.items || []).forEach((item) => {
+        if (typeof next[item.id] !== "boolean") {
+          next[item.id] = item.status === "new";
+        }
+      });
+      return next;
+    });
+  }, []);
+
+  const loadObservations = useCallback(async ({ showLoading = false, showError = true } = {}) => {
+    if (!recordId) return;
+    if (showLoading) setLoading(true);
+    try {
+      const data = await listMinuteObservations(recordId);
+      applyObservationSnapshot(data);
+    } catch (err) {
+      if (showError) {
+        ModalManager.error({
+          title: "No fue posible cargar las observaciones",
+          message: err?.message || "Intenta nuevamente en unos segundos.",
+        });
+      }
+    } finally {
+      if (showLoading) setLoading(false);
+    }
+  }, [applyObservationSnapshot, recordId]);
 
   useEffect(() => {
     if (!recordId) return;
@@ -65,34 +119,16 @@ const MinuteEditorSectionObservations = ({ recordId, onPendingCountChange }) => 
 
     const load = async () => {
       setLoading(true);
-      setError("");
       try {
         const data = await listMinuteObservations(recordId);
         if (!active) return;
-        setItems(Array.isArray(data?.items) ? data.items : []);
-        setFormsById((prev) => {
-          const next = { ...prev };
-          (data?.items || []).forEach((item) => {
-            next[item.id] = next[item.id] || {
-              status: "approved",
-              resolutionType: "manual_update",
-              editorComment: "",
-            };
-          });
-          return next;
-        });
-        setExpandedById((prev) => {
-          const next = { ...prev };
-          (data?.items || []).forEach((item) => {
-            if (typeof next[item.id] !== "boolean") {
-              next[item.id] = item.status === "new";
-            }
-          });
-          return next;
-        });
+        applyObservationSnapshot(data);
       } catch (err) {
         if (!active) return;
-        setError(err?.message || "No fue posible cargar las observaciones.");
+        ModalManager.error({
+          title: "No fue posible cargar las observaciones",
+          message: err?.message || "Intenta nuevamente en unos segundos.",
+        });
       } finally {
         if (active) setLoading(false);
       }
@@ -102,7 +138,16 @@ const MinuteEditorSectionObservations = ({ recordId, onPendingCountChange }) => 
     return () => {
       active = false;
     };
-  }, [recordId]);
+  }, [applyObservationSnapshot, recordId]);
+
+  useEffect(() => {
+    const onObservationsUpdated = () => {
+      loadObservations({ showLoading: false, showError: false });
+    };
+
+    window.addEventListener(MINUTE_EDITOR_OBSERVATIONS_EVENT, onObservationsUpdated);
+    return () => window.removeEventListener(MINUTE_EDITOR_OBSERVATIONS_EVENT, onObservationsUpdated);
+  }, [loadObservations]);
 
   useEffect(() => {
     onPendingCountChange?.(countPendingObservations(items));
@@ -144,9 +189,10 @@ const MinuteEditorSectionObservations = ({ recordId, onPendingCountChange }) => 
 
   const resolveObservation = async (item, form) => {
     const cleanComment = String(form.editorComment || "").trim();
+    const resolutionForm = buildResolutionForm(form);
     const response = await resolveMinuteObservation(item.id, {
-      status: form.status,
-      resolutionType: form.resolutionType,
+      status: resolutionForm.status,
+      resolutionType: resolutionForm.resolutionType,
       editorComment: cleanComment,
     });
     setItems((prev) => prev.map((current) => (current.id === item.id ? response.item : current)));
@@ -187,7 +233,10 @@ const MinuteEditorSectionObservations = ({ recordId, onPendingCountChange }) => 
               await resolveObservation(item, form);
               ModalManager.closeAll?.();
             } catch (err) {
-              setError(err?.message || "No fue posible resolver la observación.");
+              ModalManager.error({
+                title: "No fue posible resolver la observación",
+                message: err?.message || "Intenta nuevamente en unos segundos.",
+              });
             } finally {
               setSavingId(null);
             }
@@ -289,12 +338,65 @@ const MinuteEditorSectionObservations = ({ recordId, onPendingCountChange }) => 
                 sectionTitle: newSectionTitle,
                 body: item.body,
                 authorLabel: item.authorName || item.authorEmail,
-                observationId: item.id,
+                createdAt: item.createdAt,
               });
+              await saveMinuteReviewContent(recordId, getExportPayload());
               await resolveObservation(item, form);
               ModalManager.closeAll?.();
             } catch (err) {
-              setError(err?.message || "No fue posible insertar y resolver la observación.");
+              ModalManager.error({
+                title: "No fue posible insertar la observación",
+                message: err?.message || "Intenta nuevamente en unos segundos.",
+              });
+            } finally {
+              setSavingId(null);
+            }
+          },
+        },
+      ],
+    });
+  };
+
+  const openRejectConfirmModal = (item, form) => {
+    ModalManager.custom({
+      title: "Rechazar observación",
+      size: "medium",
+      showFooter: true,
+      content: (
+        <div className="space-y-4 p-1">
+          <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 transition-theme dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-300">
+            Esta observación quedará marcada como <b>rechazada</b> y no se aplicará a la minuta.
+          </div>
+          <div className="rounded-xl bg-gray-50/80 px-4 py-3 text-sm text-gray-800 transition-theme dark:bg-gray-950/30 dark:text-gray-200">
+            {item.body}
+          </div>
+          <div className="rounded-xl border border-gray-200/70 bg-gray-50/80 px-4 py-3 text-sm text-gray-700 transition-theme dark:border-gray-700/60 dark:bg-gray-950/30 dark:text-gray-300">
+            <p className="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-gray-500 transition-theme dark:text-gray-400">
+              Comentario del editor
+            </p>
+            <p>{String(form.editorComment || "").trim()}</p>
+          </div>
+        </div>
+      ),
+      buttons: [
+        {
+          text: "Cancelar",
+          variant: "secondary",
+          onClick: () => ModalManager.closeAll?.(),
+        },
+        {
+          text: "Confirmar rechazo",
+          variant: "danger",
+          onClick: async () => {
+            setSavingId(item.id);
+            try {
+              await resolveObservation(item, form);
+              ModalManager.closeAll?.();
+            } catch (err) {
+              ModalManager.error({
+                title: "No fue posible rechazar la observación",
+                message: err?.message || "Intenta nuevamente en unos segundos.",
+              });
             } finally {
               setSavingId(null);
             }
@@ -305,14 +407,54 @@ const MinuteEditorSectionObservations = ({ recordId, onPendingCountChange }) => 
   };
 
   const handleResolve = async (item) => {
-    const form = formsById[item.id] || {};
+    const form = buildResolutionForm(formsById[item.id] || {});
     const cleanComment = String(form.editorComment || "").trim();
     if (!cleanComment) {
-      setError("El comentario del editor es obligatorio para resolver una observación.");
+      ModalManager.custom({
+        title: "Comentario requerido",
+        size: "small",
+        showFooter: true,
+        content: (
+          <div className="rounded-xl border border-amber-700/60 bg-amber-950/25 px-4 py-3 text-sm text-amber-200 transition-theme">
+            <div className="flex items-start gap-3">
+              <Icon name="triangleExclamation" className="mt-0.5 shrink-0 text-amber-300" />
+              <p>Completa el comentario obligatorio antes de resolver la observación.</p>
+            </div>
+          </div>
+        ),
+        buttons: [
+          {
+            text: "Cerrar",
+            variant: "secondary",
+            onClick: () => ModalManager.closeAll?.(),
+          },
+        ],
+      });
       return;
     }
-
-    setError("");
+    if (cleanComment.length < 3) {
+      ModalManager.custom({
+        title: "Comentario muy corto",
+        size: "small",
+        showFooter: true,
+        content: (
+          <div className="rounded-xl border border-amber-700/60 bg-amber-950/25 px-4 py-3 text-sm text-amber-200 transition-theme">
+            <div className="flex items-start gap-3">
+              <Icon name="triangleExclamation" className="mt-0.5 shrink-0 text-amber-300" />
+              <p>Ingresa un comentario de al menos 3 caracteres antes de resolver la observación.</p>
+            </div>
+          </div>
+        ),
+        buttons: [
+          {
+            text: "Cerrar",
+            variant: "secondary",
+            onClick: () => ModalManager.closeAll?.(),
+          },
+        ],
+      });
+      return;
+    }
 
     if (form.status === "inserted") {
       openInsertModal(item, form);
@@ -324,13 +466,8 @@ const MinuteEditorSectionObservations = ({ recordId, onPendingCountChange }) => 
       return;
     }
 
-    setSavingId(item.id);
-    try {
-      await resolveObservation(item, form);
-    } catch (err) {
-      setError(err?.message || "No fue posible resolver la observación.");
-    } finally {
-      setSavingId(null);
+    if (form.status === "rejected") {
+      openRejectConfirmModal(item, form);
     }
   };
 
@@ -350,14 +487,9 @@ const MinuteEditorSectionObservations = ({ recordId, onPendingCountChange }) => 
         </h3>
         <p className="mt-2 text-sm text-gray-500 transition-theme dark:text-gray-400">
           Cada observación debe resolverse con comentario obligatorio. Usa <b>Insertar</b> para observaciones
-          que pasan directo a la sección de observaciones, <b>Aprobar</b> para cambios manuales y <b>Rechazar</b>
+          que pasan directo a la sección de observaciones, <b>Aprobar</b> para cambios manuales y <b>Rechazar</b>{" "}
           cuando no aplique.
         </p>
-        {error ? (
-          <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 transition-theme dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-300">
-            {error}
-          </div>
-        ) : null}
       </div>
 
       {items.length === 0 ? (
@@ -433,59 +565,49 @@ const MinuteEditorSectionObservations = ({ recordId, onPendingCountChange }) => 
                       </div>
                     ) : null}
 
-                    <div className="mt-5 grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)_auto]">
-                      <div>
-                        <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-gray-500 transition-theme dark:text-gray-400">
-                          Acción
-                        </label>
-                        <select
-                          value={form.status || "approved"}
-                          onChange={(event) => handleStatusChange(item.id, event.target.value)}
-                          disabled={isResolved || isBusy}
-                          className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 transition-theme outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-                        >
-                          {STATUS_OPTIONS.map((option) => (
-                            <option key={option.status} value={option.status}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                        <p className="mt-2 text-xs text-gray-500 transition-theme dark:text-gray-400">
-                          {STATUS_OPTIONS.find((option) => option.status === (form.status || "approved"))?.description}
-                        </p>
-                      </div>
+                    {!isResolved ? (
+                      <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(360px,1fr)_240px] lg:items-center">
+                        <div className="flex min-h-[122px] min-w-0 flex-col">
+                          <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-gray-500 transition-theme dark:text-gray-400">
+                            Comentario obligatorio
+                          </label>
+                          <textarea
+                            rows={3}
+                            value={form.editorComment || ""}
+                            onChange={(event) => updateForm(item.id, { editorComment: event.target.value })}
+                            disabled={isBusy}
+                            placeholder="Describe por qué se inserta, aprueba o rechaza esta observación."
+                            className="min-h-0 flex-1 w-full resize-none rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 transition-theme outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                          />
+                        </div>
 
-                      <div>
-                        <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-gray-500 transition-theme dark:text-gray-400">
-                          Comentario obligatorio
-                        </label>
-                        <textarea
-                          rows={3}
-                          value={form.editorComment || ""}
-                          onChange={(event) => updateForm(item.id, { editorComment: event.target.value })}
-                          disabled={isResolved || isBusy}
-                          placeholder="Describe por qué se inserta, aprueba o rechaza esta observación."
-                          className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 transition-theme outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-                        />
-                      </div>
-
-                      <div className="flex items-end">
-                        {isResolved ? (
-                          <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-semibold text-gray-500 transition-theme dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400">
-                            Resolución cerrada
-                          </div>
-                        ) : (
+                        <div className="flex min-w-0 flex-col justify-center">
+                          <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-gray-500 transition-theme dark:text-gray-400">
+                            Acción
+                          </label>
+                          <select
+                            value={form.status || "approved"}
+                            onChange={(event) => handleStatusChange(item.id, event.target.value)}
+                            disabled={isBusy}
+                            className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 transition-theme outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                          >
+                            {STATUS_OPTIONS.map((option) => (
+                              <option key={option.status} value={option.status}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
                           <button
                             type="button"
                             onClick={() => handleResolve(item)}
                             disabled={isBusy}
-                            className="rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60"
+                            className="mt-3 min-h-[40px] w-full rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold leading-5 text-white shadow-sm transition-all hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60"
                           >
                             {isBusy ? "Guardando resolución..." : actionLabelForStatus(form.status || "approved")}
                           </button>
-                        )}
+                        </div>
                       </div>
-                    </div>
+                    ) : null}
                   </>
                 ) : null}
               </article>

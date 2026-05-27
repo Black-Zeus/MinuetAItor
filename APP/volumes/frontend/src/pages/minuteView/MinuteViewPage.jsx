@@ -2,15 +2,20 @@ import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import AboutModal from "@/components/common/aboutModal/AboutModal";
+import { toastInfo, toastWarn } from "@/components/common/toast/toastHelpers";
 import HeaderThemeToggle from "@/components/layout/header/HeaderThemeToggle";
 import useAuthStore from "@/store/authStore";
 import useMinuteViewStore from "@/store/minuteViewStore";
+import systemMaintenanceService from "@/services/systemMaintenanceService";
+import { createAuthorizedEventStream } from "@/utils/authorizedEventStream";
 import {
   createMinuteObservation,
+  deleteMinuteObservation,
   getMinuteViewDetail,
   getMinuteViewPdfBlob,
   logoutMinuteViewSession,
   requestMinuteViewOtp,
+  updateMinuteObservation,
   verifyMinuteViewOtp,
 } from "@/services/minuteViewService";
 
@@ -33,6 +38,44 @@ const OBSERVATION_STATUS_META = {
   },
 };
 
+const observationResolutionMessage = (status) => ({
+  inserted: "Tu observación fue incorporada a la minuta.",
+  approved: "Tu observación fue aprobada para ajuste manual.",
+  rejected: "Tu observación fue revisada y no será aplicada a la minuta.",
+}[status] ?? "El editor actualizó el estado de una observación.");
+
+const OPERATION_MODE_COPY = {
+  maintenance: {
+    title: "Sistema en mantenimiento",
+    message: "El acceso con código temporal está deshabilitado mientras se realizan tareas de mantenimiento.",
+    badge: "Mantenimiento",
+  },
+  read_only: {
+    title: "Sistema en solo lectura",
+    message: "El acceso con código temporal y el registro de observaciones están deshabilitados mientras el sistema está en solo lectura.",
+    badge: "Solo lectura",
+  },
+  commissioning: {
+    title: "Sistema en puesta en marcha",
+    message: "El acceso externo está deshabilitado mientras administración completa las validaciones de puesta en marcha.",
+    badge: "Puesta en marcha",
+  },
+};
+
+const PUBLIC_RECORD_STATUS_LABELS = {
+  preview: "Vista previa",
+  completed: "Publicada",
+};
+
+const PUBLIC_MINUTE_UNAVAILABLE_MESSAGE =
+  "Minuta no disponible. Verifica el enlace recibido o solicita uno nuevo al equipo responsable.";
+
+const PUBLIC_OTP_REQUEST_MESSAGE =
+  "Si el correo está autorizado, recibirás un código de acceso en unos minutos.";
+
+const PUBLIC_OTP_VERIFY_MESSAGE =
+  "No fue posible validar el acceso. Revisa el código recibido o solicita uno nuevo.";
+
 const MinuteViewPage = () => {
   const { id: recordId } = useParams();
   const navigate = useNavigate();
@@ -50,12 +93,18 @@ const MinuteViewPage = () => {
   const [error, setError] = useState("");
   const [detail, setDetail] = useState(null);
   const [pdfUrl, setPdfUrl] = useState("");
+  const [pdfError, setPdfError] = useState("");
+  const [operationState, setOperationState] = useState({ mode: "normal" });
   const pdfUrlRef = useRef("");
+  const eventsRef = useRef(null);
+  const operationToastRef = useRef(null);
+  const observationTextareaRef = useRef(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [expandedEditorComments, setExpandedEditorComments] = useState({});
   const [expandedVersionGroups, setExpandedVersionGroups] = useState({});
   const [observationText, setObservationText] = useState("");
+  const [editingObservation, setEditingObservation] = useState(null);
   const [requestMessage, setRequestMessage] = useState("");
   const [theme, setTheme] = useState(() => {
     if (typeof window === "undefined") return "dark";
@@ -65,6 +114,14 @@ const MinuteViewPage = () => {
   });
 
   const isDark = theme === "dark";
+  const operationMode = operationState?.mode || "normal";
+  const operationCopy = OPERATION_MODE_COPY[operationMode] || null;
+  const isOperationLocked = Boolean(operationCopy);
+  const recordStatus = String(detail?.record?.status || "").trim().toLowerCase();
+  const isCompleted = recordStatus === "completed";
+  const canCreateObservation = recordStatus === "preview" && !isOperationLocked;
+  const ownObservationGroups = detail?.observationGroups || [];
+  const sharedObservationGroups = detail?.sharedObservationGroups || [];
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -77,14 +134,14 @@ const MinuteViewPage = () => {
 
     setExpandedVersionGroups((prev) => {
       const next = { ...prev };
-      detail.observationGroups.forEach((group) => {
+      [...ownObservationGroups, ...sharedObservationGroups].forEach((group) => {
         if (typeof next[group.recordVersionId] !== "boolean") {
           next[group.recordVersionId] = Boolean(group.isActiveVersion);
         }
       });
       return next;
     });
-  }, [detail?.observationGroups]);
+  }, [ownObservationGroups, sharedObservationGroups]);
 
   useEffect(() => {
     const html = document.documentElement;
@@ -103,9 +160,149 @@ const MinuteViewPage = () => {
     }
   }, [isAuthenticated, navigate, recordId]);
 
+  useEffect(() => {
+    let active = true;
+
+    const loadOperationState = async () => {
+      try {
+        const state = await systemMaintenanceService.getPublicOperationState();
+        if (!active) return;
+        setOperationState(state || { mode: "normal" });
+      } catch {
+        if (!active) return;
+        setOperationState({ mode: "normal" });
+      }
+    };
+
+    loadOperationState();
+    const timer = window.setInterval(loadOperationState, 30000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!operationCopy || operationToastRef.current === operationMode) return;
+    operationToastRef.current = operationMode;
+    toastWarn(operationCopy.title, operationCopy.message, {
+      autoClose: 7000,
+      toastId: `minute-public-operation:${operationMode}`,
+    });
+  }, [operationCopy, operationMode]);
+
   useEffect(() => () => {
     if (pdfUrlRef.current) URL.revokeObjectURL(pdfUrlRef.current);
+    eventsRef.current?.close?.();
   }, []);
+
+  useEffect(() => {
+    if (!isModalOpen) return;
+    const focusTimer = window.setTimeout(() => {
+      observationTextareaRef.current?.focus();
+    }, 50);
+    return () => window.clearTimeout(focusTimer);
+  }, [isModalOpen]);
+
+  useEffect(() => {
+    eventsRef.current?.close?.();
+    eventsRef.current = null;
+
+    const token = savedSession?.accessToken;
+    if (!recordId || !token || step !== "view") return undefined;
+
+    let active = true;
+    const source = createAuthorizedEventStream(
+      `/api/v1/minutes/public/${recordId}/events`,
+      token
+    );
+    eventsRef.current = source;
+
+    const parseEventPayload = (event) => {
+      try {
+        return JSON.parse(event?.data ?? "{}");
+      } catch {
+        return {};
+      }
+    };
+
+    const refreshDetail = async () => {
+      try {
+        const detailData = await getMinuteViewDetail(recordId, token);
+        if (active) setDetail(detailData);
+      } catch {
+        // Si el detalle falla, el siguiente ciclo de sesión se encargará de limpiar.
+      }
+    };
+
+    const refreshPdf = async ({ attempts = 1, delayMs = 1200 } = {}) => {
+      let lastError = null;
+      for (let attempt = 1; attempt <= attempts; attempt += 1) {
+        try {
+          const pdfBlob = await getMinuteViewPdfBlob(recordId, token);
+          if (!active) return;
+          if (pdfUrlRef.current) URL.revokeObjectURL(pdfUrlRef.current);
+          pdfUrlRef.current = URL.createObjectURL(pdfBlob);
+          setPdfUrl(pdfUrlRef.current);
+          setPdfError("");
+          return;
+        } catch (pdfErr) {
+          lastError = pdfErr;
+          if (!active) return;
+          if (attempt < attempts) {
+            await new Promise((resolve) => window.setTimeout(resolve, delayMs));
+          }
+        }
+      }
+      if (!active) return;
+      setPdfError(lastError?.message || "El PDF de la minuta aún no está disponible.");
+    };
+
+    const onObservationResolved = async (event) => {
+      const payload = parseEventPayload(event);
+      await refreshDetail();
+
+      const status = String(payload.status || "").trim().toLowerCase();
+      toastInfo("Observación actualizada", observationResolutionMessage(status), {
+        autoClose: 7000,
+        toastId: `minute-public-observation-resolved:${payload.observationId || status || Date.now()}`,
+      });
+    };
+
+    const onPdfUpdated = async () => {
+      await refreshPdf();
+      toastInfo("PDF actualizado", "La vista previa de la minuta fue regenerada por el editor.", {
+        autoClose: 7000,
+        toastId: `minute-public-pdf-updated:${recordId}`,
+      });
+    };
+
+    const onMinutePublished = async () => {
+      await refreshDetail();
+      await refreshPdf({ attempts: 10, delayMs: 1500 });
+      toastInfo("Minuta publicada", "La minuta fue publicada y se actualizó la vista final.", {
+        autoClose: 8000,
+        toastId: `minute-public-published:${recordId}`,
+      });
+    };
+
+    source.addEventListener("observation_resolved", onObservationResolved);
+    source.addEventListener("pdf_updated", onPdfUpdated);
+    source.addEventListener("minute_published", onMinutePublished);
+    source.addEventListener("keepalive", () => {});
+    source.onerror = () => {};
+
+    return () => {
+      active = false;
+      source.removeEventListener("observation_resolved", onObservationResolved);
+      source.removeEventListener("pdf_updated", onPdfUpdated);
+      source.removeEventListener("minute_published", onMinutePublished);
+      source.close();
+      if (eventsRef.current === source) {
+        eventsRef.current = null;
+      }
+    };
+  }, [recordId, savedSession?.accessToken, step]);
 
   useEffect(() => {
     if (!recordId || !savedSession?.accessToken) {
@@ -118,22 +315,31 @@ const MinuteViewPage = () => {
     const load = async () => {
       setLoading(true);
       try {
-        const [detailData, pdfBlob] = await Promise.all([
-          getMinuteViewDetail(recordId, savedSession.accessToken),
-          getMinuteViewPdfBlob(recordId, savedSession.accessToken),
-        ]);
+        const detailData = await getMinuteViewDetail(recordId, savedSession.accessToken);
         if (!active) return;
-        if (pdfUrlRef.current) URL.revokeObjectURL(pdfUrlRef.current);
         setDetail(detailData);
-        pdfUrlRef.current = URL.createObjectURL(pdfBlob);
-        setPdfUrl(pdfUrlRef.current);
         setStep("view");
         setError("");
+        setPdfError("");
+
+        try {
+          const pdfBlob = await getMinuteViewPdfBlob(recordId, savedSession.accessToken);
+          if (!active) return;
+          if (pdfUrlRef.current) URL.revokeObjectURL(pdfUrlRef.current);
+          pdfUrlRef.current = URL.createObjectURL(pdfBlob);
+          setPdfUrl(pdfUrlRef.current);
+        } catch (pdfErr) {
+          if (!active) return;
+          if (pdfUrlRef.current) URL.revokeObjectURL(pdfUrlRef.current);
+          pdfUrlRef.current = "";
+          setPdfUrl("");
+          setPdfError(pdfErr?.message || "El PDF de la minuta aún no está disponible.");
+        }
       } catch (err) {
         if (!active) return;
         clearSession(recordId);
         setStep("login");
-        setError(err?.message || "La sesión de visitante expiró o dejó de ser válida.");
+        setError(PUBLIC_MINUTE_UNAVAILABLE_MESSAGE);
       } finally {
         if (active) setLoading(false);
       }
@@ -147,14 +353,22 @@ const MinuteViewPage = () => {
 
   const handleRequestOtp = async (event) => {
     event.preventDefault();
+    if (isOperationLocked) {
+      setError(operationCopy.message);
+      toastWarn(operationCopy.title, operationCopy.message, {
+        autoClose: 7000,
+        toastId: `minute-public-operation-action:${operationMode}`,
+      });
+      return;
+    }
     setSubmitting(true);
     setError("");
     try {
-      const response = await requestMinuteViewOtp({ recordId, email });
-      setRequestMessage(response?.message || "Código enviado.");
+      await requestMinuteViewOtp({ recordId, email });
+      setRequestMessage(PUBLIC_OTP_REQUEST_MESSAGE);
       setStep("otp");
     } catch (err) {
-      setError(err?.message || "No fue posible enviar el código.");
+      setError(PUBLIC_MINUTE_UNAVAILABLE_MESSAGE);
     } finally {
       setSubmitting(false);
     }
@@ -162,23 +376,38 @@ const MinuteViewPage = () => {
 
   const handleVerifyOtp = async (event) => {
     event.preventDefault();
+    if (isOperationLocked) {
+      setError(operationCopy.message);
+      toastWarn(operationCopy.title, operationCopy.message, {
+        autoClose: 7000,
+        toastId: `minute-public-operation-action:${operationMode}`,
+      });
+      return;
+    }
     setSubmitting(true);
     setError("");
     try {
       const session = await verifyMinuteViewOtp({ recordId, email, otpCode });
       saveSession(recordId, session);
-      const [detailData, pdfBlob] = await Promise.all([
-        getMinuteViewDetail(recordId, session.accessToken),
-        getMinuteViewPdfBlob(recordId, session.accessToken),
-      ]);
-      if (pdfUrlRef.current) URL.revokeObjectURL(pdfUrlRef.current);
+      const detailData = await getMinuteViewDetail(recordId, session.accessToken);
       setDetail(detailData);
-      pdfUrlRef.current = URL.createObjectURL(pdfBlob);
-      setPdfUrl(pdfUrlRef.current);
       setStep("view");
       setOtpCode("");
+      setPdfError("");
+
+      try {
+        const pdfBlob = await getMinuteViewPdfBlob(recordId, session.accessToken);
+        if (pdfUrlRef.current) URL.revokeObjectURL(pdfUrlRef.current);
+        pdfUrlRef.current = URL.createObjectURL(pdfBlob);
+        setPdfUrl(pdfUrlRef.current);
+      } catch (pdfErr) {
+        if (pdfUrlRef.current) URL.revokeObjectURL(pdfUrlRef.current);
+        pdfUrlRef.current = "";
+        setPdfUrl("");
+        setPdfError(pdfErr?.message || "El PDF de la minuta aún no está disponible.");
+      }
     } catch (err) {
-      setError(err?.message || "El código es inválido o expiró.");
+      setError(PUBLIC_OTP_VERIFY_MESSAGE);
     } finally {
       setSubmitting(false);
     }
@@ -193,18 +422,41 @@ const MinuteViewPage = () => {
     } catch {
       // El logout local se aplica igual aunque falle el backend.
     } finally {
+      eventsRef.current?.close?.();
+      eventsRef.current = null;
       clearSession(recordId);
       setDetail(null);
       setStep("login");
       if (pdfUrlRef.current) URL.revokeObjectURL(pdfUrlRef.current);
       pdfUrlRef.current = "";
       setPdfUrl("");
+      setPdfError("");
       setObservationText("");
     }
   };
 
   const handleCreateObservation = async (event) => {
     event.preventDefault();
+    if (isCompleted) {
+      setError("La minuta ya fue publicada. No es posible registrar nuevas observaciones.");
+      toastWarn("Minuta publicada", "La minuta ya está publicada y no permite nuevas observaciones.", {
+        autoClose: 7000,
+        toastId: `minute-public-observation-completed:${recordId}`,
+      });
+      return;
+    }
+    if (isOperationLocked) {
+      setError(operationMode === "read_only"
+        ? "El sistema está en modo solo lectura. No es posible registrar observaciones en este momento."
+        : operationMode === "commissioning"
+          ? "El sistema está en puesta en marcha. No es posible registrar observaciones en este momento."
+          : "El sistema está en mantenimiento. No es posible registrar observaciones en este momento.");
+      toastWarn(operationCopy.title, "No es posible registrar observaciones mientras el sistema está bloqueado.", {
+        autoClose: 7000,
+        toastId: `minute-public-observation-blocked:${operationMode}`,
+      });
+      return;
+    }
     const token = useMinuteViewStore.getState().getSession(recordId)?.accessToken;
     if (!token) {
       setError("La sesión visitante expiró. Solicita un código nuevo.");
@@ -214,13 +466,65 @@ const MinuteViewPage = () => {
     setSubmitting(true);
     setError("");
     try {
-      await createMinuteObservation(recordId, token, observationText);
+      if (editingObservation?.id) {
+        await updateMinuteObservation(recordId, token, editingObservation.id, observationText);
+      } else {
+        await createMinuteObservation(recordId, token, observationText);
+      }
       const detailData = await getMinuteViewDetail(recordId, token);
       setDetail(detailData);
       setObservationText("");
+      setEditingObservation(null);
       setIsModalOpen(false);
+      toastInfo(
+        editingObservation?.id ? "Observación actualizada" : "Observación registrada",
+        editingObservation?.id
+          ? "Tu observación fue actualizada correctamente."
+          : "Tu observación fue enviada al elaborador.",
+        { autoClose: 6000 }
+      );
     } catch (err) {
       setError(err?.message || "No fue posible registrar la observación.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const openCreateObservationModal = () => {
+    if (!canCreateObservation) return;
+    setEditingObservation(null);
+    setObservationText("");
+    setError("");
+    setIsDrawerOpen(false);
+    setIsModalOpen(true);
+  };
+
+  const openEditObservationModal = (item) => {
+    if (!canCreateObservation || item?.status !== "new" || !item?.isCurrentVersion) return;
+    setEditingObservation(item);
+    setObservationText(item.body || "");
+    setError("");
+    setIsModalOpen(true);
+  };
+
+  const handleDeleteObservation = async (item) => {
+    if (!canCreateObservation || item?.status !== "new" || !item?.isCurrentVersion) return;
+    const confirmed = window.confirm("¿Eliminar esta observación? Esta acción no se puede deshacer.");
+    if (!confirmed) return;
+    const token = useMinuteViewStore.getState().getSession(recordId)?.accessToken;
+    if (!token) {
+      setError("La sesión visitante expiró. Solicita un código nuevo.");
+      return;
+    }
+    setSubmitting(true);
+    setError("");
+    try {
+      await deleteMinuteObservation(recordId, token, item.id);
+      const detailData = await getMinuteViewDetail(recordId, token);
+      setDetail(detailData);
+      toastInfo("Observación eliminada", "La observación fue eliminada correctamente.", { autoClose: 6000 });
+    } catch (err) {
+      setError(err?.message || "No fue posible eliminar la observación.");
     } finally {
       setSubmitting(false);
     }
@@ -240,9 +544,29 @@ const MinuteViewPage = () => {
     }));
   };
 
-  const currentVersionLabel = detail?.versions?.find(
-    (item) => item.versionId === detail?.currentVersionId
-  )?.versionLabel || `v${detail?.currentVersionNum || "-"}`;
+  const publicStatusLabel = PUBLIC_RECORD_STATUS_LABELS[recordStatus] || "Minuta";
+
+  const renderOperationBanner = () => (
+    operationCopy ? (
+      <div className={`mb-6 rounded-2xl border px-4 py-3 text-sm ${
+        operationMode === "maintenance"
+          ? "border-rose-400/35 bg-rose-500/10 text-rose-100"
+          : operationMode === "commissioning"
+            ? "border-sky-400/35 bg-sky-500/10 text-sky-100"
+          : "border-amber-400/35 bg-amber-500/10 text-amber-100"
+      }`}>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="font-semibold">{operationCopy.title}</p>
+            <p className="mt-1 opacity-85">{operationCopy.message}</p>
+          </div>
+          <span className="inline-flex w-fit rounded-full border border-current/30 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] opacity-90">
+            {operationCopy.badge}
+          </span>
+        </div>
+      </div>
+    ) : null
+  );
 
   if (loading) {
     return (
@@ -287,6 +611,8 @@ const MinuteViewPage = () => {
         </section>
 
         <section className="px-8 py-10">
+          {renderOperationBanner()}
+
           <h2 className="text-2xl font-bold text-slate-950 dark:text-white">
             {step === "otp" ? "Validar código" : "Identificación de visitante"}
           </h2>
@@ -339,11 +665,11 @@ const MinuteViewPage = () => {
                 >
                   Volver
                 </button>
-                <button
-                  type="submit"
-                  disabled={submitting || otpCode.length < 6}
-                  className="flex-1 rounded-2xl bg-sky-500 px-5 py-3 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
-                >
+              <button
+                type="submit"
+                disabled={submitting || otpCode.length < 6 || isOperationLocked}
+                className="flex-1 rounded-2xl bg-sky-500 px-5 py-3 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+              >
                   {submitting ? "Validando..." : "Ingresar a la minuta"}
                 </button>
               </div>
@@ -371,7 +697,7 @@ const MinuteViewPage = () => {
               </label>
               <button
                 type="submit"
-                disabled={submitting || !email.trim()}
+                disabled={submitting || !email.trim() || isOperationLocked}
                 className="w-full rounded-2xl bg-sky-500 px-5 py-3 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {submitting ? "Enviando código..." : "Solicitar código de acceso"}
@@ -383,7 +709,7 @@ const MinuteViewPage = () => {
     </div>
   );
 
-  if (step !== "view" || !detail) {
+  if (operationMode === "commissioning" || operationMode === "maintenance" || step !== "view" || !detail) {
     return renderAccessPanel();
   }
 
@@ -419,7 +745,7 @@ const MinuteViewPage = () => {
                 <span>/</span>
                 <span>{detail.record?.projectName || "Proyecto"}</span>
                 <span>/</span>
-                <span className="text-sky-300">{currentVersionLabel}</span>
+                <span className="text-sky-300">{publicStatusLabel}</span>
               </div>
               <h1 className="mt-2 truncate text-xl font-bold text-slate-950 dark:text-white">{detail.record?.title}</h1>
             </div>
@@ -449,12 +775,24 @@ const MinuteViewPage = () => {
       </header>
 
       <main className="mx-[10%] my-[15px] w-[80%] flex-1 overflow-hidden">
+        {operationCopy ? (
+          <div className={`mb-3 rounded-2xl border px-4 py-3 text-sm ${
+            operationMode === "maintenance"
+              ? "border-rose-400/35 bg-rose-500/10 text-rose-100"
+              : "border-amber-400/35 bg-amber-500/10 text-amber-100"
+          }`}>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <span className="font-semibold">{operationCopy.title}</span>
+              <span className="opacity-85">{operationCopy.message}</span>
+            </div>
+          </div>
+        ) : null}
         <section className="h-full overflow-hidden rounded-[28px] border border-slate-300/70 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.12)] dark:border-white/10 dark:bg-slate-900/70 dark:shadow-[0_24px_60px_rgba(0,0,0,0.35)]">
           {pdfUrl ? (
             <iframe title="Minute PDF Viewer" src={pdfUrl} className="h-full w-full bg-white" />
           ) : (
-            <div className="grid h-full place-items-center text-slate-500 dark:text-slate-400">
-              No hay un PDF disponible para esta minuta.
+            <div className="grid h-full place-items-center px-6 text-center text-slate-500 dark:text-slate-400">
+              {pdfError || "No hay un PDF disponible para esta minuta."}
             </div>
           )}
         </section>
@@ -468,20 +806,23 @@ const MinuteViewPage = () => {
               <div>
                 <h2 className="text-base font-extrabold text-slate-950 dark:text-white">Observaciones registradas</h2>
                 <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                  Listado por iteración y estado de revisión.
+                  Tus observaciones y las que ya fueron aprobadas o incorporadas a la minuta.
                 </p>
               </div>
               <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsDrawerOpen(false);
-                    setIsModalOpen(true);
-                  }}
-                  className="rounded-xl border border-sky-300 bg-sky-100 px-4 py-2 text-sm font-semibold text-sky-800 transition hover:bg-sky-200 dark:border-sky-400/30 dark:bg-sky-500/10 dark:text-sky-100 dark:hover:bg-sky-500/20"
-                >
-                  Agregar observación
-                </button>
+                {canCreateObservation ? (
+                  <button
+                    type="button"
+                    onClick={openCreateObservationModal}
+                    className="rounded-xl border border-sky-300 bg-sky-100 px-4 py-2 text-sm font-semibold text-sky-800 transition hover:bg-sky-200 dark:border-sky-400/30 dark:bg-sky-500/10 dark:text-sky-100 dark:hover:bg-sky-500/20"
+                  >
+                    Agregar observación
+                  </button>
+                ) : isCompleted ? (
+                  <span className="rounded-xl border border-emerald-300/50 bg-emerald-100 px-4 py-2 text-sm font-semibold text-emerald-800 dark:border-emerald-400/25 dark:bg-emerald-500/10 dark:text-emerald-100">
+                    Minuta publicada
+                  </span>
+                ) : null}
                 <button
                   type="button"
                   onClick={() => setIsDrawerOpen(false)}
@@ -493,9 +834,12 @@ const MinuteViewPage = () => {
             </div>
 
             <div className="min-h-0 flex-1 overflow-auto px-5 py-4">
-              {detail.observationGroups?.some((group) => group.observations?.length) ? (
+              <h3 className="mb-3 text-xs font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                Mis observaciones
+              </h3>
+              {ownObservationGroups?.some((group) => group.observations?.length) ? (
                 <div className="space-y-4">
-                  {detail.observationGroups?.map((group) => (
+                  {ownObservationGroups?.map((group) => (
                     <div key={group.recordVersionId} className="overflow-hidden rounded-2xl border border-slate-300 dark:border-white/10">
                       <button
                         type="button"
@@ -543,6 +887,7 @@ const MinuteViewPage = () => {
                                 <th className="px-4 py-3">Autor</th>
                                 <th className="px-4 py-3">Observación</th>
                                 <th className="px-4 py-3">Estado</th>
+                                <th className="px-4 py-3 text-right">Acciones</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -606,10 +951,32 @@ const MinuteViewPage = () => {
                                         ) : null}
                                       </div>
                                     </td>
+                                    <td className="px-4 py-3 text-right">
+                                      {canCreateObservation && item.status === "new" && item.isCurrentVersion ? (
+                                        <div className="flex justify-end gap-2">
+                                          <button
+                                            type="button"
+                                            onClick={() => openEditObservationModal(item)}
+                                            className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-white/10 dark:text-slate-200 dark:hover:bg-slate-800"
+                                          >
+                                            Editar
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleDeleteObservation(item)}
+                                            className="rounded-lg border border-rose-300 px-3 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-50 dark:border-rose-400/30 dark:text-rose-200 dark:hover:bg-rose-500/10"
+                                          >
+                                            Eliminar
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <span className="text-xs text-slate-400">-</span>
+                                      )}
+                                    </td>
                                   </tr>
                                   {item.editorComment && expandedEditorComments[item.id] ? (
                                     <tr className="border-t border-slate-100 bg-slate-50/70 dark:border-white/5 dark:bg-slate-900/30">
-                                      <td colSpan={3} className="px-4 py-3">
+                                      <td colSpan={4} className="px-4 py-3">
                                         <div className="rounded-xl border border-slate-200 bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-slate-950/40">
                                           <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
                                             Comentario del elaborador
@@ -639,6 +1006,130 @@ const MinuteViewPage = () => {
                   No existen observaciones para la minuta actual.
                 </div>
               )}
+
+              <h3 className="mb-3 mt-6 text-xs font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                Observaciones aprobadas o incorporadas de otros participantes
+              </h3>
+              {sharedObservationGroups?.some((group) => group.observations?.length) ? (
+                <div className="space-y-4">
+                  {sharedObservationGroups?.map((group) => (
+                    <div key={`shared-${group.recordVersionId}`} className="overflow-hidden rounded-2xl border border-slate-300 dark:border-white/10">
+                      <button
+                        type="button"
+                        onClick={() => toggleVersionGroup(`shared-${group.recordVersionId}`)}
+                        className="flex w-full items-center justify-between gap-3 border-b border-slate-300 bg-slate-100/90 px-4 py-3 text-left dark:border-white/10 dark:bg-slate-900/60"
+                      >
+                        <div>
+                          <p className="text-sm font-semibold text-slate-950 dark:text-white">{group.versionLabel}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
+                            {group.isActiveVersion ? "Versión actual" : "Iteración histórica"}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="rounded-full border border-slate-300 px-3 py-1 text-xs text-slate-600 dark:border-white/10 dark:text-slate-300">
+                            {group.observations?.length || 0}
+                          </span>
+                          <span
+                            className={`transition-transform duration-200 ${
+                              expandedVersionGroups[`shared-${group.recordVersionId}`] ? "rotate-180" : "rotate-0"
+                            }`}
+                          >
+                            <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4 text-slate-500 dark:text-slate-300" aria-hidden="true">
+                              <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          </span>
+                        </div>
+                      </button>
+
+                      {expandedVersionGroups[`shared-${group.recordVersionId}`] ? (
+                        group.observations?.length ? (
+                          <table className="w-full border-collapse text-sm">
+                            <thead>
+                              <tr className="bg-slate-100/80 text-left text-xs font-bold uppercase tracking-[0.18em] text-slate-500 dark:bg-slate-900/50 dark:text-slate-400">
+                                <th className="px-4 py-3">Autor</th>
+                                <th className="px-4 py-3">Observación</th>
+                                <th className="px-4 py-3">Estado</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {group.observations.map((item) => (
+                                <React.Fragment key={`shared-${item.id}`}>
+                                  <tr className="border-t border-slate-200 align-top dark:border-white/5">
+                                    <td className="px-4 py-3">
+                                      <p className="font-medium text-slate-950 dark:text-white">{item.authorName || item.authorEmail}</p>
+                                      <p className="mt-1 text-xs text-slate-500">
+                                        {item.createdAt ? new Date(item.createdAt).toLocaleString("es-CL") : ""}
+                                      </p>
+                                    </td>
+                                    <td className="px-4 py-3 text-slate-700 dark:text-slate-200">{item.body}</td>
+                                    <td className="px-4 py-3">
+                                      <div className="flex items-start justify-between gap-3">
+                                        <span
+                                          className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${
+                                            OBSERVATION_STATUS_META[item.status]?.className ||
+                                            "border-slate-300 bg-slate-50 text-slate-700 dark:border-white/10 dark:bg-slate-900/20 dark:text-slate-300"
+                                          }`}
+                                        >
+                                          {OBSERVATION_STATUS_META[item.status]?.label || item.status}
+                                        </span>
+                                        {item.editorComment ? (
+                                          <button
+                                            type="button"
+                                            onClick={() => toggleEditorComment(`shared-${item.id}`)}
+                                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-600 transition hover:bg-slate-100 dark:border-white/10 dark:bg-slate-900/60 dark:text-slate-300 dark:hover:bg-slate-800"
+                                            aria-label={
+                                              expandedEditorComments[`shared-${item.id}`]
+                                                ? "Ocultar comentario del elaborador"
+                                                : "Mostrar comentario del elaborador"
+                                            }
+                                            title={
+                                              expandedEditorComments[`shared-${item.id}`]
+                                                ? "Ocultar comentario del elaborador"
+                                                : "Mostrar comentario del elaborador"
+                                            }
+                                          >
+                                            <span
+                                              className={`transition-transform duration-200 ${
+                                                expandedEditorComments[`shared-${item.id}`] ? "rotate-180" : "rotate-0"
+                                              }`}
+                                            >
+                                              <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4" aria-hidden="true">
+                                                <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                                              </svg>
+                                            </span>
+                                          </button>
+                                        ) : null}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                  {item.editorComment && expandedEditorComments[`shared-${item.id}`] ? (
+                                    <tr className="border-t border-slate-100 bg-slate-50/70 dark:border-white/5 dark:bg-slate-900/30">
+                                      <td colSpan={3} className="px-4 py-3">
+                                        <div className="rounded-xl border border-slate-200 bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-slate-950/40">
+                                          <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                                            Comentario del elaborador
+                                          </p>
+                                          <p className="text-sm leading-6 text-slate-700 dark:text-slate-200">
+                                            {item.editorComment}
+                                          </p>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  ) : null}
+                                </React.Fragment>
+              ))}
+                            </tbody>
+                          </table>
+                        ) : null
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-500 dark:border-white/15 dark:bg-slate-900/35 dark:text-slate-400">
+                  Aún no hay observaciones aprobadas o incorporadas.
+                </div>
+              )}
             </div>
           </aside>
         </div>
@@ -647,13 +1138,18 @@ const MinuteViewPage = () => {
       {isModalOpen ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/75 px-4">
           <div className="w-full max-w-xl rounded-[28px] border border-slate-300 bg-white p-6 shadow-[0_28px_90px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-900 dark:shadow-[0_28px_90px_rgba(0,0,0,0.55)]">
-            <h2 className="text-xl font-bold text-slate-950 dark:text-white">Nueva observación</h2>
+            <h2 className="text-xl font-bold text-slate-950 dark:text-white">
+              {editingObservation ? "Editar observación" : "Nueva observación"}
+            </h2>
             <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
-              La observación quedará asociada a la versión activa actual de la minuta.
+              {editingObservation
+                ? "Puedes modificarla mientras el elaborador no la haya procesado."
+                : "La observación quedará asociada a la versión activa actual de la minuta."}
             </p>
 
             <form className="mt-5 space-y-4" onSubmit={handleCreateObservation}>
               <textarea
+                ref={observationTextareaRef}
                 value={observationText}
                 onChange={(event) => setObservationText(event.target.value)}
                 rows={7}
@@ -663,7 +1159,11 @@ const MinuteViewPage = () => {
               <div className="flex justify-end gap-3">
                 <button
                   type="button"
-                  onClick={() => setIsModalOpen(false)}
+                  onClick={() => {
+                    setIsModalOpen(false);
+                    setEditingObservation(null);
+                    setObservationText("");
+                  }}
                   className="rounded-2xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 dark:border-white/10 dark:text-slate-300"
                 >
                   Cancelar
@@ -673,7 +1173,7 @@ const MinuteViewPage = () => {
                   disabled={submitting || observationText.trim().length < 3}
                   className="rounded-2xl bg-sky-500 px-4 py-3 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {submitting ? "Guardando..." : "Registrar observación"}
+                  {submitting ? "Guardando..." : editingObservation ? "Guardar cambios" : "Registrar observación"}
                 </button>
               </div>
             </form>

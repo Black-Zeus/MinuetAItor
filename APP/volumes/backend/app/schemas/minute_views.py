@@ -88,6 +88,7 @@ class MinuteViewDetailResponse(BaseModel):
     content_type: Literal["ai_output", "draft", "snapshot"] | None = Field(None, serialization_alias="contentType")
     versions: list[MinuteVersionItem] = Field(default_factory=list)
     observation_groups: list[MinuteViewObservationGroup] = Field(default_factory=list, serialization_alias="observationGroups")
+    shared_observation_groups: list[MinuteViewObservationGroup] = Field(default_factory=list, serialization_alias="sharedObservationGroups")
     current_version_id: str | None = Field(None, serialization_alias="currentVersionId")
     current_version_num: int | None = Field(None, serialization_alias="currentVersionNum")
 
@@ -95,6 +96,12 @@ class MinuteViewDetailResponse(BaseModel):
 
 
 class MinuteViewObservationCreateRequest(BaseModel):
+    body: str = Field(..., min_length=3, max_length=4000)
+
+    model_config = {"populate_by_name": True}
+
+
+class MinuteViewObservationUpdateRequest(BaseModel):
     body: str = Field(..., min_length=3, max_length=4000)
 
     model_config = {"populate_by_name": True}
