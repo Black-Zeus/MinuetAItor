@@ -1,0 +1,35 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+ENV TZ=America/Santiago \
+    DEBIAN_FRONTEND=noninteractive \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    gzip \
+    mariadb-client \
+    tar \
+    tzdata \
+    coreutils \
+    && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime \
+    && echo $TZ > /etc/timezone \
+    && curl -fsSL "https://dl.min.io/client/mc/release/linux-amd64/mc" -o /usr/local/bin/mc \
+    && chmod +x /usr/local/bin/mc \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY APP/volumes/backup-worker/requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
+
+RUN useradd -m appuser \
+    && mkdir -p /app/remote_data/backups /app/backend_app /var/log/app \
+    && chown -R appuser:appuser /app /var/log/app
+
+COPY --chown=appuser:appuser APP/volumes/backup-worker/app/ /app/
+
+USER appuser
+
+CMD ["python", "-u", "main.py"]

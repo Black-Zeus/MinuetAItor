@@ -1,109 +1,326 @@
-# PRD: exponer SOLO 80/443 (nginx). Servicios internos sin puertos host.
+# PRD: exponer solo nginx por puerto 80. El resto queda en red interna.
 name: ${PROJECT_NAME}
 
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "5"
+
 services:
+  volume-permissions:
+    image: alpine:3.20
+    container_name: ${PROJECT_NAME}-volume-permissions
+    command:
+      - sh
+      - -c
+      - |
+        chown -R 999:999 /volumes/mariadb /volumes/redis
+        chown -R 1000:1000 /volumes/minio /volumes/backend
+    volumes:
+      - mariadb_data:/volumes/mariadb
+      - redis_data:/volumes/redis
+      - minio_data:/volumes/minio
+      - backend_data:/volumes/backend
+    networks:
+      - internal
+    labels:
+      stack: ${PROJECT_NAME}
+      env: prod
+    logging: *default-logging
+    restart: "no"
+
   nginx:
-    image: nginx:1.25-alpine
+    build:
+      context: .
+      dockerfile: ./Data/dokerFile/prd/Dockerfile.nginx
+    image: ${PROJECT_NAME}/nginx:prd
     container_name: ${PROJECT_NAME}-nginx
     restart: unless-stopped
     depends_on:
-      - frontend
-      - backend
-      - minio
+      frontend:
+        condition: service_started
+      backend:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      mailpit:
+        condition: service_healthy
     ports:
-      - "${NGINX_HTTP_PORT}:80"
-      # - "${NGINX_HTTPS_PORT}:443"  # habilitar cuando tengas certificados
+      - "${NGINX_HTTP_PORT:-80}:8080"
     volumes:
-      - ./APP/data/settings/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./APP/data/settings/nginx/conf.d/default-prd.conf:/etc/nginx/conf.d/default.conf:ro
       - ./APP/data/settings/nginx/certs:/etc/nginx/certs:ro
+    networks:
+      - internal
     labels:
-      - "stack=${PROJECT_NAME}"
-      - "env=${ENV_NAME}"
+      stack: ${PROJECT_NAME}
+      env: prod
+    logging: *default-logging
 
   mariadb:
     image: mariadb:11.4
     container_name: ${PROJECT_NAME}-mariadb
     restart: unless-stopped
+    user: "999:999"
     environment:
+      TZ: America/Santiago
       MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD}
       MARIADB_DATABASE: ${MARIADB_DATABASE}
       MARIADB_USER: ${MARIADB_USER}
       MARIADB_PASSWORD: ${MARIADB_PASSWORD}
     volumes:
-      - ./APP/data/mariadb_data:/var/lib/mysql
+      - mariadb_data:/var/lib/mysql
       - ./APP/data/settings/mariadb/init:/docker-entrypoint-initdb.d:ro
+    depends_on:
+      volume-permissions:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "mariadb-admin", "ping", "-h", "127.0.0.1", "-p${MARIADB_ROOT_PASSWORD}"]
       interval: 10s
       timeout: 5s
       retries: 20
+    networks:
+      - internal
     labels:
-      - "stack=${PROJECT_NAME}"
-      - "env=${ENV_NAME}"
+      stack: ${PROJECT_NAME}
+      env: prod
+    logging: *default-logging
 
   redis:
     image: redis:7-alpine
     container_name: ${PROJECT_NAME}-redis
     restart: unless-stopped
+    user: "999:999"
     command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    environment:
+      TZ: America/Santiago
     volumes:
-      - ./APP/data/redis_data:/data
+      - redis_data:/data
       - ./APP/data/settings/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    depends_on:
+      volume-permissions:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 3s
       retries: 30
+    networks:
+      - internal
     labels:
-      - "stack=${PROJECT_NAME}"
-      - "env=${ENV_NAME}"
+      stack: ${PROJECT_NAME}
+      env: prod
+    logging: *default-logging
 
   minio:
     image: minio/minio:RELEASE.2025-09-07T16-13-09Z
     container_name: ${PROJECT_NAME}-minio
     restart: unless-stopped
+    user: "1000:1000"
     environment:
       TZ: America/Santiago
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-      # Si publicas por PATH, define URLs públicas según tu dominio real:
-      # MINIO_SERVER_URL: "https://app.tu-dominio.tld/minio"
-      # MINIO_BROWSER_REDIRECT_URL: "https://app.tu-dominio.tld/minio-console"
-    command: server /data --console-address ":9001"
+    command: ["server", "/data", "--console-address", ":9001"]
     volumes:
       - minio_data:/data
       - /usr/share/zoneinfo/America/Santiago:/etc/localtime:ro
       - /usr/share/zoneinfo/America/Santiago:/usr/share/zoneinfo/America/Santiago:ro
       - /etc/timezone:/etc/timezone:ro
+    depends_on:
+      volume-permissions:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "curl", "-f", "http://127.0.0.1:9000/minio/health/live"]
       interval: 10s
       timeout: 5s
       retries: 30
+    networks:
+      - internal
     labels:
-      - "stack=${PROJECT_NAME}"
-      - "env=${ENV_NAME}"
+      stack: ${PROJECT_NAME}
+      env: prod
+    logging: *default-logging
 
   backend:
     build:
       context: .
-      dockerfile: ./Data/dokerFile/Dockerfile.backend
+      dockerfile: ./Data/dokerFile/prd/Dockerfile.backend
+    image: ${PROJECT_NAME}/backend:prd
     container_name: ${PROJECT_NAME}-backend
     restart: unless-stopped
     environment:
-      ENV_NAME: ${ENV_NAME}
-      MARIADB_HOST: ${MARIADB_HOST}
-      MARIADB_PORT: ${MARIADB_PORT}
+      APP_VERSION: ${APP_VERSION}
+      TZ: America/Santiago
+      ENV_NAME: prod
+      MARIADB_HOST: mariadb
+      MARIADB_PORT: 3306
       MARIADB_DATABASE: ${MARIADB_DATABASE}
       MARIADB_USER: ${MARIADB_USER}
       MARIADB_PASSWORD: ${MARIADB_PASSWORD}
-      REDIS_HOST: ${REDIS_HOST}
-      REDIS_PORT: ${REDIS_PORT}
-      MINIO_HOST: ${MINIO_HOST}
-      MINIO_PORT: ${MINIO_PORT}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: ${REDIS_DB:-0}
+      MINIO_HOST: minio
+      MINIO_PORT: 9000
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_SYSTEM_PROMPT: ${OPENAI_SYSTEM_PROMPT}
+      PROMPT_PATH_BASE: /app/assets/prompts
+      FRONTEND_BASE_URL: ${FRONTEND_PUBLIC_URL}
+      FRONTEND_LOGIN_URL: ${FRONTEND_LOGIN_URL}
+      FRONTEND_RESET_PASSWORD_URL: ${FRONTEND_RESET_PASSWORD_URL}
+      MINUTES_MAX_FILE_SIZE_MB: ${MINUTES_MAX_FILE_SIZE_MB}
+      MINUTES_RATE_LIMIT_PER_DAY: ${MINUTES_RATE_LIMIT_PER_DAY}
+      ALLOW_PRIVATE_PROVIDER_HOSTS: ${ALLOW_PRIVATE_PROVIDER_HOSTS:-false}
     volumes:
-      - ./APP/data/backend_data:/app/_data
+      - backend_data:/app/remote_data
+      - ./APP/data/settings/worker/prompts:/app/assets/prompts:ro
+    depends_on:
+      volume-permissions:
+        condition: service_completed_successfully
+      mariadb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    networks:
+      - internal
+    labels:
+      stack: ${PROJECT_NAME}
+      env: prod
+    logging: *default-logging
+
+  worker:
+    build:
+      context: .
+      dockerfile: ./Data/dokerFile/prd/Dockerfile.worker
+    image: ${PROJECT_NAME}/worker:prd
+    container_name: ${PROJECT_NAME}-worker
+    restart: unless-stopped
+    environment:
+      APP_VERSION: ${APP_VERSION}
+      TZ: America/Santiago
+      ENV_NAME: prod
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: ${REDIS_DB:-0}
+      MARIADB_HOST: mariadb
+      MARIADB_PORT: 3306
+      MARIADB_DATABASE: ${MARIADB_DATABASE}
+      MARIADB_USER: ${MARIADB_USER}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD}
+      MINIO_HOST: minio
+      MINIO_PORT: 9000
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_SECURE: ${MINIO_SECURE:-false}
+      OPENAI_SYSTEM_PROMPT: ${OPENAI_SYSTEM_PROMPT}
+      PROMPT_PATH_BASE: /app/assets/prompts
+      BACKEND_INTERNAL_URL: http://backend:8000
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET}
+      BACKEND_TIMEOUT: ${BACKEND_TIMEOUT:-30}
+      TRACE_ENABLED: ${TRACE_ENABLED:-false}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_DIR: /var/log/app
+    volumes:
+      - ./APP/data/settings/worker/prompts:/app/assets/prompts:ro
+      - ./APP/data/settings/worker/temp:/app/assets/temp
+    depends_on:
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    networks:
+      - internal
+    labels:
+      stack: ${PROJECT_NAME}
+      env: prod
+    logging: *default-logging
+
+  pdf-worker:
+    build:
+      context: .
+      dockerfile: ./Data/dokerFile/prd/Dockerfile.pdf-worker
+    image: ${PROJECT_NAME}/pdf-worker:prd
+    container_name: ${PROJECT_NAME}-pdf-worker
+    restart: unless-stopped
+    environment:
+      APP_VERSION: ${APP_VERSION}
+      TZ: America/Santiago
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      MINIO_HOST: minio
+      MINIO_PORT: 9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      GOTENBERG_URL: http://gotenberg:3000
+      BACKEND_INTERNAL_URL: http://backend:8000
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET}
+      BACKEND_TIMEOUT: ${BACKEND_TIMEOUT:-30}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    depends_on:
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      gotenberg:
+        condition: service_started
+      backend:
+        condition: service_healthy
+    networks:
+      - internal
+    labels:
+      stack: ${PROJECT_NAME}
+      env: prod
+    logging: *default-logging
+
+  backup-worker:
+    build:
+      context: .
+      dockerfile: ./Data/dokerFile/prd/Dockerfile.backup-worker
+    image: ${PROJECT_NAME}/backup-worker:prd
+    container_name: ${PROJECT_NAME}-backup-worker
+    restart: unless-stopped
+    environment:
+      APP_VERSION: ${APP_VERSION}
+      TZ: America/Santiago
+      ENV_NAME: prod
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: ${REDIS_DB:-0}
+      BACKUP_QUEUE: queue:backups
+      MARIADB_HOST: mariadb
+      MARIADB_PORT: 3306
+      MARIADB_DATABASE: ${MARIADB_DATABASE}
+      MARIADB_USER: ${MARIADB_USER}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD}
+      MINIO_HOST: minio
+      MINIO_PORT: 9000
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_SECURE: ${MINIO_SECURE:-false}
+      BACKEND_INTERNAL_URL: http://backend:8000
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET}
+      BACKEND_TIMEOUT: ${BACKEND_TIMEOUT:-30}
+      BACKUP_STORAGE_ROOT: /app/remote_data/backups
+      MAINTENANCE_STATE_FILE: /app/remote_data/maintenance_state.json
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_DIR: /var/log/app
+    volumes:
+      - backend_data:/app/remote_data
+      - ./APP/volumes/backend/app:/app/backend_app:ro
+      - ./APP/data/settings/mariadb/init:/app/data/settings/mariadb/init:ro
     depends_on:
       mariadb:
         condition: service_healthy
@@ -111,38 +328,109 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+      backend:
+        condition: service_healthy
+    networks:
+      - internal
     labels:
-      - "stack=${PROJECT_NAME}"
-      - "env=${ENV_NAME}"
+      stack: ${PROJECT_NAME}
+      env: prod
+    logging: *default-logging
 
-  worker:
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    container_name: ${PROJECT_NAME}-gotenberg
+    restart: unless-stopped
+    command:
+      - gotenberg
+      - --chromium-disable-javascript=true
+    environment:
+      APP_VERSION: ${APP_VERSION}
+      TZ: America/Santiago
+    networks:
+      - internal
+    labels:
+      stack: ${PROJECT_NAME}
+      env: prod
+    logging: *default-logging
+
+  scheduler:
     build:
       context: .
-      dockerfile: ./Data/dokerFile/Dockerfile.worker
-    container_name: ${PROJECT_NAME}-worker
+      dockerfile: ./Data/dokerFile/prd/Dockerfile.scheduler
+    image: ${PROJECT_NAME}/scheduler:prd
+    container_name: ${PROJECT_NAME}-scheduler
     restart: unless-stopped
     environment:
-      ENV_NAME: ${ENV_NAME}
-      REDIS_HOST: ${REDIS_HOST}
-      REDIS_PORT: ${REDIS_PORT}
+      APP_VERSION: ${APP_VERSION}
+      TZ: America/Santiago
+      ENV_NAME: prod
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      BACKEND_INTERNAL_URL: http://backend:8000
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET}
     depends_on:
       redis:
         condition: service_healthy
+      backend:
+        condition: service_healthy
+    networks:
+      - internal
     labels:
-      - "stack=${PROJECT_NAME}"
-      - "env=${ENV_NAME}"
+      stack: ${PROJECT_NAME}
+      env: prod
+    logging: *default-logging
 
-  # Frontend prod: se construye una imagen estática y se sirve en 80 interno
   frontend:
     build:
       context: .
-      dockerfile: ./Data/dokerFile/Dockerfile.frontend
+      dockerfile: ./Data/dokerFile/prd/Dockerfile.frontend
+    image: ${PROJECT_NAME}/frontend:prd
     container_name: ${PROJECT_NAME}-frontend
     restart: unless-stopped
+    environment:
+      APP_VERSION: ${APP_VERSION}
+      TZ: America/Santiago
+      NODE_ENV: production
+    networks:
+      - internal
     labels:
-      - "stack=${PROJECT_NAME}"
-      - "env=${ENV_NAME}"
+      stack: ${PROJECT_NAME}
+      env: prod
+    logging: *default-logging
+
+  mailpit:
+    image: axllent/mailpit:v1.29
+    container_name: ${PROJECT_NAME}-mailpit
+    restart: unless-stopped
+    user: "1000:1000"
+    environment:
+      APP_VERSION: ${APP_VERSION}
+      TZ: America/Santiago
+      MP_WEBROOT: /mailpit
+    healthcheck:
+      test: ["CMD-SHELL", "printf 'EHLO health.local\r\nQUIT\r\n' | nc -w 3 localhost 1025 >/dev/null"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - internal
+    labels:
+      stack: ${PROJECT_NAME}
+      env: prod
+    logging: *default-logging
+
+networks:
+  internal:
+    driver: bridge
+    name: ${PROJECT_NAME}_internal
 
 volumes:
+  mariadb_data:
+    name: ${PROJECT_NAME}_mariadb_data
+  redis_data:
+    name: ${PROJECT_NAME}_redis_data
   minio_data:
     name: ${PROJECT_NAME}_minio_data
+  backend_data:
+    name: ${PROJECT_NAME}_backend_data
