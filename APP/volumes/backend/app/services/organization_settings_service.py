@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
+from urllib.parse import urlparse
 
 from fastapi import UploadFile
 from sqlalchemy import inspect
@@ -23,6 +25,8 @@ from services.organization_media_service import (
 )
 
 ORGANIZATION_SETTINGS_SINGLETON_ID = 1
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_VALUES = {
     "name": None,
@@ -161,6 +165,16 @@ def _clean_public_base_url(value: object) -> str | None:
     text = _clean_text(value, 500)
     if not text:
         return None
+
+    parsed = urlparse(text)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise BadRequestException(
+            "La URL pública de la plataforma debe incluir http:// o https://."
+        )
+    if parsed.path not in {"", "/"} or parsed.params or parsed.query or parsed.fragment:
+        raise BadRequestException(
+            "La URL pública de la plataforma debe ser la URL base, sin rutas, parámetros ni fragmentos."
+        )
     return text.rstrip("/")
 
 
@@ -320,4 +334,11 @@ def get_organization_public_base_url(db: Session | None) -> str | None:
         obj = _get_singleton(db)
     except Exception:
         return None
-    return _clean_public_base_url(getattr(obj, "public_base_url", None))
+    try:
+        return _clean_public_base_url(getattr(obj, "public_base_url", None))
+    except BadRequestException as exc:
+        logger.warning(
+            "URL pública de organización inválida; se ignora para construir enlaces públicos: %s",
+            exc,
+        )
+        return None

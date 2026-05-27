@@ -27,7 +27,7 @@ const TAG_LABELS = {
   "minute.request.queue_failed": "Solicitud de acta con error de cola",
   "minute.publication.completed": "Publicación de acta completada",
   "minute.status.preview": "Acta enviada a revisión",
-  "minute.status.changed": "Estado de acta actualizado",
+  "minute.status.changed": "Cambio de estado de minuta",
   "minute.publication.pdf_ready": "PDF final disponible",
   "minute.conversion.completed": "PDF de borrador disponible",
   "minute.observation.created": "Observación de acta recibida",

@@ -52,6 +52,26 @@ const uid = () => Math.random().toString(16).slice(2) + Date.now().toString(16);
 const deepClone = (obj) => JSON.parse(JSON.stringify(obj));
 
 const asArray = (value) => (Array.isArray(value) ? value : []);
+const formatObservationDateLabel = (value) => {
+  if (!value) return "";
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "";
+
+  return parsed.toLocaleDateString("es-CL", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+};
+
+const buildGuestObservationLabel = ({ authorLabel, createdAt } = {}) => {
+  const cleanAuthor = String(authorLabel || "").trim() || "invitado";
+  const cleanDate = formatObservationDateLabel(createdAt);
+
+  return cleanDate ? `Observación de ${cleanAuthor} - ${cleanDate}` : `Observación de ${cleanAuthor}`;
+};
+
 const DEFAULT_SIGNATURE_NOTE =
   "Se deja constancia de la revisión y conformidad con los acuerdos y compromisos documentados en esta minuta.";
 const DEFAULT_FOOTER_BAR_NOTE = "Proyecto / sesión";
@@ -955,11 +975,11 @@ const useMinuteEditorStore = create((set, get) => ({
       isDirty: true,
     })),
 
-  insertObservationIntoScope: ({ sectionId, sectionTitle, body, authorLabel, observationId }) =>
+  insertObservationIntoScope: ({ sectionId, sectionTitle, body, authorLabel, createdAt }) =>
     set((s) => {
       const detail = {
         id: uid(),
-        label: observationId ? `OBS-${observationId}` : `Observación de ${authorLabel || "visitante"}`,
+        label: buildGuestObservationLabel({ authorLabel, createdAt }),
         description: String(body ?? "").trim(),
       };
 

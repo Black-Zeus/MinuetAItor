@@ -52,7 +52,7 @@ const MinuteEditorSectionAgreements = ({ isReadOnly = false }) => {
             size: 'medium',
             showFooter: true,
             content: (
-                <div className="p-6 space-y-4">
+                <div className="p-6 space-y-5">
                     <div>
                         <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 transition-theme">
                             Asunto <span className="text-red-500">*</span>
@@ -72,7 +72,7 @@ const MinuteEditorSectionAgreements = ({ isReadOnly = false }) => {
                         <textarea
                             defaultValue={draft.body}
                             onChange={(e) => { draft.body = e.target.value; }}
-                            rows={3}
+                            rows={4}
                             className="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm text-gray-900 dark:text-gray-100 transition-theme focus:outline-none focus:ring-2 focus:ring-primary-500/40 resize-none"
                         />
                     </div>

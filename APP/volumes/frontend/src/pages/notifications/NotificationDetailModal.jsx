@@ -172,7 +172,7 @@ const NotificationDetailModal = ({ notificationId, initialNotification = null, o
                 </p>
                 <p className="break-all text-sm text-gray-700 dark:text-gray-200">
                   <span className="font-semibold text-gray-900 dark:text-gray-100">Tipo:</span>{" "}
-                  <span>{detail?.notificationType || "notification.info"}</span>
+                  <span>{getNotificationTagLabel(detail?.notificationType || "notification.info")}</span>
                 </p>
               </div>
 

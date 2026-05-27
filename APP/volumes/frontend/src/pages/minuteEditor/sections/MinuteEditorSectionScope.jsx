@@ -12,6 +12,9 @@
 import React, { useCallback, useEffect, useState } from "react";
 import Icon from "@components/ui/icon/iconManager";
 import useMinuteEditorStore from "@/store/minuteEditorStore";
+import ModalManager from "@components/ui/modal";
+import { regenerateMinuteReviewPdf } from "@/services/minutesService";
+import { toastSuccess } from "@/components/common/toast/toastHelpers";
 
 const TYPE_BADGE = {
   introduction: {
@@ -165,7 +168,13 @@ const DetailsList = ({
 );
 
 // Componente principal
-const MinuteEditorSectionScope = ({ isReadOnly = false }) => {
+const MinuteEditorSectionScope = ({
+  isReadOnly = false,
+  recordId = "",
+  recordStatus = "",
+  canRefreshReviewPdf = false,
+  onReviewPdfRefreshed,
+}) => {
   const {
     scopeSections,
     updateSectionSummary,
@@ -176,6 +185,7 @@ const MinuteEditorSectionScope = ({ isReadOnly = false }) => {
     updateSectionDetail,
     deleteSectionDetail,
     activeSearchTargetId,
+    getExportPayload,
   } = useMinuteEditorStore();
 
   // ============================
@@ -185,6 +195,30 @@ const MinuteEditorSectionScope = ({ isReadOnly = false }) => {
   // - resto: colapsadas por defecto
   // ============================
   const [expandedMap, setExpandedMap] = useState({}); // { [sectionId]: boolean }
+  const [refreshingPdf, setRefreshingPdf] = useState(false);
+  const showReviewPdfRefresh = recordStatus === "preview";
+
+  const handleRefreshReviewPdf = async () => {
+    if (!recordId || refreshingPdf || !canRefreshReviewPdf) return;
+
+    setRefreshingPdf(true);
+    try {
+      const payload = getExportPayload();
+      await regenerateMinuteReviewPdf(recordId, payload);
+      onReviewPdfRefreshed?.();
+      toastSuccess(
+        "PDF regenerado",
+        "El PDF de la vista pública fue actualizado y se refrescará automáticamente para los invitados."
+      );
+    } catch (err) {
+      ModalManager.error({
+        title: "No fue posible regenerar el PDF",
+        message: err?.message || "Intenta nuevamente en unos segundos.",
+      });
+    } finally {
+      setRefreshingPdf(false);
+    }
+  };
 
   // Inicialización/normalización cuando cambian las secciones
   useEffect(() => {
@@ -325,6 +359,33 @@ const MinuteEditorSectionScope = ({ isReadOnly = false }) => {
                   className="w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm text-gray-900 dark:text-gray-100 transition-theme focus:outline-none focus:ring-2 focus:ring-primary-500/40 resize-none"
                 />
               </div>
+
+              {section.type === "introduction" && showReviewPdfRefresh && (
+                <div className="mt-4 flex flex-col gap-2 rounded-xl border border-indigo-200/70 bg-indigo-50/70 px-4 py-3 transition-theme dark:border-indigo-800/50 dark:bg-indigo-950/20 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-indigo-800 transition-theme dark:text-indigo-200">
+                      PDF de revisión
+                    </p>
+                    <p className="mt-1 text-xs text-indigo-700/80 transition-theme dark:text-indigo-300/80">
+                      Regenera el PDF público cuando termines de procesar observaciones.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRefreshReviewPdf}
+                    disabled={!canRefreshReviewPdf || refreshingPdf}
+                    title={
+                      canRefreshReviewPdf
+                        ? "Regenerar PDF de revisión"
+                        : "Disponible cuando exista una observación procesada"
+                    }
+                    className="inline-flex min-h-[40px] shrink-0 items-center justify-center rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-theme hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-55"
+                  >
+                    <Icon name={refreshingPdf ? "rotate" : "arrowsRotate"} className={refreshingPdf ? "mr-2 animate-spin" : "mr-2"} />
+                    {refreshingPdf ? "Regenerando..." : "Regenerar PDF"}
+                  </button>
+                </div>
+              )}
 
               {/* Lista de temas (solo en introduction) */}
               {section.type === "introduction" && (
