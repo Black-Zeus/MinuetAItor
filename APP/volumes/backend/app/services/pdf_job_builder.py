@@ -342,19 +342,20 @@ def _load_ia_response(record_id: str) -> Dict[str, Any]:
 
     minio  = get_minio_client()
     bucket = "minuetaitor-json"
-    key    = f"{record_id}/schema_output_v1.json"
+    last_error: Exception | None = None
+    for key in (f"{record_id}/schema_output_v0.json", f"{record_id}/schema_output_v1.json"):
+        logger.debug("pdf_job_builder: leyendo %s/%s", bucket, key)
+        try:
+            response = minio.get_object(bucket, key)
+            raw = response.read()
+            return json.loads(raw)
+        except Exception as exc:
+            last_error = exc
 
-    logger.debug("pdf_job_builder: leyendo %s/%s", bucket, key)
-
-    try:
-        response = minio.get_object(bucket, key)
-        raw      = response.read()
-        return json.loads(raw)
-    except Exception as exc:
-        raise RuntimeError(
-            f"pdf_job_builder: no se pudo leer schema_output_v1.json "
-            f"para record_id={record_id}: {exc}"
-        ) from exc
+    raise RuntimeError(
+        f"pdf_job_builder: no se pudo leer schema_output_v0.json ni schema_output_v1.json "
+        f"para record_id={record_id}: {last_error}"
+    )
 
 
 def _assert_relations(record: Any) -> None:
@@ -663,7 +664,7 @@ def _build_pdf_notification_payload(
     record_id: str,
     version_id: str,
     output_key: str,
-) -> Dict[str, Any]:
+) -> Dict[str, Any] | None:
     recipient_user_ids = _dedupe_user_ids(
         [
             getattr(record, "prepared_by_user_id", None),
@@ -679,18 +680,14 @@ def _build_pdf_notification_payload(
     ).strip() or None
     is_published = str(trigger_config.get("minio_bucket")) == "minuetaitor-published"
 
-    if is_published:
-        notification_type = "minute.publication.pdf_ready"
-        title = "PDF final disponible"
-        message = f'El PDF final de "{getattr(record, "title", "la minuta")}" quedó disponible.'
-        tags = ["minute", "pdf", "publication", "minute.publication.pdf_ready"]
-        action_url = f"/minutes/view/{record_id}"
-    else:
-        notification_type = "minute.conversion.completed"
-        title = "PDF de borrador disponible"
-        message = f'Se generó el PDF de borrador de "{getattr(record, "title", "la minuta")}".'
-        tags = ["minute", "pdf", "draft", "minute.conversion.completed"]
-        action_url = f"/minutes/process/{record_id}"
+    if not is_published:
+        return None
+
+    notification_type = "minute.publication.pdf_ready"
+    title = "PDF final disponible"
+    message = f'El PDF final de "{getattr(record, "title", "la minuta")}" quedó disponible.'
+    tags = ["minute", "pdf", "publication", "minute.publication.pdf_ready"]
+    action_url = f"/minutes/view/{record_id}"
 
     return {
         "notificationType": notification_type,

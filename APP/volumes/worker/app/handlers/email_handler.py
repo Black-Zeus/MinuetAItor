@@ -29,6 +29,12 @@ logger = get_logger("worker.handler.email")
 TAG_RE = re.compile(r"<[^>]+>")
 LINE_BREAK_TAGS = ("<br>", "<br/>", "<br />", "</p>", "</div>", "</li>", "</tr>")
 SMTP_CACHE_TTL_SECONDS = 30
+INLINE_ASSET_MAX_BYTES = 2 * 1024 * 1024
+EMAIL_ATTACHMENT_MAX_BYTES = 15 * 1024 * 1024
+INLINE_ASSET_ALLOWED_ROOTS = (
+    Path("/app/assets/images"),
+    Path("/app/email_assets"),
+)
 
 _SMTP_CACHE_LOCK = threading.Lock()
 _SMTP_CACHE_EXPIRES_AT = 0.0
@@ -705,6 +711,9 @@ def _attach_inline_assets(msg: EmailMessage, inline_assets: list[dict[str, Any]]
         maintype, subtype = mime_type.split("/", 1) if "/" in mime_type else ("application", "octet-stream")
 
         if content_base64:
+            if _estimated_base64_decoded_size(content_base64) > INLINE_ASSET_MAX_BYTES:
+                logger.warning("Inline asset ignorado por tamaño base64 | cid=%s", cid)
+                continue
             try:
                 asset_content = base64.b64decode(content_base64)
             except Exception:
@@ -718,9 +727,15 @@ def _attach_inline_assets(msg: EmailMessage, inline_assets: list[dict[str, Any]]
             )
             continue
 
-        asset_path = Path(path_value)
-        if not asset_path.exists():
+        asset_path = _resolve_allowed_inline_asset_path(path_value)
+        if asset_path is None:
+            logger.warning("Inline asset ignorado por path no permitido | cid=%s", cid)
+            continue
+        if not asset_path.exists() or not asset_path.is_file():
             logger.warning("Inline asset no encontrado | cid=%s path=%s", cid, asset_path)
+            continue
+        if asset_path.stat().st_size > INLINE_ASSET_MAX_BYTES:
+            logger.warning("Inline asset ignorado por tamaño | cid=%s path=%s", cid, asset_path)
             continue
 
         with asset_path.open("rb") as fh:
@@ -731,6 +746,19 @@ def _attach_inline_assets(msg: EmailMessage, inline_assets: list[dict[str, Any]]
                 cid=f"<{cid}>",
                 filename=asset_path.name,
             )
+
+
+def _resolve_allowed_inline_asset_path(path_value: str) -> Path | None:
+    try:
+        candidate = Path(path_value).resolve(strict=False)
+    except Exception:
+        return None
+
+    for root in INLINE_ASSET_ALLOWED_ROOTS:
+        allowed_root = root.resolve(strict=False)
+        if candidate == allowed_root or allowed_root in candidate.parents:
+            return candidate
+    return None
 
 
 def _attach_attachments(msg: EmailMessage, attachments: list[dict[str, Any]]) -> None:
@@ -744,6 +772,9 @@ def _attach_attachments(msg: EmailMessage, attachments: list[dict[str, Any]]) ->
             continue
 
         try:
+            if _estimated_base64_decoded_size(content_base64) > EMAIL_ATTACHMENT_MAX_BYTES:
+                logger.warning("Adjunto ignorado por tamaño base64 | filename=%s", filename)
+                continue
             content = base64.b64decode(content_base64)
         except Exception:
             logger.warning("Adjunto ignorado por base64 inválido | filename=%s", filename)
@@ -756,3 +787,11 @@ def _attach_attachments(msg: EmailMessage, attachments: list[dict[str, Any]]) ->
             subtype=subtype,
             filename=filename,
         )
+
+
+def _estimated_base64_decoded_size(value: str) -> int:
+    compact = "".join(str(value or "").split())
+    if not compact:
+        return 0
+    padding = compact.count("=")
+    return max((len(compact) * 3 // 4) - padding, 0)

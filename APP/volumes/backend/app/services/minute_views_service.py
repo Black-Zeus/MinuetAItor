@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
+import json
 import logging
 import secrets
+import time
 import uuid
 from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException
+from redis.exceptions import RedisError
 from sqlalchemy.orm import Session
 from starlette.requests import Request
 
@@ -15,9 +19,11 @@ from core.rate_limit import enforce_rate_limit, rate_limit_key
 from core.security import create_access_token, decode_access_token
 from db.minio_client import get_minio_client
 from db.redis import get_redis
+from db.session import SessionLocal
 from models.record_version_observation import RecordVersionObservation
 from models.record_version_participant import RecordVersionParticipant
 from models.record_versions import RecordVersion
+from models.record_statuses import RecordStatus
 from models.records import Record
 from models.visitor_access_request import VisitorAccessRequest
 from models.visitor_session import VisitorSession
@@ -31,7 +37,7 @@ from schemas.minute_views import (
     MinuteViewVisitorInfo,
 )
 from schemas.auth import UserSession
-from services.access_control_service import ensure_record_write_access
+from services.access_control_service import ensure_record_read_access, ensure_record_write_access
 from schemas.minute_observations import (
     MinuteObservationItem,
     MinuteObservationListResponse,
@@ -48,6 +54,12 @@ VISITOR_SESSION_PREFIX = "visitor-session"
 VISITOR_OTP_TTL_MINUTES = 30
 VISITOR_SESSION_TTL_HOURS = 8
 VISITOR_OBSERVATION_LIMIT_PER_HOUR = 12
+VISITOR_EVENTS_CHANNEL_PREFIX = "events:minute:public"
+EDITOR_OBSERVATION_EVENTS_CHANNEL_PREFIX = "events:minute:editor:observations"
+VISITOR_SSE_KEEPALIVE_SEC = 15
+VISITOR_SSE_MAX_CONNECTION_SEC = 55
+EDITOR_OBSERVATION_SSE_KEEPALIVE_SEC = 15
+EDITOR_OBSERVATION_SSE_MAX_CONNECTION_SEC = 360
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +80,73 @@ def _visitor_session_key(record_id: str, jti: str) -> str:
     return f"{VISITOR_SESSION_PREFIX}:{record_id}:{jti}"
 
 
+def _visitor_events_channel(record_id: str) -> str:
+    return f"{VISITOR_EVENTS_CHANNEL_PREFIX}:{record_id}"
+
+
+def _editor_observation_events_channel(record_id: str) -> str:
+    return f"{EDITOR_OBSERVATION_EVENTS_CHANNEL_PREFIX}:{record_id}"
+
+
+def minute_view_sse_headers() -> dict:
+    return {
+        "Cache-Control": "no-cache",
+        "X-Accel-Buffering": "no",
+        "Access-Control-Allow-Origin": "*",
+    }
+
+
+def _minute_view_sse_event(event: str, data: dict) -> str:
+    return f"event: {event}\ndata: {json.dumps(data)}\n\n"
+
+
+async def publish_minute_view_observation_event(
+    *,
+    record_id: str,
+    observation_id: int,
+    record_version_id: str | None,
+    status: str,
+    resolution_type: str,
+) -> None:
+    redis = get_redis()
+    payload = {
+        "event": "observation_resolved",
+        "recordId": str(record_id),
+        "observationId": int(observation_id),
+        "recordVersionId": str(record_version_id) if record_version_id else None,
+        "status": str(status or "").strip(),
+        "resolutionType": str(resolution_type or "").strip(),
+        "ts": utc_now().isoformat(),
+    }
+    await redis.publish(_visitor_events_channel(record_id), json.dumps(payload))
+
+
+async def publish_editor_minute_observation_event(
+    *,
+    event: str,
+    record_id: str,
+    observation_id: int,
+    record_version_id: str | None,
+    status: str,
+    author_email: str | None = None,
+    author_name: str | None = None,
+    resolution_type: str | None = None,
+) -> None:
+    redis = get_redis()
+    payload = {
+        "event": str(event or "observation_updated").strip(),
+        "recordId": str(record_id),
+        "observationId": int(observation_id),
+        "recordVersionId": str(record_version_id) if record_version_id else None,
+        "status": str(status or "").strip(),
+        "resolutionType": str(resolution_type or "").strip(),
+        "authorEmail": author_email,
+        "authorName": author_name,
+        "ts": utc_now().isoformat(),
+    }
+    await redis.publish(_editor_observation_events_channel(record_id), json.dumps(payload))
+
+
 def _normalize_email(email: str) -> str:
     return str(email or "").strip().lower()
 
@@ -82,6 +161,14 @@ def _clean_user_ids(*values: str | None) -> list[str]:
         seen.add(user_id)
         items.append(user_id)
     return items
+
+
+def _minute_email_subject(record: Record, message: str) -> str:
+    clean_message = str(message or "").strip() or "Minuta"
+    project_name = str(getattr(getattr(record, "project", None), "name", "") or "").strip()
+    minute_title = str(getattr(record, "title", "") or "").strip() or "Minuta sin título"
+    context_label = f"{project_name} / {minute_title}" if project_name else minute_title
+    return f"{clean_message} {context_label}"
 
 
 def _hash_otp(record_id: str, email: str, otp_code: str) -> str:
@@ -185,6 +272,7 @@ async def request_minute_view_otp(
     await queue_templated_email(
         to=[normalized_email],
         template_id="minute_view_otp",
+        subject=_minute_email_subject(record, "Código de acceso"),
         template_context={
             "USER_DISPLAY_NAME": participant.display_name or normalized_email,
             "USER_EMAIL": normalized_email,
@@ -310,7 +398,19 @@ async def get_current_visitor_session(token: str, record_id: str, db: Session) -
         raise HTTPException(status_code=401, detail="El token no corresponde a la minuta solicitada")
 
     redis = get_redis()
-    exists = await redis.exists(_visitor_session_key(record_id, jti))
+    try:
+        exists = await asyncio.wait_for(redis.exists(_visitor_session_key(record_id, jti)), timeout=2.0)
+    except (asyncio.TimeoutError, RedisError) as exc:
+        logger.warning(
+            "[minute-view] Redis no respondió al validar sesión visitante | record=%s session=%s err=%s",
+            record_id,
+            session_id,
+            exc,
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="No fue posible validar la sesión visitante. Intenta nuevamente en unos segundos.",
+        ) from exc
     if not exists:
         raise HTTPException(status_code=401, detail="La sesión visitante expiró")
 
@@ -353,6 +453,181 @@ async def logout_current_visitor_session(token: str, record_id: str, db: Session
     await redis.delete(_visitor_session_key(record_id, str(payload.get("jti") or "")))
 
 
+async def stream_minute_view_events(
+    *,
+    token: str,
+    record_id: str,
+):
+    db = SessionLocal()
+    try:
+        try:
+            session = await get_current_visitor_session(token, record_id, db)
+        except HTTPException as exc:
+            yield _minute_view_sse_event(
+                "session_expired",
+                {
+                    "message": str(exc.detail or "La sesión visitante ya no está disponible."),
+                    "status": exc.status_code,
+                },
+            )
+            return
+        session_id = str(session.id)
+    finally:
+        db.close()
+
+    redis = get_redis()
+    pubsub = redis.pubsub()
+    channel = _visitor_events_channel(record_id)
+    try:
+        await asyncio.wait_for(pubsub.subscribe(channel), timeout=2.0)
+    except (asyncio.TimeoutError, RedisError) as exc:
+        logger.warning(
+            "[minute-view-sse] No fue posible suscribir a Redis | session=%s record=%s channel=%s err=%s",
+            session_id,
+            record_id,
+            channel,
+            exc,
+        )
+        yield _minute_view_sse_event(
+            "error",
+            {"message": "No fue posible abrir el canal de actualizaciones. Reintenta en unos segundos."},
+        )
+        return
+    logger.info("[minute-view-sse] Suscrito | session=%s record=%s channel=%s", session_id, record_id, channel)
+
+    try:
+        started_at = time.monotonic()
+        last_ping_at = started_at
+
+        while True:
+            now = time.monotonic()
+            if now - started_at >= VISITOR_SSE_MAX_CONNECTION_SEC:
+                yield _minute_view_sse_event("keepalive", {"reason": "connection_recycle"})
+                break
+
+            if now - last_ping_at >= VISITOR_SSE_KEEPALIVE_SEC:
+                yield _minute_view_sse_event("keepalive", {})
+                last_ping_at = now
+
+            try:
+                msg = await asyncio.wait_for(
+                    pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0),
+                    timeout=2.0,
+                )
+            except asyncio.TimeoutError:
+                continue
+            except RedisError as exc:
+                logger.warning("[minute-view-sse] Redis interrumpió el stream | session=%s record=%s err=%s", session_id, record_id, exc)
+                yield _minute_view_sse_event(
+                    "error",
+                    {"message": "Se perdió el canal de actualizaciones. Reintenta en unos segundos."},
+                )
+                break
+
+            if not msg or msg["type"] != "message":
+                await asyncio.sleep(0.1)
+                continue
+
+            try:
+                event_data = json.loads(msg["data"])
+            except (json.JSONDecodeError, TypeError):
+                await asyncio.sleep(0.1)
+                continue
+
+            if str(event_data.get("recordId") or "") != str(record_id):
+                await asyncio.sleep(0.1)
+                continue
+
+            yield _minute_view_sse_event(event_data.get("event", "minute_view_update"), event_data)
+            await asyncio.sleep(0.1)
+    finally:
+        try:
+            await pubsub.unsubscribe(channel)
+            await pubsub.close()
+        except Exception:
+            pass
+        logger.info("[minute-view-sse] Stream cerrado | session=%s record=%s channel=%s", session_id, record_id, channel)
+
+
+async def stream_editor_minute_observation_events(
+    *,
+    record_id: str,
+    session: UserSession,
+):
+    redis = get_redis()
+    pubsub = redis.pubsub()
+    channel = _editor_observation_events_channel(record_id)
+    try:
+        await asyncio.wait_for(pubsub.subscribe(channel), timeout=2.0)
+    except (asyncio.TimeoutError, RedisError) as exc:
+        logger.warning(
+            "[minute-editor-observations-sse] No fue posible suscribir a Redis | user=%s record=%s channel=%s err=%s",
+            session.user_id,
+            record_id,
+            channel,
+            exc,
+        )
+        yield _minute_view_sse_event(
+            "error",
+            {"message": "No fue posible abrir el canal de observaciones. Reintenta en unos segundos."},
+        )
+        return
+    logger.info("[minute-editor-observations-sse] Suscrito | user=%s record=%s channel=%s", session.user_id, record_id, channel)
+
+    try:
+        started_at = time.monotonic()
+        last_ping_at = started_at
+
+        while True:
+            now = time.monotonic()
+            if now - started_at >= EDITOR_OBSERVATION_SSE_MAX_CONNECTION_SEC:
+                yield _minute_view_sse_event("keepalive", {"reason": "connection_recycle"})
+                break
+
+            if now - last_ping_at >= EDITOR_OBSERVATION_SSE_KEEPALIVE_SEC:
+                yield _minute_view_sse_event("keepalive", {})
+                last_ping_at = now
+
+            try:
+                msg = await asyncio.wait_for(
+                    pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0),
+                    timeout=2.0,
+                )
+            except asyncio.TimeoutError:
+                continue
+            except RedisError as exc:
+                logger.warning("[minute-editor-observations-sse] Redis interrumpió el stream | user=%s record=%s err=%s", session.user_id, record_id, exc)
+                yield _minute_view_sse_event(
+                    "error",
+                    {"message": "Se perdió el canal de observaciones. Reintenta en unos segundos."},
+                )
+                break
+
+            if not msg or msg["type"] != "message":
+                await asyncio.sleep(0.1)
+                continue
+
+            try:
+                event_data = json.loads(msg["data"])
+            except (json.JSONDecodeError, TypeError):
+                await asyncio.sleep(0.1)
+                continue
+
+            if str(event_data.get("recordId") or "") != str(record_id):
+                await asyncio.sleep(0.1)
+                continue
+
+            yield _minute_view_sse_event(event_data.get("event", "observation_updated"), event_data)
+            await asyncio.sleep(0.1)
+    finally:
+        try:
+            await pubsub.unsubscribe(channel)
+            await pubsub.close()
+        except Exception:
+            pass
+        logger.info("[minute-editor-observations-sse] Stream cerrado | user=%s record=%s channel=%s", session.user_id, record_id, channel)
+
+
 def _build_observation_groups(
     db: Session,
     record_id: str,
@@ -363,9 +638,7 @@ def _build_observation_groups(
     observations = (
         db.query(RecordVersionObservation)
         .filter(RecordVersionObservation.record_id == record_id)
-        .filter(
-            RecordVersionObservation.visitor_session_id == visitor_session.id
-        )
+        .filter(RecordVersionObservation.author_email == _normalize_email(visitor_session.email))
         .order_by(RecordVersionObservation.created_at.desc(), RecordVersionObservation.id.desc())
         .all()
     )
@@ -407,6 +680,67 @@ def _build_observation_groups(
     return groups
 
 
+def _build_shared_observation_groups(
+    db: Session,
+    record_id: str,
+    active_version_id: str | None,
+    visitor_session: VisitorSession,
+) -> list[MinuteViewObservationGroup]:
+    versions_response = get_minute_versions(db, record_id)
+    observations = (
+        db.query(RecordVersionObservation)
+        .filter(RecordVersionObservation.record_id == record_id)
+        .filter(RecordVersionObservation.status.in_(("approved", "inserted")))
+        .filter(RecordVersionObservation.author_email != _normalize_email(visitor_session.email))
+        .order_by(RecordVersionObservation.created_at.desc(), RecordVersionObservation.id.desc())
+        .all()
+    )
+
+    grouped: dict[str, list[MinuteViewObservationItem]] = {}
+    for obs in observations:
+        grouped.setdefault(str(obs.record_version_id), []).append(
+            _serialize_visitor_observation_item(obs, active_version_id=active_version_id)
+        )
+
+    groups: list[MinuteViewObservationGroup] = []
+    for version in versions_response.versions:
+        key = str(version.version_id)
+        groups.append(
+            MinuteViewObservationGroup(
+                record_version_id=key,
+                version_num=int(version.version_num),
+                version_label=version.version_label,
+                is_active_version=key == str(active_version_id or ""),
+                observations=grouped.get(key, []),
+            )
+        )
+    return groups
+
+
+def _serialize_visitor_observation_item(
+    obs: RecordVersionObservation,
+    *,
+    active_version_id: str | None,
+) -> MinuteViewObservationItem:
+    return MinuteViewObservationItem(
+        id=int(obs.id),
+        record_version_id=str(obs.record_version_id),
+        author_email=obs.author_email,
+        author_name=obs.author_name,
+        body=obs.body,
+        status=obs.status,
+        resolution_type=getattr(obs, "resolution_type", "none"),
+        editor_comment=getattr(obs, "editor_comment", None),
+        resolved_by=str(obs.resolved_by) if getattr(obs, "resolved_by", None) else None,
+        resolution_note=obs.resolution_note,
+        resolved_at=obs.resolved_at.isoformat() if obs.resolved_at else None,
+        applied_in_version_id=str(obs.applied_in_version_id) if getattr(obs, "applied_in_version_id", None) else None,
+        created_at=obs.created_at.isoformat() if obs.created_at else None,
+        updated_at=obs.updated_at.isoformat() if obs.updated_at else None,
+        is_current_version=str(obs.record_version_id) == str(active_version_id or ""),
+    )
+
+
 def get_minute_view_detail(
     db: Session,
     *,
@@ -431,6 +765,7 @@ def get_minute_view_detail(
         content_type=detail.content_type,
         versions=versions,
         observation_groups=_build_observation_groups(db, record_id, record.active_version_id, visitor_session),
+        shared_observation_groups=_build_shared_observation_groups(db, record_id, record.active_version_id, visitor_session),
         current_version_id=str(record.active_version_id) if record.active_version_id else None,
         current_version_num=int(record.latest_version_num) if record.latest_version_num else None,
     )
@@ -441,19 +776,28 @@ def get_minute_view_pdf_bytes(db: Session, *, record_id: str) -> tuple[bytes, st
     if not record.active_version_id:
         raise HTTPException(status_code=404, detail="La minuta no tiene una versión activa con PDF")
 
+    status_row = db.query(RecordStatus).filter(RecordStatus.id == record.status_id).first()
+    status_code = str(getattr(status_row, "code", "") or "").strip().lower()
+    if status_code == "completed":
+        bucket = "minuetaitor-published"
+        key = f"published/{record_id}/final.pdf"
+        missing_message = "No existe un PDF publicado disponible para esta minuta"
+    else:
+        bucket = "minuetaitor-draft"
+        key = f"drafts/{record_id}/draft_current.pdf"
+        missing_message = "El PDF de revisión aún no está disponible para esta minuta"
+
     minio = get_minio_client()
-    bucket = "minuetaitor-published"
-    key = f"published/{record_id}/final.pdf"
     try:
         obj = minio.get_object(bucket, key)
         pdf_bytes = obj.read()
         obj.close()
         obj.release_conn()
     except Exception as exc:
-        raise HTTPException(status_code=404, detail="No existe un PDF publicado disponible para esta minuta") from exc
+        raise HTTPException(status_code=404, detail=missing_message) from exc
 
     if not pdf_bytes:
-        raise HTTPException(status_code=404, detail="No existe un PDF publicado disponible para esta minuta")
+        raise HTTPException(status_code=404, detail=missing_message)
     return pdf_bytes, f"minute-{record_id}.pdf"
 
 
@@ -467,6 +811,13 @@ async def create_minute_view_observation(
     record = _resolve_record_or_404(db, record_id)
     if not record.active_version_id:
         raise HTTPException(status_code=409, detail="La minuta no tiene una versión activa para registrar observaciones")
+    status_row = db.query(RecordStatus).filter(RecordStatus.id == record.status_id).first()
+    status_code = str(getattr(status_row, "code", "") or "").strip().lower()
+    if status_code != "preview":
+        raise HTTPException(
+            status_code=409,
+            detail="La minuta ya no está en revisión. No es posible registrar nuevas observaciones.",
+        )
     await enforce_rate_limit(
         rate_limit_key("minute-view-observation", record_id, visitor_session.email, visitor_session.id),
         limit=VISITOR_OBSERVATION_LIMIT_PER_HOUR,
@@ -534,6 +885,25 @@ async def create_minute_view_observation(
             )
 
     try:
+        await publish_editor_minute_observation_event(
+            event="observation_created",
+            record_id=str(record.id),
+            observation_id=int(observation.id),
+            record_version_id=str(observation.record_version_id) if observation.record_version_id else None,
+            status=observation.status,
+            resolution_type=observation.resolution_type,
+            author_email=observation.author_email,
+            author_name=observation.author_name,
+        )
+    except Exception as event_exc:
+        logger.warning(
+            "No se pudo publicar evento SSE de nueva observación para editor | record=%s obs=%s err=%s",
+            record.id,
+            observation.id,
+            event_exc,
+        )
+
+    try:
         await enqueue_minute_guest_observation_email(
             db,
             record.id,
@@ -553,24 +923,121 @@ async def create_minute_view_observation(
 
     return MinuteViewObservationCreateResponse(
         message="La observación fue registrada sobre la versión actual de la minuta.",
-        observation=MinuteViewObservationItem(
-            id=int(observation.id),
-            record_version_id=str(observation.record_version_id),
-            author_email=observation.author_email,
-            author_name=observation.author_name,
-            body=observation.body,
+        observation=_serialize_visitor_observation_item(observation, active_version_id=str(record.active_version_id)),
+    )
+
+
+def _ensure_public_observation_mutable(
+    db: Session,
+    *,
+    record_id: str,
+    observation_id: int,
+    visitor_session: VisitorSession,
+) -> tuple[Record, RecordVersionObservation]:
+    record = _resolve_record_or_404(db, record_id)
+    status_row = db.query(RecordStatus).filter(RecordStatus.id == record.status_id).first()
+    status_code = str(getattr(status_row, "code", "") or "").strip().lower()
+    if status_code != "preview":
+        raise HTTPException(
+            status_code=409,
+            detail="La minuta ya no está en revisión. No es posible modificar observaciones.",
+        )
+
+    observation = (
+        db.query(RecordVersionObservation)
+        .filter(RecordVersionObservation.id == observation_id)
+        .filter(RecordVersionObservation.record_id == record_id)
+        .filter(RecordVersionObservation.author_email == _normalize_email(visitor_session.email))
+        .first()
+    )
+    if not observation:
+        raise HTTPException(status_code=404, detail="Observación no encontrada")
+    if str(observation.record_version_id) != str(record.active_version_id or ""):
+        raise HTTPException(status_code=409, detail="Solo se puede modificar la observación de la versión activa.")
+    if str(observation.status or "").strip().lower() != "new":
+        raise HTTPException(status_code=409, detail="La observación ya fue procesada y no puede modificarse.")
+    return record, observation
+
+
+async def update_minute_view_observation(
+    db: Session,
+    *,
+    record_id: str,
+    observation_id: int,
+    body: str,
+    visitor_session: VisitorSession,
+) -> MinuteViewObservationCreateResponse:
+    record, observation = _ensure_public_observation_mutable(
+        db,
+        record_id=record_id,
+        observation_id=observation_id,
+        visitor_session=visitor_session,
+    )
+    observation.body = str(body or "").strip()
+    db.add(observation)
+    db.commit()
+    db.refresh(observation)
+
+    try:
+        await publish_editor_minute_observation_event(
+            event="observation_updated",
+            record_id=str(record.id),
+            observation_id=int(observation.id),
+            record_version_id=str(observation.record_version_id) if observation.record_version_id else None,
             status=observation.status,
             resolution_type=observation.resolution_type,
-            editor_comment=observation.editor_comment,
-            resolved_by=str(observation.resolved_by) if observation.resolved_by else None,
-            resolution_note=observation.resolution_note,
-            resolved_at=observation.resolved_at.isoformat() if observation.resolved_at else None,
-            applied_in_version_id=str(observation.applied_in_version_id) if observation.applied_in_version_id else None,
-            created_at=observation.created_at.isoformat() if observation.created_at else None,
-            updated_at=observation.updated_at.isoformat() if observation.updated_at else None,
-            is_current_version=True,
-        ),
+            author_email=observation.author_email,
+            author_name=observation.author_name,
+        )
+    except Exception as event_exc:
+        logger.warning(
+            "No se pudo publicar evento SSE de observación actualizada para editor | record=%s obs=%s err=%s",
+            record.id,
+            observation.id,
+            event_exc,
+        )
+
+    return MinuteViewObservationCreateResponse(
+        message="La observación fue actualizada.",
+        observation=_serialize_visitor_observation_item(observation, active_version_id=str(record.active_version_id)),
     )
+
+
+async def delete_minute_view_observation(
+    db: Session,
+    *,
+    record_id: str,
+    observation_id: int,
+    visitor_session: VisitorSession,
+) -> None:
+    record, observation = _ensure_public_observation_mutable(
+        db,
+        record_id=record_id,
+        observation_id=observation_id,
+        visitor_session=visitor_session,
+    )
+    record_version_id = str(observation.record_version_id) if observation.record_version_id else None
+    db.delete(observation)
+    db.commit()
+
+    try:
+        await publish_editor_minute_observation_event(
+            event="observation_deleted",
+            record_id=str(record.id),
+            observation_id=int(observation_id),
+            record_version_id=record_version_id,
+            status="deleted",
+            resolution_type="none",
+            author_email=visitor_session.email,
+            author_name=None,
+        )
+    except Exception as event_exc:
+        logger.warning(
+            "No se pudo publicar evento SSE de observación eliminada para editor | record=%s obs=%s err=%s",
+            record.id,
+            observation_id,
+            event_exc,
+        )
 
 
 def _serialize_editor_observation_item(obs: RecordVersionObservation) -> MinuteObservationItem:
@@ -706,6 +1173,41 @@ async def resolve_editor_minute_observation(
                 observation.id,
                 notify_exc,
             )
+
+    try:
+        await publish_minute_view_observation_event(
+            record_id=str(observation.record_id),
+            observation_id=int(observation.id),
+            record_version_id=str(observation.record_version_id) if observation.record_version_id else None,
+            status=normalized_status,
+            resolution_type=normalized_resolution_type,
+        )
+    except Exception as event_exc:
+        logger.warning(
+            "No se pudo publicar evento SSE de resolución visitante | record=%s obs=%s err=%s",
+            observation.record_id,
+            observation.id,
+            event_exc,
+        )
+
+    try:
+        await publish_editor_minute_observation_event(
+            event="observation_resolved",
+            record_id=str(observation.record_id),
+            observation_id=int(observation.id),
+            record_version_id=str(observation.record_version_id) if observation.record_version_id else None,
+            status=normalized_status,
+            resolution_type=normalized_resolution_type,
+            author_email=observation.author_email,
+            author_name=observation.author_name,
+        )
+    except Exception as event_exc:
+        logger.warning(
+            "No se pudo publicar evento SSE de resolución para editor | record=%s obs=%s err=%s",
+            observation.record_id,
+            observation.id,
+            event_exc,
+        )
 
     return MinuteObservationResolveResponse(
         message="La observación fue actualizada correctamente.",

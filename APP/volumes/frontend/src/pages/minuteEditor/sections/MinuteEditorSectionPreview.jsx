@@ -126,6 +126,7 @@ const EmailForm = ({ recordId, recordStatus, isReadOnly }) => {
   const fallbackToOwner = directRecipientCount === 0;
   const toList = participants.filter((participant) => participant.type !== 'copy');
   const ccList = participants.filter((participant) => participant.type === 'copy');
+  const canSendByStatus = SEND_ALLOWED_STATUSES.has(recordStatus);
   const canEditSendOptions = !sending && (!isReadOnly || SEND_ALLOWED_STATUSES.has(recordStatus));
 
   const toggleParticipant = (id) => setSelected((prev) => {
@@ -315,9 +316,16 @@ const EmailForm = ({ recordId, recordStatus, isReadOnly }) => {
 
           <div className="rounded-xl border border-gray-200/50 bg-white p-5 shadow-sm transition-theme dark:border-gray-700/50 dark:bg-gray-800">
             <div className="flex items-center justify-between gap-4">
-              <p className="text-sm text-gray-600 transition-theme dark:text-gray-300">
-                <span className="font-semibold text-gray-900 dark:text-gray-100">{recipientCount}</span> destinatario{recipientCount !== 1 ? 's' : ''} con correo válido
-              </p>
+              <div>
+                <p className="text-sm text-gray-600 transition-theme dark:text-gray-300">
+                  <span className="font-semibold text-gray-900 dark:text-gray-100">{recipientCount}</span> destinatario{recipientCount !== 1 ? 's' : ''} con correo válido
+                </p>
+                {!canSendByStatus && (
+                  <p className="mt-1 text-xs font-medium text-amber-700 transition-theme dark:text-amber-300">
+                    Para enviar la minuta debes estar en estado Vista previa o Completado.
+                  </p>
+                )}
+              </div>
 
               <div className="flex items-center gap-3">
                 {isReadOnly && (

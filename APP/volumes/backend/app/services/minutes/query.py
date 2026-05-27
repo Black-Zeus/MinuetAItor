@@ -73,14 +73,14 @@ def _looks_like_ai_output(content: object) -> bool:
 
 def _load_minute_list_summary(record_id: str, status_code: str, version_num: int) -> Optional[str]:
     if status_code == RECORD_STATUS_READY:
-        content = read_json(BUCKET_JSON, f"{record_id}/schema_output_v1.json")
+        content = _read_initial_ai_output(record_id)
         return extract_summary_from_minute_content(content)
 
     if status_code == RECORD_STATUS_PENDING:
         draft = read_json(BUCKET_DRAFT, f"{record_id}/draft_current.json")
         if draft is not None:
             return extract_summary_from_minute_content(draft)
-        content = read_json(BUCKET_JSON, f"{record_id}/schema_output_v1.json")
+        content = _read_initial_ai_output(record_id)
         return extract_summary_from_minute_content(content)
 
     if status_code in (RECORD_STATUS_PREVIEW, RECORD_STATUS_COMPLETED):
@@ -88,6 +88,13 @@ def _load_minute_list_summary(record_id: str, status_code: str, version_num: int
         return extract_summary_from_minute_content(content)
 
     return None
+
+
+def _read_initial_ai_output(record_id: str) -> Optional[dict]:
+    return (
+        read_json(BUCKET_JSON, f"{record_id}/schema_output_v0.json")
+        or read_json(BUCKET_JSON, f"{record_id}/schema_output_v1.json")
+    )
 
 
 def get_minute_detail(db: Session, record_id: str) -> MinuteDetailResponse:
@@ -153,7 +160,7 @@ def get_minute_detail(db: Session, record_id: str) -> MinuteDetailResponse:
     version_num = int(record.latest_version_num) if record.latest_version_num else 1
 
     if status_code == RECORD_STATUS_READY:
-        content = read_json(BUCKET_JSON, f"{record_id}/schema_output_v1.json")
+        content = _read_initial_ai_output(record_id)
         content = ensure_pdf_template_in_content(content, resolve_pdf_template_for_record(record))
         content_type = "ai_output"
     elif status_code == RECORD_STATUS_PENDING:
@@ -162,7 +169,7 @@ def get_minute_detail(db: Session, record_id: str) -> MinuteDetailResponse:
             content = ensure_pdf_template_in_content(content, resolve_pdf_template_for_record(record))
             content_type = "ai_output" if _looks_like_ai_output(content) else "draft"
         else:
-            content = read_json(BUCKET_JSON, f"{record_id}/schema_output_v1.json")
+            content = _read_initial_ai_output(record_id)
             content = ensure_pdf_template_in_content(content, resolve_pdf_template_for_record(record))
             content_type = "ai_output"
     elif status_code in (RECORD_STATUS_PREVIEW, RECORD_STATUS_COMPLETED):
@@ -318,11 +325,9 @@ def list_minutes(
             or getattr(prep_user, "username", None)
         )
         version_num = int(rec.latest_version_num) if rec.latest_version_num else 1
-        summary_text = getattr(rec, "intro_snippet", None) or _load_minute_list_summary(
-            rec.id,
-            status_code,
-            version_num,
-        )
+        # La vista de listado debe depender solo de BD. Leer JSON desde storage
+        # por cada minuta vuelve el endpoint sensible a MinIO y genera N+1 I/O.
+        summary_text = getattr(rec, "intro_snippet", None)
         latest_tx = latest_tx_by_record.get(str(rec.id))
         can_reprocess, reprocess_reason = get_reprocess_eligibility(status_code, latest_tx)
         tokens_input = int(getattr(latest_tx, "tokens_input", 0) or 0)
@@ -698,7 +703,11 @@ def get_minute_versions(db: Session, record_id: str) -> MinuteVersionsResponse:
 
     versions_rows = (
         db.query(RecordVersion)
-        .filter(RecordVersion.record_id == record_id, RecordVersion.deleted_at.is_(None))
+        .filter(
+            RecordVersion.record_id == record_id,
+            RecordVersion.version_num > 0,
+            RecordVersion.deleted_at.is_(None),
+        )
         .order_by(RecordVersion.version_num.desc())
         .all()
     )

@@ -12,7 +12,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from core.authz import require_permissions
-from db.session import get_db
+from db.session import SessionLocal, get_db
 from db.redis import get_redis
 from schemas.auth import UserSession
 from schemas.minutes import (
@@ -50,7 +50,9 @@ from services.minutes_service import (
     list_minute_reprocess_history,
     get_minute_status,
     get_minute_versions,
+    regenerate_minute_review_pdf,
     save_minute_draft,
+    save_minute_review_content,
     send_minute_email,
     start_minute_pdf_preview_job,
     transition_minute,
@@ -59,6 +61,8 @@ from services.minutes_service import (
 from services.minute_views_service import (
     list_editor_minute_observations,
     resolve_editor_minute_observation,
+    minute_view_sse_headers,
+    stream_editor_minute_observation_events,
 )
 from services.access_control_service import ensure_record_read_access, ensure_record_write_access
 from services.upload_validation import safe_content_disposition
@@ -189,6 +193,7 @@ def reprocess_history_endpoint(
 )
 async def pdf_preview_job_status_endpoint(
     preview_id: str,
+    db: Session = Depends(get_db),
     session: UserSession = Depends(current_user_dep),
 ):
     record_id = await get_minute_pdf_preview_record_id(preview_id)
@@ -203,6 +208,7 @@ async def pdf_preview_job_status_endpoint(
 )
 async def pdf_preview_job_result_endpoint(
     preview_id: str,
+    db: Session = Depends(get_db),
     session: UserSession = Depends(current_user_dep),
 ):
     record_id = await get_minute_pdf_preview_record_id(preview_id)
@@ -249,6 +255,44 @@ async def save_endpoint(
     ensure_record_write_access(db, session, record_id, permissions=("records.update",))
     await save_minute_draft(db=db, record_id=record_id, content=body.content)
     return {"ok": True}
+
+
+@router.post(
+    "/{record_id}/review-content/save",
+    status_code=status.HTTP_200_OK,
+    summary="Guardar cambios de contenido permitidos durante revisión",
+)
+async def review_content_save_endpoint(
+    record_id: str,
+    body: MinuteSaveRequest,
+    db: Session = Depends(get_db),
+    session: UserSession = Depends(current_user_dep),
+):
+    ensure_record_write_access(db, session, record_id, permissions=("records.update",))
+    return await save_minute_review_content(
+        db=db,
+        record_id=record_id,
+        content=body.content,
+    )
+
+
+@router.post(
+    "/{record_id}/review-pdf/refresh",
+    status_code=status.HTTP_200_OK,
+    summary="Regenerar PDF borrador visible en la vista pública de revisión",
+)
+async def review_pdf_refresh_endpoint(
+    record_id: str,
+    body: MinuteSaveRequest,
+    db: Session = Depends(get_db),
+    session: UserSession = Depends(current_user_dep),
+):
+    ensure_record_write_access(db, session, record_id, permissions=("records.update",))
+    return await regenerate_minute_review_pdf(
+        db=db,
+        record_id=record_id,
+        content=body.content,
+    )
 
 
 @router.post(
@@ -351,6 +395,29 @@ def attachment_endpoint(
             "Content-Disposition": safe_content_disposition(filename),
             "X-Content-Type-Options": "nosniff",
         },
+    )
+
+
+@router.get(
+    "/{record_id}/observations/events",
+    response_class=StreamingResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Stream de cambios de observaciones visitantes para el editor",
+)
+async def observation_events_endpoint(
+    record_id: str,
+    session: UserSession = Depends(current_user_dep),
+):
+    db = SessionLocal()
+    try:
+        ensure_record_read_access(db, session, record_id)
+    finally:
+        db.close()
+
+    return StreamingResponse(
+        stream_editor_minute_observation_events(record_id=record_id, session=session),
+        media_type="text/event-stream",
+        headers=minute_view_sse_headers(),
     )
 
 
@@ -486,7 +553,6 @@ async def status_endpoint(
 )
 async def events_endpoint(
     transaction_id: str,
-    db:             Session     = Depends(get_db),
     session:        UserSession = Depends(current_user_or_token_dep),
 ):
     """
@@ -502,9 +568,13 @@ async def events_endpoint(
 
     Si la transacción ya terminó al conectarse, responde inmediatamente sin suscribir a Pub/Sub.
     """
-    tx_status = await get_minute_status(db, transaction_id)
-    if tx_status.record_id:
-        ensure_record_read_access(db, session, tx_status.record_id)
+    db = SessionLocal()
+    try:
+        tx_status = await get_minute_status(db, transaction_id)
+        if tx_status.record_id:
+            ensure_record_read_access(db, session, tx_status.record_id)
+    finally:
+        db.close()
 
     # Si ya terminó → responder de inmediato sin suscribir a Pub/Sub
     if tx_status.status in SSE_TERMINAL_EVENTS:

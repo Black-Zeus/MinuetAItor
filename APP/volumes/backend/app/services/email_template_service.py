@@ -84,14 +84,14 @@ TEMPLATE_DEFINITIONS: dict[str, EmailTemplateDefinition] = {
         filename="minute_guest_observation_received.html",
         title="Observación de invitado recibida",
         description="Avisa al responsable que un invitado dejó una observación en la minuta.",
-        default_subject="Nueva observacion de invitado en minuta {{ MINUTE_ID }}",
+        default_subject="Nueva observacion de invitado {{ PROJECT_NAME }} / {{ MINUTE_TITLE }}",
     ),
     "minute_view_otp": EmailTemplateDefinition(
         template_id="minute_view_otp",
         filename="minute_view_otp.html",
         title="Codigo de acceso a minuta",
         description="Entrega un OTP de un solo uso para acceso visitante a la minuta.",
-        default_subject="Codigo de acceso para revisar la minuta {{ MINUTE_ID }}",
+        default_subject="Codigo de acceso {{ PROJECT_NAME }} / {{ MINUTE_TITLE }}",
     ),
     "password_changed_confirmation": EmailTemplateDefinition(
         template_id="password_changed_confirmation",
@@ -298,8 +298,14 @@ def render_email_template(
 
     try:
         html_body = env.get_template(definition.filename).render(**merged_context)
-        subject_template = env.from_string(subject_override or definition.default_subject)
-        subject = subject_template.render(**merged_context)
+        if subject_override is not None:
+            subject = str(subject_override).strip()
+            if not subject:
+                subject_template = env.from_string(definition.default_subject)
+                subject = subject_template.render(**merged_context)
+        else:
+            subject_template = env.from_string(definition.default_subject)
+            subject = subject_template.render(**merged_context)
     except Exception as exc:
         raise ValueError(f"No se pudo renderizar el template '{template_id}': {exc}") from exc
 

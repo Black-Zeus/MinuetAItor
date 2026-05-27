@@ -5,11 +5,14 @@
  * y coordina todos los subcomponentes por tabs.
  */
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 
 import useMinuteEditorStore from "@store/minuteEditorStore";
+import useAuthStore from "@/store/authStore";
 import { getMinuteDetail, listMinuteObservations } from "@/services/minutesService";
+import { toastInfo } from "@/components/common/toast/toastHelpers";
+import { createAuthorizedEventStream } from "@/utils/authorizedEventStream";
 
 import MinuteEditorHeader      from "./MinuteEditorHeader";
 import MinuteEditorFindReplace from "./MinuteEditorFindReplace";
@@ -106,9 +109,12 @@ const mergeRecordFallbacks = (content, record) => {
 const countPendingObservations = (items = []) =>
   items.filter((item) => item.status === "new" || item.status === "approved").length;
 
+const MINUTE_EDITOR_OBSERVATIONS_EVENT = "minute-editor-observations-updated";
+
 const MinuteEditor = () => {
   const { id: recordId } = useParams();
   const navigate = useNavigate();
+  const accessToken = useAuthStore((s) => s.accessToken);
 
   const { loadFromIAResponse, loadFromDraft, reset, isLoaded, activeTab } =
     useMinuteEditorStore();
@@ -119,6 +125,8 @@ const MinuteEditor = () => {
   const [recordMeta, setRecordMeta] = useState(null);
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [observationPendingCount, setObservationPendingCount] = useState(0);
+  const [canRefreshReviewPdf, setCanRefreshReviewPdf] = useState(false);
+  const observationSourceRef = useRef(null);
 
   useParticipantEmailHydration();
 
@@ -190,26 +198,110 @@ const MinuteEditor = () => {
     };
   }, [recordId]);
 
+  const loadObservationCount = useCallback(async () => {
+    if (!recordId) return;
+    const data = await listMinuteObservations(recordId);
+    setObservationPendingCount(countPendingObservations(data?.items || []));
+  }, [recordId]);
+
   useEffect(() => {
     if (!recordId) return;
-
     let cancelled = false;
 
-    const loadObservationCount = async () => {
+    const load = async () => {
       try {
         const data = await listMinuteObservations(recordId);
         if (cancelled) return;
-        setObservationPendingCount(countPendingObservations(data?.items || []));
+        const observationItems = data?.items || [];
+        setObservationPendingCount(countPendingObservations(observationItems));
+        setCanRefreshReviewPdf(observationItems.some((item) => item.status !== "new"));
       } catch {
         if (!cancelled) setObservationPendingCount(0);
       }
     };
 
-    loadObservationCount();
+    load();
     return () => {
       cancelled = true;
     };
   }, [recordId]);
+
+  useEffect(() => {
+    observationSourceRef.current?.close();
+    observationSourceRef.current = null;
+
+    if (!recordId || !accessToken) return undefined;
+
+    const source = createAuthorizedEventStream(
+      `/api/v1/minutes/${recordId}/observations/events`,
+      accessToken,
+      { reconnectMs: 3000 }
+    );
+    observationSourceRef.current = source;
+
+    const parsePayload = (event) => {
+      try {
+        return JSON.parse(event?.data ?? "{}");
+      } catch {
+        return {};
+      }
+    };
+
+    const refreshObservations = async (payload = {}) => {
+      try {
+        await loadObservationCount();
+      } catch {
+        // El stream reintentará; el usuario puede refrescar manualmente si el backend no responde.
+      }
+
+      window.dispatchEvent(
+        new CustomEvent(MINUTE_EDITOR_OBSERVATIONS_EVENT, {
+          detail: payload,
+        })
+      );
+    };
+
+    const onObservationCreated = (event) => {
+      const payload = parsePayload(event);
+      refreshObservations(payload);
+
+      const author = String(payload.authorName || payload.authorEmail || "Un invitado").trim();
+      toastInfo(
+        "Nueva observación de invitado",
+        `${author} dejó una observación en esta minuta.`,
+        {
+          autoClose: 7000,
+          toastId: `minute-observation-created:${payload.observationId || Date.now()}`,
+        }
+      );
+    };
+
+    const onObservationResolved = (event) => {
+      setCanRefreshReviewPdf(true);
+      refreshObservations(parsePayload(event));
+    };
+
+    const onObservationChanged = (event) => {
+      refreshObservations(parsePayload(event));
+    };
+
+    source.addEventListener("observation_created", onObservationCreated);
+    source.addEventListener("observation_updated", onObservationChanged);
+    source.addEventListener("observation_deleted", onObservationChanged);
+    source.addEventListener("observation_resolved", onObservationResolved);
+    source.addEventListener("keepalive", () => {});
+
+    return () => {
+      source.removeEventListener("observation_created", onObservationCreated);
+      source.removeEventListener("observation_updated", onObservationChanged);
+      source.removeEventListener("observation_deleted", onObservationChanged);
+      source.removeEventListener("observation_resolved", onObservationResolved);
+      source.close();
+      if (observationSourceRef.current === source) {
+        observationSourceRef.current = null;
+      }
+    };
+  }, [accessToken, loadObservationCount, recordId]);
 
   useEffect(() => {
     if (!pendingSearchResult) return;
@@ -318,7 +410,15 @@ const MinuteEditor = () => {
 
         {activeTab === "info"         && <MinuteEditorSectionInfo         isReadOnly={isReadOnly} />}
         {activeTab === "participants" && <MinuteEditorSectionParticipants isReadOnly={isReadOnly} />}
-        {activeTab === "scope"        && <MinuteEditorSectionScope        isReadOnly={isReadOnly} />}
+        {activeTab === "scope"        && (
+          <MinuteEditorSectionScope
+            isReadOnly={isReadOnly}
+            recordId={recordId}
+            recordStatus={recordMeta?.status}
+            canRefreshReviewPdf={canRefreshReviewPdf}
+            onReviewPdfRefreshed={() => setCanRefreshReviewPdf(false)}
+          />
+        )}
         {activeTab === "agreements"   && <MinuteEditorSectionAgreements   isReadOnly={isReadOnly} />}
         {activeTab === "requirements" && <MinuteEditorSectionRequirements isReadOnly={isReadOnly} />}
         {activeTab === "observations" && (

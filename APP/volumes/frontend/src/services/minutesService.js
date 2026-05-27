@@ -200,6 +200,16 @@ export const saveMinuteDraft = async (recordId, content) => {
   return unwrap(res);
 };
 
+export const saveMinuteReviewContent = async (recordId, content) => {
+  const res = await api.post(`${BASE}/${recordId}/review-content/save`, { content });
+  return unwrap(res);
+};
+
+export const regenerateMinuteReviewPdf = async (recordId, content) => {
+  const res = await api.post(`${BASE}/${recordId}/review-pdf/refresh`, { content });
+  return unwrap(res);
+};
+
 /**
  * POST /v1/minutes/{record_id}/pdf-preview
  *
