@@ -15,9 +15,9 @@ const TABS = [
   { id: 'observations', label: 'Observaciones',        icon: 'comment',        counter: null },
   { id: 'tags',         label: 'Tags',                 icon: 'tags',           counter: 'tags' },
   { id: 'next',         label: 'Próximas Reuniones',   icon: 'calendar',       counter: 'upcomingMeetings' },
-  { id: 'timeline',     label: 'Línea de Tiempo',      icon: 'history',        counter: null },
   { id: 'pdfformat',    label: 'Formato PDF',          icon: 'fileLines',      counter: null },
   { id: 'preview',      label: 'Envío',                icon: 'paperPlane',     counter: null },
+  { id: 'timeline',     label: 'Línea de Tiempo',      icon: 'history',        counter: null },
   { id: 'metadata',     label: 'Metadata',             icon: 'gear',           counter: null },
 ];
 

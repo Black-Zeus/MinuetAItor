@@ -487,6 +487,41 @@ export const useParticipantEmailHydration = () => {
 const MinuteEditorSectionParticipants = ({ isReadOnly = false }) => {
   const { participants, addParticipant, updateParticipant, deleteParticipant } = useMinuteEditorStore();
   const [openEmailSelectorId, setOpenEmailSelectorId] = useState(null);
+  const [emailSelectorPosition, setEmailSelectorPosition] = useState(null);
+  const emailSelectorRef = useRef(null);
+  const emailSelectorMenuRef = useRef(null);
+
+  useEffect(() => {
+    if (!openEmailSelectorId) return undefined;
+
+    const handlePointerDown = (event) => {
+      const trigger = emailSelectorRef.current;
+      const menu = emailSelectorMenuRef.current;
+      if (trigger && trigger.contains(event.target)) return;
+      if (menu && menu.contains(event.target)) return;
+      setOpenEmailSelectorId(null);
+      setEmailSelectorPosition(null);
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => document.removeEventListener('pointerdown', handlePointerDown);
+  }, [openEmailSelectorId]);
+
+  useEffect(() => {
+    if (!openEmailSelectorId) return undefined;
+
+    const closeSelector = () => {
+      setOpenEmailSelectorId(null);
+      setEmailSelectorPosition(null);
+    };
+
+    window.addEventListener('resize', closeSelector);
+    window.addEventListener('scroll', closeSelector, true);
+    return () => {
+      window.removeEventListener('resize', closeSelector);
+      window.removeEventListener('scroll', closeSelector, true);
+    };
+  }, [openEmailSelectorId]);
 
   const openForm = (existing = null) => {
     let submitForm = null;
@@ -528,7 +563,7 @@ const MinuteEditorSectionParticipants = ({ isReadOnly = false }) => {
   };
 
   return (
-    <div className="flex min-h-[420px] max-h-[calc(100vh-220px)] flex-col rounded-xl border border-gray-200/50 bg-white p-6 shadow-md transition-theme dark:border-gray-700/50 dark:bg-gray-800">
+    <div className="flex min-h-[460px] max-h-[calc(100vh-220px)] flex-col rounded-xl border border-gray-200/50 bg-white p-6 shadow-md transition-theme dark:border-gray-700/50 dark:bg-gray-800">
 
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
@@ -585,35 +620,77 @@ const MinuteEditorSectionParticipants = ({ isReadOnly = false }) => {
                   >
                     {/* Nombre */}
                     <td className="py-3 pr-4">
-                      <div className="flex items-center gap-2">
-                        <p className="font-semibold">{p.fullName || p.name || '—'}</p>
+                      <div className="flex items-start gap-2">
                         {hasMultipleEmails && (
-                          <span
-                            className="inline-flex items-center text-amber-600 dark:text-amber-300 transition-theme"
-                            title="Más de un mail registrado para este usuario"
-                          >
-                            <Icon name="triangleExclamation" className="text-sm" />
+                          <span className="inline-flex items-center pt-0.5 text-amber-600 transition-theme dark:text-amber-300">
+                            <Icon name="triangleExclamation" className="text-sm" aria-hidden="true" />
                           </span>
                         )}
+                        <div className="min-w-0">
+                          <p className="font-semibold">{p.fullName || p.name || '—'}</p>
+                          {hasMultipleEmails && (
+                            <p className="mt-0.5 text-xs text-amber-700 transition-theme dark:text-amber-300">
+                              (Tiene más de un correo registrado)
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </td>
 
                     {/* Email */}
                     <td className="py-3 pr-4">
                       {hasMultipleEmails && !isReadOnly ? (
-                        <div className="relative inline-block text-left">
+                        <div
+                          ref={openEmailSelectorId === p.id ? emailSelectorRef : null}
+                          className="relative inline-block text-left"
+                        >
                           <button
                             type="button"
-                            onClick={() => setOpenEmailSelectorId((current) => current === p.id ? null : p.id)}
-                            className="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-mono text-amber-800 shadow-sm transition-theme hover:border-amber-300 hover:bg-amber-100 dark:border-amber-700/60 dark:bg-amber-900/20 dark:text-amber-200 dark:hover:bg-amber-900/30"
+                            onClick={(event) => {
+                              if (openEmailSelectorId === p.id) {
+                                setOpenEmailSelectorId(null);
+                                setEmailSelectorPosition(null);
+                                return;
+                              }
+
+                              const rect = event.currentTarget.getBoundingClientRect();
+                              const width = Math.max(rect.width, 340);
+                              const menuHeight = 42 + Math.min(emailOptions.length * 34, 224);
+                              const spaceBelow = window.innerHeight - rect.bottom;
+                              const spaceAbove = rect.top;
+                              const opensUp = spaceBelow < menuHeight + 12 && spaceAbove > spaceBelow;
+                              const left = Math.min(
+                                Math.max(12, rect.left),
+                                Math.max(12, window.innerWidth - width - 12)
+                              );
+                              const top = opensUp
+                                ? Math.max(12, rect.top - menuHeight - 8)
+                                : Math.min(rect.bottom + 8, window.innerHeight - menuHeight - 12);
+
+                              setEmailSelectorPosition({
+                                left,
+                                top,
+                                width,
+                              });
+                              setOpenEmailSelectorId(p.id);
+                            }}
+                            className="inline-flex w-[340px] max-w-full items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-mono text-amber-800 shadow-sm transition-theme hover:border-amber-300 hover:bg-amber-100 dark:border-amber-700/60 dark:bg-amber-900/20 dark:text-amber-200 dark:hover:bg-amber-900/30"
                             title="Seleccionar correo"
                           >
-                            <span>{p.email || 'Seleccionar correo'}</span>
-                            <Icon name="chevronDown" className="text-[10px]" />
+                            <span className="min-w-0 truncate">{p.email || 'Seleccionar correo'}</span>
+                            <Icon name="chevronDown" className="shrink-0 text-[10px]" />
                           </button>
 
-                          {openEmailSelectorId === p.id && (
-                            <div className="absolute left-0 top-full z-20 mt-2 min-w-[280px] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900">
+                          {openEmailSelectorId === p.id && emailSelectorPosition && (
+                            <div
+                              ref={emailSelectorMenuRef}
+                              className="fixed z-50 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900"
+                              style={{
+                                left: `${emailSelectorPosition.left}px`,
+                                top: `${emailSelectorPosition.top}px`,
+                                width: `${emailSelectorPosition.width}px`,
+                              }}
+                            >
                               <div className="border-b border-gray-100 px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:border-gray-800 dark:text-gray-400">
                                 Correos disponibles
                               </div>
@@ -625,6 +702,7 @@ const MinuteEditorSectionParticipants = ({ isReadOnly = false }) => {
                                     onClick={() => {
                                       updateParticipant(p.id, { email: option.email });
                                       setOpenEmailSelectorId(null);
+                                      setEmailSelectorPosition(null);
                                     }}
                                     className={`flex w-full items-center justify-between px-3 py-2 text-left text-xs transition-theme hover:bg-gray-50 dark:hover:bg-gray-800 ${
                                       emailsEqual(option.email, p.email)
@@ -645,8 +723,8 @@ const MinuteEditorSectionParticipants = ({ isReadOnly = false }) => {
                           )}
                         </div>
                       ) : hasMultipleEmails ? (
-                        <span className="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-mono text-amber-800 shadow-sm transition-theme dark:border-amber-700/60 dark:bg-amber-900/20 dark:text-amber-200">
-                          <span>{p.email || 'Sin correo seleccionado'}</span>
+                        <span className="inline-flex w-[340px] max-w-full items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-mono text-amber-800 shadow-sm transition-theme dark:border-amber-700/60 dark:bg-amber-900/20 dark:text-amber-200">
+                          <span className="min-w-0 truncate">{p.email || 'Sin correo seleccionado'}</span>
                         </span>
                       ) : p.email ? (
                         <span className="text-xs font-mono text-gray-600 dark:text-gray-400 transition-theme">{p.email}</span>

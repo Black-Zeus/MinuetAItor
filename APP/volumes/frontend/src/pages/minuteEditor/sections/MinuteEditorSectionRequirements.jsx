@@ -3,11 +3,7 @@
  * Tab "Requerimientos": tabla CRUD. Edición vía ModalManager.custom().
  *
  * Ajuste solicitado:
- * - Reordena campos del modal en este orden:
- *   1) Requerimiento
- *   2) Entidad
- *   3) Responsable
- *   4) Prioridad
+ * - Usa una estructura visual coherente con el modal de acuerdos.
  */
 
 import React from 'react';
@@ -48,21 +44,7 @@ const MinuteEditorSectionRequirements = ({ isReadOnly = false }) => {
       size: 'medium',
       showFooter: true,
       content: (
-        <div className="p-6 space-y-4">
-          {/* 1) Requerimiento */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 transition-theme">
-              Requerimiento <span className="text-red-500">*</span>
-            </label>
-            <textarea
-              defaultValue={draft.body}
-              onChange={(e) => { draft.body = e.target.value; }}
-              rows={3}
-              className="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm text-gray-900 dark:text-gray-100 transition-theme focus:outline-none focus:ring-2 focus:ring-primary-500/40 resize-none"
-            />
-          </div>
-
-          {/* 2) Entidad */}
+        <div className="p-6 space-y-5">
           <div>
             <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 transition-theme">
               Entidad
@@ -76,33 +58,45 @@ const MinuteEditorSectionRequirements = ({ isReadOnly = false }) => {
             />
           </div>
 
-          {/* 3) Responsable */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 transition-theme">
-              Responsable
+              Glosa del requerimiento <span className="text-red-500">*</span>
             </label>
-            <input
-              type="text"
-              defaultValue={draft.responsible}
-              onChange={(e) => { draft.responsible = e.target.value; }}
-              className="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm text-gray-900 dark:text-gray-100 transition-theme focus:outline-none focus:ring-2 focus:ring-primary-500/40"
+            <textarea
+              defaultValue={draft.body}
+              onChange={(e) => { draft.body = e.target.value; }}
+              rows={4}
+              className="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm text-gray-900 dark:text-gray-100 transition-theme focus:outline-none focus:ring-2 focus:ring-primary-500/40 resize-none"
             />
           </div>
 
-          {/* 4) Prioridad */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 transition-theme">
-              Prioridad
-            </label>
-            <select
-              defaultValue={draft.priority}
-              onChange={(e) => { draft.priority = e.target.value; }}
-              className="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm text-gray-900 dark:text-gray-100 transition-theme focus:outline-none focus:ring-2 focus:ring-primary-500/40"
-            >
-              <option value="high">Alta</option>
-              <option value="medium">Media</option>
-              <option value="low">Baja</option>
-            </select>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 transition-theme">
+                Responsable
+              </label>
+              <input
+                type="text"
+                defaultValue={draft.responsible}
+                onChange={(e) => { draft.responsible = e.target.value; }}
+                className="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm text-gray-900 dark:text-gray-100 transition-theme focus:outline-none focus:ring-2 focus:ring-primary-500/40"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 transition-theme">
+                Prioridad
+              </label>
+              <select
+                defaultValue={draft.priority}
+                onChange={(e) => { draft.priority = e.target.value; }}
+                className="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm text-gray-900 dark:text-gray-100 transition-theme focus:outline-none focus:ring-2 focus:ring-primary-500/40"
+              >
+                <option value="high">Alta</option>
+                <option value="medium">Media</option>
+                <option value="low">Baja</option>
+              </select>
+            </div>
           </div>
         </div>
       ),

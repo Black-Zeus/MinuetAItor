@@ -22,6 +22,7 @@ import {
   FaDatabase,
   FaServer,
   FaShield,
+  FaRocket,
   FaBolt,
   FaFire,
   FaWater,
@@ -62,6 +63,7 @@ export const generalIcons = {
   database: FaDatabase,
   server: FaServer,
   shield: FaShield,
+  rocket: FaRocket,
   
   // Utilidades
   bolt: FaBolt,
@@ -95,6 +97,7 @@ export const generalIcons = {
   FaDatabase,
   FaServer,
   FaShield,
+  FaRocket,
   FaBolt,
   FaFire,
   FaWater,

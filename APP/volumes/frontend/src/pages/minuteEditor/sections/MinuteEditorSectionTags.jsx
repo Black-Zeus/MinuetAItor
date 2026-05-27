@@ -21,7 +21,7 @@
  *   Si quieres persistencia real, esto debería moverse al store.
  */
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Icon from '@components/ui/icon/iconManager';
 import ModalManager from '@components/ui/modal';
 import useMinuteEditorStore from '@/store/minuteEditorStore';
@@ -36,6 +36,9 @@ const MinuteEditorSectionTags = ({ isReadOnly = false }) => {
     // Picker usuario (catálogo)
     const [catalogQuery, setCatalogQuery] = useState('');
     const [isCatalogFocused, setIsCatalogFocused] = useState(false);
+    const [highlightedCatalogIndex, setHighlightedCatalogIndex] = useState(0);
+    const catalogInputRef = useRef(null);
+    const catalogBlurTimeoutRef = useRef(null);
 
     // Para "compilar" IA -> Usuario (enriquecimiento local)
     // - aiToUserAlias: por aiTagId guardo { category, name }
@@ -114,27 +117,32 @@ const MinuteEditorSectionTags = ({ isReadOnly = false }) => {
     // ---------------------------
     // Catálogo "activo" disponible para búsqueda/autocomplete
     // ---------------------------
+    const indexedCatalog = useMemo(() => (
+        (tagsCatalog ?? []).map((t) => ({
+            ...t,
+            _normalizedName: normalizeName(t.name),
+            _searchText: [
+                t.name,
+                t.category,
+                t.description,
+            ]
+                .map((v) => normalizeText(v).toLowerCase())
+                .join(' '),
+        }))
+    ), [tagsCatalog]);
+
     const activeCatalog = useMemo(() => {
-        const list = (tagsCatalog ?? []).filter(
+        const list = (indexedCatalog ?? []).filter(
             (t) => String(t.status ?? '').toLowerCase() === 'activo'
         );
-        return list.filter((t) => !userTagNamesSet.has(normalizeName(t.name)));
-    }, [tagsCatalog, userTagNamesSet]);
+        return list.filter((t) => !userTagNamesSet.has(t._normalizedName));
+    }, [indexedCatalog, userTagNamesSet]);
 
     const filteredCatalog = useMemo(() => {
         const query = normalizeName(catalogQuery);
         const list = !query
             ? activeCatalog
-            : activeCatalog.filter((t) => {
-                const haystack = [
-                    t.name,
-                    t.category,
-                    t.description,
-                ]
-                    .map((v) => normalizeText(v).toLowerCase())
-                    .join(' ');
-                return haystack.includes(query);
-            });
+            : activeCatalog.filter((t) => t._searchText.includes(query));
 
         return [...list]
             .sort((a, b) => {
@@ -145,9 +153,13 @@ const MinuteEditorSectionTags = ({ isReadOnly = false }) => {
             .slice(0, 8);
     }, [activeCatalog, catalogQuery]);
 
+    useEffect(() => {
+        setHighlightedCatalogIndex(0);
+    }, [catalogQuery, filteredCatalog.length]);
+
     const showCatalogSuggestions = useMemo(
-        () => isCatalogFocused && normalizeText(catalogQuery).length > 0 && filteredCatalog.length > 0,
-        [catalogQuery, filteredCatalog.length, isCatalogFocused]
+        () => isCatalogFocused && normalizeText(catalogQuery).length > 0,
+        [catalogQuery, isCatalogFocused]
     );
 
     // ---------------------------
@@ -224,10 +236,16 @@ const MinuteEditorSectionTags = ({ isReadOnly = false }) => {
     };
 
     const handleCatalogQueryChange = (value) => {
+        if (catalogBlurTimeoutRef.current) {
+            window.clearTimeout(catalogBlurTimeoutRef.current);
+            catalogBlurTimeoutRef.current = null;
+        }
+
+        setIsCatalogFocused(true);
         setCatalogQuery(value);
 
         const matchedTag = activeCatalog.find(
-            (t) => normalizeName(t.name) === normalizeName(value)
+            (t) => t._normalizedName === normalizeName(value)
         );
 
         if (!matchedTag) {
@@ -236,12 +254,59 @@ const MinuteEditorSectionTags = ({ isReadOnly = false }) => {
 
         addUserTag(matchedTag.name);
         setCatalogQuery('');
+        setIsCatalogFocused(true);
+        window.setTimeout(() => {
+            catalogInputRef.current?.focus();
+        }, 0);
     };
 
     const handleSelectCatalogTag = (tag) => {
+        if (catalogBlurTimeoutRef.current) {
+            window.clearTimeout(catalogBlurTimeoutRef.current);
+            catalogBlurTimeoutRef.current = null;
+        }
+
         addUserTag(tag.name);
         setCatalogQuery('');
-        setIsCatalogFocused(false);
+        setIsCatalogFocused(true);
+        window.setTimeout(() => {
+            catalogInputRef.current?.focus();
+        }, 0);
+    };
+
+    const handleCatalogKeyDown = (event) => {
+        if (!showCatalogSuggestions) return;
+
+        if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            setHighlightedCatalogIndex((current) => (
+                filteredCatalog.length === 0 ? 0 : (current + 1) % filteredCatalog.length
+            ));
+            return;
+        }
+
+        if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            setHighlightedCatalogIndex((current) => (
+                filteredCatalog.length === 0
+                    ? 0
+                    : (current - 1 + filteredCatalog.length) % filteredCatalog.length
+            ));
+            return;
+        }
+
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            const selected = filteredCatalog[highlightedCatalogIndex] ?? filteredCatalog[0];
+            if (selected) {
+                handleSelectCatalogTag(selected);
+            }
+            return;
+        }
+
+        if (event.key === 'Escape') {
+            setIsCatalogFocused(false);
+        }
     };
 
     // ---------------------------
@@ -528,12 +593,23 @@ const MinuteEditorSectionTags = ({ isReadOnly = false }) => {
 
                         <div className="relative">
                             <input
+                                ref={catalogInputRef}
                                 type="text"
                                 value={catalogQuery}
                                 onChange={(e) => handleCatalogQueryChange(e.target.value)}
-                                onFocus={() => setIsCatalogFocused(true)}
+                                onKeyDown={handleCatalogKeyDown}
+                                onFocus={() => {
+                                    if (catalogBlurTimeoutRef.current) {
+                                        window.clearTimeout(catalogBlurTimeoutRef.current);
+                                        catalogBlurTimeoutRef.current = null;
+                                    }
+                                    setIsCatalogFocused(true);
+                                }}
                                 onBlur={() => {
-                                    window.setTimeout(() => setIsCatalogFocused(false), 120);
+                                    catalogBlurTimeoutRef.current = window.setTimeout(() => {
+                                        setIsCatalogFocused(false);
+                                        catalogBlurTimeoutRef.current = null;
+                                    }, 120);
                                 }}
                                 placeholder={activeCatalog.length === 0 ? 'No hay tags disponibles' : 'Ej: red, seguridad, respaldo...'}
                                 disabled={isReadOnly || activeCatalog.length === 0}
@@ -544,7 +620,11 @@ const MinuteEditorSectionTags = ({ isReadOnly = false }) => {
                             </div>
                             {showCatalogSuggestions && (
                                 <div className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-xl transition-theme">
-                                    {filteredCatalog.map((t) => (
+                                    {filteredCatalog.length === 0 ? (
+                                        <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 transition-theme">
+                                            No hay tags disponibles para esta búsqueda.
+                                        </div>
+                                    ) : filteredCatalog.map((t, index) => (
                                         <button
                                             key={t.id}
                                             type="button"
@@ -552,7 +632,11 @@ const MinuteEditorSectionTags = ({ isReadOnly = false }) => {
                                                 e.preventDefault();
                                                 handleSelectCatalogTag(t);
                                             }}
-                                            className="flex w-full items-start justify-between gap-3 border-b border-gray-100 px-4 py-3 text-left transition-theme last:border-b-0 hover:bg-gray-50 dark:border-gray-700/60 dark:hover:bg-gray-700/40"
+                                            className={`flex w-full items-start justify-between gap-3 border-b border-gray-100 px-4 py-3 text-left transition-theme last:border-b-0 dark:border-gray-700/60 ${
+                                                index === highlightedCatalogIndex
+                                                    ? 'bg-primary-50 dark:bg-primary-900/20'
+                                                    : 'hover:bg-gray-50 dark:hover:bg-gray-700/40'
+                                            }`}
                                         >
                                             <div className="min-w-0">
                                                 <div className="flex items-center gap-2 flex-wrap">

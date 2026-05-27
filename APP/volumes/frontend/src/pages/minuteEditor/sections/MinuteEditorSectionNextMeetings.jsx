@@ -3,7 +3,7 @@
  * Tab "Próximas Reuniones": tabla CRUD. Edición vía ModalManager.custom().
  *
  * Ajuste adicional:
- * - Se agrega aviso visible al final de la sección (debajo de la tabla) indicando que la fecha es obligatoria.
+ * - La fecha puede quedar como "Por definir" cuando no se conoce aun.
  */
 
 import React from 'react';
@@ -25,25 +25,32 @@ const MinuteEditorSectionNextMeetings = ({ isReadOnly = false }) => {
     // ---------------------------
     const isPorDefinir = (v) => {
         const s = String(v ?? '').trim().toLowerCase();
-        return !s || s === 'por definir';
+        return !s || s === '-' || s === '—' || s === 'por definir';
     };
 
-    // dd/mm/aaaa -> yyyy-mm-dd (para <input type="date">)
-    const ddmmyyyyToISO = (v) => {
+    // Normaliza valores legacy/IA para <input type="date">.
+    const toDateInputValue = (v) => {
         const s = String(v ?? '').trim();
-        const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-        if (!m) return '';
-        const [, dd, mm, yyyy] = m;
+        if (isPorDefinir(s)) return '';
+
+        const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (iso) return s;
+
+        const ddmmyyyy = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+        if (!ddmmyyyy) return '';
+        const [, dd, mm, yyyy] = ddmmyyyy;
         return `${yyyy}-${mm}-${dd}`;
     };
 
-    // yyyy-mm-dd -> dd/mm/aaaa (para mantener tu formato de tabla)
-    const isoToDDMMYYYY = (v) => {
+    const normalizeScheduledDate = (v) => {
         const s = String(v ?? '').trim();
-        const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-        if (!m) return '';
-        const [, yyyy, mm, dd] = m;
-        return `${dd}/${mm}/${yyyy}`;
+        if (isPorDefinir(s)) return 'Por definir';
+        return toDateInputValue(s) || s;
+    };
+
+    const displayScheduledDate = (v) => {
+        const s = String(v ?? '').trim();
+        return isPorDefinir(s) ? 'Por definir' : s;
     };
 
     const openForm = (existing = null) => {
@@ -51,9 +58,10 @@ const MinuteEditorSectionNextMeetings = ({ isReadOnly = false }) => {
             ? { ...existing }
             : { scheduledDate: 'Por definir', agenda: '', attendees: [] };
 
-        let scheduledISO = isPorDefinir(draft.scheduledDate)
-            ? ''
-            : ddmmyyyyToISO(draft.scheduledDate);
+        let scheduledISO = toDateInputValue(draft.scheduledDate);
+        let useUndefinedDate = isPorDefinir(draft.scheduledDate);
+        draft.scheduledDate = normalizeScheduledDate(draft.scheduledDate);
+        const dateInputRef = React.createRef();
 
         const modalIdReunion = ModalManager.custom({
             title: existing ? 'Editar próxima reunión' : 'Agregar próxima reunión',
@@ -63,24 +71,49 @@ const MinuteEditorSectionNextMeetings = ({ isReadOnly = false }) => {
                 <div className="p-6 space-y-4">
                     <div>
                         <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 transition-theme">
-                            Fecha programada <span className="text-red-500">*</span>
+                            Fecha programada
                         </label>
 
                         <input
+                            ref={dateInputRef}
                             type="date"
                             defaultValue={scheduledISO}
+                            disabled={useUndefinedDate}
                             onChange={(e) => {
                                 scheduledISO = e.target.value;
-                                draft.scheduledDate = scheduledISO
-                                    ? isoToDDMMYYYY(scheduledISO)
-                                    : 'Por definir';
+                                draft.scheduledDate = normalizeScheduledDate(scheduledISO);
                             }}
-                            className="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm font-mono text-gray-900 dark:text-gray-100 transition-theme focus:outline-none focus:ring-2 focus:ring-primary-500/40"
+                            className="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm font-mono text-gray-900 dark:text-gray-100 transition-theme focus:outline-none focus:ring-2 focus:ring-primary-500/40 disabled:opacity-60 disabled:cursor-not-allowed"
                         />
 
-                        {/* Aviso en el modal */}
-                        <p className="mt-2 text-xs text-amber-700 dark:text-amber-300 transition-theme">
-                            La fecha es obligatoria. Si aparece “Por definir”, debes seleccionarla para poder guardar.
+                        <label className="mt-3 flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 transition-theme">
+                            <input
+                                type="checkbox"
+                                defaultChecked={useUndefinedDate}
+                                onChange={(e) => {
+                                    useUndefinedDate = e.target.checked;
+
+                                    if (dateInputRef.current) {
+                                        dateInputRef.current.disabled = useUndefinedDate;
+                                        if (useUndefinedDate) {
+                                            dateInputRef.current.value = '';
+                                        }
+                                    }
+
+                                    scheduledISO = useUndefinedDate
+                                        ? ''
+                                        : (dateInputRef.current?.value ?? '');
+                                    draft.scheduledDate = useUndefinedDate
+                                        ? 'Por definir'
+                                        : normalizeScheduledDate(scheduledISO);
+                                }}
+                                className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900"
+                            />
+                            <span>Marcar como Por definir</span>
+                        </label>
+
+                        <p className="mt-2 text-xs text-gray-500 dark:text-gray-400 transition-theme">
+                            Puedes indicar una fecha concreta o dejarla como “Por definir”.
                         </p>
                     </div>
 
@@ -104,14 +137,6 @@ const MinuteEditorSectionNextMeetings = ({ isReadOnly = false }) => {
                     text: 'Guardar',
                     variant: 'primary',
                     onClick: () => {
-                        if (isPorDefinir(draft.scheduledDate)) {
-                            ModalManager.warning({
-                                title: 'Campo requerido',
-                                message: 'Debes seleccionar una fecha programada para guardar.',
-                            });
-                            return;
-                        }
-
                         if (!draft.agenda?.trim()) {
                             ModalManager.warning({
                                 title: 'Campo requerido',
@@ -119,6 +144,10 @@ const MinuteEditorSectionNextMeetings = ({ isReadOnly = false }) => {
                             });
                             return;
                         }
+
+                        draft.scheduledDate = useUndefinedDate
+                            ? 'Por definir'
+                            : normalizeScheduledDate(scheduledISO || dateInputRef.current?.value);
 
                         existing
                             ? updateUpcomingMeeting(existing.id, draft)
@@ -198,7 +227,7 @@ const MinuteEditorSectionNextMeetings = ({ isReadOnly = false }) => {
                                     </td>
 
                                     <td className="py-3 pr-4 font-mono text-xs whitespace-nowrap">
-                                        {m.scheduledDate}
+                                        {displayScheduledDate(m.scheduledDate)}
                                     </td>
 
                                     <td className="py-3 pr-4 max-w-xs">
@@ -234,18 +263,17 @@ const MinuteEditorSectionNextMeetings = ({ isReadOnly = false }) => {
                 </table>
             </div>
 
-            {/* Aviso en la sección (al final, debajo de la tabla) */}
-            <div className="mt-4 rounded-xl border border-amber-200/70 dark:border-amber-400/20 bg-amber-50 dark:bg-amber-900/10 px-4 py-3 transition-theme">
+            <div className="mt-4 rounded-xl border border-primary-200/70 dark:border-primary-400/20 bg-primary-50 dark:bg-primary-900/10 px-4 py-3 transition-theme">
                 <div className="flex items-start gap-3">
                     <div className="mt-0.5">
-                        <Icon name="circleInfo" className="text-amber-600 dark:text-amber-300" />
+                        <Icon name="circleInfo" className="text-primary-600 dark:text-primary-300" />
                     </div>
                     <div className="text-sm">
-                        <p className="text-amber-900 dark:text-amber-100 font-semibold transition-theme">
-                            Requisito de fecha
+                        <p className="text-primary-900 dark:text-primary-100 font-semibold transition-theme">
+                            Fecha opcional
                         </p>
-                        <p className="text-amber-800 dark:text-amber-200 transition-theme">
-                            La <span className="font-semibold">fecha programada es obligatoria</span>. Si ves “Por definir”, edita el registro y selecciona una fecha antes de guardar.
+                        <p className="text-primary-800 dark:text-primary-200 transition-theme">
+                            Cuando la fecha aún no exista, la reunión se mostrará como <span className="font-semibold">Por definir</span>.
                         </p>
                     </div>
                 </div>

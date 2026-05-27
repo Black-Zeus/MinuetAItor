@@ -36,6 +36,8 @@ const fmtDate = (iso) => {
   } catch { return iso; }
 };
 
+const isVisibleVersion = (version) => Number(version?.versionNum ?? 0) > 0;
+
 // ─────────────────────────────────────────────────────────────────────────────
 // BADGE DE VERSIÓN
 // ─────────────────────────────────────────────────────────────────────────────
@@ -227,7 +229,7 @@ const MinuteEditorSectionTimeline = ({ recordId, recordStatus }) => {
     setError(null);
     try {
       const data = await getMinuteVersions(recordId);
-      setVersions(data?.versions ?? []);
+      setVersions((data?.versions ?? []).filter(isVisibleVersion));
     } catch (err) {
       log.error("Error cargando versiones:", err);
       setError(err?.message ?? "No se pudieron cargar las versiones.");

@@ -76,6 +76,8 @@ const cn = (...classes) => classes.filter(Boolean).join(" ");
 const ORGANIZATION_LOGO_MAX_BYTES = 2 * 1024 * 1024;
 const ORGANIZATION_BANNER_MAX_BYTES = 4 * 1024 * 1024;
 const ORGANIZATION_MEDIA_TYPES = ["image/jpeg", "image/png"];
+const PUBLIC_BASE_URL_ERROR =
+  "Ingresa una URL absoluta con http:// o https://, sin rutas ni parámetros.";
 
 const svgToDataUri = (svg) => `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 
@@ -112,6 +114,28 @@ const releaseBlobUrl = (value) => {
   if (typeof value === "string" && value.startsWith("blob:")) {
     URL.revokeObjectURL(value);
   }
+};
+
+const validatePublicBaseUrl = (value) => {
+  const text = String(value || "").trim();
+  if (!text) return "";
+
+  let parsed;
+  try {
+    parsed = new URL(text);
+  } catch {
+    return PUBLIC_BASE_URL_ERROR;
+  }
+
+  if (!["http:", "https:"].includes(parsed.protocol) || !parsed.hostname) {
+    return PUBLIC_BASE_URL_ERROR;
+  }
+
+  if (parsed.pathname !== "/" || parsed.search || parsed.hash) {
+    return PUBLIC_BASE_URL_ERROR;
+  }
+
+  return "";
 };
 
 const getDraggedImageFile = (event) => {
@@ -228,6 +252,10 @@ export const OrganizationPanel = () => {
   const [bannerFailed, setBannerFailed] = useState(false);
   const [logoDragActive, setLogoDragActive] = useState(false);
   const [bannerDragActive, setBannerDragActive] = useState(false);
+  const publicBaseUrlError = useMemo(
+    () => validatePublicBaseUrl(draft.publicBaseUrl),
+    [draft.publicBaseUrl]
+  );
 
   const hasChanges = useMemo(
     () =>
@@ -319,6 +347,10 @@ export const OrganizationPanel = () => {
 
   const handleSave = async () => {
     if (isSaving) return;
+    if (publicBaseUrlError) {
+      toastError("URL pública inválida", publicBaseUrlError);
+      return;
+    }
 
     setIsSaving(true);
     try {
@@ -644,8 +676,12 @@ export const OrganizationPanel = () => {
               <MaintenanceInput
                 value={draft.publicBaseUrl}
                 onChange={(event) => updateDraft("publicBaseUrl", event.target.value)}
+                invalid={Boolean(publicBaseUrlError)}
                 placeholder="https://minutas.tudominio.cl"
               />
+              {publicBaseUrlError ? (
+                <p className="mt-2 text-xs text-red-600 dark:text-red-400">{publicBaseUrlError}</p>
+              ) : null}
             </MaintenanceField>
 
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
@@ -758,6 +794,7 @@ export const OrganizationPanel = () => {
         onDiscard={handleDiscard}
         onSave={handleSave}
         saveLabel={isSaving ? "Guardando..." : "Guardar organización"}
+        saveDisabled={Boolean(publicBaseUrlError)}
         dirtyMessage="Los datos institucionales quedarán disponibles para futuros acoples de branding, minutas y trazabilidad."
         cleanMessage="La configuración institucional guardada será la base para futuros acoples del sistema."
       />
