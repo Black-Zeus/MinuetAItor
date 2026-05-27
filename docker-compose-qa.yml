@@ -13,7 +13,7 @@ services:
       MARIADB_USER: ${MARIADB_USER}
       MARIADB_PASSWORD: ${MARIADB_PASSWORD}
     volumes:
-      - ./APP/data/mariadb_data:/var/lib/mysql
+      - mariadb_data:/var/lib/mysql
       - ./APP/data/settings/mariadb/init:/docker-entrypoint-initdb.d:ro
     ports:
       - "${MARIADB_PORT}:3306"
@@ -32,7 +32,7 @@ services:
     restart: unless-stopped
     command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
     volumes:
-      - ./APP/data/redis_data:/data
+      - redis_data:/data
       - ./APP/data/settings/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
     ports:
       - "${REDIS_PORT}:6379"
@@ -174,6 +174,10 @@ services:
       - "env=${ENV_NAME}"
 
 volumes:
+  mariadb_data:
+    name: ${PROJECT_NAME}_mariadb_data
+  redis_data:
+    name: ${PROJECT_NAME}_redis_data
   frontend_node_modules:
   minio_data:
     name: ${PROJECT_NAME}_minio_data

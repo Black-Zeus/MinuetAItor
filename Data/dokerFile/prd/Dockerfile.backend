@@ -16,17 +16,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && echo $TZ > /etc/timezone \
     && rm -rf /var/lib/apt/lists/*
 
-# usuario no-root
-RUN useradd -m appuser
-USER appuser
-
 # Copia e instala deps
-COPY --chown=appuser:appuser APP/volumes/backend/requirements.txt ./requirements.txt
+COPY APP/volumes/backend/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
+# usuario no-root
+RUN useradd -m appuser
+RUN mkdir -p /app/remote_data /var/log/app \
+    && chown -R appuser:appuser /app /var/log/app
+USER appuser
+
 # Copia código (prd no monta volúmenes de app)
-COPY --chown=appuser:appuser APP/volumes/backend/ /app
+COPY --chown=appuser:appuser APP/volumes/backend/app/ /app
 
 EXPOSE ${BACKEND_PORT_INTERNAL}
 
-CMD ["sh","-lc","uvicorn main:app --host 0.0.0.0 --port ${BACKEND_PORT_INTERNAL}"]
+CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

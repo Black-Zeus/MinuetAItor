@@ -61,36 +61,9 @@ export default defineConfig({
   },
 
   build: {
-    sourcemap: true,
+    sourcemap: process.env.NODE_ENV !== 'production',
     rollupOptions: {
       output: {
-        manualChunks: (id) => {
-          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) return 'vendor-react';
-          if (id.includes('node_modules/react-router')) return 'vendor-router';
-          if (id.includes('node_modules/axios'))        return 'vendor-http';
-          if (id.includes('node_modules/echarts') || id.includes('node_modules/echarts-for-react')) return 'vendor-charts';
-          if (id.includes('node_modules/xlsx') || id.includes('node_modules/exceljs') ||
-              id.includes('node_modules/pdfmake') || id.includes('node_modules/file-saver')) return 'vendor-exporters';
-          if (id.includes('node_modules/lucide-react') || id.includes('node_modules/@heroicons') ||
-              id.includes('node_modules/@tabler/icons')) return 'vendor-icons';
-          if (id.includes('node_modules/zustand') || id.includes('node_modules/immer')) return 'vendor-state';
-          if (id.includes('node_modules/lodash') || id.includes('node_modules/date-fns') ||
-              id.includes('node_modules/dayjs') || id.includes('node_modules/clsx') ||
-              id.includes('node_modules/classnames')) return 'vendor-utils';
-          if (id.includes('node_modules')) return 'vendor-misc';
-
-          if (id.includes('/pages/auth/'))        return 'pages-auth';
-          if (id.includes('/components/ui/modal/')) return 'components-modal';
-          if (id.includes('/components/layout/')) return 'components-layout';
-          if (id.includes('/demos/') || id.includes('/demo')) return 'demos';
-          if (id.includes('/services/'))          return 'services';
-          if (id.includes('/store/'))             return 'store';
-          if (id.includes('/utils/') || id.includes('/helpers/')) return 'utils';
-          if (id.includes('/constants/'))         return 'constants';
-          if (id.includes('/hooks/'))             return 'hooks';
-
-          return undefined;
-        },
         chunkFileNames:  'js/[name]-[hash].js',
         entryFileNames:  'js/[name]-[hash].js',
         assetFileNames:  (assetInfo) => {
@@ -103,7 +76,7 @@ export default defineConfig({
     },
 
     chunkSizeWarningLimit: 1000,
-    minify: 'terser',
+    minify: 'esbuild',
     terserOptions: {
       compress: {
         drop_console:    process.env.NODE_ENV === 'production',

@@ -13,34 +13,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="/favicon/apple-touch-icon.png" />
   <link rel="manifest" href="/favicon/site.webmanifest" />
 
-  <!-- ✅ Script anti-FOUC: Aplica tema ANTES de que React monte -->
-  <script>
-    // Aplicar tema inmediatamente para evitar flash de contenido sin estilo
-    (function () {
-      try {
-        const stored = localStorage.getItem('site-storage') || localStorage.getItem('minuteAItor-base-site');
-        if (!stored) {
-          document.documentElement.classList.add('dark');
-          return;
-        }
-
-        const parsed = JSON.parse(stored);
-        const state = parsed && typeof parsed === 'object'
-          ? (parsed.state && typeof parsed.state === 'object' ? parsed.state : parsed)
-          : {};
-        const theme = state.theme || 'dark';
-        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-        if (theme === 'dark' || (theme === 'system' && prefersDark)) {
-          document.documentElement.classList.add('dark');
-        } else {
-          document.documentElement.classList.remove('dark');
-        }
-      } catch (e) {
-        console.warn('Error loading theme:', e);
-        document.documentElement.classList.add('dark');
-      }
-    })();
-  </script>
+  <script type="module" src="/src/theme-init.js"></script>
 </head>
 
 <body>

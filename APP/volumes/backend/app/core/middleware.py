@@ -46,6 +46,9 @@ _SENSITIVE_VALIDATION_FIELDS = {
     "confirm_password",
     "secret",
     "api_key",
+    "credential",
+    "email",
+    "username",
 }
 
 

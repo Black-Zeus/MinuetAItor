@@ -22,7 +22,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install --no-cache-dir watchdog
 
 # Copiar el código de la aplicación
-COPY --chown=appuser:appuser APP/volumes/worker/ /app
+COPY --chown=appuser:appuser APP/volumes/worker/app/ /app
 
 # Crear directorios necesarios con permisos
 RUN mkdir -p /app/assets/prompts /app/assets/temp /var/log/app && \
