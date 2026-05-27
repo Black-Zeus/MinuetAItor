@@ -83,12 +83,18 @@ const Layout = ({ children }) => {
     ? "verificación"
     : operationMode === "read_only"
       ? "solo lectura"
-      : "mantenimiento";
+      : operationMode === "commissioning"
+        ? "puesta en marcha"
+        : "mantenimiento";
   const operationMessage = useMemo(() => {
     if (!isOperationLocked) return "";
-    return operationMode === "read_only"
-      ? "Sistema en modo solo lectura. Puedes consultar datos y reportes, pero las escrituras están bloqueadas."
-      : "Sistema en modo mantenimiento. Solo está disponible Configuración > Sistema para administrar el modo operativo.";
+    if (operationMode === "read_only") {
+      return "Sistema en modo solo lectura. Puedes consultar datos y reportes, pero las escrituras están bloqueadas.";
+    }
+    if (operationMode === "commissioning") {
+      return "Sistema en puesta en marcha. Solo administradores pueden iniciar sesión y escribir mientras se completan las validaciones.";
+    }
+    return "Sistema en modo mantenimiento. Solo está disponible Configuración > Sistema para administrar el modo operativo.";
   }, [isOperationLocked, operationMode]);
   const operationReason = String(operationState?.reason || "").trim();
 

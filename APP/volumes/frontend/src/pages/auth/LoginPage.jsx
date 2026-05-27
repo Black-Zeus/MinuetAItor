@@ -227,12 +227,15 @@ const LoginPage = () => {
                 setOperationType(type);
                 if (mode === 'normal') return;
                 const isReadOnly = mode === 'read_only';
+                const isCommissioning = mode === 'commissioning';
                 const isManual = String(type).startsWith('manual_');
-                setErrorTitle(isReadOnly ? 'Sistema en solo lectura' : 'Sistema en mantenimiento');
+                setErrorTitle(isReadOnly ? 'Sistema en solo lectura' : isCommissioning ? 'Sistema en puesta en marcha' : 'Sistema en mantenimiento');
                 setErrorTone('maintenance');
                 setError(
                     isReadOnly
                         ? 'Puedes ingresar para consultar datos. Las acciones de creación, edición y eliminación estarán bloqueadas.'
+                        : isCommissioning
+                            ? 'El acceso está temporalmente habilitado solo para administradores mientras se completan las validaciones.'
                         : isManual
                             ? 'El acceso general está cerrado. Solo usuarios ADMIN pueden ingresar para administrar el modo operativo.'
                             : 'El acceso está temporalmente cerrado porque el sistema está en modo mantenimiento.'
@@ -300,6 +303,10 @@ const LoginPage = () => {
             const tokenResponse = await apiLogin({ credential, password });
             // storeLogin ahora también dispara sessionStore.loadFromApi() automáticamente
             storeLogin(tokenResponse);
+            if (operationMode === 'commissioning') {
+                navigate('/settings/system?tab=commissioning', { replace: true });
+                return;
+            }
             if (operationMode === 'maintenance' && isManualOperation) {
                 navigate('/settings/system?tab=maintenance', { replace: true });
                 return;

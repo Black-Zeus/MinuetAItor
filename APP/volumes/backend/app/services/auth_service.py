@@ -73,6 +73,17 @@ def _read_manual_operation_marker() -> dict | None:
     return marker if operation_type.startswith("manual_") else None
 
 
+def _role_codes(roles: list[str] | tuple[str, ...] | set[str] | None) -> set[str]:
+    return {str(role or "").upper() for role in (roles or [])}
+
+
+def _enforce_commissioning_admin_access(roles: list[str] | tuple[str, ...] | set[str] | None) -> None:
+    manual_marker = _read_manual_operation_marker()
+    manual_mode = str((manual_marker or {}).get("mode") or "")
+    if manual_mode == "commissioning" and "ADMIN" not in _role_codes(roles):
+        raise ForbiddenException("Sistema en puesta en marcha. Acceso temporalmente habilitado solo para administradores.")
+
+
 async def _is_session_online(user_id: str, jti: str) -> bool:
     return await session_exists(user_id, jti)
 
@@ -168,7 +179,9 @@ async def login(db: Session, credential: str, password: str, request: Request) -
     session = _build_user_session(user_full)
     manual_marker = _read_manual_operation_marker()
     manual_mode = str((manual_marker or {}).get("mode") or "")
-    if manual_mode == "maintenance" and "ADMIN" not in {str(role or "").upper() for role in session.roles}:
+    if manual_mode in {"maintenance", "commissioning"} and "ADMIN" not in _role_codes(session.roles):
+        if manual_mode == "commissioning":
+            raise ForbiddenException("Sistema en puesta en marcha. Acceso temporalmente habilitado solo para administradores.")
         raise ForbiddenException("No se puede acceder porque el sistema está en modo mantenimiento.")
 
     expires = timedelta(minutes=settings.jwt_expire_minutes)
@@ -359,7 +372,7 @@ async def get_current_user(token: str) -> UserSession:
         payload.get("full_name"),
     )
 
-    return UserSession(
+    session = UserSession(
         user_id=user_id,
         username=username,
         full_name=full_name,
@@ -367,6 +380,8 @@ async def get_current_user(token: str) -> UserSession:
         permissions=payload.get("permissions", []),
         jti=jti,
     )
+    _enforce_commissioning_admin_access(session.roles)
+    return session
 
 
 async def get_me(token: str, db: Session) -> MeResponse:
@@ -379,6 +394,8 @@ async def get_me(token: str, db: Session) -> MeResponse:
 
     if not await session_exists(user_id, jti):
         raise UnauthorizedException("Sesión expirada o cerrada")
+
+    _enforce_commissioning_admin_access(payload.get("roles", []))
 
     user = get_user_full(db, user_id)
     if not user:
@@ -448,6 +465,8 @@ async def refresh_token(token: str, db: Session, request: Request) -> TokenRespo
 
     if not await session_exists(user_id, jti):
         raise UnauthorizedException("Sesión expirada o cerrada")
+
+    _enforce_commissioning_admin_access(payload.get("roles", []))
 
     # Baja el token viejo
     redis = get_redis()

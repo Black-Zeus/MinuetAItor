@@ -108,7 +108,7 @@ def main():
     # Respaldos programados — delegados al backend para evaluar políticas
     scheduler.add_job(
         job_system_backups_tick,
-        CronTrigger(),
+        CronTrigger(second=0),
         id="system_backups_tick",
         name="Tick respaldos programados",
     )
@@ -116,7 +116,7 @@ def main():
     # Tick de mantenimiento dinámico — cada minuto
     scheduler.add_job(
         job_maintenance_tick,
-        CronTrigger(),
+        CronTrigger(second=0),
         id="maintenance_tick",
         name="Tick mantenimiento dinámico",
     )

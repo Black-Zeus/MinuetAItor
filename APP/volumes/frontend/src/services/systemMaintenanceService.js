@@ -133,6 +133,30 @@ const systemMaintenanceService = {
       },
       "No fue posible cambiar el modo operativo del sistema."
     );
+    const state = unwrap(res);
+    setCachedPublicState(state);
+    return state;
+  },
+
+  async getReadiness() {
+    const res = await request(
+      {
+        method: "get",
+        url: `${BASE}/readiness`,
+      },
+      "No fue posible obtener la validación de puesta en marcha."
+    );
+    return unwrap(res);
+  },
+
+  async runReadiness() {
+    const res = await request(
+      {
+        method: "get",
+        url: `${BASE}/readiness`,
+      },
+      "No fue posible ejecutar la validación de puesta en marcha."
+    );
     return unwrap(res);
   },
 

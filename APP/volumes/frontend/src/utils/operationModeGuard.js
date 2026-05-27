@@ -6,11 +6,13 @@ import systemMaintenanceService from "@/services/systemMaintenanceService";
 const MODE_LABELS = {
   maintenance: "mantenimiento",
   read_only: "solo lectura",
+  commissioning: "puesta en marcha",
 };
 
 const MODE_TITLES = {
   maintenance: "Sistema en mantenimiento",
   read_only: "Sistema en solo lectura",
+  commissioning: "Sistema en puesta en marcha",
 };
 
 const MODE_MESSAGES = {
@@ -18,11 +20,14 @@ const MODE_MESSAGES = {
     "Esta acción está bloqueada temporalmente.",
   read_only:
     "Esta acción requiere escritura y el sistema está bloqueado.",
+  commissioning:
+    "En puesta en marcha solo administradores pueden escribir.",
 };
 
 const MODE_BADGE_CLASSES = {
   maintenance: "border-red-400/40 bg-red-500/10 text-red-100",
   read_only: "border-amber-300/40 bg-amber-500/10 text-amber-100",
+  commissioning: "border-sky-300/40 bg-sky-500/10 text-sky-100",
 };
 
 const showOperationBlockedModal = ({ mode, reason, actionLabel } = {}) => {
@@ -91,7 +96,7 @@ export const ensureWriteOperationAllowed = async ({ actionLabel } = {}) => {
     const state = await systemMaintenanceService.getPublicOperationState();
     const mode = state?.mode || "normal";
 
-    if (mode === "normal") return true;
+    if (mode === "normal" || mode === "commissioning") return true;
 
     showOperationBlockedModal({
       mode,

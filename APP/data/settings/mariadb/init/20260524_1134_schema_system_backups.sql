@@ -5,7 +5,7 @@
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS system_operation_state (
   id                         TINYINT UNSIGNED NOT NULL PRIMARY KEY,
-  mode                       VARCHAR(40) NOT NULL DEFAULT 'normal',
+  mode                       VARCHAR(40) NOT NULL DEFAULT 'commissioning',
   operation_id               CHAR(36) NULL,
   operation_type             VARCHAR(60) NULL,
   reason                     VARCHAR(500) NULL,
@@ -135,4 +135,3 @@ CREATE TABLE IF NOT EXISTS system_deferred_tasks (
   KEY idx_sdt_action_slot (action, scheduled_slot),
   KEY idx_sdt_operation (maintenance_operation_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-

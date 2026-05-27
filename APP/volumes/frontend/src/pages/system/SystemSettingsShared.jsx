@@ -27,6 +27,12 @@ export const TABS = [
     description: "Rutinas y limpieza operativa",
   },
   {
+    id: "commissioning",
+    label: "Puesta en marcha",
+    icon: "FaRocket",
+    description: "Checklist y bloqueo inicial",
+  },
+  {
     id: "backups",
     label: "Respaldos",
     icon: "FaDatabase",
@@ -714,6 +720,7 @@ export const ConfigActionBar = ({
   saveLabel = "Guardar cambios",
   dirtyMessage = "Estás editando un borrador. Los cambios se aplicarán recién al guardar.",
   cleanMessage = "La última configuración guardada sigue activa hasta que edites algo nuevo.",
+  saveDisabled = false,
 }) => (
   <div className="flex flex-col gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:flex-row sm:items-center sm:justify-between">
     <div className="flex items-center gap-3">
@@ -740,7 +747,7 @@ export const ConfigActionBar = ({
         variant="primary"
         size="sm"
         onClick={onSave}
-        disabled={!hasChanges}
+        disabled={!hasChanges || saveDisabled}
       />
     </div>
   </div>
