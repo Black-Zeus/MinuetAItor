@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import json
+import asyncio
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from sqlalchemy.exc import IntegrityError, OperationalError, ProgrammingError
+from redis.exceptions import RedisError
 from sqlalchemy import func, inspect
 from sqlalchemy.orm import Session, joinedload
 
@@ -37,6 +39,10 @@ DLQ_QUEUE = "queue:dlq"
 SYSTEM_MAINTENANCE_SINGLETON_ID = 1
 MAINTENANCE_TICK_LOCK_KEY = "lock:system:maintenance:tick"
 MAINTENANCE_TICK_LOCK_TTL_SEC = 90
+INITIAL_COMMISSIONING_REASON = (
+    "Puesta en marcha inicial activada automáticamente. "
+    "Completa las validaciones base antes de habilitar operación productiva."
+)
 
 DEFAULT_SETTINGS = {
     "session_cleanup_enabled": True,
@@ -111,12 +117,18 @@ def _iso(value: datetime | None) -> str | None:
 async def _acquire_tick_lock() -> str | None:
     redis = get_redis()
     token = str(uuid.uuid4())
-    acquired = await redis.set(
-        MAINTENANCE_TICK_LOCK_KEY,
-        token,
-        ex=MAINTENANCE_TICK_LOCK_TTL_SEC,
-        nx=True,
-    )
+    try:
+        acquired = await asyncio.wait_for(
+            redis.set(
+                MAINTENANCE_TICK_LOCK_KEY,
+                token,
+                ex=MAINTENANCE_TICK_LOCK_TTL_SEC,
+                nx=True,
+            ),
+            timeout=2.0,
+        )
+    except (asyncio.TimeoutError, RedisError):
+        return None
     return token if acquired else None
 
 
@@ -124,9 +136,12 @@ async def _release_tick_lock(token: str | None) -> None:
     if not token:
         return
     redis = get_redis()
-    current = await redis.get(MAINTENANCE_TICK_LOCK_KEY)
-    if current == token:
-        await redis.delete(MAINTENANCE_TICK_LOCK_KEY)
+    try:
+        current = await asyncio.wait_for(redis.get(MAINTENANCE_TICK_LOCK_KEY), timeout=2.0)
+        if current == token:
+            await asyncio.wait_for(redis.delete(MAINTENANCE_TICK_LOCK_KEY), timeout=2.0)
+    except (asyncio.TimeoutError, RedisError):
+        return
 
 
 def _is_missing_table_error(exc: Exception) -> bool:
@@ -281,6 +296,73 @@ def get_system_operation_state(db: Session) -> dict:
     }
 
 
+def ensure_initial_commissioning_state(db: Session) -> None:
+    """Fresh installs must start restricted until an admin clears readiness checks."""
+    try:
+        row = _get_operation_state_row(db)
+    except Exception:
+        return
+
+    marker = _read_operation_marker()
+    if row:
+        mode = str(row.mode or "normal")
+        if mode == "normal":
+            _clear_operation_marker()
+            return
+        if not marker:
+            started_at = row.started_at or utc_now_db()
+            operation_id = row.operation_id or str(uuid.uuid4())
+            operation_type = row.operation_type or (
+                "manual_commissioning" if mode == "commissioning" else f"manual_{mode}"
+            )
+            restored_marker = {
+                "mode": mode,
+                "operationId": operation_id,
+                "operationType": operation_type,
+                "reason": row.reason or INITIAL_COMMISSIONING_REASON,
+                "status": "running",
+                "actor": None,
+                "startedAt": started_at.replace(tzinfo=timezone.utc).isoformat(),
+            }
+            row.operation_id = operation_id
+            row.operation_type = operation_type
+            row.reason = restored_marker["reason"]
+            row.started_at = started_at
+            row.metadata_json = json.dumps(restored_marker, ensure_ascii=False, sort_keys=True)
+            row.updated_at = utc_now_db()
+            db.commit()
+            _write_operation_marker(restored_marker)
+        return
+
+    now = utc_now_db()
+    marker = {
+        "mode": "commissioning",
+        "operationId": str(uuid.uuid4()),
+        "operationType": "manual_commissioning",
+        "reason": INITIAL_COMMISSIONING_REASON,
+        "status": "running",
+        "actor": None,
+        "startedAt": now.replace(tzinfo=timezone.utc).isoformat(),
+    }
+    db.add(
+        SystemOperationState(
+            id=1,
+            mode="commissioning",
+            operation_id=marker["operationId"],
+            operation_type=marker["operationType"],
+            reason=marker["reason"],
+            started_at=now,
+            metadata_json=json.dumps(marker, ensure_ascii=False, sort_keys=True),
+            updated_at=now,
+        )
+    )
+    try:
+        db.commit()
+        _write_operation_marker(marker)
+    except IntegrityError:
+        db.rollback()
+
+
 async def set_system_operation_mode(
     db: Session,
     *,
@@ -289,7 +371,7 @@ async def set_system_operation_mode(
     actor_user_id: str,
 ) -> dict:
     normalized_mode = str(mode or "").strip()
-    if normalized_mode not in {"normal", "read_only", "maintenance"}:
+    if normalized_mode not in {"normal", "read_only", "maintenance", "commissioning"}:
         raise BadRequestException("El modo operativo solicitado no es válido.")
 
     actor = _actor_snapshot(db, actor_user_id)
@@ -340,12 +422,22 @@ async def set_system_operation_mode(
         }
     else:
         operation_id = str(uuid.uuid4())
-        operation_type = "manual_read_only" if normalized_mode == "read_only" else "manual_maintenance"
+        operation_type_by_mode = {
+            "read_only": "manual_read_only",
+            "maintenance": "manual_maintenance",
+            "commissioning": "manual_commissioning",
+        }
+        default_reason_by_mode = {
+            "read_only": "Modo solo lectura activado administrativamente.",
+            "maintenance": "Modo mantenimiento activado administrativamente.",
+            "commissioning": "Modo puesta en marcha activado administrativamente.",
+        }
+        operation_type = operation_type_by_mode[normalized_mode]
         marker = {
             "mode": normalized_mode,
             "operationId": operation_id,
             "operationType": operation_type,
-            "reason": reason or ("Modo solo lectura activado administrativamente." if normalized_mode == "read_only" else "Modo mantenimiento activado administrativamente."),
+            "reason": reason or default_reason_by_mode[normalized_mode],
             "status": "running",
             "actor": actor,
             "startedAt": now.replace(tzinfo=timezone.utc).isoformat(),
@@ -362,7 +454,12 @@ async def set_system_operation_mode(
         row.metadata_json = json.dumps(marker, ensure_ascii=False, sort_keys=True)
         row.updated_at = now
         _write_operation_marker(marker)
-        audit_action = "system_read_only_enabled" if normalized_mode == "read_only" else "system_maintenance_enabled"
+        audit_action_by_mode = {
+            "read_only": "system_read_only_enabled",
+            "maintenance": "system_maintenance_enabled",
+            "commissioning": "system_commissioning_enabled",
+        }
+        audit_action = audit_action_by_mode[normalized_mode]
         audit_entity_id = operation_id
         audit_details = {
             "mode": normalized_mode,

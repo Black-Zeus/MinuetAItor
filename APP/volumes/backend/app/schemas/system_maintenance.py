@@ -3,7 +3,7 @@ from __future__ import annotations
 from pydantic import BaseModel, Field, field_validator
 
 VALID_CLEANUP_MODES = ("soft_logout", "revoke_idle", "archive_only")
-VALID_OPERATION_MODES = ("normal", "read_only", "maintenance")
+VALID_OPERATION_MODES = ("normal", "read_only", "maintenance", "commissioning")
 
 
 def _normalize_cron_expression(value: str) -> str:

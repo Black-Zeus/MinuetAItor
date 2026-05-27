@@ -28,6 +28,7 @@ from db import (
     upsert_operation_failed,
 )
 from package_builder import (
+    SYSTEM_MINIO_BUCKETS,
     build_database_backup_package,
     build_full_backup_package,
     build_objects_backup_package,
@@ -826,6 +827,19 @@ def _safe_backup_path(backup_root: Path, raw_path: str | None) -> Path | None:
     return resolved
 
 
+def _safe_restore_member_path(restore_root: Path, raw_path: str | None) -> Path:
+    if not raw_path:
+        raise ValueError("Ruta interna de restore vacía.")
+    root = restore_root.resolve(strict=False)
+    candidate = Path(str(raw_path))
+    if candidate.is_absolute() or ".." in candidate.parts:
+        raise ValueError(f"Ruta insegura en manifest de restore: {raw_path}")
+    resolved = (root / candidate).resolve(strict=False)
+    if resolved == root or root not in resolved.parents:
+        raise ValueError(f"Ruta fuera del paquete de restore: {raw_path}")
+    return resolved
+
+
 def _sha256_tar_member(archive: tarfile.TarFile, member_name: str) -> str:
     member = archive.getmember(member_name)
     extracted = archive.extractfile(member)
@@ -1116,7 +1130,10 @@ async def _handle_restore_backup(job: JobEnvelope, backup_root: Path) -> None:
                 phase="restoring_database",
                 message="Limpiando tablas e importando datos MariaDB.",
             )
-            db_path = restore_root / str(database_section.get("path") or "mariadb/data.sql.gz")
+            db_path = _safe_restore_member_path(
+                restore_root,
+                str(database_section.get("path") or "mariadb/data.sql.gz"),
+            )
             if not db_path.is_file():
                 raise FileNotFoundError(f"No existe el dump MariaDB esperado: {db_path}")
             restored_tables = truncate_all_base_tables()
@@ -1139,8 +1156,11 @@ async def _handle_restore_backup(job: JobEnvelope, backup_root: Path) -> None:
                 bucket_path = str(bucket_entry.get("path") or "").strip()
                 if not bucket_name or not bucket_path:
                     continue
+                if bucket_name not in SYSTEM_MINIO_BUCKETS:
+                    raise ValueError(f"Bucket no permitido en manifest de restore: {bucket_name}")
+                bucket_archive_path = _safe_restore_member_path(restore_root, bucket_path)
                 restored_buckets.append(
-                    restore_minio_bucket_archive(bucket_name, restore_root / bucket_path, restore_root)
+                    restore_minio_bucket_archive(bucket_name, bucket_archive_path, restore_root)
                 )
 
         await _publish_restore_phase(

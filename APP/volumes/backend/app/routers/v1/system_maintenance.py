@@ -27,6 +27,7 @@ from services.system_maintenance_service import (
     set_system_operation_mode,
     update_system_maintenance_settings,
 )
+from services.system_readiness_service import get_system_readiness
 
 router = APIRouter(prefix="/system/maintenance", tags=["System Maintenance"])
 sse_bearer = HTTPBearer(auto_error=False)
@@ -120,6 +121,28 @@ async def set_operation_state_endpoint(
         reason=body.reason,
         actor_user_id=session.user_id,
     )
+
+
+@router.get(
+    "/readiness",
+    status_code=status.HTTP_200_OK,
+)
+async def get_readiness_endpoint(
+    session: UserSession = Depends(require_roles("ADMIN")),
+    db: Session = Depends(get_db),
+):
+    return await get_system_readiness(db)
+
+
+@router.post(
+    "/readiness/run",
+    status_code=status.HTTP_200_OK,
+)
+async def run_readiness_endpoint(
+    session: UserSession = Depends(require_roles("ADMIN")),
+    db: Session = Depends(get_db),
+):
+    return await get_system_readiness(db)
 
 
 @router.get(

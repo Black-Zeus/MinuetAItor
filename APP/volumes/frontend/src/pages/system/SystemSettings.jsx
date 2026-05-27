@@ -12,6 +12,7 @@ import AiProviderConfigModal, {
 } from "@/pages/system/AiProviderConfigModal";
 import SmtpConfigModal, { SMTP_MODAL_MODES } from "@/pages/system/SmtpConfigModal";
 import { BackupsPanel } from "@/pages/system/SystemSettingsBackupsPanel";
+import CommissioningPanel from "@/pages/system/SystemSettingsCommissioningPanel";
 import { MaintenancePanel } from "@/pages/system/SystemSettingsMaintenancePanel";
 import { QueuesPanel } from "@/pages/system/SystemSettingsQueuesPanel";
 import {
@@ -33,7 +34,7 @@ import systemMaintenanceService from "@/services/systemMaintenanceService";
 import useAbortableRequestScope from "@/hooks/useAbortableRequestScope";
 import { ensureWriteOperationAllowed } from "@/utils/operationModeGuard";
 
-const LOCKED_OPERATION_TAB_IDS = new Set(["maintenance", "backups"]);
+const LOCKED_OPERATION_TAB_IDS = new Set(["maintenance", "commissioning", "backups"]);
 
 const SystemSettings = () => {
   const requestScope = useAbortableRequestScope();
@@ -589,6 +590,8 @@ const SystemSettings = () => {
       )}
 
       {effectiveActiveTab === "maintenance" && <MaintenancePanel />}
+
+      {effectiveActiveTab === "commissioning" && <CommissioningPanel />}
 
       {effectiveActiveTab === "queues" && <QueuesPanel />}
 

@@ -49,11 +49,13 @@ const OPERATION_MODE_LABELS = {
   normal: "Normal",
   read_only: "Solo lectura",
   maintenance: "Mantenimiento",
+  commissioning: "Puesta en marcha",
 };
 const OPERATION_MODE_TONES = {
   normal: "active",
   read_only: "warning",
   maintenance: "danger",
+  commissioning: "warning",
 };
 const OPERATION_REASON_OPTIONS = {
   read_only: [
@@ -67,6 +69,11 @@ const OPERATION_REASON_OPTIONS = {
     "Mantenimiento por recuperación o restauración.",
     "Mantenimiento por validación de respaldos.",
     "Mantenimiento por intervención operativa programada.",
+  ],
+  commissioning: [
+    "Puesta en marcha activada para validar requisitos antes de operación productiva.",
+    "Puesta en marcha posterior a restauración.",
+    "Validación operativa antes de abrir uso a usuarios.",
   ],
 };
 
@@ -159,7 +166,7 @@ const OperationModeReasonModal = ({ mode, onCancel, onConfirm }) => {
           label={`Activar ${label}`}
           variant={mode === "maintenance" ? "danger" : "warning"}
           size="sm"
-          icon={<Icon name={mode === "maintenance" ? "FaShield" : "FaLock"} />}
+          icon={<Icon name={mode === "maintenance" ? "FaShield" : mode === "commissioning" ? "FaRocket" : "FaLock"} />}
           disabled={!finalReason}
           onClick={() => onConfirm(finalReason)}
         />
@@ -736,6 +743,15 @@ export const MaintenancePanel = () => {
                 className="w-full border border-error-500/30 bg-error-700/85 hover:bg-error-700 dark:border-error-400/25 dark:bg-error-700/75 dark:hover:bg-error-700"
                 disabled={isChangingOperationMode || operationMode === "maintenance"}
                 onClick={() => handleOperationModeChange("maintenance")}
+              />
+              <ActionButton
+                label="Activar puesta en marcha"
+                variant="warning"
+                size="md"
+                icon={<Icon name="FaRocket" />}
+                className="w-full"
+                disabled={isChangingOperationMode || operationMode === "commissioning"}
+                onClick={() => handleOperationModeChange("commissioning")}
               />
             </div>
             <div className="mt-4">

@@ -9,7 +9,7 @@ class SystemOperationState(Base):
     __tablename__ = "system_operation_state"
 
     id = Column(Integer, primary_key=True)
-    mode = Column(String(40), nullable=False, default="normal")
+    mode = Column(String(40), nullable=False, default="commissioning")
     operation_id = Column(String(36), nullable=True)
     operation_type = Column(String(60), nullable=True)
     reason = Column(String(500), nullable=True)

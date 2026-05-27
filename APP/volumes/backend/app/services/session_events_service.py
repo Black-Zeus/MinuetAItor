@@ -7,6 +7,9 @@ import time
 from datetime import datetime, timezone
 from typing import AsyncGenerator
 
+from fastapi import HTTPException, status
+from redis.exceptions import RedisError
+
 from core.datetime_utils import utc_now
 from db.redis import get_redis
 from schemas.auth import UserSession
@@ -18,6 +21,7 @@ SESSION_EVENTS_PREFIX = "events:auth:sessions"
 AUTH_SSE_KEEPALIVE_SEC = 15
 AUTH_SSE_VALIDATE_SEC = 5
 AUTH_SSE_MAX_CONNECTION_SEC = 55
+SESSION_REDIS_TIMEOUT_SEC = 2.0
 
 
 def get_session_redis_key(user_id: str, jti: str) -> str:
@@ -30,7 +34,23 @@ def get_session_events_channel(user_id: str) -> str:
 
 async def session_exists(user_id: str, jti: str) -> bool:
     redis = get_redis()
-    return bool(await redis.exists(get_session_redis_key(user_id, jti)))
+    try:
+        exists = await asyncio.wait_for(
+            redis.exists(get_session_redis_key(user_id, jti)),
+            timeout=SESSION_REDIS_TIMEOUT_SEC,
+        )
+        return bool(exists)
+    except (asyncio.TimeoutError, RedisError) as exc:
+        logger.warning(
+            "[auth-session] Redis no disponible al validar sesion | user=%s jti=%s error=%s",
+            user_id,
+            jti,
+            exc,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="El servicio de sesiones no está disponible temporalmente.",
+        )
 
 
 async def publish_session_event(
@@ -56,7 +76,18 @@ async def publish_session_event(
         "ts": utc_now().isoformat(),
         "metadata": metadata or {},
     }
-    await redis.publish(get_session_events_channel(user_id), json.dumps(payload))
+    try:
+        await asyncio.wait_for(
+            redis.publish(get_session_events_channel(user_id), json.dumps(payload)),
+            timeout=SESSION_REDIS_TIMEOUT_SEC,
+        )
+    except (asyncio.TimeoutError, RedisError) as exc:
+        logger.warning(
+            "[auth-session] No se pudo publicar evento de sesion | user=%s event=%s error=%s",
+            user_id,
+            event,
+            exc,
+        )
 
 
 def auth_sse_headers() -> dict:
@@ -72,10 +103,25 @@ def _auth_sse_event(event: str, data: dict) -> str:
 
 
 async def stream_session_events(session: UserSession) -> AsyncGenerator[str, None]:
-    redis = await get_redis()
+    redis = get_redis()
     pubsub = redis.pubsub()
     channel = get_session_events_channel(session.user_id)
-    await pubsub.subscribe(channel)
+    try:
+        await asyncio.wait_for(pubsub.subscribe(channel), timeout=SESSION_REDIS_TIMEOUT_SEC)
+    except (asyncio.TimeoutError, RedisError) as exc:
+        logger.warning(
+            "[auth-sse] Redis no disponible al suscribir | user=%s jti=%s error=%s",
+            session.user_id,
+            session.jti,
+            exc,
+        )
+        yield _auth_sse_event("error", {"message": "Eventos de sesión no disponibles temporalmente."})
+        try:
+            await pubsub.close()
+        except Exception:
+            pass
+        return
+
     logger.info("[auth-sse] Suscrito | user=%s jti=%s", session.user_id, session.jti)
 
     try:
@@ -94,7 +140,11 @@ async def stream_session_events(session: UserSession) -> AsyncGenerator[str, Non
                 last_ping_at = now
 
             if now - last_validation_at >= AUTH_SSE_VALIDATE_SEC:
-                exists = await session_exists(session.user_id, session.jti)
+                try:
+                    exists = await session_exists(session.user_id, session.jti)
+                except HTTPException:
+                    yield _auth_sse_event("error", {"message": "Eventos de sesión no disponibles temporalmente."})
+                    break
                 last_validation_at = now
                 if not exists:
                     yield _auth_sse_event("session_revoked", {
@@ -114,6 +164,15 @@ async def stream_session_events(session: UserSession) -> AsyncGenerator[str, Non
                 )
             except asyncio.TimeoutError:
                 continue
+            except RedisError as exc:
+                logger.warning(
+                    "[auth-sse] Redis no disponible leyendo eventos | user=%s jti=%s error=%s",
+                    session.user_id,
+                    session.jti,
+                    exc,
+                )
+                yield _auth_sse_event("error", {"message": "Eventos de sesión no disponibles temporalmente."})
+                break
 
             if not msg or msg["type"] != "message":
                 await asyncio.sleep(0.1)

@@ -1,5 +1,5 @@
-# main.py
 import json
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -11,14 +11,27 @@ from fastapi.responses import HTMLResponse, JSONResponse
 
 from core.config import settings
 from core.middleware import ResponseContractMiddleware, GeoBlockMiddleware, register_exception_handlers
+from core.security import decode_access_token
 from db.schema_compat import ensure_projects_auto_send_columns
-from db.session import engine
+from db.session import SessionLocal, engine
 from db.redis import close_redis
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     ensure_projects_auto_send_columns(engine)
+    try:
+        from services.system_maintenance_service import ensure_initial_commissioning_state
+
+        db = SessionLocal()
+        try:
+            ensure_initial_commissioning_state(db)
+        finally:
+            db.close()
+    except Exception as exc:
+        logger.warning("No se pudo asegurar el estado inicial de puesta en marcha: %s", exc)
     from events.pdf_dispatch import register_listeners
     register_listeners()
     yield
@@ -94,10 +107,23 @@ def _is_read_only_safe_request(request: Request) -> bool:
     )
 
 
+def _has_admin_bearer(request: Request) -> bool:
+    authorization = request.headers.get("Authorization") or ""
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not token.strip():
+        return False
+    try:
+        payload = decode_access_token(token.strip())
+    except Exception:
+        return False
+    return "ADMIN" in {str(role or "").upper() for role in payload.get("roles", [])}
+
+
 @app.middleware("http")
 async def maintenance_marker_read_only_middleware(request: Request, call_next):
     marker_path = Path(settings.maintenance_state_file)
     is_operation_state_endpoint = request.url.path.startswith("/v1/system/maintenance/operation-state")
+    is_system_maintenance_endpoint = request.url.path.startswith("/v1/system/maintenance")
     is_system_backups_endpoint = request.url.path.startswith("/v1/system/backups")
     is_login_endpoint = request.url.path == "/v1/auth/login"
     if marker_path.is_file() and request.method.upper() not in {"GET", "HEAD", "OPTIONS"} and not is_operation_state_endpoint:
@@ -111,15 +137,29 @@ async def maintenance_marker_read_only_middleware(request: Request, call_next):
             response = await call_next(request)
             response.headers["X-System-Maintenance"] = "read_only"
             return response
+        if mode == "commissioning" and (
+            is_login_endpoint
+            or is_system_maintenance_endpoint
+            or is_system_backups_endpoint
+            or _has_admin_bearer(request)
+        ):
+            response = await call_next(request)
+            response.headers["X-System-Maintenance"] = "commissioning"
+            return response
         if operation_type.startswith("manual_") and (is_login_endpoint or is_system_backups_endpoint):
             response = await call_next(request)
             response.headers["X-System-Maintenance"] = str(mode)
             return response
+        message_by_mode = {
+            "maintenance": "El sistema está en modo mantenimiento.",
+            "read_only": "El sistema está en modo solo lectura.",
+            "commissioning": "El sistema está en puesta en marcha. Solo administradores pueden escribir en este estado.",
+        }
         return JSONResponse(
             status_code=503,
             content={
                 "status": "error",
-                "message": "El sistema está en modo mantenimiento." if mode == "maintenance" else "El sistema está en modo solo lectura.",
+                "message": message_by_mode.get(mode, "El sistema está en modo operativo restringido."),
                 "maintenance": {
                     "mode": mode,
                     "operationId": marker.get("operationId"),

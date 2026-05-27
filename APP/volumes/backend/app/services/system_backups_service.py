@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import asyncio
 import json
 import shutil
 import tarfile
@@ -12,6 +13,7 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError, OperationalError, ProgrammingError
+from redis.exceptions import RedisError
 from sqlalchemy.orm import Session
 
 from core.config import settings
@@ -43,6 +45,13 @@ BACKUP_PACKAGE_GLOB = "backup-*.tar.gz"
 BACKUP_IMPORT_MAX_BYTES = 5 * 1024 * 1024 * 1024
 BACKUP_IMPORT_MAX_MEMBERS = 50_000
 BACKUP_IMPORT_MAX_UNCOMPRESSED_BYTES = 25 * 1024 * 1024 * 1024
+SYSTEM_MINIO_BUCKETS = {
+    "minuetaitor-inputs",
+    "minuetaitor-json",
+    "minuetaitor-published",
+    "minuetaitor-attach",
+    "minuetaitor-draft",
+}
 SCHEDULER_TIMEZONE = "America/Santiago"
 BACKUP_TICK_LOCK_KEY = "lock:system:backups:tick"
 BACKUP_TICK_LOCK_TTL_SEC = 90
@@ -229,6 +238,35 @@ def _validate_backup_tar_members(archive: tarfile.TarFile) -> set[str]:
     return member_names
 
 
+def _validate_restore_manifest_paths(manifest: dict, members: set[str]) -> None:
+    sections = manifest.get("sections") if isinstance(manifest.get("sections"), dict) else {}
+    database_section = sections.get("database") if isinstance(sections.get("database"), dict) else {}
+    objects_section = sections.get("objects") if isinstance(sections.get("objects"), dict) else {}
+
+    if bool(database_section.get("enabled")):
+        db_path = str(database_section.get("path") or "mariadb/data.sql.gz").strip()
+        if not _is_safe_tar_member_name(db_path) or not db_path.startswith("mariadb/"):
+            raise BadRequestException(f"Manifest referencia una ruta database insegura: {db_path}")
+        if db_path not in members:
+            raise BadRequestException(f"Manifest referencia un dump database faltante: {db_path}")
+
+    if bool(objects_section.get("enabled")):
+        buckets = objects_section.get("buckets") if isinstance(objects_section.get("buckets"), list) else []
+        for bucket_entry in buckets:
+            if not isinstance(bucket_entry, dict):
+                raise BadRequestException("Manifest contiene una entrada de bucket inválida.")
+            bucket_name = str(bucket_entry.get("name") or "").strip()
+            bucket_path = str(bucket_entry.get("path") or "").strip()
+            if bucket_name not in SYSTEM_MINIO_BUCKETS:
+                raise BadRequestException(f"Manifest referencia un bucket no permitido: {bucket_name}")
+            if (
+                not _is_safe_tar_member_name(bucket_path)
+                or not bucket_path.startswith(f"minio/{bucket_name}/")
+                or bucket_path not in members
+            ):
+                raise BadRequestException(f"Manifest referencia una ruta de bucket insegura o faltante: {bucket_path}")
+
+
 def _scope_from_backup_path(path: Path, metadata: dict | None) -> str | None:
     raw_scope = str((metadata or {}).get("scope") or "").strip()
     if raw_scope in BACKUP_SCOPES:
@@ -360,12 +398,18 @@ def _cron_matches(cron_expression: str, current_local_dt: datetime) -> bool:
 async def _acquire_backup_tick_lock() -> str | None:
     redis = get_redis()
     token = str(uuid.uuid4())
-    acquired = await redis.set(
-        BACKUP_TICK_LOCK_KEY,
-        token,
-        ex=BACKUP_TICK_LOCK_TTL_SEC,
-        nx=True,
-    )
+    try:
+        acquired = await asyncio.wait_for(
+            redis.set(
+                BACKUP_TICK_LOCK_KEY,
+                token,
+                ex=BACKUP_TICK_LOCK_TTL_SEC,
+                nx=True,
+            ),
+            timeout=2.0,
+        )
+    except (asyncio.TimeoutError, RedisError):
+        return None
     return token if acquired else None
 
 
@@ -373,15 +417,21 @@ async def _release_backup_tick_lock(token: str | None) -> None:
     if not token:
         return
     redis = get_redis()
-    current = await redis.get(BACKUP_TICK_LOCK_KEY)
-    if current == token:
-        await redis.delete(BACKUP_TICK_LOCK_KEY)
+    try:
+        current = await asyncio.wait_for(redis.get(BACKUP_TICK_LOCK_KEY), timeout=2.0)
+        if current == token:
+            await asyncio.wait_for(redis.delete(BACKUP_TICK_LOCK_KEY), timeout=2.0)
+    except (asyncio.TimeoutError, RedisError):
+        return
 
 
 async def _claim_backup_schedule_slot(scope: str, slot: str) -> bool:
     redis = get_redis()
     key = f"system:backups:scheduled:{scope}:{slot}"
-    return bool(await redis.set(key, "1", ex=BACKUP_SCHEDULE_SLOT_TTL_SEC, nx=True))
+    try:
+        return bool(await asyncio.wait_for(redis.set(key, "1", ex=BACKUP_SCHEDULE_SLOT_TTL_SEC, nx=True), timeout=2.0))
+    except (asyncio.TimeoutError, RedisError):
+        return False
 
 
 def _is_missing_backup_schema_error(exc: Exception) -> bool:
@@ -457,7 +507,7 @@ def _ensure_operation_state_singleton(db: Session) -> SystemOperationState:
         return obj
     obj = SystemOperationState(
         id=SYSTEM_OPERATION_STATE_SINGLETON_ID,
-        mode="normal",
+        mode="commissioning",
         updated_at=utc_now_db(),
         metadata_json=_json_dumps({}),
     )
@@ -1153,6 +1203,7 @@ def _validate_import_package(path: Path, original_filename: str) -> tuple[dict, 
     manifest = _read_backup_package_json(path, "manifest.json")
     if not metadata or not manifest:
         raise BadRequestException("El paquete no contiene metadata.json o manifest.json válidos.")
+    _validate_restore_manifest_paths(manifest, members)
 
     checksums = _parse_checksums_file(_read_backup_package_text(path, "checksums.sha256"))
     if not checksums:
