@@ -184,6 +184,252 @@ Residual:
 - Validar que servicios externos/worker no propaguen mensajes de proveedor con datos sensibles en UI o logs.
 - Revisar errores de nginx/MinIO en PRD para evitar banners o detalles de infraestructura.
 
+## Escaneo Agresivo RCE/LFI/RFI/SQLi - 2026-05-26
+
+Alcance: busqueda estatica dirigida sobre backend, frontend, worker, pdf-worker, backup-worker y scheduler. Se revisaron sinks tipicos: `eval/exec`, `dangerouslySetInnerHTML`, Jinja `from_string`, comandos externos, SQL crudo, `tar.extractall`, paths locales, `urlopen/requests`, base64/adjuntos, MinIO keys y restore.
+
+Hallazgos mitigados:
+- LFI via `inline_assets[].path` en jobs de email: el worker ya solo lee assets inline desde directorios permitidos (`/app/assets/images`, `/app/email_assets`) y limita tamano a 2 MB.
+- DoS por base64 grande en email: inline assets y adjuntos ahora se rechazan antes de decodificar si exceden limites.
+- Endpoint `/v1/sendmail` dev/qa: ahora requiere rol `ADMIN`, no solo usuario autenticado.
+- SSTI/RCE latente en subjects de email: `subject_override` ya no se renderiza con Jinja; solo se renderizan los subjects definidos en templates del repo.
+- Restore de backups: el manifest ya no puede restaurar buckets arbitrarios ni paths fuera del paquete; database y objects se validan en backend al importar y en backup-worker al restaurar.
+
+Sin hallazgo activo en esta pasada:
+- RCE directa por `eval`, `exec`, `os.system`, `shell=True` o `pickle/yaml.load`.
+- XSS directo por `dangerouslySetInnerHTML`, `innerHTML` o `document.write`.
+- SQLi directo en rutas principales; los casos de SQL crudo revisados usan parametros, quoting defensivo o whitelist.
+- RFI/SSRF nuevo fuera de AI/SMTP; esos flujos siguen pasando por `network_guard`.
+- Tar traversal activo; los `extractall` residuales estan precedidos por validacion de paths, symlinks, hardlinks y devices.
+
+Residual:
+- Redis sigue siendo frontera de confianza interna; si un atacante escribe jobs validos en Redis, aun puede provocar acciones internas permitidas. Ya se redujeron varios impactos, pero para PRD sigue recomendada firma HMAC de jobs criticos.
+- `allow_private_provider_hosts=True` por defecto permite endpoints privados para AI/SMTP en entornos no endurecidos. En PRD debe configurarse en `false` salvo excepcion controlada.
+- No se ejecuto scanner SAST externo como Bandit/Semgrep porque no estan disponibles localmente y no se instalan dependencias desde el agente.
+
+## Barridos Ejecutables por el Agente - 2026-05-26
+
+Ejecutado localmente sin administrar Docker:
+- Preflight de herramientas SAST/SCA: `bandit`, `semgrep`, `pip-audit` y `safety` no estan instalados localmente.
+- Barrido de Dockerfiles, compose y nginx por puertos expuestos, usuarios root/no-root, instalaciones en build, MinIO/Redis/MariaDB y comandos de desarrollo.
+- Barrido de dependencias Python por pins exactos/rangos.
+- Barrido de frontend/backend por storage de tokens, cookies, CORS, CSP y headers.
+- Barrido de TODO/FIXME/debug/default secret/change_me.
+
+Hallazgos de hardening PRD:
+- `docker-compose-dev.yml` y `docker-compose-qa.yml` exponen MariaDB, Redis, MinIO, MinIO Console, backend, frontend y RedisInsight por puertos del host. Correcto para dev/qa, pero no debe heredarse a PRD.
+- Gateway nginx mantiene rutas `/minio/` y `/minio-console/`; antes de PRD hay que decidir si se bloquean, se restringen por red/VPN o quedan detras de autenticacion fuerte.
+- `Data/dokerFile/prd/Dockerfile.frontend` instala con `npm install` y ejecuta `npm run dev`; para PRD conviene build estatico y servir artefactos, idealmente con `npm ci`.
+- Imagenes/runtime PRD revisadas: backend, frontend, nginx, workers, scheduler, backup-worker, MinIO, Mailpit, MariaDB, Redis y Gotenberg ejecutan procesos como usuarios no-root.
+- Dependencias Python con rangos o sin pin exacto: `openai>=1.0.0`, `pydantic[email]`, `jsonschema>=4.0.0`, `pymysql`, `watchdog>=`, `python-dotenv>=`, `apscheduler>=`, `redis>=`, `tzlocal>=`, `tzdata>=`.
+- `allow_private_provider_hosts=True` sigue siendo default de configuracion; en PRD debe quedar `false`.
+
+No ejecutado por falta de entorno/credenciales o herramientas:
+- DAST/IDOR autenticado con usuarios reales.
+- `npm audit`, `pip-audit`, Safety, Bandit, Semgrep o escaneo de imagenes Docker.
+- Verificacion runtime de headers/CORS/CSP con navegador/proxy.
+
+## DAST Local con Docker - 2026-05-26
+
+Alcance: validacion dinamica local contra el stack Docker ya levantado. Se revisaron puertos publicados, gateway nginx, backend directo, OpenAPI, rutas sin autenticacion, pruebas simples de traversal, controles IDOR con usuario temporal de baja autorizacion y redaccion de errores 422.
+
+Resultado:
+- El proyecto ya estaba levantado; no fue necesario recrear, reiniciar ni reseedear contenedores.
+- Gateway `/api/internal/...` devuelve 404, por lo que la API interna no queda publicada por nginx.
+- No se detecto exposicion no autenticada de datos de negocio en el barrido GET de OpenAPI. Solo respondieron publicamente `/health`, `/` y `/v1/system/maintenance/operation-state/public`.
+- Pruebas simples de LFI/traversal contra rutas de PDF, avatar y artefactos de backup devolvieron 404 sin filtrar contenido de archivos del sistema.
+- Usuario temporal `VIEWER` sin asignaciones recibio 403 al intentar leer minuta, versiones y PDF de una minuta fuera de su scope.
+- `/v1/sendmail/templates` queda protegido: sin token devuelve 403 y con admin devuelve 200.
+- Se detecto eco de `credential` en errores 422 de login invalido; se corrigio agregando `credential`, `email` y `username` a la redaccion global de campos sensibles.
+
+Superficie dev observada:
+- Puertos abiertos en host: nginx 80, backend 8000, frontend 5173, MariaDB 3306, Redis 6379, MinIO 9000/9001, RedisInsight 5540 y Mailpit 8025/1025.
+- Redis responde `PING` sin autenticacion desde host. Aceptable solo en dev local aislado; en PRD/QA compartido implica riesgo de inyeccion de jobs.
+- MariaDB expone handshake desde host. Aceptable solo en dev local; en PRD debe quedar en red interna.
+- MinIO Console es accesible por puerto directo y por `/minio-console/` via gateway. Antes de PRD debe bloquearse, restringirse por red/VPN o protegerse explicitamente.
+- Swagger/OpenAPI queda expuesto porque el entorno corre como dev; esperado en desarrollo, no valido para PRD.
+
+Estado: DAST local inicial ejecutado. Queda pendiente, si se requiere mayor profundidad, correr OWASP ZAP baseline/authenticated scan o scanner equivalente contra un entorno QA aislado.
+
+## DAST Kali sobre PRD Local - 2026-05-26
+
+Alcance: escaneo desde contenedor `kalilinux/kali-rolling` con red `host`, contra el stack levantado con `docker-compose.yml` de produccion. Se usaron `nmap`, `curl`, `whatweb` y `nikto` con pruebas no destructivas.
+
+Resultado inicial:
+- Puertos dev del stack ya no estan expuestos: `1025`, `3306`, `5173`, `5540`, `6379`, `8000`, `8025`, `9000` y `9001` no aparecen abiertos desde fuera.
+- Del stack MinuetAItor, Docker publica solo nginx en `80`.
+- El host completo mantiene otros puertos ajenos al stack, especialmente Portainer en `9002`, ademas de servicios locales del host detectados por `nmap`.
+- `/api/internal/...` y OpenAPI/Swagger no quedan publicados.
+- `/mailpit/` queda accesible por nginx, como herramienta PRD solicitada.
+
+Hallazgos mitigados durante la prueba:
+- `/minio-console/` seguia accesible por nginx. Se creo configuracion nginx especifica de PRD y ahora `/minio/` y `/minio-console/` responden 404.
+- El fallback SPA devolvia `200` para rutas sensibles inexistentes como `/.env`, `/.git/config`, `/.htpasswd` y `/.bash_history`. Ahora dotfiles y rutas con segmentos ocultos responden 404 en PRD.
+- Nikto marco ausencia de HSTS/CSP en la raiz frontend. Ahora PRD agrega HSTS global y CSP para la app frontend.
+
+Validacion posterior:
+- `/`, `/api/health` y `/mailpit/` responden 200.
+- `/openapi.json`, `/api/openapi.json`, `/api/internal/v1/minutes/health`, `/minio/`, `/minio-console/`, `/.env`, `/.git/config`, `/.htpasswd` y `/.bash_history` responden 404.
+- `whatweb` confirma HSTS y CSP en `/`, y HSTS en `/mailpit/`.
+- Preflight CORS desde origen no permitido responde `400 Disallowed CORS origin`.
+
+Riesgo residual:
+- Portainer sigue publicado en el host por fuera de este stack (`9002`). No pertenece a MinuetAItor, pero desde una mirada externa es superficie expuesta de la misma maquina.
+- Mailpit queda publicado por decision funcional. Para PRD real en internet conviene proteger `/mailpit/` por VPN, allowlist IP o autenticacion en nginx.
+
+## Hardening Runtime PRD - 2026-05-26
+
+Objetivo: ejecutar contenedores de produccion sin procesos root.
+
+Cambios aplicados:
+- Nginx PRD usa imagen propia, corre como usuario `nginx`, escucha internamente en `8080` y el host publica solo `80:8080`.
+- Frontend PRD genera build durante la imagen y corre `vite preview` como usuario `node`.
+- Backend, worker, pdf-worker, backup-worker y scheduler usan usuario `appuser` no-root.
+- MariaDB y Redis fijan usuario interno no-root (`999:999`).
+- MinIO y Mailpit corren con UID/GID `1000:1000`; el volumen de MinIO fue ajustado para escritura no-root.
+- Se retiraron bind mounts de logs que forzaban rutas con permisos de root en runtime.
+- `backup-worker` mueve su estado operativo a `/app/remote_data/maintenance_state.json` para usar volumen writable no-root.
+
+Validacion:
+- `docker top` confirma que nginx corre como `systemd+`/UID no-root, backend/frontend/workers/MinIO/Mailpit como UID `1000`, MariaDB/Redis como UID `999` y Gotenberg como UID `1001`.
+- Stack PRD levanta sano: backend, MariaDB, Redis, MinIO y Mailpit quedan healthy; nginx responde por puerto 80.
+- `/api/health` responde 200.
+- Rutas sensibles siguen cerradas: `/openapi.json`, `/api/internal/v1/minutes/health`, `/minio-console/` y `/.env` responden 404.
+
+## Pentest Web Kali PRD Puerto 80 - 2026-05-26
+
+Alcance: contenedor `kalilinux/kali-rolling` con red `host`, limitado a `http://127.0.0.1:80`. Pruebas no destructivas: `nmap` HTTP scripts, `whatweb`, `nikto` con timeout, `curl` para headers/CORS/metodos/rutas sensibles/LFI basico y `gobuster` con wordlist corta de rutas web/API comunes.
+
+Resultado:
+- Puerto analizado: solo `80/tcp`.
+- Servicio detectado: `nginx/1.25.5`.
+- Headers defensivos presentes en frontend: `Strict-Transport-Security`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy` y `Content-Security-Policy`.
+- CORS con origen hostil responde `400 Disallowed CORS origin`.
+- `/api/health` responde 200 y `/mailpit/` responde 200 por decision funcional.
+- OpenAPI, internal API, MinIO y dotfiles siguen cerrados: `/openapi.json`, `/api/openapi.json`, `/api/internal/v1/minutes/health`, `/minio/`, `/minio-console/`, `/.env` y `/.git/config` responden 404.
+- Pruebas LFI/traversal basicas no devolvieron contenido sensible; las variantes codificadas respondieron 400/404 o fallback SPA sin datos del sistema.
+- `nikto` no reporto hallazgos criticos antes del timeout; marco `/css/` y `/js` como rutas estaticas interesantes.
+
+Hallazgos mitigados durante este barrido:
+- El fallback SPA devolvia 200 para sondas de archivos sensibles inexistentes (`/backup.zip`, `/dump.sql`, `/config.php`, `/server-status`, `/nginx_status`, `/phpinfo.php`). Se agrego bloqueo nginx PRD para nombres/extensiones sensibles y ahora responden 404.
+- Los redirects `/api` y `/mailpit` filtraban el puerto interno `8080` en `Location`. Se desactivo redirect absoluto/puerto interno y ahora responden `Location: /api/` y `Location: /mailpit/`.
+
+Resultado final del retest:
+- `/api/health` 200.
+- `/mailpit/` 200.
+- `/openapi.json`, `/api/openapi.json`, `/api/internal/v1/minutes/health`, `/minio/`, `/minio-console/`, `/.env`, `/.git/config`, `/backup.zip`, `/dump.sql`, `/config.php`, `/server-status`, `/nginx_status` y `/phpinfo.php` responden 404.
+- `gobuster` filtrando fallback SPA solo enumera redirects esperados: `/api -> /api/` y `/mailpit -> /mailpit/`.
+
+## Correccion CSP Frontend PRD - 2026-05-26
+
+Incidente observado: en PRD el navegador bloqueo un script inline por `Content-Security-Policy: script-src 'self'` y luego aparecio `Cannot access 'pe' before initialization` en un chunk `components-modal-*`.
+
+Causa:
+- `index.html` tenia un script inline anti-FOUC para aplicar tema antes de montar React. Con CSP estricta, ese script queda bloqueado si no se habilita `unsafe-inline`, hash o nonce.
+- El build PRD tenia particion manual de chunks. Durante rebuild Vite reporto un ciclo `vendor-misc -> vendor-react -> vendor-misc`, coherente con errores de inicializacion temporal en bundles minificados.
+
+Mitigacion aplicada:
+- Se movio el anti-FOUC a un modulo externo servido desde `self`, compatible con `script-src 'self'`.
+- Se removio el chunking manual de Vite para que Rollup resuelva el grafo sin forzar ciclos entre vendor/app/modal.
+- Se mantiene CSP estricta sin agregar `unsafe-inline` a `script-src`.
+
+Validacion:
+- Build PRD ejecutado correctamente.
+- El HTML servido ya no contiene `<script>` inline; solo carga `/js/index-*.js`.
+- Header CSP mantiene `script-src 'self'`.
+- El build ya no emite el warning de ciclo de chunks `vendor-misc -> vendor-react -> vendor-misc`.
+- `/api/health` responde 200 en PRD.
+
+## Recuperacion de Chunks Frontend PRD - 2026-05-26
+
+Incidente observado: despues de un rebuild, una pestana del navegador seguia ejecutando un entry antiguo (`index-C-LVjhKs.js`) que intentaba importar chunks ya inexistentes (`Dashboard-*`, `AsyncEChart-*`, `vendor-charts-*`, etc.). El servidor respondia 404 porque el contenedor nuevo solo contiene los assets del build actual.
+
+Causa:
+- Estado normal de una SPA con code splitting si se reemplaza el build completo mientras usuarios mantienen pestanas abiertas.
+- No es una exposicion de seguridad; es un problema de coherencia entre bundle activo en cliente y assets disponibles en servidor.
+
+Mitigacion aplicada:
+- Se agrego recuperacion global de fallos de dynamic import/script chunk.
+- Si aparece `Failed to fetch dynamically imported module`, `ChunkLoadError` o falla de carga de `/js/*.js`, la app recarga una vez por version de build para tomar el `index.html` y entry actuales.
+- La proteccion evita bucles: usa `__BUILD_TIME__` como version de intento en `sessionStorage`.
+
+Validacion:
+- Build PRD ejecutado correctamente.
+- El entry servido es el actual: `/js/index-QkxZD5OC.js`.
+- El bundle contiene el handler `minuetaitor:chunk-reload-attempted`.
+- `/api/health` responde 200.
+
+## Correccion Precedencia Nginx API PRD - 2026-05-26
+
+Incidente observado: `/api/v1/system/backups/config` respondia 404 en PRD.
+
+Causa:
+- El bloqueo nginx para rutas sensibles (`backup`, `config`, `dump`, etc.) era una regex global.
+- Nginx evaluaba esa regex antes que el proxy `/api/`, por lo que una ruta valida de backend terminada en `/config` quedaba bloqueada por el gateway.
+
+Mitigacion aplicada:
+- Se cambio `location /api/` a `location ^~ /api/` en la configuracion PRD, para que las rutas API tengan precedencia y no sean interceptadas por regex de archivos sensibles.
+
+Validacion:
+- `/api/v1/system/backups/config` sin token ya no devuelve 404 de nginx; devuelve 403 del backend con ruta `/v1/system/backups/config`, lo esperado para endpoint protegido.
+- `/api/health` responde 200.
+- `/backup.zip` sigue respondiendo 404.
+
+## Correccion CSP Frame Blob PRD - 2026-05-26
+
+Incidente observado: el visor PDF intentaba cargar `blob:http://localhost/...` dentro de un frame y el navegador lo bloqueaba porque `frame-src` no estaba definido; CSP caia a `default-src 'self'`.
+
+Causa:
+- La app usa `URL.createObjectURL(...)` para PDFs y los muestra en `iframe`.
+- `img-src` ya permitia `blob:`, pero los frames requieren la directiva especifica `frame-src`.
+
+Mitigacion aplicada:
+- CSP PRD agrega `frame-src 'self' blob:`.
+- Se mantiene `script-src 'self'` y `object-src 'none'`.
+
+Validacion:
+- Header CSP servido incluye `frame-src 'self' blob:`.
+- `/api/health` responde 200.
+- `/backup.zip` sigue respondiendo 404.
+
+## Correccion Proxy Mailpit PRD - 2026-05-26
+
+Incidente observado: al abrir `/mailpit` aparecia en consola un timeout de MinuetAItor contra `/v1/system/maintenance/operation-state/public`.
+
+Revision:
+- `/mailpit/` sirve correctamente HTML de Mailpit por nginx.
+- Assets y API de Mailpit cargan por el prefijo `/mailpit`.
+- El endpoint publico de MinuetAItor responde 200 en milisegundos; el timeout observado fue transitorio o de una pestana de MinuetAItor activa en paralelo durante rebuild.
+
+Mitigacion aplicada:
+- Se agregaron headers WebSocket al proxy `/mailpit/` (`Upgrade` y `Connection`) y `proxy_read_timeout 3600s`, porque Mailpit usa websocket para eventos.
+
+Validacion:
+- `/mailpit/` responde 200.
+- `/mailpit/dist/app.js` responde 200.
+- `/mailpit/api/v1/messages` responde 200.
+- `/api/v1/system/maintenance/operation-state/public` responde 200.
+
+## Validacion URL Publica Organizacion - 2026-05-26
+
+Incidente observado: el campo "URL pública de la plataforma" aceptaba valores sin esquema, por ejemplo `minuetaitor.vsoto.cl/`. Luego los enlaces enviados por correo quedaban mal formados, como `minuetaitor.vsoto.cl/minutes/process/...`.
+
+Mitigacion aplicada:
+- Frontend valida el campo antes de guardar y muestra error inline si falta `http://` o `https://`.
+- El boton de guardado queda deshabilitado mientras la URL informada sea invalida.
+- Backend valida de nuevo el valor para evitar bypass por API directa.
+- Se permite dejar el campo vacio.
+- Si se informa valor, debe ser una URL absoluta con esquema `http` o `https`.
+- La URL publica debe ser base, sin rutas, query ni fragmento.
+- Se mantiene la normalizacion de `/` final, por ejemplo `https://minuetaitor.vsoto.cl/` se guarda como `https://minuetaitor.vsoto.cl`.
+
+Validacion:
+- `minuetaitor.vsoto.cl/` se rechaza.
+- `https://minuetaitor.vsoto.cl/` se acepta y se guarda sin slash final.
+- `http://minuetaitor.vsoto.cl/` se acepta.
+- `https://minuetaitor.vsoto.cl/minutes` se rechaza.
+- `/api/health` responde 200 tras rebuild.
+
 ## Frentes
 
 ### 1. RBAC pendiente fuera de lo ya mitigado
