@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import HTTPException
 from sqlalchemy import false, or_
@@ -717,16 +717,24 @@ def get_minute_versions(db: Session, record_id: str) -> MinuteVersionsResponse:
         "final": "Publicada",
     }
 
+    def _user_label(user: Any) -> str | None:
+        if not user:
+            return None
+        profile = getattr(user, "profile", None)
+        return getattr(profile, "full_name", None) or getattr(user, "username", None)
+
+    record_status_labels = {
+        "ready-for-edit": "Listo para editar",
+        "pending": "Pendiente de edición",
+        "preview": "Vista previa",
+        "completed": "Publicada",
+        "cancelled": "Cancelada",
+        "deleted": "Eliminada",
+    }
+
     items = []
     for version in versions_rows:
-        published_by_name = None
-        if version.published_by_user:
-            profile = getattr(version.published_by_user, "profile", None)
-            published_by_name = getattr(profile, "full_name", None) or getattr(
-                version.published_by_user,
-                "username",
-                None,
-            )
+        published_by_name = _user_label(version.published_by_user)
 
         status: VersionStatus = version.status
         status_code = status.code if status else "unknown"
@@ -742,7 +750,55 @@ def get_minute_versions(db: Session, record_id: str) -> MinuteVersionsResponse:
                 published_at=version.published_at.isoformat() if version.published_at else None,
                 published_by=published_by_name,
                 commit_message=version.summary_text,
+                entry_type="version",
             )
         )
 
+    transition_rows = (
+        db.query(RecordStatusTransition)
+        .options(
+            joinedload(RecordStatusTransition.from_status),
+            joinedload(RecordStatusTransition.to_status),
+            joinedload(RecordStatusTransition.record_version),
+            joinedload(RecordStatusTransition.changed_by_user).joinedload(User.profile),
+        )
+        .filter(RecordStatusTransition.record_id == record_id)
+        .filter(RecordStatusTransition.metadata_json.isnot(None))
+        .order_by(RecordStatusTransition.changed_at.desc())
+        .all()
+    )
+    for transition in transition_rows:
+        metadata = transition.metadata_json if isinstance(transition.metadata_json, dict) else {}
+        commit_message = str(metadata.get("commitMessage") or "").strip()
+        if not commit_message:
+            continue
+
+        from_status_code = getattr(transition.from_status, "code", None)
+        to_status_code = getattr(transition.to_status, "code", None)
+        from_label = record_status_labels.get(str(from_status_code or ""), str(from_status_code or "—"))
+        to_label = record_status_labels.get(str(to_status_code or ""), str(to_status_code or "—"))
+        version_num = (
+            int(transition.record_version.version_num)
+            if transition.record_version and transition.record_version.version_num is not None
+            else int(record.latest_version_num or 0)
+        )
+
+        items.append(
+            MinuteVersionItem(
+                version_id=f"transition-{transition.id}",
+                version_num=version_num,
+                version_label="Cambio de estado",
+                status_code="transition",
+                status_label=f"{from_label} → {to_label}",
+                published_at=transition.changed_at.isoformat() if transition.changed_at else None,
+                published_by=_user_label(transition.changed_by_user),
+                commit_message=commit_message,
+                entry_type="transition",
+                transition_id=int(transition.id),
+                from_status_label=from_label,
+                to_status_label=to_label,
+            )
+        )
+
+    items.sort(key=lambda item: item.published_at or "", reverse=True)
     return MinuteVersionsResponse(record_id=record_id, versions=items)

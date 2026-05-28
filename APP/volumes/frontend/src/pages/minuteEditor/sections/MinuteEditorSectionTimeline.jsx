@@ -1,7 +1,7 @@
 /**
  * pages/minuteEditor/sections/MinuteEditorSectionTimeline.jsx
  *
- * Historial de versiones de la minuta — datos reales desde el backend.
+ * Historial de versiones y cambios de estado de la minuta — datos reales desde el backend.
  *
  * FLUJO:
  *  - Carga versiones al montar con getMinuteVersions(recordId)
@@ -36,7 +36,8 @@ const fmtDate = (iso) => {
   } catch { return iso; }
 };
 
-const isVisibleVersion = (version) => Number(version?.versionNum ?? 0) > 0;
+const isTransitionEntry = (version) => version?.entryType === "transition";
+const isVisibleVersion = (version) => isTransitionEntry(version) || Number(version?.versionNum ?? 0) > 0;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BADGE DE VERSIÓN
@@ -62,6 +63,7 @@ const StatusVersionBadge = ({ statusCode, statusLabel }) => {
   const styles = {
     final:    "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border-green-200/50 dark:border-green-700/40",
     snapshot: "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 border-indigo-200/50 dark:border-indigo-700/40",
+    transition: "bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200/70 dark:border-slate-700/70",
   };
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold border transition-theme
@@ -80,6 +82,7 @@ const StatusVersionBadge = ({ statusCode, statusLabel }) => {
 const TimelineEntry = ({ version, isLatest, isLast, recordId }) => {
   const [expanded, setExpanded] = useState(isLatest);
 
+  const isTransition = isTransitionEntry(version);
   const pdfType  = version.statusCode === "final" ? "published" : "draft";
   const filename = `minuta_${version.versionLabel}.pdf`;
 
@@ -128,7 +131,7 @@ const TimelineEntry = ({ version, isLatest, isLast, recordId }) => {
               <StatusVersionBadge statusCode={version.statusCode} statusLabel={version.statusLabel} />
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-gray-900 dark:text-white truncate transition-theme">
-                  {version.commitMessage || (isLatest ? "Versión actual" : "Publicación")}
+                  {version.commitMessage || (isTransition ? "Cambio de estado" : isLatest ? "Versión actual" : "Publicación")}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 transition-theme">
                   {version.publishedBy || "—"} · {fmtDate(version.publishedAt)}
@@ -156,7 +159,9 @@ const TimelineEntry = ({ version, isLatest, isLast, recordId }) => {
                     <Icon name="comment" className="text-xs text-gray-500 dark:text-gray-400" />
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 transition-theme">Observación</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 transition-theme">
+                      {isTransition ? "Glosa del cambio" : "Observación"}
+                    </p>
                     <p className="text-sm text-gray-700 dark:text-gray-300 transition-theme leading-relaxed">
                       {version.commitMessage}
                     </p>
@@ -182,7 +187,9 @@ const TimelineEntry = ({ version, isLatest, isLast, recordId }) => {
                     <Icon name="user" className="text-xs text-gray-500 dark:text-gray-400" />
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 transition-theme">Publicado por</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 transition-theme">
+                      {isTransition ? "Registrado por" : "Publicado por"}
+                    </p>
                     <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 transition-theme">
                       {version.publishedBy || "—"}
                     </p>
@@ -190,22 +197,23 @@ const TimelineEntry = ({ version, isLatest, isLast, recordId }) => {
                 </div>
               </div>
 
-              {/* Acciones PDF */}
-              <div className="pt-2 border-t border-gray-100 dark:border-gray-700/50 transition-theme flex items-center gap-3 flex-wrap">
-                <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 transition-theme">
-                  PDF {version.versionLabel}:
-                </span>
-                <button
-                  type="button"
-                  onClick={handleViewPdf}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-50 dark:bg-primary-900/20
-                    hover:bg-primary-100 dark:hover:bg-primary-900/30 text-primary-700 dark:text-primary-300
-                    border border-primary-200/50 dark:border-primary-700/50 text-xs font-semibold transition-theme"
-                >
-                  <Icon name="fileLines" className="text-xs" />
-                  Ver PDF
-                </button>
-              </div>
+              {!isTransition && (
+                <div className="pt-2 border-t border-gray-100 dark:border-gray-700/50 transition-theme flex items-center gap-3 flex-wrap">
+                  <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 transition-theme">
+                    PDF {version.versionLabel}:
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleViewPdf}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-50 dark:bg-primary-900/20
+                      hover:bg-primary-100 dark:hover:bg-primary-900/30 text-primary-700 dark:text-primary-300
+                      border border-primary-200/50 dark:border-primary-700/50 text-xs font-semibold transition-theme"
+                  >
+                    <Icon name="fileLines" className="text-xs" />
+                    Ver PDF
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -222,6 +230,8 @@ const MinuteEditorSectionTimeline = ({ recordId, recordStatus }) => {
   const [versions, setVersions] = useState([]);
   const [loading,  setLoading]  = useState(false);
   const [error,    setError]    = useState(null);
+  const versionCount = versions.filter((item) => !isTransitionEntry(item)).length;
+  const latestVersion = versions.find((item) => !isTransitionEntry(item));
 
   const fetchVersions = useCallback(async () => {
     if (!recordId) return;
@@ -261,7 +271,7 @@ const MinuteEditorSectionTimeline = ({ recordId, recordStatus }) => {
               Línea de tiempo
             </h2>
             <p className="text-sm text-gray-600 dark:text-gray-300 transition-theme">
-              Historial de versiones publicadas. Solo lectura — trazabilidad y auditoría.
+              Historial de versiones y cambios de estado. Solo lectura — trazabilidad y auditoría.
             </p>
           </div>
 
@@ -269,18 +279,18 @@ const MinuteEditorSectionTimeline = ({ recordId, recordStatus }) => {
             {/* Contador versiones */}
             <div className="text-center">
               <p className="text-2xl font-bold font-mono text-primary-600 dark:text-primary-400 transition-theme">
-                {loading ? "—" : versions.length}
+                {loading ? "—" : versionCount}
               </p>
               <p className="text-xs text-gray-500 dark:text-gray-400 transition-theme">
-                versión{versions.length !== 1 ? "es" : ""}
+                versión{versionCount !== 1 ? "es" : ""}
               </p>
             </div>
 
             {/* Versión actual */}
-            {versions[0] && (
+            {latestVersion && (
               <div className="text-center">
                 <p className="text-2xl font-bold font-mono text-gray-900 dark:text-gray-100 transition-theme">
-                  {versions[0].versionLabel}
+                  {latestVersion.versionLabel}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 transition-theme">actual</p>
               </div>
@@ -354,7 +364,7 @@ const MinuteEditorSectionTimeline = ({ recordId, recordStatus }) => {
               <TimelineEntry
                 key={v.versionId}
                 version={v}
-                isLatest={idx === 0}
+                isLatest={latestVersion?.versionId === v.versionId}
                 isLast={idx === versions.length - 1}
                 recordId={recordId}
               />

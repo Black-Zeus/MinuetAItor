@@ -62,8 +62,11 @@ def _on_status_change(mapper, connection, target) -> None:
 
         record = _ensure_relations(target, connection)
 
-        from services.pdf_job_builder import build_pdf_job
-        envelope = build_pdf_job(record=record, trigger_config=config)
+        from services.pdf_job_builder import build_pdf_job, build_pdf_job_from_active_editor_content
+        if new_status == "completed":
+            envelope = build_pdf_job_from_active_editor_content(record=record, trigger_config=config)
+        else:
+            envelope = build_pdf_job(record=record, trigger_config=config)
 
         _enqueue(envelope)
 

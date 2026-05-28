@@ -149,6 +149,25 @@ def build_pdf_job(record: Any, trigger_config: Dict[str, Any]) -> Dict[str, Any]
     return envelope
 
 
+def build_pdf_job_from_active_editor_content(record: Any, trigger_config: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Construye un PDF de publicación desde el contenido editorial vigente.
+
+    En preview el usuario puede insertar observaciones y guardar cambios contra
+    draft_current.json / schema_output_vN. El PDF final debe tomar esa fuente,
+    no el snapshot IA inicial.
+    """
+    content = _load_active_editor_content(record)
+    if _is_editor_content(content):
+        return build_pdf_job_from_draft(record=record, draft_content=content, trigger_config=trigger_config)
+
+    logger.warning(
+        "pdf_job_builder: contenido activo no parece formato editor; usando builder legacy | record_id=%s",
+        getattr(record, "id", "unknown"),
+    )
+    return build_pdf_job(record=record, trigger_config=trigger_config)
+
+
 # ---------------------------------------------------------------------------
 # Mapeos camelCase → snake_case
 # Basados en el JSON real que retorna el LLM (schema_output_v1.json)
@@ -355,6 +374,89 @@ def _load_ia_response(record_id: str) -> Dict[str, Any]:
     raise RuntimeError(
         f"pdf_job_builder: no se pudo leer schema_output_v0.json ni schema_output_v1.json "
         f"para record_id={record_id}: {last_error}"
+    )
+
+
+def _load_json_object(bucket: str, key: str) -> Dict[str, Any]:
+    from db.minio_client import get_minio_client
+
+    minio = get_minio_client()
+    response = minio.get_object(bucket, key)
+    try:
+        raw = response.read()
+        return json.loads(raw)
+    finally:
+        try:
+            response.close()
+            response.release_conn()
+        except Exception:
+            pass
+
+
+def _active_version_number(record: Any) -> int:
+    session = object_session(record)
+    if session is not None and getattr(record, "active_version_id", None):
+        try:
+            from models.record_versions import RecordVersion
+
+            version = (
+                session.query(RecordVersion)
+                .filter(RecordVersion.id == str(record.active_version_id))
+                .first()
+            )
+            if version is not None:
+                return int(version.version_num or 0)
+        except Exception as exc:
+            logger.debug("pdf_job_builder: no se pudo leer active_version | record_id=%s err=%s", record.id, exc)
+    return int(getattr(record, "latest_version_num", 0) or 0)
+
+
+def _load_active_editor_content(record: Any) -> Dict[str, Any]:
+    record_id = str(record.id)
+    version_number = _active_version_number(record)
+    candidate_objects: list[tuple[str, str]] = []
+    if version_number > 0:
+        candidate_objects.append(("minuetaitor-json", f"{record_id}/schema_output_v{version_number}.json"))
+    candidate_objects.extend(
+        [
+            ("minuetaitor-draft", f"{record_id}/draft_current.json"),
+            ("minuetaitor-json", f"{record_id}/schema_output_v1.json"),
+            ("minuetaitor-json", f"{record_id}/schema_output_v0.json"),
+        ]
+    )
+
+    last_error: Exception | None = None
+    seen: set[tuple[str, str]] = set()
+    for bucket, key in candidate_objects:
+        if (bucket, key) in seen:
+            continue
+        seen.add((bucket, key))
+        logger.debug("pdf_job_builder: leyendo contenido activo %s/%s", bucket, key)
+        try:
+            return _load_json_object(bucket, key)
+        except Exception as exc:
+            last_error = exc
+
+    raise RuntimeError(
+        f"pdf_job_builder: no se pudo leer contenido editorial activo "
+        f"para record_id={record_id}: {last_error}"
+    )
+
+
+def _is_editor_content(content: Dict[str, Any] | None) -> bool:
+    if not isinstance(content, dict):
+        return False
+    return any(
+        key in content
+        for key in (
+            "meetingInfo",
+            "scopeSections",
+            "agreements",
+            "requirements",
+            "participants",
+            "nextMeetings",
+            "pdfFormat",
+        )
     )
 
 
