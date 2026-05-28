@@ -13,6 +13,45 @@ from schemas.sendmail import InlineAsset, MailTemplateInfo
 
 EMAIL_TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "assets" / "email_templates"
 TAG_RE = re.compile(r"<[^>]+>")
+UUID_RE = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+    re.IGNORECASE,
+)
+URL_RE = re.compile(r"^https?://", re.IGNORECASE)
+
+TEMPLATE_AUDIT_EVENT_LABELS = {
+    "access_granted_revoked_scope": "Cambio de acceso",
+    "access_request_ack": "Solicitud de acceso recibida",
+    "access_request_admin": "Solicitud de acceso",
+    "account_created_set_password": "Cuenta creada",
+    "ai_processed_ready_for_manual_review": "Minuta procesada",
+    "minute_guest_observation_received": "Observación de invitado",
+    "minute_officialized_approved": "Minuta publicada",
+    "minute_view_otp": "Código de acceso a minuta",
+    "password_changed_confirmation": "Cambio de contraseña",
+    "recoverPass": "Recuperación de contraseña",
+    "reminder_processed_not_published": "Recordatorio de publicación",
+    "responseApproveConfidential": "Solicitud confidencial aprobada",
+    "responseDeniedConfidential": "Solicitud confidencial rechazada",
+    "sendMinute": "Envío de minuta",
+    "sendOwerConfidential": "Solicitud confidencial",
+    "smtp_config_test": "Prueba de envío SMTP",
+    "system_backup_result": "Resultado de respaldo",
+    "system_queue_alert": "Alerta de colas",
+    "system_queue_recovered": "Cola normalizada",
+}
+
+TECHNICAL_ORIGIN_LABELS = {
+    "internal-worker": "Procesamiento interno",
+    "worker": "Procesamiento interno",
+    "scheduler": "Proceso programado",
+    "system": "Sistema",
+    "test-suite": "Prueba del sistema",
+    "user-client-acl": "Gestión de accesos",
+    "user-project-acl": "Gestión de accesos",
+    "minutes.transition.pending-preview": "Cambio de estado de minuta",
+    "minute.reprocess": "Reproceso de minuta",
+}
 
 
 @dataclass(frozen=True)
@@ -172,6 +211,145 @@ TEMPLATE_DEFINITIONS: dict[str, EmailTemplateDefinition] = {
     ),
 }
 
+EMAIL_TEMPLATE_PRESENTATION: dict[str, dict[str, str]] = {
+    "access_granted_revoked_scope": {
+        "subtitle": "Gobernanza de acceso · RBAC · Auditoría",
+        "badge_text": "Acceso",
+        "badge_bg": "#f8fafc",
+        "badge_color": "#6b7280",
+        "badge_border": "#e5e7eb",
+        "footer_subtitle": "Gestión documental · Minutas · Trazabilidad",
+        "footer_message": "Este correo fue generado automáticamente como parte del registro y trazabilidad de cambios de acceso.",
+        "footer_help": "Si no reconoces esta modificación, contacta a soporte de inmediato.",
+    },
+    "access_request_admin": {
+        "subtitle": "Administración de acceso · Solicitudes · Auditoría",
+        "badge_text": "Revisión",
+        "badge_bg": "#eef2ff",
+        "badge_color": "#3730a3",
+        "badge_border": "#e0e7ff",
+    },
+    "access_request_ack": {
+        "subtitle": "Administración de acceso · Solicitudes · Auditoría",
+        "badge_text": "Recibida",
+        "badge_bg": "#ecfdf5",
+        "badge_color": "#047857",
+        "badge_border": "#a7f3d0",
+    },
+    "account_created_set_password": {
+        "subtitle": "Entorno autenticado y auditado · Operación y trazabilidad",
+        "badge_text": "Seguridad",
+        "badge_bg": "#f8fafc",
+        "badge_color": "#6b7280",
+        "badge_border": "#e5e7eb",
+    },
+    "ai_processed_ready_for_manual_review": {
+        "subtitle": "Gestión documental y seguimiento de minutas",
+        "badge_text": "Revisión requerida",
+        "badge_bg": "#eef2ff",
+        "badge_color": "#3730a3",
+        "badge_border": "#e0e7ff",
+    },
+    "minute_officialized_approved": {
+        "subtitle": "Gestión documental y seguimiento de minutas",
+        "badge_text": "Publicada",
+        "badge_bg": "#ecfdf5",
+        "badge_color": "#047857",
+        "badge_border": "#a7f3d0",
+    },
+    "minute_guest_observation_received": {
+        "subtitle": "Gestión documental y seguimiento de minutas",
+        "badge_text": "Observación",
+        "badge_bg": "#eff6ff",
+        "badge_color": "#1d4ed8",
+        "badge_border": "#bfdbfe",
+    },
+    "minute_view_otp": {
+        "subtitle": "Acceso externo · Validación temporal",
+        "badge_text": "OTP",
+        "badge_bg": "#f8fafc",
+        "badge_color": "#6b7280",
+        "badge_border": "#e5e7eb",
+    },
+    "password_changed_confirmation": {
+        "subtitle": "Seguridad de cuenta · Auditoría · Trazabilidad",
+        "badge_text": "Seguridad",
+        "badge_bg": "#f8fafc",
+        "badge_color": "#6b7280",
+        "badge_border": "#e5e7eb",
+    },
+    "recoverPass": {
+        "subtitle": "Entorno autenticado y auditado · Operación y trazabilidad",
+        "badge_text": "Seguridad",
+        "badge_bg": "#f8fafc",
+        "badge_color": "#6b7280",
+        "badge_border": "#e5e7eb",
+    },
+    "reminder_processed_not_published": {
+        "subtitle": "Gestión documental y seguimiento de minutas",
+        "badge_text": "Recordatorio",
+        "badge_bg": "#fffbeb",
+        "badge_color": "#92400e",
+        "badge_border": "#fde68a",
+    },
+    "responseApproveConfidential": {
+        "subtitle": "Control de acceso · Confidencialidad · Auditoría",
+        "badge_text": "Aprobada",
+        "badge_bg": "#ecfdf5",
+        "badge_color": "#047857",
+        "badge_border": "#a7f3d0",
+    },
+    "responseDeniedConfidential": {
+        "subtitle": "Control de acceso · Confidencialidad · Auditoría",
+        "badge_text": "Rechazada",
+        "badge_bg": "#fef2f2",
+        "badge_color": "#b91c1c",
+        "badge_border": "#fecaca",
+    },
+    "sendMinute": {
+        "subtitle": "Gestión documental y seguimiento de minutas",
+        "badge_text": "Revisión",
+        "badge_bg": "#eef2ff",
+        "badge_color": "#3730a3",
+        "badge_border": "#e0e7ff",
+    },
+    "sendOwerConfidential": {
+        "subtitle": "Control de acceso · Confidencialidad · Auditoría",
+        "badge_text": "Requiere acción",
+        "badge_bg": "#fffbeb",
+        "badge_color": "#92400e",
+        "badge_border": "#fde68a",
+    },
+    "smtp_config_test": {
+        "subtitle": "Entorno autenticado y auditado · Operación y trazabilidad",
+        "badge_text": "Seguridad",
+        "badge_bg": "#f8fafc",
+        "badge_color": "#6b7280",
+        "badge_border": "#e5e7eb",
+    },
+    "system_backup_result": {
+        "subtitle": "Sistema · Respaldos automatizados",
+        "badge_text": "Sistema",
+        "badge_bg": "#f8fafc",
+        "badge_color": "#6b7280",
+        "badge_border": "#e5e7eb",
+    },
+    "system_queue_alert": {
+        "subtitle": "Observabilidad técnica · Alerta de colas",
+        "badge_text": "Alerta",
+        "badge_bg": "#fffbeb",
+        "badge_color": "#92400e",
+        "badge_border": "#fde68a",
+    },
+    "system_queue_recovered": {
+        "subtitle": "Observabilidad técnica · Recuperación de colas",
+        "badge_text": "Normalizada",
+        "badge_bg": "#ecfdf5",
+        "badge_color": "#047857",
+        "badge_border": "#a7f3d0",
+    },
+}
+
 _env: Environment | None = None
 DEFAULT_LOGO_CID = "minuetaitor-logo"
 
@@ -230,6 +408,7 @@ def _default_context() -> dict[str, Any]:
         "HAS_ORGANIZATION_LOGO": False,
         "CLIENT_LOGO_CID": "client-logo",
         "HAS_CLIENT_LOGO": False,
+        "REQUEST_ORIGIN": "-",
     }
 
 
@@ -239,6 +418,33 @@ def _default_logo_asset() -> InlineAsset:
         path=resolve_default_logo_path(),
         mime_type=os.environ.get("EMAIL_INLINE_LOGO_MIME_TYPE", "image/jpeg"),
     )
+
+
+def _looks_technical(value: str) -> bool:
+    clean = value.strip()
+    if not clean or clean == "-":
+        return True
+    if URL_RE.match(clean):
+        return False
+    if UUID_RE.match(clean):
+        return True
+    return any(char in clean for char in ("_", ".")) or clean.lower() == clean and "-" in clean
+
+
+def _footer_event_label(template_id: str, raw_value: Any) -> str:
+    raw = str(raw_value or "").strip()
+    if raw and not _looks_technical(raw):
+        return raw
+    return TEMPLATE_AUDIT_EVENT_LABELS.get(template_id, "Evento registrado")
+
+
+def _footer_origin_label(raw_value: Any) -> str:
+    raw = str(raw_value or "").strip()
+    if raw in TECHNICAL_ORIGIN_LABELS:
+        return TECHNICAL_ORIGIN_LABELS[raw]
+    if raw and not _looks_technical(raw):
+        return raw
+    return "Sistema"
 
 
 def get_template_definition(template_id: str) -> EmailTemplateDefinition:
@@ -293,8 +499,37 @@ def render_email_template(
     definition = get_template_definition(template_id)
     env = _get_env()
     merged_context = _default_context()
+    presentation = EMAIL_TEMPLATE_PRESENTATION.get(template_id, {})
+    merged_context.update(
+        {
+            "EMAIL_HEADER_SUBTITLE": presentation.get("subtitle", "Gestión documental y seguimiento de minutas"),
+            "EMAIL_BADGE_TEXT": presentation.get("badge_text", "Información"),
+            "EMAIL_BADGE_BG": presentation.get("badge_bg", "#f8fafc"),
+            "EMAIL_BADGE_COLOR": presentation.get("badge_color", "#6b7280"),
+            "EMAIL_BADGE_BORDER": presentation.get("badge_border", "#e5e7eb"),
+            "EMAIL_FOOTER_SUBTITLE": presentation.get("footer_subtitle", "Gestión documental · Minutas · Trazabilidad"),
+            "EMAIL_FOOTER_MESSAGE": presentation.get(
+                "footer_message",
+                "Este correo fue generado automáticamente por MinuetAItor.",
+            ),
+            "EMAIL_FOOTER_HELP_TEXT": presentation.get(
+                "footer_help",
+                "Si no reconoces esta actividad, contacta a soporte de inmediato.",
+            ),
+        }
+    )
     if context:
         merged_context.update({str(key): value for key, value in context.items()})
+    raw_audit_event = (
+        merged_context.get("AUDIT_EVENT_ID")
+        or merged_context.get("REQUEST_ID")
+        or merged_context.get("ACCESS_REQUEST_ID")
+        or "-"
+    )
+    merged_context["EMAIL_AUDIT_EVENT_ID"] = _footer_event_label(template_id, raw_audit_event)
+    merged_context["REQUEST_ORIGIN"] = _footer_origin_label(merged_context.get("REQUEST_ORIGIN"))
+    if template_id == "access_granted_revoked_scope" and merged_context.get("ACCESS_ACTION"):
+        merged_context["EMAIL_BADGE_TEXT"] = f"Acceso: {merged_context['ACCESS_ACTION']}"
 
     try:
         html_body = env.get_template(definition.filename).render(**merged_context)

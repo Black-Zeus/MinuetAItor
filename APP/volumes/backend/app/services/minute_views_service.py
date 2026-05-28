@@ -45,6 +45,7 @@ from schemas.minute_observations import (
 )
 from services.notification_center_service import create_in_app_notification
 from services.email_queue import queue_templated_email
+from services.email_branding_service import build_email_branding_bundle
 from services.minutes_service import get_minute_detail, get_minute_versions
 from services.notification_service import enqueue_minute_guest_observation_email
 from utils.device import get_device_string
@@ -269,11 +270,13 @@ async def request_minute_view_otp(
     db.add(access_request)
     db.commit()
 
+    branding = build_email_branding_bundle(db, client=record.client, include_organization_logo=True, include_client_logo=False)
     await queue_templated_email(
         to=[normalized_email],
         template_id="minute_view_otp",
         subject=_minute_email_subject(record, "Código de acceso"),
         template_context={
+            **branding.context,
             "USER_DISPLAY_NAME": participant.display_name or normalized_email,
             "USER_EMAIL": normalized_email,
             "MINUTE_TITLE": record.title,
@@ -281,6 +284,7 @@ async def request_minute_view_otp(
             "OTP_CODE": otp_code,
             "OTP_TTL_MINUTES": VISITOR_OTP_TTL_MINUTES,
         },
+        inline_assets=branding.inline_assets,
     )
 
     access_request.delivery_status = "sent"

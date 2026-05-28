@@ -15,86 +15,42 @@
     <![endif]-->
 </head>
 
-<body style="margin:0;padding:0;background:#060b18;color:#e7eefc;">
+<body style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#1f2937;">
     <!-- Preheader (oculto) -->
     <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">
         Tu código temporal para recuperar o cambiar la contraseña vence en {{OTP_TTL_MINUTES}} minutos.
     </div>
 
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"
-        style="background:#060b18;margin:0;padding:0;">
+        style="background:#f4f6f8;margin:0;padding:0;">
         <tr>
             <td align="center" style="padding:28px 12px;">
                 <!-- Contenedor -->
                 <table role="presentation" width="640" cellspacing="0" cellpadding="0" border="0"
-                    style="width:640px;max-width:640px;border-collapse:separate;border-spacing:0;">
+                    style="width:640px;max-width:640px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb;border-collapse:separate;border-spacing:0;">
 
                     <!-- Header -->
-                    <tr>
-                        <td style="
-                background: linear-gradient(180deg,#0a1633 0%, #081127 100%);
-                border:1px solid rgba(255,255,255,0.08);
-                border-bottom:none;
-                border-radius:16px 16px 0 0;
-                padding:18px 20px;
-              ">
-                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
-                                <tr>
-                                    <td valign="middle" style="width:56px;padding-right:14px;">
-                                        <!-- Logo: preferir CID (adjunto inline) -->
-                                        <img src="cid:minuetaitor-logo"
-                                            width="48" height="48" alt="MinuetAItor"
-                                            style="display:block;border:0;border-radius:12px;" />
-                                    </td>
-                                    <td valign="middle">
-                                        <div style="font-size:18px;line-height:22px;font-weight:700;color:#f1f6ff;">
-                                            {{APP_NAME}}
-                                            <span style="
-                          display:inline-block;margin-left:8px;padding:3px 8px;
-                          border:1px solid rgba(255,255,255,0.14);
-                          border-radius:999px;font-size:12px;font-weight:600;color:#cfe0ff;
-                          vertical-align:middle;
-                        ">
-                                                v{{APP_VERSION}}
-                                            </span>
-                                        </div>
-                                        <div style="font-size:12px;line-height:16px;color:#a7b7d8;margin-top:4px;">
-                                            Entorno autenticado y auditado · Operación y trazabilidad
-                                        </div>
-                                    </td>
-                                    <td align="right" valign="middle">
-                                        <div style="
-                        font-size:12px;line-height:16px;color:#9fb2d6;
-                        border:1px solid rgba(255,255,255,0.10);
-                        padding:6px 10px;border-radius:999px;display:inline-block;
-                      ">
-                                            Seguridad
-                                        </div>
-                                    </td>
-                                </tr>
-                            </table>
-                        </td>
-                    </tr>
+                    {% include "_email_header.html" %}
 
                     <!-- Body -->
                     <tr>
                         <td style="
-                background:#07122a;
-                border:1px solid rgba(255,255,255,0.08);
+                background:#ffffff;
+                border:1px solid #e5e7eb;
                 border-top:none;
                 border-bottom:none;
                 padding:22px 20px 10px 20px;
               ">
-                            <div style="font-size:16px;line-height:22px;font-weight:700;color:#f1f6ff;">
+                            <div style="font-size:16px;line-height:22px;font-weight:700;color:#111827;">
                                 Recuperación / Cambio de contraseña
                             </div>
 
-                            <div style="font-size:13px;line-height:20px;color:#c9d7f2;margin-top:10px;">
+                            <div style="font-size:13px;line-height:20px;color:#374151;margin-top:10px;">
                                 Se solicitó un proceso de recuperación o actualización de credenciales para la cuenta:
-                                <span style="color:#f1f6ff;font-weight:600;">{{USER_IDENTIFIER}}</span>.
+                                <span style="color:#111827;font-weight:600;">{{USER_IDENTIFIER}}</span>.
                             </div>
 
-                            <div style="font-size:13px;line-height:20px;color:#c9d7f2;margin-top:10px;">
+                            <div style="font-size:13px;line-height:20px;color:#374151;margin-top:10px;">
                                 Utiliza el siguiente <b>código temporal</b> para continuar. Este código expira en
                                 <b>{{OTP_TTL_MINUTES}} minutos</b>.
                             </div>
@@ -104,22 +60,22 @@
                                 style="margin-top:14px;">
                                 <tr>
                                     <td align="center" style="
-                      background: rgba(9, 22, 52, 0.9);
-                      border: 1px solid rgba(255,255,255,0.12);
+                      background:#f9fafb;
+                      border:1px solid #e5e7eb;
                       border-radius: 14px;
                       padding: 18px 14px;
                     ">
-                                        <div style="font-size:12px;line-height:16px;color:#9fb2d6;margin-bottom:10px;">
+                                        <div style="font-size:12px;line-height:16px;color:#6b7280;margin-bottom:10px;">
                                             CÓDIGO TEMPORAL
                                         </div>
                                         <div style="
                         font-size:30px;line-height:36px;font-weight:800;letter-spacing:6px;
-                        color:#e7eefc;
+                        color:#1f2937;
                         font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
                       ">
                                             {{OTP_CODE}}
                                         </div>
-                                        <div style="font-size:12px;line-height:16px;color:#9fb2d6;margin-top:10px;">
+                                        <div style="font-size:12px;line-height:16px;color:#6b7280;margin-top:10px;">
                                             Válido hasta: {{OTP_EXPIRES_AT}} · Zona horaria: {{TZ}}
                                         </div>
                                     </td>
@@ -132,20 +88,20 @@
                                 <tr>
                                     <td align="center" style="padding: 6px 0 10px 0;">
                                         <a href="{{RESET_URL}}" target="_blank" rel="noopener" style="
-                          display:inline-block;background:#1f5bff;color:#ffffff;text-decoration:none;
+                          display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;
                           font-size:14px;line-height:18px;font-weight:700;
                           padding:12px 18px;border-radius:12px;
-                          border:1px solid rgba(255,255,255,0.10);
+                          border:1px solid #e5e7eb;
                         ">
                                             Acceder para recuperar / cambiar contraseña
                                         </a>
-                                        <div style="font-size:12px;line-height:18px;color:#8fa6cc;margin-top:10px;">
+                                        <div style="font-size:12px;line-height:18px;color:#6b7280;margin-top:10px;">
                                             Si el botón no funciona, copia y pega este enlace en tu navegador:
                                         </div>
                                         <div style="
-                        font-size:12px;line-height:18px;color:#c9d7f2;word-break:break-all;
-                        border:1px solid rgba(255,255,255,0.10);
-                        background:rgba(255,255,255,0.03);
+                        font-size:12px;line-height:18px;color:#374151;word-break:break-all;
+                        border:1px solid #e5e7eb;
+                        background:#f9fafb;
                         padding:10px 12px;border-radius:12px;margin-top:8px;
                       ">
                                             {{RESET_URL}}
@@ -157,14 +113,14 @@
                             <!-- Avisos de seguridad -->
                             <div style="
                   margin-top:12px;padding:14px 14px;
-                  border:1px solid rgba(255,255,255,0.10);
-                  border-radius:14px;background:rgba(255,255,255,0.02);
+                  border:1px solid #e5e7eb;
+                  border-radius:14px;background:#f9fafb;
                 ">
-                                <div style="font-size:13px;line-height:18px;color:#f1f6ff;font-weight:700;">
+                                <div style="font-size:13px;line-height:18px;color:#111827;font-weight:700;">
                                     Consideraciones de seguridad
                                 </div>
                                 <ul
-                                    style="margin:10px 0 0 18px;padding:0;color:#c9d7f2;font-size:12px;line-height:18px;">
+                                    style="margin:10px 0 0 18px;padding:0;color:#374151;font-size:12px;line-height:18px;">
                                     <li>Este código es de <b>uso único</b> y no debe compartirse.</li>
                                     <li>Si no solicitaste este proceso, ignora este mensaje y revisa la seguridad de tu
                                         cuenta.</li>
@@ -173,7 +129,7 @@
                             </div>
 
                             <!-- Metadata opcional -->
-                            <div style="font-size:11px;line-height:16px;color:#8fa6cc;margin-top:14px;">
+                            <div style="font-size:11px;line-height:16px;color:#6b7280;margin-top:14px;">
                                 Solicitud registrada: {{REQUEST_ID}} · Origen: {{REQUEST_ORIGIN}} · IP: {{REQUEST_IP}} ·
                                 Agente: {{REQUEST_UA}}
                             </div>
@@ -182,26 +138,7 @@
                     </tr>
 
                     <!-- Footer -->
-                    <tr>
-                        <td style="
-                background:#07122a;
-                border:1px solid rgba(255,255,255,0.08);
-                border-top:none;
-                border-radius:0 0 16px 16px;
-                padding:16px 20px;
-              ">
-                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
-                                <tr>
-                                    <td style="font-size:12px;line-height:18px;color:#8fa6cc;">
-                                        Desarrollado por {{DEVELOPER_NAME}} · {{DEVELOPER_EMAIL}}
-                                    </td>
-                                    <td align="right" style="font-size:12px;line-height:18px;color:#8fa6cc;">
-                                        Gestión · Trazabilidad · Estandarización
-                                    </td>
-                                </tr>
-                            </table>
-                        </td>
-                    </tr>
+                    {% include "_email_footer.html" %}
 
                 </table>
                 <!-- /Contenedor -->
