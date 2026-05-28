@@ -9,6 +9,7 @@ from core.internal_auth import verify_internal_secret
 from db.session import get_db
 from schemas.internal_notifications import TriggerPendingPublicationRemindersResponse
 from schemas.notifications import InternalNotificationIngestRequest, InternalNotificationIngestResponse
+from services.email_branding_service import build_email_branding_bundle
 from services.email_queue import queue_templated_email
 from services.notification_service import enqueue_pending_publication_reminders
 from services.notification_center_service import create_in_app_notification
@@ -60,11 +61,17 @@ async def ingest_notification_endpoint(
     )
     if body.email_enabled and body.email_to:
         try:
+            branding = build_email_branding_bundle(db, include_organization_logo=True, include_client_logo=False)
+            template_context = {
+                **branding.context,
+                **(body.email_context or {}),
+            }
             await queue_templated_email(
                 to=body.email_to,
                 template_id=body.email_template_id or "system_backup_result",
-                template_context=body.email_context,
+                template_context=template_context,
                 subject=body.email_subject,
+                inline_assets=branding.inline_assets,
                 notification_context={
                     "notification_type": body.notification_type,
                     "scope_type": body.scope_type,

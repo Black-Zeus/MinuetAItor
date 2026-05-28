@@ -828,8 +828,10 @@ async def enqueue_account_created_email(
         request_ip=request_ip,
         request_ua=request_ua,
     )
+    branding = build_email_branding_bundle(db, include_organization_logo=True, include_client_logo=False)
 
     context = {
+        **branding.context,
         "SUPPORT_NAME": _support_name(),
         "USER_DISPLAY_NAME": _user_display_name(user),
         "USER_IDENTIFIER": user.email or user.username,
@@ -847,6 +849,7 @@ async def enqueue_account_created_email(
         to=[user.email],
         template_id="account_created_set_password",
         context=context,
+        inline_assets=branding.inline_assets,
     )
 
 
@@ -877,8 +880,10 @@ async def enqueue_recover_password_email(
         request_ip=request_ip,
         request_ua=request_ua,
     )
+    branding = build_email_branding_bundle(db, include_organization_logo=True, include_client_logo=False)
 
     context = {
+        **branding.context,
         "SUPPORT_NAME": _support_name(),
         "USER_IDENTIFIER": user.email or user.username,
         "OTP_CODE": token_data.otp_code,
@@ -895,6 +900,7 @@ async def enqueue_recover_password_email(
         to=[user.email],
         template_id="recoverPass",
         context=context,
+        inline_assets=branding.inline_assets,
     )
 
 
@@ -924,8 +930,10 @@ async def enqueue_password_changed_email(
         request_ip=request_ip,
         request_ua=request_ua,
     )
+    branding = build_email_branding_bundle(db, include_organization_logo=True, include_client_logo=False)
 
     context = {
+        **branding.context,
         "SUPPORT_NAME": _support_name(),
         "USER_IDENTIFIER": user.email or user.username,
         "CHANGED_AT": _format_dt(_utcnow()),
@@ -941,6 +949,7 @@ async def enqueue_password_changed_email(
         to=[user.email],
         template_id="password_changed_confirmation",
         context=context,
+        inline_assets=branding.inline_assets,
     )
 
 
@@ -1056,7 +1065,9 @@ async def enqueue_minute_review_email(
     attendee_names = [p.display_name for p in (version.participants or [])] if version else []
     normalized_note = str(body_note or "").strip()
     attachment = _minute_pdf_attachment(record_id, published=published_pdf) if attach_pdf else None
+    branding = build_email_branding_bundle(db, client=record.client, include_organization_logo=True, include_client_logo=False)
     context = {
+        **branding.context,
         "MEETING_TITLE": record.title,
         "MEETING_DATETIME": _format_record_datetime(record),
         "CLIENT_NAME": getattr(record.client, "name", "-"),
@@ -1085,6 +1096,7 @@ async def enqueue_minute_review_email(
         template_id="sendMinute",
         context=context,
         subject=subject or _minute_email_subject(record, "Revisión de minuta"),
+        inline_assets=branding.inline_assets,
         attachments=[attachment] if attachment else None,
         notification_context={
             "notificationType": "email.sent",
@@ -1137,8 +1149,10 @@ async def enqueue_minute_officialized_email(db: Session, record_id: str, *, acto
     delivery_plan = _build_delivery_plan_from_version(record, version, include_owner_copy=True)
     approvers = [p.display_name for p in (version.participants or []) if p.role == "required"] if version else []
     attachment = _minute_pdf_attachment(record_id, published=True)
+    branding = build_email_branding_bundle(db, client=record.client, include_organization_logo=True, include_client_logo=False)
 
     context = {
+        **branding.context,
         "MEETING_TITLE": record.title,
         "OFFICIAL_STATUS": "oficializada",
         "MINUTE_ID": record.id,
@@ -1163,6 +1177,7 @@ async def enqueue_minute_officialized_email(db: Session, record_id: str, *, acto
         template_id="minute_officialized_approved",
         context=context,
         subject=_minute_email_subject(record, "Minuta oficializada"),
+        inline_assets=branding.inline_assets,
         attachments=[attachment] if attachment else None,
         notification_context={
             "notificationType": "email.sent",
@@ -1369,8 +1384,10 @@ async def enqueue_confidential_client_acl_notifications(
     access_scope = "Cliente"
     access_url = _access_url("client", client_id, db)
     request_id = str(uuid.uuid4())
+    branding = build_email_branding_bundle(db, include_organization_logo=True, include_client_logo=False)
 
     base_context = {
+        **branding.context,
         "REQUESTED_BY_NAME": _user_display_name(actor),
         "REQUESTED_BY_EMAIL": _safe_email(getattr(actor, "email", None)) or "-",
         "TARGET_USER_NAME": _user_display_name(acl.user),
@@ -1398,11 +1415,13 @@ async def enqueue_confidential_client_acl_notifications(
         to=owner_emails,
         template_id="sendOwerConfidential",
         context=base_context,
+        inline_assets=branding.inline_assets,
     )
 
     if action == "revoked":
         decision_template = "responseDeniedConfidential"
         decision_context = {
+            **branding.context,
             "OWNER_NAME": owner_name,
             "OWNER_EMAIL": _safe_email(getattr(actor, "email", None)) or "-",
             "TARGET_USER_NAME": _user_display_name(acl.user),
@@ -1423,6 +1442,7 @@ async def enqueue_confidential_client_acl_notifications(
     else:
         decision_template = "responseApproveConfidential"
         decision_context = {
+            **branding.context,
             "OWNER_NAME": owner_name,
             "OWNER_EMAIL": _safe_email(getattr(actor, "email", None)) or "-",
             "TARGET_USER_NAME": _user_display_name(acl.user),
@@ -1444,12 +1464,14 @@ async def enqueue_confidential_client_acl_notifications(
         to=[email for email in [target_email, _safe_email(getattr(actor, "email", None))] if email],
         template_id=decision_template,
         context=decision_context,
+        inline_assets=branding.inline_assets,
     )
 
     scope_change = await _safe_queue_template(
         to=[target_email] if target_email else [],
         template_id="access_granted_revoked_scope",
         context={
+            **branding.context,
             "ACCESS_ACTION": "Revocado" if action == "revoked" else "Otorgado",
             "ROLE_OR_PERMISSION": str(getattr(acl.permission, "value", acl.permission)),
             "TARGET_USER": _user_display_name(acl.user),
@@ -1468,6 +1490,7 @@ async def enqueue_confidential_client_acl_notifications(
             "REQUEST_IP": "-",
             "REQUEST_UA": "-",
         },
+        inline_assets=branding.inline_assets,
     )
 
     return {
@@ -1498,8 +1521,10 @@ async def enqueue_confidential_project_acl_notifications(
     access_scope = "Proyecto"
     access_url = _access_url("project", project_id, db)
     request_id = str(uuid.uuid4())
+    branding = build_email_branding_bundle(db, include_organization_logo=True, include_client_logo=False)
 
     base_context = {
+        **branding.context,
         "REQUESTED_BY_NAME": _user_display_name(actor),
         "REQUESTED_BY_EMAIL": _safe_email(getattr(actor, "email", None)) or "-",
         "TARGET_USER_NAME": _user_display_name(acl.user),
@@ -1527,11 +1552,13 @@ async def enqueue_confidential_project_acl_notifications(
         to=owner_emails,
         template_id="sendOwerConfidential",
         context=base_context,
+        inline_assets=branding.inline_assets,
     )
 
     if action == "revoked":
         decision_template = "responseDeniedConfidential"
         decision_context = {
+            **branding.context,
             "OWNER_NAME": owner_name,
             "OWNER_EMAIL": _safe_email(getattr(actor, "email", None)) or "-",
             "TARGET_USER_NAME": _user_display_name(acl.user),
@@ -1552,6 +1579,7 @@ async def enqueue_confidential_project_acl_notifications(
     else:
         decision_template = "responseApproveConfidential"
         decision_context = {
+            **branding.context,
             "OWNER_NAME": owner_name,
             "OWNER_EMAIL": _safe_email(getattr(actor, "email", None)) or "-",
             "TARGET_USER_NAME": _user_display_name(acl.user),
@@ -1573,12 +1601,14 @@ async def enqueue_confidential_project_acl_notifications(
         to=[email for email in [target_email, _safe_email(getattr(actor, "email", None))] if email],
         template_id=decision_template,
         context=decision_context,
+        inline_assets=branding.inline_assets,
     )
 
     scope_change = await _safe_queue_template(
         to=[target_email] if target_email else [],
         template_id="access_granted_revoked_scope",
         context={
+            **branding.context,
             "ACCESS_ACTION": "Revocado" if action == "revoked" else "Otorgado",
             "ROLE_OR_PERMISSION": str(getattr(acl.permission, "value", acl.permission)),
             "TARGET_USER": _user_display_name(acl.user),
@@ -1597,6 +1627,7 @@ async def enqueue_confidential_project_acl_notifications(
             "REQUEST_IP": "-",
             "REQUEST_UA": "-",
         },
+        inline_assets=branding.inline_assets,
     )
 
     return {
@@ -1633,7 +1664,9 @@ async def enqueue_pending_publication_reminders(db: Session) -> int:
         if not owner_email:
             continue
         status_code = getattr(record.status, "code", "pending")
+        branding = build_email_branding_bundle(db, client=record.client, include_organization_logo=True, include_client_logo=False)
         context = {
+            **branding.context,
             "CURRENT_STATUS": status_code,
             "MEETING_TITLE": record.title,
             "MEETING_DATETIME": _format_record_datetime(record),
@@ -1651,6 +1684,7 @@ async def enqueue_pending_publication_reminders(db: Session) -> int:
             to=[owner_email],
             template_id="reminder_processed_not_published",
             context=context,
+            inline_assets=branding.inline_assets,
         ):
             sent += 1
 

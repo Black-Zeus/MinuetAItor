@@ -25,6 +25,7 @@ from core.datetime_utils import utc_now, utc_now_db
 from core.exceptions import BadRequestException
 from core.network_guard import assert_safe_outbound_host
 from models.smtp_configs import SmtpConfig
+from services.email_branding_service import build_email_branding_bundle
 from services.email_template_service import render_email_template, resolve_default_logo_path
 from schemas.smtp_configs import (
     SmtpConfigCreateRequest,
@@ -255,7 +256,8 @@ def _open_smtp_client(config_values: dict[str, Any]) -> smtplib.SMTP:
     host = config_values["host"]
     port = int(config_values["port"])
     timeout_seconds = int(config_values["timeout_seconds"])
-    assert_safe_outbound_host(host)
+    if str(host).strip().lower() != "mailpit":
+        assert_safe_outbound_host(host)
 
     if config_values.get("use_ssl"):
         return smtplib.SMTP_SSL(host=host, port=port, timeout=timeout_seconds)
@@ -310,35 +312,97 @@ def _build_test_email_context(
     }
 
 
-def _attach_inline_logo_if_needed(msg: EmailMessage, html_body: str) -> None:
-    if "cid:minuetaitor-logo" not in html_body or not msg.is_multipart():
+def _attach_inline_path_asset_if_needed(
+    msg: EmailMessage,
+    html_body: str,
+    *,
+    cid: str,
+    path: str | Path,
+    mime_type: str | None = None,
+) -> None:
+    if f"cid:{cid}" not in html_body or not msg.is_multipart():
         return
 
-    logo_path = Path(resolve_default_logo_path())
-    if not logo_path.exists():
+    asset_path = Path(path)
+    if not asset_path.exists():
         return
 
-    mime_type = str(os.environ.get("EMAIL_INLINE_LOGO_MIME_TYPE", "")).strip()
-    if not mime_type:
-        mime_type = mimetypes.guess_type(logo_path.name)[0] or "image/jpeg"
+    resolved_mime_type = str(mime_type or "").strip()
+    if not resolved_mime_type:
+        resolved_mime_type = mimetypes.guess_type(asset_path.name)[0] or "image/jpeg"
 
-    maintype, subtype = mime_type.split("/", 1) if "/" in mime_type else ("image", "jpeg")
+    maintype, subtype = resolved_mime_type.split("/", 1) if "/" in resolved_mime_type else ("image", "jpeg")
     html_part = msg.get_payload()[-1]
-    with logo_path.open("rb") as fh:
+    with asset_path.open("rb") as fh:
         html_part.add_related(
             fh.read(),
             maintype=maintype,
             subtype=subtype,
-            cid="<minuetaitor-logo>",
-            filename=logo_path.name,
+            cid=f"<{cid}>",
+            filename=asset_path.name,
         )
 
 
-def _send_test_email(config_values: dict[str, Any], test_email: str) -> None:
+def _attach_inline_asset_if_needed(msg: EmailMessage, html_body: str, asset: Any) -> None:
+    cid = str(getattr(asset, "cid", "") or "").strip()
+    if not cid or f"cid:{cid}" not in html_body or not msg.is_multipart():
+        return
+
+    mime_type = str(getattr(asset, "mime_type", "") or "application/octet-stream").strip()
+    maintype, subtype = mime_type.split("/", 1) if "/" in mime_type else ("application", "octet-stream")
+    filename = str(getattr(asset, "filename", "") or cid)
+    content_base64 = getattr(asset, "content_base64", None)
+    path = getattr(asset, "path", None)
+
+    content: bytes | None = None
+    if content_base64:
+        content = base64.b64decode(str(content_base64))
+    elif path:
+        asset_path = Path(path)
+        if asset_path.exists():
+            content = asset_path.read_bytes()
+            filename = asset_path.name
+
+    if content is None:
+        return
+
+    html_part = msg.get_payload()[-1]
+    html_part.add_related(
+        content,
+        maintype=maintype,
+        subtype=subtype,
+        cid=f"<{cid}>",
+        filename=filename,
+    )
+
+
+def _attach_inline_logo_if_needed(msg: EmailMessage, html_body: str) -> None:
+    if "cid:minuetaitor-logo" not in html_body or not msg.is_multipart():
+        return
+
+    mime_type = str(os.environ.get("EMAIL_INLINE_LOGO_MIME_TYPE", "")).strip()
+    if not mime_type:
+        mime_type = "image/jpeg"
+    _attach_inline_path_asset_if_needed(
+        msg,
+        html_body,
+        cid="minuetaitor-logo",
+        path=resolve_default_logo_path(),
+        mime_type=mime_type,
+    )
+
+
+def _send_test_email(db: Session, config_values: dict[str, Any], test_email: str) -> None:
     generated_at = _utcnow()
+    branding = build_email_branding_bundle(db, include_organization_logo=True, include_client_logo=False)
     rendered = render_email_template(
         "smtp_config_test",
-        context=_build_test_email_context(config_values, test_email, generated_at),
+        context={
+            **branding.context,
+            **_build_test_email_context(config_values, test_email, generated_at),
+            "AUDIT_EVENT_ID": "Prueba de envío SMTP",
+            "REQUEST_ORIGIN": "Validación SMTP",
+        },
     )
 
     msg = EmailMessage()
@@ -348,6 +412,8 @@ def _send_test_email(config_values: dict[str, Any], test_email: str) -> None:
     msg.set_content(rendered.text or _build_test_email_text(config_values, test_email, generated_at))
     msg.add_alternative(rendered.html, subtype="html")
     _attach_inline_logo_if_needed(msg, rendered.html)
+    for asset in branding.inline_assets:
+        _attach_inline_asset_if_needed(msg, rendered.html, asset)
 
     server = _open_smtp_client(config_values)
     try:
@@ -440,19 +506,23 @@ def list_smtp_configs(db: Session, filters: SmtpConfigFilterRequest) -> dict[str
     }
 
 
-def test_smtp_config(db: Session, body: SmtpConfigTestRequest) -> dict[str, Any]:
+def test_smtp_config(db: Session, body: SmtpConfigTestRequest, tested_by_id: str | None = None) -> dict[str, Any]:
     if body.config_id:
         _require_smtp_schema(db)
 
     current = _get_or_404(db, body.config_id) if body.config_id else None
     values = _merge_effective_values(body.model_dump(exclude_unset=True), current)
     try:
-        _send_test_email(values, body.test_email)
+        _send_test_email(db, values, body.test_email)
     except (smtplib.SMTPException, socket.gaierror, TimeoutError, OSError) as exc:
         raise BadRequestException(
             f"No fue posible conectar o enviar usando SMTP hacia {values['host']}:{values['port']}. "
             f"Detalle técnico: {str(exc) or exc.__class__.__name__}"
         )
+    if current and _fingerprint_config(values) == _fingerprint_config(_config_values_from_obj(current)):
+        current.last_tested_at = utc_now_db()
+        current.last_tested_by = tested_by_id
+        db.commit()
     token, expires_at = _issue_test_token(values)
     return {
         "ok": True,

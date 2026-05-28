@@ -51,7 +51,7 @@ def test_endpoint(
     db: Session = Depends(get_db),
     session: UserSession = Depends(require_roles("ADMIN")),
 ):
-    return test_smtp_config(db, body)
+    return test_smtp_config(db, body, tested_by_id=session.user_id)
 
 
 @router.post("", response_model=SmtpConfigResponse, status_code=status.HTTP_201_CREATED)
