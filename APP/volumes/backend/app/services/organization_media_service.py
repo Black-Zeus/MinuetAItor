@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from io import BytesIO
+import warnings
 import uuid
 
 from fastapi import HTTPException, UploadFile, status
 from minio.error import S3Error
+from PIL import Image, ImageOps, UnidentifiedImageError
 from sqlalchemy.orm import Session
 
 from core.datetime_utils import utc_now_db
@@ -21,6 +23,11 @@ ORGANIZATION_BANNER_PREFIX = "organization-banner"
 MAX_ORGANIZATION_LOGO_BYTES = 2 * 1024 * 1024
 MAX_ORGANIZATION_BANNER_BYTES = 4 * 1024 * 1024
 ALLOWED_ORGANIZATION_MEDIA_TYPES = {"image/jpeg", "image/png"}
+MAX_ORGANIZATION_IMAGE_PIXELS = 16_000_000
+LOGO_CANONICAL_SIZE = (512, 512)
+BANNER_CANONICAL_SIZE = (1800, 600)
+
+Image.MAX_IMAGE_PIXELS = MAX_ORGANIZATION_IMAGE_PIXELS
 
 
 def build_organization_logo_url(object_id: str | None) -> str | None:
@@ -67,6 +74,80 @@ def _get_attach_bucket_id(db: Session) -> int:
     return int(bucket.id)
 
 
+def _has_alpha(image: Image.Image) -> bool:
+    if image.mode in {"RGBA", "LA"}:
+        return True
+    if image.mode == "P":
+        return "transparency" in image.info
+    return False
+
+
+def _sanitize_image_content(
+    *,
+    content: bytes,
+    content_type: str,
+    target: str,
+) -> tuple[bytes, str, str]:
+    canonical_size = LOGO_CANONICAL_SIZE if target == "logo" else BANNER_CANONICAL_SIZE
+
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", Image.DecompressionBombWarning)
+            with Image.open(BytesIO(content)) as source:
+                image = ImageOps.exif_transpose(source)
+                image.thumbnail(canonical_size, Image.Resampling.LANCZOS)
+
+                if content_type == "image/png" and _has_alpha(image):
+                    clean_image = image.convert("RGBA")
+                    canvas = Image.new("RGBA", canonical_size, (255, 255, 255, 0))
+                    output_type = "image/png"
+                    output_ext = "png"
+                    output = BytesIO()
+                    offset = (
+                        (canonical_size[0] - clean_image.width) // 2,
+                        (canonical_size[1] - clean_image.height) // 2,
+                    )
+                    canvas.paste(clean_image, offset, clean_image)
+                    canvas.save(output, format="PNG", optimize=True)
+                else:
+                    clean_image = image.convert("RGB")
+                    canvas = Image.new("RGB", canonical_size, (255, 255, 255))
+                    output_type = "image/jpeg"
+                    output_ext = "jpg"
+                    output = BytesIO()
+                    offset = (
+                        (canonical_size[0] - clean_image.width) // 2,
+                        (canonical_size[1] - clean_image.height) // 2,
+                    )
+                    canvas.paste(clean_image, offset)
+                    canvas.save(
+                        output,
+                        format="JPEG",
+                        quality=88,
+                        optimize=True,
+                        progressive=True,
+                    )
+    except (Image.DecompressionBombError, Image.DecompressionBombWarning):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La imagen excede el tamaño seguro permitido.",
+        )
+    except (UnidentifiedImageError, OSError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No fue posible procesar la imagen cargada.",
+        )
+
+    sanitized = output.getvalue()
+    if not sanitized:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No fue posible sanitizar la imagen cargada.",
+        )
+
+    return sanitized, output_type, output_ext
+
+
 async def _save_media(
     db: Session,
     obj: OrganizationSetting,
@@ -77,6 +158,7 @@ async def _save_media(
     relationship_attr: str,
     prefix: str,
     max_bytes: int,
+    target: str,
 ) -> str:
     content = await file.read()
     if not content:
@@ -93,6 +175,17 @@ async def _save_media(
         allowed_types=ALLOWED_ORGANIZATION_MEDIA_TYPES,
         label="imagen",
     )
+    content, content_type, file_ext = _sanitize_image_content(
+        content=content,
+        content_type=content_type,
+        target=target,
+    )
+    if len(content) > max_bytes:
+        limit_mb = max_bytes // (1024 * 1024)
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"La imagen sanitizada supera {limit_mb} MB.",
+        )
 
     object_id = str(uuid.uuid4())
     object_key = _build_media_key(prefix, object_id, file_ext)
@@ -208,6 +301,7 @@ async def save_organization_logo(
         relationship_attr="avatar_object",
         prefix=ORGANIZATION_LOGO_PREFIX,
         max_bytes=MAX_ORGANIZATION_LOGO_BYTES,
+        target="logo",
     )
     return build_organization_logo_url(object_id)
 
@@ -247,6 +341,7 @@ async def save_organization_banner(
         relationship_attr="banner_object",
         prefix=ORGANIZATION_BANNER_PREFIX,
         max_bytes=MAX_ORGANIZATION_BANNER_BYTES,
+        target="banner",
     )
     return build_organization_banner_url(object_id)
 

@@ -219,7 +219,7 @@ const OrganizationLogoPreview = ({ logoUrl, name, failed, onError }) => {
     <img
       src={previewSrc}
       alt={logoUrl && !failed ? name || "Logo de la organización" : "Referencia visual para logo"}
-      className="h-full w-full object-cover"
+      className="h-full w-full object-contain"
       onError={logoUrl && !failed ? onError : undefined}
     />
   );
@@ -231,7 +231,7 @@ const OrganizationBannerPreview = ({ bannerUrl, name, failed, onError }) => {
     <img
       src={previewSrc}
       alt={bannerUrl && !failed ? name ? `Banner de ${name}` : "Banner de la organización" : "Referencia visual para banner"}
-      className="h-full w-full object-cover"
+      className="h-full w-full object-contain"
       onError={bannerUrl && !failed ? onError : undefined}
     />
   );
@@ -439,7 +439,7 @@ export const OrganizationPanel = () => {
         icon="FaCamera"
         description="Selecciona o arrastra imágenes para logo y banner. Los cambios se guardan solo al pulsar Guardar organización."
       >
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[260px_minmax(0,1fr)]">
           <div className="flex h-full flex-col rounded-[28px] border border-slate-200/60 bg-black/[0.02] p-3 dark:border-slate-700/70 dark:bg-white/[0.02]">
             <label
               className={cn(
@@ -469,19 +469,19 @@ export const OrganizationPanel = () => {
                 handleSelectLogo(getDraggedImageFile(event));
               }}
             >
-              <div className="relative h-44 w-44 overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-sm dark:border-slate-700/80 dark:bg-slate-950/30">
+              <div className="relative h-40 w-40 shrink-0 overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-sm dark:border-slate-700/80 dark:bg-slate-950/30">
                 {currentLogoUrl ? (
                   <MediaOverlayDeleteButton
                     label="Quitar logo"
                     onClick={handleRemoveLogo}
                   />
                 ) : null}
-                  <OrganizationLogoPreview
-                    logoUrl={currentLogoUrl}
-                    name={draft.name || draft.legalName}
-                    failed={logoFailed}
-                    onError={() => setLogoFailed(true)}
-                  />
+                <OrganizationLogoPreview
+                  logoUrl={currentLogoUrl}
+                  name={draft.name || draft.legalName}
+                  failed={logoFailed}
+                  onError={() => setLogoFailed(true)}
+                />
               </div>
               <input
                 type="file"
@@ -513,7 +513,7 @@ export const OrganizationPanel = () => {
           <div className="flex h-full flex-col rounded-[28px] border border-slate-200/60 bg-black/[0.02] p-3 dark:border-slate-700/70 dark:bg-white/[0.02]">
             <label
               className={cn(
-                "relative block h-44 cursor-pointer overflow-hidden rounded-3xl border transition-colors",
+                "relative block h-56 cursor-pointer overflow-hidden rounded-3xl border transition-colors xl:h-64",
                 bannerDragActive
                   ? "border-primary-400 bg-primary-50/40 dark:border-primary-500 dark:bg-primary-900/10"
                   : "border-slate-200/80 bg-transparent dark:border-slate-700/80 dark:bg-transparent"
@@ -545,7 +545,7 @@ export const OrganizationPanel = () => {
                   onClick={handleRemoveBanner}
                 />
               ) : null}
-              <div className="h-44 w-full overflow-hidden rounded-3xl bg-white dark:bg-slate-950/30">
+              <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-3xl bg-white dark:bg-slate-950/30">
                 <OrganizationBannerPreview
                   bannerUrl={currentBannerUrl}
                   name={draft.name || draft.legalName}
@@ -565,24 +565,24 @@ export const OrganizationPanel = () => {
             </label>
 
             <div className="flex flex-wrap justify-center gap-3 pt-3">
-                <MediaActionButton as="label">
-                  Cargar banner
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png"
-                    className="hidden"
-                    onChange={(event) => {
-                      handleSelectBanner(event.target.files?.[0]);
-                      event.target.value = "";
-                    }}
-                  />
-                </MediaActionButton>
+              <MediaActionButton as="label">
+                Cargar banner
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png"
+                  className="hidden"
+                  onChange={(event) => {
+                    handleSelectBanner(event.target.files?.[0]);
+                    event.target.value = "";
+                  }}
+                />
+              </MediaActionButton>
             </div>
           </div>
         </div>
 
         <div className="px-1 pt-3 text-sm text-slate-500 dark:text-slate-400">
-          Formatos soportados: JPEG y PNG. Tamaño máximo: logo/avatar hasta 2 MB y banner hasta 4 MB.
+          Formatos soportados: JPEG y PNG. Tamaño máximo: logo/avatar hasta 2 MB y banner hasta 4 MB. Al guardar, las imágenes se optimizan, redimensionan y se limpian sus metadatos.
         </div>
       </SectionCard>
 
