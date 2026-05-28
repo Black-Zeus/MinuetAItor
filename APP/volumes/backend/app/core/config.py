@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     # Internal API — autenticación entre servicios Docker (worker → backend)
     internal_api_secret: str = "-"
     internal_api_secret_file: str = ""
-    allow_private_provider_hosts: bool = True
+    allow_private_provider_hosts: bool = False
     cors_allowed_origins: list[str] = []
 
     # Geo
