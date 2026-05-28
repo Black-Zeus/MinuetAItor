@@ -4,6 +4,19 @@ Configuración central del worker.
 Todas las variables de entorno se leen aquí — un solo lugar para cambiarlas.
 """
 import os
+from pathlib import Path
+
+
+def _env_or_file(name: str, default: str = "") -> str:
+    file_path = os.environ.get(f"{name}_FILE")
+    if file_path:
+        try:
+            value = Path(file_path).read_text(encoding="utf-8").strip()
+            if value:
+                return value
+        except OSError:
+            pass
+    return os.environ.get(name, default)
 
 
 class WorkerConfig:
@@ -23,7 +36,7 @@ class WorkerConfig:
 
     # ── Backend interno ───────────────────────────────────────────────────────
     BACKEND_INTERNAL_URL: str  = os.environ.get("BACKEND_INTERNAL_URL", "http://minuetaitor-backend:8000")
-    INTERNAL_API_SECRET:  str  = os.environ.get("INTERNAL_API_SECRET",  "-")
+    INTERNAL_API_SECRET:  str  = _env_or_file("INTERNAL_API_SECRET",  "-")
     BACKEND_TIMEOUT:      int  = int(os.environ.get("BACKEND_TIMEOUT",  "30"))
 
     # ── Trace / Debug ─────────────────────────────────────────────────────────
@@ -41,7 +54,7 @@ class WorkerConfig:
     MARIADB_PORT:     int = int(os.environ.get("MARIADB_PORT", "3306"))
     MARIADB_DATABASE: str = os.environ.get("MARIADB_DATABASE", "")
     MARIADB_USER:     str = os.environ.get("MARIADB_USER",     "")
-    MARIADB_PASSWORD: str = os.environ.get("MARIADB_PASSWORD", "")
+    MARIADB_PASSWORD: str = _env_or_file("MARIADB_PASSWORD", "")
 
     @property
     def DATABASE_URL(self) -> str:
@@ -55,7 +68,7 @@ class WorkerConfig:
     MINIO_HOST:     str  = os.environ.get("MINIO_HOST",          "minio")
     MINIO_PORT:     int  = int(os.environ.get("MINIO_PORT",      "9000"))
     MINIO_USER:     str  = os.environ.get("MINIO_ROOT_USER",     "")
-    MINIO_PASSWORD: str  = os.environ.get("MINIO_ROOT_PASSWORD", "")
+    MINIO_PASSWORD: str  = _env_or_file("MINIO_ROOT_PASSWORD", "")
     MINIO_SECURE:   bool = os.environ.get("MINIO_SECURE",        "false").lower() == "true"
 
     @property

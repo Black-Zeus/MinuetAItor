@@ -5,6 +5,7 @@ import os
 import time
 import urllib.error
 import urllib.request
+from pathlib import Path
 
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -15,8 +16,21 @@ logging.basicConfig(
 )
 logger = logging.getLogger("scheduler")
 
+
+def _env_or_file(name: str, default: str = "") -> str:
+    file_path = os.environ.get(f"{name}_FILE")
+    if file_path:
+        try:
+            value = Path(file_path).read_text(encoding="utf-8").strip()
+            if value:
+                return value
+        except OSError:
+            pass
+    return os.environ.get(name, default)
+
+
 BACKEND_INTERNAL_URL = os.environ.get("BACKEND_INTERNAL_URL", "http://backend:8000")
-INTERNAL_API_SECRET = os.environ.get("INTERNAL_API_SECRET", "-")
+INTERNAL_API_SECRET = _env_or_file("INTERNAL_API_SECRET", "-")
 
 
 # ── Definición de jobs ────────────────────────────────────────────────────────

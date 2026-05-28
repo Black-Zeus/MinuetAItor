@@ -2,6 +2,19 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from pathlib import Path
+
+
+def _env_or_file(name: str, default: str = "") -> str:
+    file_path = os.environ.get(f"{name}_FILE")
+    if file_path:
+        try:
+            value = Path(file_path).read_text(encoding="utf-8").strip()
+            if value:
+                return value
+        except OSError:
+            pass
+    return os.environ.get(name, default)
 
 
 def _int_env(name: str, default: int) -> int:
@@ -47,16 +60,16 @@ class Settings:
     mariadb_port: int = _int_env("MARIADB_PORT", 3306)
     mariadb_database: str = os.environ.get("MARIADB_DATABASE", "minuetaitor")
     mariadb_user: str = os.environ.get("MARIADB_USER", "minuetaitor")
-    mariadb_password: str = os.environ.get("MARIADB_PASSWORD", "")
+    mariadb_password: str = _env_or_file("MARIADB_PASSWORD", "")
 
     minio_host: str = os.environ.get("MINIO_HOST", "minio")
     minio_port: int = _int_env("MINIO_PORT", 9000)
     minio_root_user: str = os.environ.get("MINIO_ROOT_USER", "minioadmin")
-    minio_root_password: str = os.environ.get("MINIO_ROOT_PASSWORD", "")
+    minio_root_password: str = _env_or_file("MINIO_ROOT_PASSWORD", "")
     minio_secure: bool = os.environ.get("MINIO_SECURE", "false").lower() == "true"
 
     backend_internal_url: str = os.environ.get("BACKEND_INTERNAL_URL", "http://backend:8000")
-    internal_api_secret: str = os.environ.get("INTERNAL_API_SECRET", "-")
+    internal_api_secret: str = _env_or_file("INTERNAL_API_SECRET", "-")
     backend_timeout: int = _int_env("BACKEND_TIMEOUT", 30)
 
 
