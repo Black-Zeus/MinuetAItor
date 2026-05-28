@@ -17,11 +17,11 @@ const MODE_TITLES = {
 
 const MODE_MESSAGES = {
   maintenance:
-    "Esta acción está bloqueada temporalmente.",
+    "El sistema se encuentra temporalmente fuera de operación general. Solo administradores pueden ejecutar acciones de administración o recuperación.",
   read_only:
-    "Esta acción requiere escritura y el sistema está bloqueado.",
+    "El sistema se encuentra habilitado solo para consulta. Esta acción modifica datos y permanecerá bloqueada hasta volver a modo operativo.",
   commissioning:
-    "En puesta en marcha solo administradores pueden escribir.",
+    "El sistema aún no se encuentra habilitado para operación productiva. Solo administradores pueden realizar configuraciones y transacciones de validación.",
 };
 
 const MODE_BADGE_CLASSES = {

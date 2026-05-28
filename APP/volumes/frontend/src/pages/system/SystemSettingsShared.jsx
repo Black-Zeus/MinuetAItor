@@ -474,7 +474,7 @@ export const Header = () => (
 
 export const TabNav = ({ activeTab, onTabChange, tabs = TABS }) => (
   <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
-    <div className={tabs.length === 1 ? "grid grid-cols-1" : "grid grid-cols-1 lg:grid-cols-5"}>
+    <div className={tabs.length === 1 ? "grid grid-cols-1" : "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6"}>
       {tabs.map((tab) => {
         const isActive = activeTab === tab.id;
         return (

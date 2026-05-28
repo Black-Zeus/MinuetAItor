@@ -47,17 +47,17 @@ const observationResolutionMessage = (status) => ({
 const OPERATION_MODE_COPY = {
   maintenance: {
     title: "Sistema en mantenimiento",
-    message: "El acceso con código temporal está deshabilitado mientras se realizan tareas de mantenimiento.",
+    message: "El sistema se encuentra temporalmente fuera de operación general. El acceso externo volverá a estar disponible cuando finalicen las tareas de mantenimiento.",
     badge: "Mantenimiento",
   },
   read_only: {
     title: "Sistema en solo lectura",
-    message: "El acceso con código temporal y el registro de observaciones están deshabilitados mientras el sistema está en solo lectura.",
+    message: "El sistema se encuentra habilitado solo para consulta. Puedes revisar contenido disponible, pero el acceso con código temporal y el registro de observaciones están bloqueados.",
     badge: "Solo lectura",
   },
   commissioning: {
     title: "Sistema en puesta en marcha",
-    message: "El acceso externo está deshabilitado mientras administración completa las validaciones de puesta en marcha.",
+    message: "El sistema aún no se encuentra habilitado para operación productiva. El acceso externo estará disponible cuando administración complete las validaciones base.",
     badge: "Puesta en marcha",
   },
 };
@@ -447,7 +447,7 @@ const MinuteViewPage = () => {
     }
     if (isOperationLocked) {
       setError(operationMode === "read_only"
-        ? "El sistema está en modo solo lectura. No es posible registrar observaciones en este momento."
+        ? "El sistema está en solo lectura. No es posible registrar observaciones en este momento."
         : operationMode === "commissioning"
           ? "El sistema está en puesta en marcha. No es posible registrar observaciones en este momento."
           : "El sistema está en mantenimiento. No es posible registrar observaciones en este momento.");
@@ -555,12 +555,12 @@ const MinuteViewPage = () => {
             ? "border-sky-400/35 bg-sky-500/10 text-sky-100"
           : "border-amber-400/35 bg-amber-500/10 text-amber-100"
       }`}>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
+        <div className="flex flex-col items-center gap-3 text-center">
+          <div className="max-w-[38rem]">
             <p className="font-semibold">{operationCopy.title}</p>
             <p className="mt-1 opacity-85">{operationCopy.message}</p>
           </div>
-          <span className="inline-flex w-fit rounded-full border border-current/30 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] opacity-90">
+          <span className="inline-flex w-fit rounded-full border border-current/25 bg-white/5 px-3.5 py-1 text-xs font-semibold uppercase tracking-[0.14em] opacity-85">
             {operationCopy.badge}
           </span>
         </div>
@@ -779,11 +779,16 @@ const MinuteViewPage = () => {
           <div className={`mb-3 rounded-2xl border px-4 py-3 text-sm ${
             operationMode === "maintenance"
               ? "border-rose-400/35 bg-rose-500/10 text-rose-100"
-              : "border-amber-400/35 bg-amber-500/10 text-amber-100"
+              : operationMode === "commissioning"
+                ? "border-sky-400/35 bg-sky-500/10 text-sky-100"
+                : "border-amber-400/35 bg-amber-500/10 text-amber-100"
           }`}>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col items-center gap-2 text-center">
               <span className="font-semibold">{operationCopy.title}</span>
-              <span className="opacity-85">{operationCopy.message}</span>
+              <span className="max-w-[42rem] opacity-85">{operationCopy.message}</span>
+              <span className="inline-flex w-fit rounded-full border border-current/25 bg-white/5 px-3.5 py-1 text-xs font-semibold uppercase tracking-[0.14em] opacity-85">
+                {operationCopy.badge}
+              </span>
             </div>
           </div>
         ) : null}

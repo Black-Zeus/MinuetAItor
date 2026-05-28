@@ -233,12 +233,12 @@ const LoginPage = () => {
                 setErrorTone('maintenance');
                 setError(
                     isReadOnly
-                        ? 'Puedes ingresar para consultar datos. Las acciones de creación, edición y eliminación estarán bloqueadas.'
+                        ? 'El sistema se encuentra habilitado solo para consulta. Puedes iniciar sesión para revisar información, pero las acciones que modifiquen datos permanecerán bloqueadas.'
                         : isCommissioning
-                            ? 'El acceso está temporalmente habilitado solo para administradores mientras se completan las validaciones.'
+                            ? 'El sistema aún no se encuentra habilitado para operación productiva. Durante este estado, solo los administradores pueden iniciar sesión, realizar configuraciones y ejecutar transacciones de validación.'
                         : isManual
-                            ? 'El acceso general está cerrado. Solo usuarios ADMIN pueden ingresar para administrar el modo operativo.'
-                            : 'El acceso está temporalmente cerrado porque el sistema está en modo mantenimiento.'
+                            ? 'El sistema se encuentra temporalmente fuera de operación general. Solo administradores pueden ingresar para administrar o recuperar el servicio.'
+                            : 'El sistema se encuentra temporalmente fuera de operación general mientras se realizan tareas de mantenimiento.'
                 );
             })
             .catch(() => {});
@@ -288,7 +288,7 @@ const LoginPage = () => {
         if (operationMode === 'maintenance' && !isManualOperation) {
             setErrorTitle('Sistema en mantenimiento');
             setError(
-                'El acceso está temporalmente cerrado porque el sistema está en modo mantenimiento.'
+                'El sistema se encuentra temporalmente fuera de operación general mientras se realizan tareas de mantenimiento.'
             );
             return;
         }
@@ -320,7 +320,7 @@ const LoginPage = () => {
             } else if (status === 503 && err?.maintenance) {
                 setErrorTitle(err?.title || 'Sistema en mantenimiento');
                 setErrorTone('maintenance');
-                setError(err?.message || 'No se puede acceder porque el sistema está en modo mantenimiento.');
+                setError(err?.message || 'El sistema se encuentra temporalmente fuera de operación general.');
             } else if (status === 0) {
                 setErrorTitle('Sin conexión');
                 setError('No se pudo conectar al servidor. Verifica tu conexión e intenta nuevamente.');
