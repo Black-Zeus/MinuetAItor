@@ -350,6 +350,10 @@ class MinuteVersionItem(BaseModel):
     published_at:  Optional[str]  = Field(None, serialization_alias="publishedAt")
     published_by:  Optional[str]  = Field(None, serialization_alias="publishedBy")
     commit_message: Optional[str] = Field(None, serialization_alias="commitMessage")
+    entry_type: str = Field("version", serialization_alias="entryType")
+    transition_id: Optional[int] = Field(None, serialization_alias="transitionId")
+    from_status_label: Optional[str] = Field(None, serialization_alias="fromStatusLabel")
+    to_status_label: Optional[str] = Field(None, serialization_alias="toStatusLabel")
 
     model_config = {"populate_by_name": True}
 
