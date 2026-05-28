@@ -3,6 +3,13 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import path from 'path';
 
+const parseAllowedHosts = (value) => String(value || '')
+  .split(',')
+  .map((host) => host.trim())
+  .filter(Boolean);
+
+const allowedHosts = parseAllowedHosts(process.env.VITE_ALLOWED_HOSTS);
+
 export default defineConfig({
   plugins: [react(), tailwindcss()],
 
@@ -10,6 +17,7 @@ export default defineConfig({
     host: process.env.VITE_FRONTEND_HOST || '0.0.0.0',
     port: parseInt(process.env.VITE_FRONTEND_PORT) || 3000,
     strictPort: true,
+    ...(allowedHosts.length ? { allowedHosts } : {}),
     watch: {
       usePolling: true,
       interval: 100,
@@ -36,6 +44,13 @@ export default defineConfig({
         },
       },
     },
+  },
+
+  preview: {
+    host: process.env.VITE_FRONTEND_HOST || '0.0.0.0',
+    port: parseInt(process.env.VITE_FRONTEND_PREVIEW_PORT || process.env.VITE_FRONTEND_PORT) || 5173,
+    strictPort: true,
+    ...(allowedHosts.length ? { allowedHosts } : {}),
   },
 
   resolve: {
