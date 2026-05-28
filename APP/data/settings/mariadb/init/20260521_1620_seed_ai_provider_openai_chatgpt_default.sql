@@ -44,7 +44,7 @@ INSERT INTO ai_provider_configs (
   '/models',
   'gpt-4o',
   'api_key',
-  'sk-fake-bootstrap-20260521-p4L9xQ2mN7rT6vW1',
+  NULL,
   NULL,
   NULL,
   NULL,

@@ -20,6 +20,7 @@ build/
 .env.dev
 .env.qa
 .env.prd
+.secrets/
 *.pem
 *.key
 **/secrets.*

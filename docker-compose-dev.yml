@@ -30,18 +30,21 @@ services:
     environment:
       APP_VERSION: ${APP_VERSION}
       TZ: America/Santiago
-      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD}
+      MARIADB_ROOT_PASSWORD_FILE: /run/secrets/mariadb_root_password
       MARIADB_DATABASE: ${MARIADB_DATABASE}
       MARIADB_USER: ${MARIADB_USER}
-      MARIADB_PASSWORD: ${MARIADB_PASSWORD}
+      MARIADB_PASSWORD_FILE: /run/secrets/mariadb_password
     volumes:
       - mariadb_data:/var/lib/mysql
       - ./APP/data/settings/mariadb/init:/docker-entrypoint-initdb.d:ro
       - ./APP/logs/mariadb:/var/log/mysql
+    secrets:
+      - mariadb_root_password
+      - mariadb_password
     ports:
       - "${MARIADB_PORT:-3306}:3306"
     healthcheck:
-      test: ["CMD", "mariadb-admin", "ping", "-h", "127.0.0.1", "-p${MARIADB_ROOT_PASSWORD}"]
+      test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -p\"$$(cat /run/secrets/mariadb_root_password)\""]
       interval: 10s
       timeout: 5s
       retries: 20
@@ -92,7 +95,7 @@ services:
       APP_VERSION: ${APP_VERSION}
       TZ: America/Santiago
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_ROOT_PASSWORD_FILE: /run/secrets/minio_root_password
     command: ["server", "/data", "--console-address", ":9001"]
     volumes:
       - minio_data:/data
@@ -100,6 +103,8 @@ services:
       - /usr/share/zoneinfo/America/Santiago:/etc/localtime:ro
       - /usr/share/zoneinfo/America/Santiago:/usr/share/zoneinfo/America/Santiago:ro
       - /etc/timezone:/etc/timezone:ro
+    secrets:
+      - minio_root_password
     ports:
       - "${MINIO_PORT:-9000}:9000"
       - "${MINIO_CONSOLE_PORT:-9001}:9001"
@@ -171,20 +176,20 @@ services:
       MARIADB_PORT: ${MARIADB_PORT:-3306}
       MARIADB_DATABASE: ${MARIADB_DATABASE}
       MARIADB_USER: ${MARIADB_USER}
-      MARIADB_PASSWORD: ${MARIADB_PASSWORD}
+      MARIADB_PASSWORD_FILE: /run/secrets/mariadb_password
       REDIS_HOST: ${REDIS_HOST:-redis}
       REDIS_PORT: ${REDIS_PORT:-6379}
       MINIO_HOST: ${MINIO_HOST:-minio}
       MINIO_PORT: ${MINIO_PORT:-9000}
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-      JWT_SECRET: ${JWT_SECRET}
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      MINIO_ROOT_PASSWORD_FILE: /run/secrets/minio_root_password
+      JWT_SECRET_FILE: /run/secrets/jwt_secret
+      MINUETAITOR_BOOTSTRAP_ADMIN_PASSWORD_FILE: /run/secrets/bootstrap_admin_password
       OPENAI_SYSTEM_PROMPT: ${OPENAI_SYSTEM_PROMPT}
       PROMPT_PATH_BASE: "/app/assets/prompts"
       MINUTES_MAX_FILE_SIZE_MB: ${MINUTES_MAX_FILE_SIZE_MB}
       MINUTES_RATE_LIMIT_PER_DAY: ${MINUTES_RATE_LIMIT_PER_DAY}
-      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET}
+      INTERNAL_API_SECRET_FILE: /run/secrets/internal_api_secret
     env_file:
       - ./APP/volumes/backend/.env
     volumes:
@@ -193,6 +198,12 @@ services:
       - ./APP/data/settings/worker/prompts:/app/assets/prompts:ro
       - ./APP/data/backend_data:/app/remote_data
       - ./APP/logs/backend:/var/log/app
+    secrets:
+      - mariadb_password
+      - minio_root_password
+      - jwt_secret
+      - internal_api_secret
+      - bootstrap_admin_password
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
@@ -258,13 +269,13 @@ services:
       MARIADB_PORT:     ${MARIADB_PORT:-3306}
       MARIADB_DATABASE: ${MARIADB_DATABASE:-minuetaitor}
       MARIADB_USER:     ${MARIADB_USER:-minuetaitor}
-      MARIADB_PASSWORD: ${MARIADB_PASSWORD}
+      MARIADB_PASSWORD_FILE: /run/secrets/mariadb_password
 
       # ── MinIO (Almacenamiento de objetos) ─────────────────────────────────────
       MINIO_HOST:          ${MINIO_HOST:-minio}
       MINIO_PORT:          ${MINIO_PORT:-9000}
       MINIO_ROOT_USER:     ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_ROOT_PASSWORD_FILE: /run/secrets/minio_root_password
       MINIO_SECURE:        ${MINIO_SECURE:-false}
 
       # ── Prompt IA runtime ─────────────────────────────────────────────────────
@@ -272,7 +283,7 @@ services:
 
       # ── Backend interno ────────────────────────────────────────
       BACKEND_INTERNAL_URL: http://${PROJECT_NAME}-backend:8000
-      INTERNAL_API_SECRET:  ${INTERNAL_API_SECRET}
+      INTERNAL_API_SECRET_FILE: /run/secrets/internal_api_secret
       BACKEND_TIMEOUT:      ${BACKEND_TIMEOUT:-30}
 
       # ── Trace / Debug ────────────────────────────────────────
@@ -283,6 +294,10 @@ services:
       - ./APP/logs/worker:/var/log/app
       - ./APP/data/settings/worker/prompts:/app/assets/prompts  
       - ./APP/data/settings/worker/temp:/app/assets/temp        
+    secrets:
+      - mariadb_password
+      - minio_root_password
+      - internal_api_secret
     command: watchmedo auto-restart --patterns='*.py' --recursive -- python /app/worker.py
     depends_on:
       redis:
@@ -314,15 +329,18 @@ services:
       # config.py usa MINIO_ACCESS_KEY/MINIO_SECRET_KEY;
       # en .env los nombres son MINIO_ROOT_USER/MINIO_ROOT_PASSWORD
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
-      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      MINIO_SECRET_KEY_FILE: /run/secrets/minio_root_password
       GOTENBERG_URL:   http://${PROJECT_NAME}-gotenberg:3000
       BACKEND_INTERNAL_URL: http://${PROJECT_NAME}-backend:8000
-      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET}
+      INTERNAL_API_SECRET_FILE: /run/secrets/internal_api_secret
       BACKEND_TIMEOUT: ${BACKEND_TIMEOUT:-30}
       LOG_LEVEL:       ${LOG_LEVEL:-INFO}
     volumes:
       - ./APP/volumes/pdf-worker/app:/app
       - ./APP/logs/pdf-worker:/var/log/app
+    secrets:
+      - minio_root_password
+      - internal_api_secret
     # Hot-reload: forzar polling en bind mounts Docker para que detecte cambios
     # de templates y código tanto en Linux como en Windows.
     command: watchmedo auto-restart --debug-force-polling --patterns='*.py;*.html' --recursive -- python main.py
@@ -366,18 +384,18 @@ services:
       MARIADB_PORT: ${MARIADB_PORT:-3306}
       MARIADB_DATABASE: ${MARIADB_DATABASE:-minuetaitor}
       MARIADB_USER: ${MARIADB_USER:-minuetaitor}
-      MARIADB_PASSWORD: ${MARIADB_PASSWORD}
+      MARIADB_PASSWORD_FILE: /run/secrets/mariadb_password
 
       # MinIO / mc
       MINIO_HOST: ${MINIO_HOST:-minio}
       MINIO_PORT: ${MINIO_PORT:-9000}
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_ROOT_PASSWORD_FILE: /run/secrets/minio_root_password
       MINIO_SECURE: ${MINIO_SECURE:-false}
 
       # Backend interno y almacenamiento compartido
       BACKEND_INTERNAL_URL: http://${PROJECT_NAME}-backend:8000
-      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET}
+      INTERNAL_API_SECRET_FILE: /run/secrets/internal_api_secret
       BACKEND_TIMEOUT: ${BACKEND_TIMEOUT:-30}
       BACKUP_STORAGE_ROOT: /app/remote_data/backups
       MAINTENANCE_STATE_FILE: /app/backend_app/maintenance_state.json
@@ -390,6 +408,10 @@ services:
       - ./APP/data/settings/mariadb/init:/app/data/settings/mariadb/init:ro
       - ./APP/data/backend_data:/app/remote_data
       - ./APP/logs/backup-worker:/var/log/app
+    secrets:
+      - mariadb_password
+      - minio_root_password
+      - internal_api_secret
     command: watchmedo auto-restart --patterns='*.py' --recursive -- python -u /app/main.py
     depends_on:
       mariadb:
@@ -441,11 +463,13 @@ services:
       REDIS_HOST:  ${REDIS_HOST:-redis}
       REDIS_PORT:  ${REDIS_PORT:-6379}
       BACKEND_INTERNAL_URL: ${BACKEND_INTERNAL_URL:-http://backend:8000}
-      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET}
+      INTERNAL_API_SECRET_FILE: /run/secrets/internal_api_secret
       TZ:          America/Santiago        # ← crítico para que los crons corran a la hora correcta
     volumes:
       - ./APP/volumes/scheduler/app:/app
       - ./APP/logs/scheduler:/var/log/app
+    secrets:
+      - internal_api_secret
     command: ["python", "-u", "scheduler.py"]
     depends_on:
       redis:
@@ -566,3 +590,17 @@ volumes:
     name: ${PROJECT_NAME}_frontend_npm_cache
   redisinsight_data:
     name: ${PROJECT_NAME}_redisinsight_data
+
+secrets:
+  mariadb_password:
+    file: ./.secrets/mariadb_password
+  mariadb_root_password:
+    file: ./.secrets/mariadb_root_password
+  minio_root_password:
+    file: ./.secrets/minio_root_password
+  jwt_secret:
+    file: ./.secrets/jwt_secret
+  internal_api_secret:
+    file: ./.secrets/internal_api_secret
+  bootstrap_admin_password:
+    file: ./.secrets/bootstrap_admin_password

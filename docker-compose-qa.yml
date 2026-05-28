@@ -8,17 +8,20 @@ services:
     container_name: ${PROJECT_NAME}-mariadb
     restart: unless-stopped
     environment:
-      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD}
+      MARIADB_ROOT_PASSWORD_FILE: /run/secrets/mariadb_root_password
       MARIADB_DATABASE: ${MARIADB_DATABASE}
       MARIADB_USER: ${MARIADB_USER}
-      MARIADB_PASSWORD: ${MARIADB_PASSWORD}
+      MARIADB_PASSWORD_FILE: /run/secrets/mariadb_password
     volumes:
       - mariadb_data:/var/lib/mysql
       - ./APP/data/settings/mariadb/init:/docker-entrypoint-initdb.d:ro
+    secrets:
+      - mariadb_root_password
+      - mariadb_password
     ports:
       - "${MARIADB_PORT}:3306"
     healthcheck:
-      test: ["CMD", "mariadb-admin", "ping", "-h", "127.0.0.1", "-p${MARIADB_ROOT_PASSWORD}"]
+      test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -p\"$$(cat /run/secrets/mariadb_root_password)\""]
       interval: 10s
       timeout: 5s
       retries: 20
@@ -52,13 +55,15 @@ services:
     environment:
       TZ: America/Santiago
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_ROOT_PASSWORD_FILE: /run/secrets/minio_root_password
     command: server /data --console-address ":9001"
     volumes:
       - minio_data:/data
       - /usr/share/zoneinfo/America/Santiago:/etc/localtime:ro
       - /usr/share/zoneinfo/America/Santiago:/usr/share/zoneinfo/America/Santiago:ro
       - /etc/timezone:/etc/timezone:ro
+    secrets:
+      - minio_root_password
     ports:
       - "${MINIO_PORT}:9000"
       - "${MINIO_CONSOLE_PORT}:9001"
@@ -83,15 +88,25 @@ services:
       MARIADB_PORT: ${MARIADB_PORT}
       MARIADB_DATABASE: ${MARIADB_DATABASE}
       MARIADB_USER: ${MARIADB_USER}
-      MARIADB_PASSWORD: ${MARIADB_PASSWORD}
+      MARIADB_PASSWORD_FILE: /run/secrets/mariadb_password
       REDIS_HOST: ${REDIS_HOST}
       REDIS_PORT: ${REDIS_PORT}
       MINIO_HOST: ${MINIO_HOST}
       MINIO_PORT: ${MINIO_PORT}
-      JWT_SECRET: ${JWT_SECRET}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD_FILE: /run/secrets/minio_root_password
+      JWT_SECRET_FILE: /run/secrets/jwt_secret
+      INTERNAL_API_SECRET_FILE: /run/secrets/internal_api_secret
+      MINUETAITOR_BOOTSTRAP_ADMIN_PASSWORD_FILE: /run/secrets/bootstrap_admin_password
     volumes:
       - ./APP/volumes/backend/app:/app
       - ./APP/data/backend_data:/app/_data
+    secrets:
+      - mariadb_password
+      - minio_root_password
+      - jwt_secret
+      - internal_api_secret
+      - bootstrap_admin_password
     ports:
       - "${BACKEND_PORT}:8000"
     depends_on:
@@ -181,3 +196,17 @@ volumes:
   frontend_node_modules:
   minio_data:
     name: ${PROJECT_NAME}_minio_data
+
+secrets:
+  mariadb_password:
+    file: ./.secrets/mariadb_password
+  mariadb_root_password:
+    file: ./.secrets/mariadb_root_password
+  minio_root_password:
+    file: ./.secrets/minio_root_password
+  jwt_secret:
+    file: ./.secrets/jwt_secret
+  internal_api_secret:
+    file: ./.secrets/internal_api_secret
+  bootstrap_admin_password:
+    file: ./.secrets/bootstrap_admin_password

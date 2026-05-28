@@ -1,4 +1,5 @@
 # _data/seed_admin.py
+import os
 import sys
 import uuid
 from datetime import datetime, timezone
@@ -14,10 +15,23 @@ from models.user_roles import UserRole
 from models.user_profiles import UserProfile
 from models.roles import Role
 
+
+def _env_or_file(name: str, default: str = "") -> str:
+    file_path = os.environ.get(f"{name}_FILE")
+    if file_path:
+        try:
+            value = Path(file_path).read_text(encoding="utf-8").strip()
+            if value:
+                return value
+        except OSError:
+            pass
+    return os.environ.get(name, default)
+
+
 # ── Configuración del admin a crear ──────────────────
 ADMIN_USERNAME = "admin"
 ADMIN_EMAIL    = "admin@minuetaitor.local"
-ADMIN_PASSWORD = "Admin1234!"
+ADMIN_PASSWORD = _env_or_file("MINUETAITOR_BOOTSTRAP_ADMIN_PASSWORD", "")
 ADMIN_FULLNAME = "Administrador del Sistema"
 ADMIN_JOBTITLE = "Administrador Inicial (Bootstrap)"
 ADMIN_DESCRIPTION = (
@@ -43,6 +57,12 @@ def _confirm(prompt: str) -> bool:
 
 
 def seed_admin() -> None:
+    if not ADMIN_PASSWORD:
+        raise RuntimeError(
+            "Define MINUETAITOR_BOOTSTRAP_ADMIN_PASSWORD_FILE o "
+            "MINUETAITOR_BOOTSTRAP_ADMIN_PASSWORD antes de ejecutar este script."
+        )
+
     db = SessionLocal()
 
     try:
@@ -94,7 +114,7 @@ def seed_admin() -> None:
                 db.commit()
                 print("✅  Contraseña reseteada correctamente.")
                 print(f"    Username: {ADMIN_USERNAME}")
-                print(f"    Password: {ADMIN_PASSWORD}")
+                print("    Password: definida por secreto local.")
             else:
                 print("ℹ️  No se realizaron cambios.")
             return
@@ -141,7 +161,7 @@ def seed_admin() -> None:
         print(f"    ID:       {user_id}")
         print(f"    Username: {ADMIN_USERNAME}")
         print(f"    Email:    {ADMIN_EMAIL}")
-        print(f"    Password: {ADMIN_PASSWORD}")
+        print("    Password: definida por secreto local.")
         print()
         print("⚠️  Cambia la contraseña después del primer login.")
 

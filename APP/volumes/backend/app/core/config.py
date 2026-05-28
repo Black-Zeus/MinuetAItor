@@ -1,4 +1,13 @@
+from pathlib import Path
+
 from pydantic_settings import BaseSettings
+
+
+def _read_secret_file(path: str) -> str:
+    try:
+        return Path(path).read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
 
 class Settings(BaseSettings):
     env_name: str = "dev"
@@ -11,7 +20,8 @@ class Settings(BaseSettings):
     mariadb_port: int = 3306
     mariadb_database: str
     mariadb_user: str
-    mariadb_password: str
+    mariadb_password: str = ""
+    mariadb_password_file: str = ""
     
     # Redis
     redis_host: str = "redis"
@@ -25,12 +35,14 @@ class Settings(BaseSettings):
     mariadb_write_timeout: int = 15
     
     # JWT
-    jwt_secret: str
+    jwt_secret: str = ""
+    jwt_secret_file: str = ""
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60
     
     # Internal API — autenticación entre servicios Docker (worker → backend)
     internal_api_secret: str = "-"
+    internal_api_secret_file: str = ""
     allow_private_provider_hosts: bool = True
     cors_allowed_origins: list[str] = []
 
@@ -63,6 +75,7 @@ class Settings(BaseSettings):
     minio_port:          int = 9000
     minio_root_user:     str = "minioadmin"
     minio_root_password: str = ""
+    minio_root_password_file: str = ""
     maintenance_state_file: str = "/app/maintenance_state.json"
 
     # Minutes config
@@ -77,6 +90,16 @@ class Settings(BaseSettings):
     redis_ttl_file_id_days: int = 30
     redis_ttl_transaction_hours: int = 24
     redis_ttl_lock_seconds: int = 30
+
+    def model_post_init(self, __context) -> None:
+        if self.mariadb_password_file:
+            self.mariadb_password = _read_secret_file(self.mariadb_password_file) or self.mariadb_password
+        if self.jwt_secret_file:
+            self.jwt_secret = _read_secret_file(self.jwt_secret_file) or self.jwt_secret
+        if self.internal_api_secret_file:
+            self.internal_api_secret = _read_secret_file(self.internal_api_secret_file) or self.internal_api_secret
+        if self.minio_root_password_file:
+            self.minio_root_password = _read_secret_file(self.minio_root_password_file) or self.minio_root_password
 
     @property
     def database_url(self) -> str:

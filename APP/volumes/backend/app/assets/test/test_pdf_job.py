@@ -14,6 +14,7 @@ Uso:
 """
 import argparse
 import json
+import os
 import sys
 import time
 import uuid
@@ -23,12 +24,25 @@ from pathlib import Path
 import redis
 from minio import Minio
 
+
+def _env_or_file(name: str, default: str = "") -> str:
+    file_path = os.environ.get(f"{name}_FILE")
+    if file_path:
+        try:
+            value = Path(file_path).read_text(encoding="utf-8").strip()
+            if value:
+                return value
+        except OSError:
+            pass
+    return os.environ.get(name, default)
+
+
 # ── Config ─────────────────────────────────────────────────────────────────────
-REDIS_HOST = "redis"
-REDIS_PORT = 6379
-MINIO_HOST = "minio:9000"
-MINIO_USER = "minioadmin"
-MINIO_PASS = "minioadmin_change_me"
+REDIS_HOST = os.environ.get("REDIS_HOST", "redis")
+REDIS_PORT = int(os.environ.get("REDIS_PORT", "6379"))
+MINIO_HOST = f"{os.environ.get('MINIO_HOST', 'minio')}:{os.environ.get('MINIO_PORT', '9000')}"
+MINIO_USER = os.environ.get("MINIO_ROOT_USER", "minioadmin")
+MINIO_PASS = _env_or_file("MINIO_ROOT_PASSWORD", "")
 BUCKET     = "minuetaitor-published"
 
 # output.json debe estar en la misma carpeta que este script
