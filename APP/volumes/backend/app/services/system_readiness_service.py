@@ -6,22 +6,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from minio import Minio
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from core.config import settings
+from db.minio_client import REQUIRED_MINIO_BUCKETS, ensure_minio_buckets
 from db.redis import get_redis
 from services.email_template_service import EMAIL_TEMPLATES_DIR, TEMPLATE_DEFINITIONS
 from services.system_maintenance_service import get_system_operation_state
-
-REQUIRED_BUCKETS = (
-    "minuetaitor-inputs",
-    "minuetaitor-json",
-    "minuetaitor-published",
-    "minuetaitor-attach",
-    "minuetaitor-draft",
-)
 
 CRITICAL_TABLES = (
     "users",
@@ -45,6 +37,19 @@ QUEUE_NAMES = (
     "queue:pdf",
     "queue:maintenance",
     "queue:dlq",
+)
+
+WEAK_SECRET_FRAGMENTS = (
+    "change_me",
+    "changeme",
+    "__change_me",
+    "cambia_esto",
+    "minioadmin_change_me",
+    "root_change_me",
+    "change_me_super_secret",
+    "sk-fake",
+    "admin1234",
+    "password",
 )
 
 
@@ -108,6 +113,22 @@ def _http_check(url: str, timeout: float = 2.0) -> tuple[bool, str]:
             return 200 <= status_code < 500, f"HTTP {status_code}"
     except Exception as exc:
         return False, str(exc)
+
+
+def _secret_file_check(path: str | None) -> dict[str, Any]:
+    clean_path = str(path or "").strip()
+    return {
+        "configured": bool(clean_path),
+        "exists": bool(clean_path and Path(clean_path).is_file()),
+    }
+
+
+def _is_strong_secret(value: str | None, *, min_length: int = 32) -> bool:
+    clean = str(value or "").strip()
+    if len(clean) < min_length:
+        return False
+    lowered = clean.lower()
+    return not any(fragment in lowered for fragment in WEAK_SECRET_FRAGMENTS)
 
 
 async def get_system_readiness(db: Session) -> dict[str, Any]:
@@ -308,13 +329,8 @@ async def get_system_readiness(db: Session) -> dict[str, Any]:
     )
 
     try:
-        minio_client = Minio(
-            endpoint=f"{settings.minio_host}:{settings.minio_port}",
-            access_key=settings.minio_root_user,
-            secret_key=settings.minio_root_password,
-            secure=False,
-        )
-        missing_buckets = [bucket for bucket in REQUIRED_BUCKETS if not minio_client.bucket_exists(bucket)]
+        minio_client = ensure_minio_buckets()
+        missing_buckets = [bucket for bucket in REQUIRED_MINIO_BUCKETS if not minio_client.bucket_exists(bucket)]
         minio_status = "failed" if missing_buckets else "ok"
         _check(
             checks,
@@ -322,8 +338,8 @@ async def get_system_readiness(db: Session) -> dict[str, Any]:
             category="Storage",
             title="Storage MinIO y buckets",
             status=minio_status,
-            message="MinIO responde y los buckets requeridos existen." if minio_status == "ok" else "Faltan buckets requeridos en MinIO.",
-            details={"missingBuckets": missing_buckets, "requiredBuckets": list(REQUIRED_BUCKETS)},
+            message="MinIO responde y los buckets del sistema están disponibles." if minio_status == "ok" else "No fue posible preparar todos los buckets del sistema.",
+            details={"missingBuckets": missing_buckets, "requiredBuckets": list(REQUIRED_MINIO_BUCKETS)},
         )
     except Exception as exc:
         _check(checks, check_id="storage.minio", category="Storage", title="Storage MinIO y buckets", status="failed", message="No fue posible validar MinIO.", details={"error": str(exc)})
@@ -373,23 +389,52 @@ async def get_system_readiness(db: Session) -> dict[str, Any]:
         message="Existe al menos una política de respaldo activa." if enabled_backup_scopes else "No hay políticas de respaldo activas.",
         details={"enabledScopes": enabled_backup_scopes},
     )
+    manual_backup_count = _count(
+        db,
+        """
+        SELECT COUNT(*)
+        FROM system_backup_artifacts
+        WHERE deleted_at IS NULL
+          AND status = 'available'
+          AND origin_type = 'manual'
+        """,
+    )
     _check(
         checks,
         check_id="backups.dry_run",
         category="Respaldos",
         title="Prueba de backup",
-        status="warning",
+        status="ok" if manual_backup_count > 0 else "warning",
         blocking=False,
-        message="Ejecuta un backup manual de prueba y valida su resultado antes de salir de puesta en marcha.",
+        message=(
+            "Existe al menos un respaldo manual disponible."
+            if manual_backup_count > 0
+            else "Ejecuta un backup manual de prueba y valida su resultado antes de salir de puesta en marcha."
+        ),
+        details={"manualAvailableBackups": manual_backup_count},
+    )
+    completed_restore_count = _count(
+        db,
+        """
+        SELECT COUNT(*)
+        FROM system_backup_operations
+        WHERE operation_type = 'restore_backup'
+          AND status IN ('success', 'completed')
+        """,
     )
     _check(
         checks,
         check_id="restore.sanity",
         category="Respaldos",
         title="Restore sanity check",
-        status="warning",
+        status="warning" if completed_restore_count > 0 else "ok",
         blocking=False,
-        message="Si este modo fue activado después de un restore, valida un recorrido funcional mínimo antes de normalizar.",
+        message=(
+            "Se detectó al menos un restore completado. Valida un recorrido funcional mínimo antes de normalizar."
+            if completed_restore_count > 0
+            else "No se detectan restores completados que requieran validación funcional adicional."
+        ),
+        details={"completedRestores": completed_restore_count},
     )
 
     missing_templates = [
@@ -437,18 +482,50 @@ async def get_system_readiness(db: Session) -> dict[str, Any]:
         check_id="infra.manual",
         category="Infraestructura",
         title="Validaciones de despliegue",
-        status="warning",
+        status="info",
         blocking=False,
-        message="Validar en Docker/host: CORS productivo, Mailpit solo por /mailpit, puerto público 80, contenedores no root y frontend servido por nginx.",
+        message="Revisión operacional externa: CORS productivo, Mailpit solo por /mailpit, puerto público 80, contenedores no root y frontend servido por nginx.",
     )
+
+    secret_file_status = {
+        "mariadb": _secret_file_check(settings.mariadb_password_file),
+        "minio": _secret_file_check(settings.minio_root_password_file),
+        "jwt": _secret_file_check(settings.jwt_secret_file),
+        "internalApi": _secret_file_check(settings.internal_api_secret_file),
+    }
+    weak_secret_labels = [
+        label
+        for label, value in (
+            ("MariaDB", settings.mariadb_password),
+            ("MinIO", settings.minio_root_password),
+            ("JWT", settings.jwt_secret),
+            ("Internal API", settings.internal_api_secret),
+        )
+        if not _is_strong_secret(value)
+    ]
+    missing_secret_files = [
+        label
+        for label, status in secret_file_status.items()
+        if not status["configured"] or not status["exists"]
+    ]
+    secrets_ready = not weak_secret_labels and not missing_secret_files
     _check(
         checks,
         check_id="secrets.normalized",
         category="Seguridad",
         title="Secretos normalizados",
-        status="warning",
+        status="ok" if secrets_ready else "warning",
         blocking=False,
-        message="Antes de PRD, mover secretos a mecanismo seguro y eliminar valores por defecto.",
+        message=(
+            "Los secretos críticos se leen desde archivos de secreto y no presentan valores débiles conocidos."
+            if secrets_ready
+            else "Hay secretos críticos sin archivo de secreto o con valores débiles/conocidos."
+        ),
+        details={
+            "secretFiles": secret_file_status,
+            "missingSecretFiles": missing_secret_files,
+            "weakSecrets": weak_secret_labels,
+        },
     )
     _check(
         checks,
@@ -479,13 +556,14 @@ async def get_system_readiness(db: Session) -> dict[str, Any]:
         check_id="scheduler.worker",
         category="Procesos",
         title="Scheduler y workers",
-        status="warning",
+        status="info",
         blocking=False,
-        message="Validar desde Docker que scheduler, worker y pdf-worker estén en ejecución; backend no administra contenedores.",
+        message="Revisión operacional externa: confirmar desde Docker que scheduler, worker y pdf-worker estén en ejecución; backend no administra contenedores.",
     )
 
     summary = {
         "ok": sum(1 for item in checks if item["status"] == "ok"),
+        "info": sum(1 for item in checks if item["status"] == "info"),
         "warning": sum(1 for item in checks if item["status"] == "warning"),
         "failed": sum(1 for item in checks if item["status"] == "failed"),
         "blockingFailed": sum(1 for item in checks if item["status"] == "failed" and item["blocking"]),

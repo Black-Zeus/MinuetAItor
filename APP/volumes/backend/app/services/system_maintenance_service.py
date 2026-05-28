@@ -27,6 +27,7 @@ from schemas.system_maintenance import (
     validate_cron_expression,
 )
 from services.email_queue import queue_templated_email
+from services.email_branding_service import build_email_branding_bundle
 from services.notification_center_service import create_in_app_notification
 from services.public_url_service import build_public_url
 from services.system_maintenance_events_service import publish_maintenance_event
@@ -40,8 +41,8 @@ SYSTEM_MAINTENANCE_SINGLETON_ID = 1
 MAINTENANCE_TICK_LOCK_KEY = "lock:system:maintenance:tick"
 MAINTENANCE_TICK_LOCK_TTL_SEC = 90
 INITIAL_COMMISSIONING_REASON = (
-    "Puesta en marcha inicial activada automáticamente. "
-    "Completa las validaciones base antes de habilitar operación productiva."
+    "La puesta en marcha inicial fue activada automáticamente. "
+    "El administrador debe completar las validaciones base y confirmar que los componentes críticos funcionan correctamente antes de cambiar el sistema a modo operativo."
 )
 
 DEFAULT_SETTINGS = {
@@ -428,8 +429,14 @@ async def set_system_operation_mode(
             "commissioning": "manual_commissioning",
         }
         default_reason_by_mode = {
-            "read_only": "Modo solo lectura activado administrativamente.",
-            "maintenance": "Modo mantenimiento activado administrativamente.",
+            "read_only": (
+                "El modo solo lectura fue activado administrativamente. "
+                "El sistema permite consultas, pero bloquea escrituras y transacciones hasta volver a modo operativo."
+            ),
+            "maintenance": (
+                "El modo mantenimiento fue activado administrativamente. "
+                "El acceso general queda cerrado mientras se ejecutan tareas operativas o correctivas."
+            ),
             "commissioning": "Modo puesta en marcha activado administrativamente.",
         }
         operation_type = operation_type_by_mode[normalized_mode]
@@ -623,7 +630,9 @@ def _build_queue_alert_mail_context(
     detected_at: datetime,
     db: Session | None = None,
 ) -> dict:
+    branding = build_email_branding_bundle(db, include_organization_logo=True, include_client_logo=False)
     return {
+        **branding.context,
         "QUEUE_LABEL": definition["label"],
         "QUEUE_NAME": definition["queue"],
         "QUEUE_PRIORITY": definition["priority"],
@@ -632,6 +641,7 @@ def _build_queue_alert_mail_context(
         "WARNING_THRESHOLD": warning_threshold,
         "DETECTED_AT": detected_at.astimezone(ZoneInfo(SCHEDULER_TIMEZONE)).strftime("%d/%m/%Y %H:%M"),
         "SYSTEM_MODULE_URL": _queue_dashboard_url(db),
+        "_inline_assets": branding.inline_assets,
     }
 
 
@@ -643,7 +653,9 @@ def _build_queue_recovery_mail_context(
     recovered_at: datetime,
     db: Session | None = None,
 ) -> dict:
+    branding = build_email_branding_bundle(db, include_organization_logo=True, include_client_logo=False)
     return {
+        **branding.context,
         "QUEUE_LABEL": definition["label"],
         "QUEUE_NAME": definition["queue"],
         "QUEUE_PRIORITY": definition["priority"],
@@ -652,6 +664,7 @@ def _build_queue_recovery_mail_context(
         "WARNING_THRESHOLD": warning_threshold,
         "RECOVERED_AT": recovered_at.astimezone(ZoneInfo(SCHEDULER_TIMEZONE)).strftime("%d/%m/%Y %H:%M"),
         "SYSTEM_MODULE_URL": _queue_dashboard_url(db),
+        "_inline_assets": branding.inline_assets,
     }
 
 
@@ -719,17 +732,20 @@ async def _notify_queue_threshold_exceeded(
         return False
 
     try:
+        template_context = _build_queue_alert_mail_context(
+            definition,
+            size=size,
+            warning_threshold=warning_threshold,
+            detected_at=detected_at,
+            db=db,
+        )
+        inline_assets = template_context.pop("_inline_assets", None)
         await queue_templated_email(
             to=admin_emails,
             template_id="system_queue_alert",
-            template_context=_build_queue_alert_mail_context(
-                definition,
-                size=size,
-                warning_threshold=warning_threshold,
-                detected_at=detected_at,
-                db=db,
-            ),
+            template_context=template_context,
             subject=f"Alerta operativa · {definition['label']} superó umbral",
+            inline_assets=inline_assets,
         )
         return True
     except Exception:
@@ -780,17 +796,20 @@ async def _notify_queue_threshold_recovered(
         return False
 
     try:
+        template_context = _build_queue_recovery_mail_context(
+            definition,
+            size=size,
+            warning_threshold=warning_threshold,
+            recovered_at=recovered_at,
+            db=db,
+        )
+        inline_assets = template_context.pop("_inline_assets", None)
         await queue_templated_email(
             to=admin_emails,
             template_id="system_queue_recovered",
-            template_context=_build_queue_recovery_mail_context(
-                definition,
-                size=size,
-                warning_threshold=warning_threshold,
-                recovered_at=recovered_at,
-                db=db,
-            ),
+            template_context=template_context,
             subject=f"Normalización operativa · {definition['label']} volvió a nivel normal",
+            inline_assets=inline_assets,
         )
         return True
     except Exception:

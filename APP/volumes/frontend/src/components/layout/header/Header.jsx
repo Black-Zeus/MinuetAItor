@@ -72,7 +72,7 @@ const Header = ({
       <div className="flex items-center space-x-4">
         {isOperationLocked ? (
           <div className="hidden md:flex items-center rounded-lg border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-sm font-semibold text-amber-700 dark:text-amber-200">
-            Sistema en modo {operationLabel}
+            {operationLabel === "puesta en marcha" ? "Sistema en puesta en marcha" : `Sistema en modo ${operationLabel}`}
           </div>
         ) : (
           <HeaderSearch

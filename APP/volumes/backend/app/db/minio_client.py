@@ -20,6 +20,14 @@ from core.config import settings
 
 logger = logging.getLogger(__name__)
 
+REQUIRED_MINIO_BUCKETS = (
+    "minuetaitor-inputs",
+    "minuetaitor-json",
+    "minuetaitor-published",
+    "minuetaitor-attach",
+    "minuetaitor-draft",
+)
+
 
 @lru_cache(maxsize=1)
 def get_minio_client() -> Minio:
@@ -34,23 +42,23 @@ def get_minio_client() -> Minio:
         secure     = False,   # True en producción con TLS
     )
     logger.info(f"[minio] Cliente inicializado → {settings.minio_host}:{settings.minio_port}")
-    _ensure_buckets(client)
+    ensure_minio_buckets(client)
     return client
 
 
-def _ensure_buckets(client: Minio) -> None:
+def ensure_minio_buckets(client: Minio | None = None) -> Minio:
     """
     Verifica que los buckets del sistema existan en MinIO.
     Los crea si no existen (útil en first-run de desarrollo).
     """
-    required = [
-        "minuetaitor-inputs",
-        "minuetaitor-json",
-        "minuetaitor-published",
-        "minuetaitor-attach",
-        "minuetaitor-draft",
-    ]
-    for bucket in required:
+    if client is None:
+        client = Minio(
+            endpoint=f"{settings.minio_host}:{settings.minio_port}",
+            access_key=settings.minio_root_user,
+            secret_key=settings.minio_root_password,
+            secure=False,
+        )
+    for bucket in REQUIRED_MINIO_BUCKETS:
         if not client.bucket_exists(bucket):
             try:
                 client.make_bucket(bucket)
@@ -62,3 +70,4 @@ def _ensure_buckets(client: Minio) -> None:
                 raise
         else:
             logger.debug(f"[minio] Bucket OK: {bucket}")
+    return client
