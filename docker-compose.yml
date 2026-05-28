@@ -416,6 +416,7 @@ services:
       APP_VERSION: ${APP_VERSION}
       TZ: America/Santiago
       NODE_ENV: production
+      VITE_ALLOWED_HOSTS: ${FRONTEND_ALLOWED_HOSTS:-localhost,127.0.0.1}
     networks:
       - internal
     labels:

@@ -135,6 +135,7 @@ services:
       APP_VERSION: ${APP_VERSION}
       TZ: America/Santiago
       NODE_ENV: development
+      VITE_ALLOWED_HOSTS: ${FRONTEND_ALLOWED_HOSTS:-localhost,127.0.0.1}
       CHOKIDAR_USEPOLLING: "true"
       WATCHPACK_POLLING: "true"
     volumes:

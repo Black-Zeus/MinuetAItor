@@ -152,6 +152,7 @@ services:
       - "${FRONTEND_PORT}:5173"
     environment:
       - NODE_ENV=development
+      - VITE_ALLOWED_HOSTS=${FRONTEND_ALLOWED_HOSTS:-localhost,127.0.0.1}
     labels:
       - "stack=${PROJECT_NAME}"
       - "env=${ENV_NAME}"
