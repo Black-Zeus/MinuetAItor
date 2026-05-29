@@ -4,9 +4,10 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 from typing import AsyncGenerator
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import Response, StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
@@ -66,13 +67,14 @@ from services.minute_views_service import (
 )
 from services.access_control_service import ensure_record_read_access, ensure_record_write_access
 from services.upload_validation import safe_content_disposition
+from services.sse_instrumentation import new_sse_connection_id, sse_duration_ms, sse_log
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/minutes", tags=["Minutes"])
 bearer = HTTPBearer(auto_error=False)
 
-SSE_CHANNEL         = "events:minutes"
+SSE_CHANNEL_PREFIX  = "events:minutes"
 SSE_KEEPALIVE_SEC   = 15
 SSE_MAX_WAIT_SEC    = 360
 SSE_TERMINAL_EVENTS = {"completed", "failed"}
@@ -406,6 +408,7 @@ def attachment_endpoint(
 )
 async def observation_events_endpoint(
     record_id: str,
+    request: Request,
     session: UserSession = Depends(current_user_dep),
 ):
     db = SessionLocal()
@@ -415,7 +418,7 @@ async def observation_events_endpoint(
         db.close()
 
     return StreamingResponse(
-        stream_editor_minute_observation_events(record_id=record_id, session=session),
+        stream_editor_minute_observation_events(record_id=record_id, session=session, request=request),
         media_type="text/event-stream",
         headers=minute_view_sse_headers(),
     )
@@ -553,6 +556,7 @@ async def status_endpoint(
 )
 async def events_endpoint(
     transaction_id: str,
+    request:        Request,
     session:        UserSession = Depends(current_user_or_token_dep),
 ):
     """
@@ -579,6 +583,24 @@ async def events_endpoint(
     # Si ya terminó → responder de inmediato sin suscribir a Pub/Sub
     if tx_status.status in SSE_TERMINAL_EVENTS:
         async def immediate() -> AsyncGenerator[str, None]:
+            connection_id = new_sse_connection_id()
+            started_at = time.monotonic()
+            endpoint = "minutes_transaction_events"
+            event_count = 1
+            sse_log(
+                logger,
+                "sse.open",
+                connection_id=connection_id,
+                endpoint=endpoint,
+                channel=None,
+                record_id=tx_status.record_id,
+                transaction_id=transaction_id,
+                user_id=session.user_id,
+                visitor_session_id=None,
+                duration_ms=None,
+                close_reason=None,
+                event_count=0,
+            )
             data = {
                 "transaction_id": transaction_id,
                 "record_id":      tx_status.record_id,
@@ -586,11 +608,40 @@ async def events_endpoint(
             }
             if tx_status.error_message:
                 data["error"] = tx_status.error_message
+            sse_log(
+                logger,
+                "sse.terminal",
+                connection_id=connection_id,
+                endpoint=endpoint,
+                channel=None,
+                record_id=tx_status.record_id,
+                transaction_id=transaction_id,
+                user_id=session.user_id,
+                visitor_session_id=None,
+                duration_ms=sse_duration_ms(started_at),
+                close_reason="terminal_event",
+                event_count=event_count,
+                terminal_event=tx_status.status,
+            )
             yield _sse_event(tx_status.status, data)
+            sse_log(
+                logger,
+                "sse.close",
+                connection_id=connection_id,
+                endpoint=endpoint,
+                channel=None,
+                record_id=tx_status.record_id,
+                transaction_id=transaction_id,
+                user_id=session.user_id,
+                visitor_session_id=None,
+                duration_ms=sse_duration_ms(started_at),
+                close_reason="terminal_event",
+                event_count=event_count,
+            )
         return StreamingResponse(immediate(), media_type="text/event-stream", headers=_sse_headers())
 
     return StreamingResponse(
-        _sse_stream(transaction_id),
+        _sse_stream(transaction_id, request),
         media_type = "text/event-stream",
         headers    = _sse_headers(),
     )
@@ -720,19 +771,97 @@ def _sse_event(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
 
-async def _sse_stream(transaction_id: str) -> AsyncGenerator[str, None]:
+def _minutes_sse_channel(transaction_id: str) -> str:
+    return f"{SSE_CHANNEL_PREFIX}:{transaction_id}"
+
+
+async def _sse_stream(transaction_id: str, request: Request) -> AsyncGenerator[str, None]:
+    connection_id = new_sse_connection_id()
+    endpoint = "minutes_transaction_events"
+    started_at = time.monotonic()
+    event_count = 0
+    close_reason = "unknown"
     redis  = await get_redis()
     pubsub = redis.pubsub()
-    await pubsub.subscribe(SSE_CHANNEL)
-    logger.info("[sse] Suscrito | tx=%s", transaction_id)
+    channel = _minutes_sse_channel(transaction_id)
+    sse_log(
+        logger,
+        "sse.open",
+        connection_id=connection_id,
+        endpoint=endpoint,
+        channel=channel,
+        record_id=None,
+        transaction_id=transaction_id,
+        user_id=None,
+        visitor_session_id=None,
+        duration_ms=None,
+        close_reason=None,
+        event_count=event_count,
+    )
+    try:
+        await pubsub.subscribe(channel)
+    except Exception as exc:
+        close_reason = "redis_subscribe_error"
+        sse_log(
+            logger,
+            "sse.exception",
+            level="exception",
+            connection_id=connection_id,
+            endpoint=endpoint,
+            channel=channel,
+            record_id=None,
+            transaction_id=transaction_id,
+            user_id=None,
+            visitor_session_id=None,
+            duration_ms=sse_duration_ms(started_at),
+            close_reason=close_reason,
+            event_count=event_count,
+            error_type=type(exc).__name__,
+        )
+        sse_log(
+            logger,
+            "sse.close",
+            connection_id=connection_id,
+            endpoint=endpoint,
+            channel=channel,
+            record_id=None,
+            transaction_id=transaction_id,
+            user_id=None,
+            visitor_session_id=None,
+            duration_ms=sse_duration_ms(started_at),
+            close_reason=close_reason,
+            event_count=event_count,
+        )
+        raise
+    sse_log(
+        logger,
+        "sse.redis.subscribe",
+        connection_id=connection_id,
+        endpoint=endpoint,
+        channel=channel,
+        record_id=None,
+        transaction_id=transaction_id,
+        user_id=None,
+        visitor_session_id=None,
+        duration_ms=sse_duration_ms(started_at),
+        close_reason=None,
+        event_count=event_count,
+    )
+    logger.info("[sse] Suscrito | tx=%s channel=%s", transaction_id, channel)
 
     try:
         elapsed   = 0.0
         last_ping = 0.0
 
         while elapsed < SSE_MAX_WAIT_SEC:
+            if await request.is_disconnected():
+                close_reason = "client_disconnect"
+                logger.info("[sse] Cliente desconectado | tx=%s channel=%s", transaction_id, channel)
+                break
+
             # Keepalive
             if elapsed - last_ping >= SSE_KEEPALIVE_SEC:
+                event_count += 1
                 yield "event: keepalive\ndata: {}\n\n"
                 last_ping = elapsed
 
@@ -757,33 +886,108 @@ async def _sse_stream(transaction_id: str) -> AsyncGenerator[str, None]:
                 await asyncio.sleep(0.1)
                 continue
 
-            # Filtrar solo eventos de esta transacción
-            if event_data.get("transaction_id") != transaction_id:
-                elapsed += 0.1
-                await asyncio.sleep(0.1)
-                continue
-
             event_name = event_data.get("event", "status")
+            event_count += 1
             yield _sse_event(event_name, event_data)
             logger.info("[sse] Evento enviado | event=%s tx=%s", event_name, transaction_id)
 
             if event_name in SSE_TERMINAL_EVENTS:
+                close_reason = "terminal_event"
+                sse_log(
+                    logger,
+                    "sse.terminal",
+                    connection_id=connection_id,
+                    endpoint=endpoint,
+                    channel=channel,
+                    record_id=event_data.get("record_id"),
+                    transaction_id=transaction_id,
+                    user_id=None,
+                    visitor_session_id=None,
+                    duration_ms=sse_duration_ms(started_at),
+                    close_reason=close_reason,
+                    event_count=event_count,
+                    terminal_event=event_name,
+                )
                 break
 
             elapsed += 0.1
             await asyncio.sleep(0.1)
 
         else:
+            close_reason = "stream_timeout"
             logger.warning("[sse] Timeout | tx=%s", transaction_id)
+            event_count += 1
+            sse_log(
+                logger,
+                "sse.terminal",
+                connection_id=connection_id,
+                endpoint=endpoint,
+                channel=channel,
+                record_id=None,
+                transaction_id=transaction_id,
+                user_id=None,
+                visitor_session_id=None,
+                duration_ms=sse_duration_ms(started_at),
+                close_reason=close_reason,
+                event_count=event_count,
+                terminal_event="failed",
+            )
             yield _sse_event("failed", {
                 "transaction_id": transaction_id,
                 "error": "Tiempo máximo de espera agotado. Consulta el estado con /status.",
             })
 
+    except Exception as exc:
+        close_reason = "exception"
+        sse_log(
+            logger,
+            "sse.exception",
+            level="exception",
+            connection_id=connection_id,
+            endpoint=endpoint,
+            channel=channel,
+            record_id=None,
+            transaction_id=transaction_id,
+            user_id=None,
+            visitor_session_id=None,
+            duration_ms=sse_duration_ms(started_at),
+            close_reason=close_reason,
+            event_count=event_count,
+            error_type=type(exc).__name__,
+        )
+        raise
     finally:
         try:
-            await pubsub.unsubscribe(SSE_CHANNEL)
+            await pubsub.unsubscribe(channel)
+            sse_log(
+                logger,
+                "sse.redis.unsubscribe",
+                connection_id=connection_id,
+                endpoint=endpoint,
+                channel=channel,
+                record_id=None,
+                transaction_id=transaction_id,
+                user_id=None,
+                visitor_session_id=None,
+                duration_ms=sse_duration_ms(started_at),
+                close_reason=close_reason,
+                event_count=event_count,
+            )
             await pubsub.close()
         except Exception:
             pass
-        logger.info("[sse] Stream cerrado | tx=%s", transaction_id)
+        sse_log(
+            logger,
+            "sse.close",
+            connection_id=connection_id,
+            endpoint=endpoint,
+            channel=channel,
+            record_id=None,
+            transaction_id=transaction_id,
+            user_id=None,
+            visitor_session_id=None,
+            duration_ms=sse_duration_ms(started_at),
+            close_reason=close_reason,
+            event_count=event_count,
+        )
+        logger.info("[sse] Cleanup ejecutado y stream cerrado | tx=%s channel=%s", transaction_id, channel)

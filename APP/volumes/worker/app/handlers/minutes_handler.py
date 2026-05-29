@@ -54,7 +54,7 @@ logger = get_logger("worker.handler.minutes")
 
 # ── Constantes MinIO ──────────────────────────────────────────────────────────
 BUCKET_INPUTS  = "minuetaitor-inputs"
-PUBSUB_CHANNEL = settings.PUBSUB_MINUTES_CHANNEL
+PUBSUB_CHANNEL_PREFIX = settings.PUBSUB_MINUTES_CHANNEL
 
 # ── Lazy-init MinIO ───────────────────────────────────────────────────────────
 _minio_client = None
@@ -948,7 +948,7 @@ async def handle_minutes_job(job: JobEnvelope) -> None:
                     "record_id":      rec_id,
                     "error":          error[:500],
                 }
-                await redis.publish(PUBSUB_CHANNEL, json.dumps(event))
+                await redis.publish(f"{PUBSUB_CHANNEL_PREFIX}:{tx_id}", json.dumps(event))
                 logger.info("Evento failed publicado | tx=%s", tx_id)
             except Exception as e:
                 logger.error("Error publicando evento failed (ignorado): %s", e)

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
@@ -151,10 +151,11 @@ async def run_readiness_endpoint(
     status_code=status.HTTP_200_OK,
 )
 async def maintenance_events_endpoint(
+    request: Request,
     session: UserSession = Depends(current_admin_or_token_dep),
 ):
     return StreamingResponse(
-        stream_system_maintenance_events(session),
+        stream_system_maintenance_events(session, request),
         media_type="text/event-stream",
         headers=maintenance_sse_headers(),
     )
