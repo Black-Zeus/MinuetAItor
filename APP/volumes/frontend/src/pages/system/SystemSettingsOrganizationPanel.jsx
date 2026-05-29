@@ -231,7 +231,7 @@ const OrganizationBannerPreview = ({ bannerUrl, name, failed, onError }) => {
     <img
       src={previewSrc}
       alt={bannerUrl && !failed ? name ? `Banner de ${name}` : "Banner de la organización" : "Referencia visual para banner"}
-      className="h-full w-full object-contain"
+      className="h-full w-full object-cover"
       onError={bannerUrl && !failed ? onError : undefined}
     />
   );
@@ -513,7 +513,7 @@ export const OrganizationPanel = () => {
           <div className="flex h-full flex-col rounded-[28px] border border-slate-200/60 bg-black/[0.02] p-3 dark:border-slate-700/70 dark:bg-white/[0.02]">
             <label
               className={cn(
-                "relative block h-56 cursor-pointer overflow-hidden rounded-3xl border transition-colors xl:h-64",
+                "relative block aspect-[3/1] min-h-56 max-h-[360px] cursor-pointer overflow-hidden rounded-3xl border transition-colors",
                 bannerDragActive
                   ? "border-primary-400 bg-primary-50/40 dark:border-primary-500 dark:bg-primary-900/10"
                   : "border-slate-200/80 bg-transparent dark:border-slate-700/80 dark:bg-transparent"

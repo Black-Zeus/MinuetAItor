@@ -26,6 +26,8 @@ ALLOWED_ORGANIZATION_MEDIA_TYPES = {"image/jpeg", "image/png"}
 MAX_ORGANIZATION_IMAGE_PIXELS = 16_000_000
 LOGO_CANONICAL_SIZE = (512, 512)
 BANNER_CANONICAL_SIZE = (1800, 600)
+LOGO_MIN_CONTENT_SIZE = (384, 384)
+BANNER_MIN_CONTENT_SIZE = (1200, 400)
 
 Image.MAX_IMAGE_PIXELS = MAX_ORGANIZATION_IMAGE_PIXELS
 
@@ -82,6 +84,30 @@ def _has_alpha(image: Image.Image) -> bool:
     return False
 
 
+def _resize_to_canvas_bounds(image: Image.Image, *, target: str) -> tuple[Image.Image, tuple[int, int]]:
+    canonical_size = LOGO_CANONICAL_SIZE if target == "logo" else BANNER_CANONICAL_SIZE
+    min_content_size = LOGO_MIN_CONTENT_SIZE if target == "logo" else BANNER_MIN_CONTENT_SIZE
+
+    # Escala hacia arriba o abajo hasta ocupar el mayor tamaño posible dentro
+    # del lienzo canónico. El mínimo documenta el umbral visual esperado, pero
+    # nunca se fuerza si la proporción de la imagen lo impide sin recortar.
+    fit_scale = min(
+        canonical_size[0] / max(image.width, 1),
+        canonical_size[1] / max(image.height, 1),
+    )
+    visual_min_scale = min(
+        min_content_size[0] / max(image.width, 1),
+        min_content_size[1] / max(image.height, 1),
+    )
+    scale = min(max(fit_scale, visual_min_scale), fit_scale)
+    next_size = (
+        max(1, min(canonical_size[0], round(image.width * scale))),
+        max(1, min(canonical_size[1], round(image.height * scale))),
+    )
+    resized = image.resize(next_size, Image.Resampling.LANCZOS)
+    return resized, canonical_size
+
+
 def _sanitize_image_content(
     *,
     content: bytes,
@@ -95,10 +121,12 @@ def _sanitize_image_content(
             warnings.simplefilter("error", Image.DecompressionBombWarning)
             with Image.open(BytesIO(content)) as source:
                 image = ImageOps.exif_transpose(source)
-                image.thumbnail(canonical_size, Image.Resampling.LANCZOS)
 
                 if content_type == "image/png" and _has_alpha(image):
-                    clean_image = image.convert("RGBA")
+                    clean_image, canonical_size = _resize_to_canvas_bounds(
+                        image.convert("RGBA"),
+                        target=target,
+                    )
                     canvas = Image.new("RGBA", canonical_size, (255, 255, 255, 0))
                     output_type = "image/png"
                     output_ext = "png"
@@ -110,7 +138,10 @@ def _sanitize_image_content(
                     canvas.paste(clean_image, offset, clean_image)
                     canvas.save(output, format="PNG", optimize=True)
                 else:
-                    clean_image = image.convert("RGB")
+                    clean_image, canonical_size = _resize_to_canvas_bounds(
+                        image.convert("RGB"),
+                        target=target,
+                    )
                     canvas = Image.new("RGB", canonical_size, (255, 255, 255))
                     output_type = "image/jpeg"
                     output_ext = "jpg"

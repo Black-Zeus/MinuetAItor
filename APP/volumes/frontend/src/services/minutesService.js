@@ -5,7 +5,22 @@ const BASE = "/v1/minutes";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const unwrap = (res) => res?.data?.result ?? res?.data;
-const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const wait = (ms, signal = null) => new Promise((resolve, reject) => {
+  if (signal?.aborted) {
+    const error = new Error("PDF preview polling cancelled");
+    error.name = "AbortError";
+    reject(error);
+    return;
+  }
+
+  const timer = setTimeout(resolve, ms);
+  signal?.addEventListener?.("abort", () => {
+    clearTimeout(timer);
+    const error = new Error("PDF preview polling cancelled");
+    error.name = "AbortError";
+    reject(error);
+  }, { once: true });
+});
 
 const normalizePreviewId = (payload) => (
   payload?.previewId
@@ -16,15 +31,26 @@ const normalizePreviewId = (payload) => (
 
 const waitForMinutePdfPreview = async (previewId, {
   timeoutMs = 60000,
-  intervalMs = 800,
+  intervalsMs = [1000, 2000, 5000],
+  signal = null,
 } = {}) => {
   const deadline = Date.now() + timeoutMs;
+  let attempt = 0;
 
   while (Date.now() < deadline) {
-    const statusRes = await api.get(`${BASE}/pdf-preview/jobs/${previewId}/status`);
+    if (signal?.aborted) {
+      const error = new Error("PDF preview polling cancelled");
+      error.name = "AbortError";
+      throw error;
+    }
+
+    const statusRes = await api.get(`${BASE}/pdf-preview/jobs/${previewId}/status`, { signal });
     const statusPayload = unwrap(statusRes);
     if (statusPayload?.status === "ready") return;
-    await wait(intervalMs);
+
+    const delayMs = intervalsMs[Math.min(attempt, intervalsMs.length - 1)] ?? 5000;
+    attempt += 1;
+    await wait(Math.min(delayMs, Math.max(0, deadline - Date.now())), signal);
   }
 
   throw new Error("PDF_PREVIEW_TIMEOUT");
@@ -220,17 +246,18 @@ export const regenerateMinuteReviewPdf = async (recordId, content) => {
  * @param {Object} content
  * @returns {Promise<Blob>}
  */
-export const previewMinutePdfBlob = async (recordId, content) => {
-  const startRes = await api.post(`${BASE}/${recordId}/pdf-preview/jobs`, { content });
+export const previewMinutePdfBlob = async (recordId, content, requestConfig = {}) => {
+  const startRes = await api.post(`${BASE}/${recordId}/pdf-preview/jobs`, { content }, requestConfig);
   const previewId = normalizePreviewId(unwrap(startRes));
   if (!previewId) {
     throw new Error("PDF_PREVIEW_ID_MISSING");
   }
 
-  await waitForMinutePdfPreview(previewId);
+  await waitForMinutePdfPreview(previewId, { signal: requestConfig.signal });
 
   const res = await api.get(`${BASE}/pdf-preview/jobs/${previewId}/result`, {
     responseType: "blob",
+    ...requestConfig,
   });
   return res.data;
 };
