@@ -193,7 +193,7 @@ const MinuteViewPage = () => {
 
   useEffect(() => () => {
     if (pdfUrlRef.current) URL.revokeObjectURL(pdfUrlRef.current);
-    eventsRef.current?.close?.();
+    eventsRef.current?.close?.("unmount");
   }, []);
 
   useEffect(() => {
@@ -205,18 +205,14 @@ const MinuteViewPage = () => {
   }, [isModalOpen]);
 
   useEffect(() => {
-    eventsRef.current?.close?.();
+    eventsRef.current?.close?.("effect_recreate");
     eventsRef.current = null;
 
     const token = savedSession?.accessToken;
     if (!recordId || !token || step !== "view") return undefined;
 
     let active = true;
-    const source = createAuthorizedEventStream(
-      `/api/v1/minutes/public/${recordId}/events`,
-      token
-    );
-    eventsRef.current = source;
+    let source = null;
 
     const parseEventPayload = (event) => {
       try {
@@ -286,18 +282,79 @@ const MinuteViewPage = () => {
       });
     };
 
+    const onSessionExpired = () => {
+      active = false;
+      clearSession(recordId);
+      setStep("login");
+      setError("La sesión de visitante expiró. Solicita un nuevo código de acceso.");
+      if (pdfUrlRef.current) URL.revokeObjectURL(pdfUrlRef.current);
+      pdfUrlRef.current = "";
+      setPdfUrl("");
+      setPdfError("");
+      source?.close();
+      if (eventsRef.current === source) {
+        eventsRef.current = null;
+      }
+    };
+
+    const onPublicStreamUnavailable = () => {
+      active = false;
+      clearSession(recordId);
+      setStep("login");
+      setDetail(null);
+      setError(PUBLIC_MINUTE_UNAVAILABLE_MESSAGE);
+      if (pdfUrlRef.current) URL.revokeObjectURL(pdfUrlRef.current);
+      pdfUrlRef.current = "";
+      setPdfUrl("");
+      setPdfError("");
+      setObservationText("");
+      source?.close("terminal_public_unavailable");
+      if (eventsRef.current === source) {
+        eventsRef.current = null;
+      }
+    };
+
+    const reconcilePublicView = async () => {
+      await refreshDetail();
+      await refreshPdf({ attempts: 2, delayMs: 1000 });
+    };
+
+    source = createAuthorizedEventStream(
+      `/api/v1/minutes/public/${recordId}/events`,
+      token,
+      {
+        onreconnected: reconcilePublicView,
+        onmaxretries: onPublicStreamUnavailable,
+      }
+    );
+    eventsRef.current = source;
+
     source.addEventListener("observation_resolved", onObservationResolved);
     source.addEventListener("pdf_updated", onPdfUpdated);
     source.addEventListener("minute_published", onMinutePublished);
+    source.addEventListener("session_expired", onSessionExpired);
+    source.addEventListener("auth_error", onSessionExpired);
+    source.addEventListener("session_revoked", onSessionExpired);
+    source.addEventListener("forbidden", onPublicStreamUnavailable);
+    source.addEventListener("not_found", onPublicStreamUnavailable);
+    source.addEventListener("invalid_request", onPublicStreamUnavailable);
     source.addEventListener("keepalive", () => {});
-    source.onerror = () => {};
+    source.onerror = (errorEvent) => {
+      if (errorEvent?.code === "max_retries_exceeded") onPublicStreamUnavailable();
+    };
 
     return () => {
       active = false;
       source.removeEventListener("observation_resolved", onObservationResolved);
       source.removeEventListener("pdf_updated", onPdfUpdated);
       source.removeEventListener("minute_published", onMinutePublished);
-      source.close();
+      source.removeEventListener("session_expired", onSessionExpired);
+      source.removeEventListener("auth_error", onSessionExpired);
+      source.removeEventListener("session_revoked", onSessionExpired);
+      source.removeEventListener("forbidden", onPublicStreamUnavailable);
+      source.removeEventListener("not_found", onPublicStreamUnavailable);
+      source.removeEventListener("invalid_request", onPublicStreamUnavailable);
+      source.close("unmount");
       if (eventsRef.current === source) {
         eventsRef.current = null;
       }
@@ -422,7 +479,7 @@ const MinuteViewPage = () => {
     } catch {
       // El logout local se aplica igual aunque falle el backend.
     } finally {
-      eventsRef.current?.close?.();
+      eventsRef.current?.close?.("visitor_logout");
       eventsRef.current = null;
       clearSession(recordId);
       setDetail(null);

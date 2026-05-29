@@ -61,7 +61,7 @@ export const useNotificationsSSE = () => {
 
   useEffect(() => {
     if (sourceRef.current) {
-      sourceRef.current.close();
+      sourceRef.current.close("effect_recreate");
       sourceRef.current = null;
     }
 
@@ -168,7 +168,7 @@ export const useNotificationsSSE = () => {
 
     return () => {
       isCancelled = true;
-      source.close();
+      source.close("unmount");
       if (sourceRef.current === source) {
         sourceRef.current = null;
       }

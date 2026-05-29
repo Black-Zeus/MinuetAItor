@@ -21,6 +21,7 @@ import useMinuteNotificationStore from "@/store/minuteNotificationStore";
 import useAuthStore from "@/store/authStore";
 import { toastSuccess, toastError } from "@/components/common/toast/toastHelpers";
 import { createAuthorizedEventStream } from "@/utils/authorizedEventStream";
+import { getMinuteStatus } from "@/services/minutesService";
 
 const SSE_BASE = "/api/v1/minutes";
 
@@ -36,7 +37,7 @@ export const useMinuteSSE = (enabled = true) => {
   useEffect(() => {
     if (!enabled || !accessToken) {
       for (const es of sourcesRef.current.values()) {
-        es.close();
+        es.close("disabled_or_logged_out");
       }
       sourcesRef.current.clear();
       return;
@@ -51,10 +52,7 @@ export const useMinuteSSE = (enabled = true) => {
 
       if (activeSources.has(transactionId)) continue;
 
-      const url = `${SSE_BASE}/${transactionId}/events`;
-      const es = createAuthorizedEventStream(url, accessToken);
-
-      es.addEventListener("completed", () => {
+      const handleCompleted = () => {
         toastSuccess(
           "Minuta lista para edición",
           `"${title}" fue procesada correctamente.`,
@@ -68,12 +66,12 @@ export const useMinuteSSE = (enabled = true) => {
         if (typeof window.__minutesRefresh === "function") {
           window.__minutesRefresh();
         }
-      });
+      };
 
-      es.addEventListener("failed", (e) => {
+      const handleFailed = (e = null) => {
         let errorMsg = "";
         try {
-          const data = JSON.parse(e.data ?? "{}");
+          const data = JSON.parse(e?.data ?? "{}");
           errorMsg = data.error ?? "";
         } catch { /* ignorar */ }
 
@@ -92,7 +90,29 @@ export const useMinuteSSE = (enabled = true) => {
         if (typeof window.__minutesRefresh === "function") {
           window.__minutesRefresh();
         }
+      };
+
+      const reconcileTransaction = async () => {
+        try {
+          const status = await getMinuteStatus(transactionId);
+          const currentStatus = String(status?.status || "").trim().toLowerCase();
+          if (currentStatus === "completed") handleCompleted();
+          if (currentStatus === "failed" || currentStatus === "cancelled") {
+            handleFailed({ data: JSON.stringify({ error: status?.errorMessage || "" }) });
+          }
+        } catch {
+          // El stream conserva su política de retry; la reconciliación es best-effort.
+        }
+      };
+
+      const url = `${SSE_BASE}/${transactionId}/events`;
+      const es = createAuthorizedEventStream(url, accessToken, {
+        onreconnect: reconcileTransaction,
       });
+
+      es.addEventListener("completed", handleCompleted);
+      es.addEventListener("failed", handleFailed);
+      es.addEventListener("cancelled", handleFailed);
 
       es.addEventListener("keepalive", () => { /* ping del servidor, ignorar */ });
 
@@ -107,7 +127,7 @@ export const useMinuteSSE = (enabled = true) => {
     // ── Cerrar conexiones huérfanas ───────────────────────────────────────────
     for (const [txId, es] of activeSources.entries()) {
       if (!pending.has(txId)) {
-        es.close();
+        es.close("orphaned_pending_removed");
         activeSources.delete(txId);
       }
     }
@@ -117,7 +137,7 @@ export const useMinuteSSE = (enabled = true) => {
   useEffect(() => {
     return () => {
       for (const es of sourcesRef.current.values()) {
-        es.close();
+        es.close("unmount");
       }
       sourcesRef.current.clear();
     };

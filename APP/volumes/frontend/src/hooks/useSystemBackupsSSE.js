@@ -79,7 +79,7 @@ export const useSystemBackupsSSE = () => {
 
   useEffect(() => {
     if (sourceRef.current) {
-      sourceRef.current.close();
+      sourceRef.current.close("effect_recreate");
       sourceRef.current = null;
     }
 
@@ -115,7 +115,7 @@ export const useSystemBackupsSSE = () => {
     };
 
     return () => {
-      source.close();
+      source.close("unmount");
       if (sourceRef.current === source) {
         sourceRef.current = null;
       }
