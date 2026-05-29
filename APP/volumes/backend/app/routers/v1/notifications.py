@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
@@ -115,10 +115,11 @@ def unread_count_endpoint(
     status_code=status.HTTP_200_OK,
 )
 async def notifications_events_endpoint(
+    request: Request,
     session: UserSession = Depends(current_user_or_token_dep),
 ):
     return StreamingResponse(
-        stream_user_notifications(session),
+        stream_user_notifications(session, request),
         media_type="text/event-stream",
         headers=notification_sse_headers(),
     )

@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import uuid
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
@@ -173,10 +173,11 @@ async def import_backup_package_endpoint(
     status_code=status.HTTP_200_OK,
 )
 async def backup_events_endpoint(
+    request: Request,
     session: UserSession = Depends(current_admin_or_token_dep),
 ):
     return StreamingResponse(
-        stream_system_backup_events(session),
+        stream_system_backup_events(session, request),
         media_type="text/event-stream",
         headers=backup_sse_headers(),
     )

@@ -115,10 +115,11 @@ async def logout_all_other_sessions_endpoint(
 
 @router.get("/session-events", summary="Stream SSE — escucha eventos de sesión", response_class=StreamingResponse)
 async def session_events_endpoint(
+    request: Request,
     session: UserSession = Depends(current_user_or_token_dep),
 ):
     return StreamingResponse(
-        stream_session_events(session),
+        stream_session_events(session, request),
         media_type="text/event-stream",
         headers=auth_sse_headers(),
     )

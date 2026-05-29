@@ -130,10 +130,11 @@ async def pdf_endpoint(
 )
 async def events_endpoint(
     record_id: str,
+    request: Request,
     visitor_token: str = Depends(current_visitor_token_dep),
 ):
     return StreamingResponse(
-        stream_minute_view_events(token=visitor_token, record_id=record_id),
+        stream_minute_view_events(token=visitor_token, record_id=record_id, request=request),
         media_type="text/event-stream",
         headers=minute_view_sse_headers(),
     )

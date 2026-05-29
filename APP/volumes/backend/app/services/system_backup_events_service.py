@@ -6,9 +6,12 @@ import logging
 import time
 from typing import AsyncGenerator
 
+from fastapi import Request
+
 from core.datetime_utils import utc_now
 from db.redis import get_redis
 from schemas.auth import UserSession
+from services.sse_instrumentation import new_sse_connection_id, sse_duration_ms, sse_log
 
 logger = logging.getLogger(__name__)
 
@@ -64,24 +67,112 @@ async def publish_backup_event(
     await redis.publish(get_backup_events_channel(), json.dumps(payload))
 
 
-async def stream_system_backup_events(session: UserSession) -> AsyncGenerator[str, None]:
+async def stream_system_backup_events(session: UserSession, request: Request) -> AsyncGenerator[str, None]:
+    connection_id = new_sse_connection_id()
+    endpoint = "system_backups_events"
+    started_at = time.monotonic()
+    event_count = 0
+    close_reason = "unknown"
     redis = get_redis()
     pubsub = redis.pubsub()
     channel = get_backup_events_channel()
-    await pubsub.subscribe(channel)
+    sse_log(
+        logger,
+        "sse.open",
+        connection_id=connection_id,
+        endpoint=endpoint,
+        channel=channel,
+        record_id=None,
+        transaction_id=None,
+        user_id=session.user_id,
+        visitor_session_id=None,
+        duration_ms=None,
+        close_reason=None,
+        event_count=event_count,
+    )
+    try:
+        await pubsub.subscribe(channel)
+    except Exception as exc:
+        close_reason = "exception"
+        sse_log(
+            logger,
+            "sse.exception",
+            level="exception",
+            connection_id=connection_id,
+            endpoint=endpoint,
+            channel=channel,
+            record_id=None,
+            transaction_id=None,
+            user_id=session.user_id,
+            visitor_session_id=None,
+            duration_ms=sse_duration_ms(started_at),
+            close_reason=close_reason,
+            event_count=event_count,
+            error_type=type(exc).__name__,
+        )
+        sse_log(
+            logger,
+            "sse.close",
+            connection_id=connection_id,
+            endpoint=endpoint,
+            channel=channel,
+            record_id=None,
+            transaction_id=None,
+            user_id=session.user_id,
+            visitor_session_id=None,
+            duration_ms=sse_duration_ms(started_at),
+            close_reason=close_reason,
+            event_count=event_count,
+        )
+        raise
+    sse_log(
+        logger,
+        "sse.redis.subscribe",
+        connection_id=connection_id,
+        endpoint=endpoint,
+        channel=channel,
+        record_id=None,
+        transaction_id=None,
+        user_id=session.user_id,
+        visitor_session_id=None,
+        duration_ms=sse_duration_ms(started_at),
+        close_reason=None,
+        event_count=event_count,
+    )
     logger.info("[backup-sse] Suscrito | user=%s channel=%s", session.user_id, channel)
 
     try:
-        started_at = time.monotonic()
         last_ping_at = started_at
 
         while True:
             now = time.monotonic()
+            if await request.is_disconnected():
+                close_reason = "client_disconnect"
+                logger.info("[backup-sse] Cliente desconectado | user=%s channel=%s", session.user_id, channel)
+                break
+
             if now - started_at >= BACKUP_SSE_MAX_CONNECTION_SEC:
+                close_reason = "server_recycle"
+                event_count += 1
+                sse_log(
+                    logger,
+                    "sse.recycle",
+                    connection_id=connection_id,
+                    endpoint=endpoint,
+                    channel=channel,
+                    record_id=None,
+                    transaction_id=None,
+                    user_id=session.user_id,
+                    visitor_session_id=None,
+                    duration_ms=sse_duration_ms(started_at),
+                    close_reason=close_reason,
+                    event_count=event_count,
+                )
                 yield _backup_sse_event("keepalive", {"reason": "connection_recycle"})
                 break
 
             if now - last_ping_at >= BACKUP_SSE_KEEPALIVE_SEC:
+                event_count += 1
                 yield _backup_sse_event("keepalive", {})
                 last_ping_at = now
 
@@ -103,6 +194,7 @@ async def stream_system_backup_events(session: UserSession) -> AsyncGenerator[st
                 await asyncio.sleep(0.1)
                 continue
 
+            event_count += 1
             yield _backup_sse_event(event_data.get("event", "backup_update"), event_data)
             logger.info(
                 "[backup-sse] Evento enviado | event=%s status=%s scope=%s user=%s",
@@ -112,10 +204,57 @@ async def stream_system_backup_events(session: UserSession) -> AsyncGenerator[st
                 session.user_id,
             )
             await asyncio.sleep(0.1)
+    except Exception as exc:
+        close_reason = "exception"
+        sse_log(
+            logger,
+            "sse.exception",
+            level="exception",
+            connection_id=connection_id,
+            endpoint=endpoint,
+            channel=channel,
+            record_id=None,
+            transaction_id=None,
+            user_id=session.user_id,
+            visitor_session_id=None,
+            duration_ms=sse_duration_ms(started_at),
+            close_reason=close_reason,
+            event_count=event_count,
+            error_type=type(exc).__name__,
+        )
+        raise
     finally:
         try:
             await pubsub.unsubscribe(channel)
+            sse_log(
+                logger,
+                "sse.redis.unsubscribe",
+                connection_id=connection_id,
+                endpoint=endpoint,
+                channel=channel,
+                record_id=None,
+                transaction_id=None,
+                user_id=session.user_id,
+                visitor_session_id=None,
+                duration_ms=sse_duration_ms(started_at),
+                close_reason=close_reason,
+                event_count=event_count,
+            )
             await pubsub.close()
         except Exception:
             pass
-        logger.info("[backup-sse] Stream cerrado | user=%s channel=%s", session.user_id, channel)
+        sse_log(
+            logger,
+            "sse.close",
+            connection_id=connection_id,
+            endpoint=endpoint,
+            channel=channel,
+            record_id=None,
+            transaction_id=None,
+            user_id=session.user_id,
+            visitor_session_id=None,
+            duration_ms=sse_duration_ms(started_at),
+            close_reason=close_reason,
+            event_count=event_count,
+        )
+        logger.info("[backup-sse] Cleanup ejecutado y stream cerrado | user=%s channel=%s", session.user_id, channel)

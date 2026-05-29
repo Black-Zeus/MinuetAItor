@@ -79,7 +79,7 @@ RECORD_STATUS_LLM_FAILED = "llm-failed"
 RECORD_STATUS_PROC_ERROR = "processing-error"
 VERSION_STATUS_SNAPSHOT  = "snapshot"
 
-PUBSUB_CHANNEL        = settings.pubsub_minutes_channel if hasattr(settings, "pubsub_minutes_channel") else "events:minutes"
+PUBSUB_CHANNEL_PREFIX = settings.pubsub_minutes_channel if hasattr(settings, "pubsub_minutes_channel") else "events:minutes"
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -705,7 +705,7 @@ async def _publish_event(
         }
         if error:
             payload["error"] = error[:500]
-        await redis.publish(PUBSUB_CHANNEL, json.dumps(payload))
+        await redis.publish(f"{PUBSUB_CHANNEL_PREFIX}:{tx_id}", json.dumps(payload))
         logger.info("Evento SSE publicado | event=%s tx=%s", event, tx_id)
     except Exception as e:
         logger.error("Error publicando evento SSE (ignorado) | tx=%s: %s", tx_id, e)

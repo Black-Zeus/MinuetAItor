@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from starlette.requests import Request
 
 from core.datetime_utils import utc_now, utc_now_db
+from core.exceptions import UnauthorizedException
 from core.rate_limit import enforce_rate_limit, rate_limit_key
 from core.security import create_access_token, decode_access_token
 from db.minio_client import get_minio_client
@@ -48,6 +49,7 @@ from services.email_queue import queue_templated_email
 from services.email_branding_service import build_email_branding_bundle
 from services.minutes_service import get_minute_detail, get_minute_versions
 from services.notification_service import enqueue_minute_guest_observation_email
+from services.sse_instrumentation import new_sse_connection_id, sse_duration_ms, sse_log
 from utils.device import get_device_string
 from utils.network import get_client_ip
 
@@ -461,18 +463,73 @@ async def stream_minute_view_events(
     *,
     token: str,
     record_id: str,
+    request: Request,
 ):
+    connection_id = new_sse_connection_id()
+    endpoint = "minutes_public_events"
+    started_at = time.monotonic()
+    event_count = 0
+    close_reason = "unknown"
+    session_id = None
+    channel = None
+    sse_log(
+        logger,
+        "sse.open",
+        connection_id=connection_id,
+        endpoint=endpoint,
+        channel=channel,
+        record_id=record_id,
+        transaction_id=None,
+        user_id=None,
+        visitor_session_id=session_id,
+        duration_ms=None,
+        close_reason=None,
+        event_count=event_count,
+    )
     db = SessionLocal()
     try:
         try:
             session = await get_current_visitor_session(token, record_id, db)
-        except HTTPException as exc:
+        except (HTTPException, UnauthorizedException) as exc:
+            message = getattr(exc, "detail", None) or getattr(exc, "message", None)
+            status_code = getattr(exc, "status_code", 401)
+            close_reason = "visitor_session_invalid"
+            event_count += 1
+            sse_log(
+                logger,
+                "sse.terminal",
+                connection_id=connection_id,
+                endpoint=endpoint,
+                channel=channel,
+                record_id=record_id,
+                transaction_id=None,
+                user_id=None,
+                visitor_session_id=session_id,
+                duration_ms=sse_duration_ms(started_at),
+                close_reason=close_reason,
+                event_count=event_count,
+                terminal_event="session_expired",
+            )
             yield _minute_view_sse_event(
                 "session_expired",
                 {
-                    "message": str(exc.detail or "La sesión visitante ya no está disponible."),
-                    "status": exc.status_code,
+                    "message": str(message or "La sesión visitante ya no está disponible."),
+                    "status": status_code,
                 },
+            )
+            sse_log(
+                logger,
+                "sse.close",
+                connection_id=connection_id,
+                endpoint=endpoint,
+                channel=channel,
+                record_id=record_id,
+                transaction_id=None,
+                user_id=None,
+                visitor_session_id=session_id,
+                duration_ms=sse_duration_ms(started_at),
+                close_reason=close_reason,
+                event_count=event_count,
             )
             return
         session_id = str(session.id)
@@ -485,6 +542,23 @@ async def stream_minute_view_events(
     try:
         await asyncio.wait_for(pubsub.subscribe(channel), timeout=2.0)
     except (asyncio.TimeoutError, RedisError) as exc:
+        close_reason = "redis_subscribe_error"
+        sse_log(
+            logger,
+            "sse.exception",
+            level="warning",
+            connection_id=connection_id,
+            endpoint=endpoint,
+            channel=channel,
+            record_id=record_id,
+            transaction_id=None,
+            user_id=None,
+            visitor_session_id=session_id,
+            duration_ms=sse_duration_ms(started_at),
+            close_reason=close_reason,
+            event_count=event_count,
+            error_type=type(exc).__name__,
+        )
         logger.warning(
             "[minute-view-sse] No fue posible suscribir a Redis | session=%s record=%s channel=%s err=%s",
             session_id,
@@ -492,24 +566,78 @@ async def stream_minute_view_events(
             channel,
             exc,
         )
+        event_count += 1
         yield _minute_view_sse_event(
             "error",
             {"message": "No fue posible abrir el canal de actualizaciones. Reintenta en unos segundos."},
         )
+        try:
+            await pubsub.close()
+        except Exception:
+            pass
+        sse_log(
+            logger,
+            "sse.close",
+            connection_id=connection_id,
+            endpoint=endpoint,
+            channel=channel,
+            record_id=record_id,
+            transaction_id=None,
+            user_id=None,
+            visitor_session_id=session_id,
+            duration_ms=sse_duration_ms(started_at),
+            close_reason=close_reason,
+            event_count=event_count,
+        )
         return
+    sse_log(
+        logger,
+        "sse.redis.subscribe",
+        connection_id=connection_id,
+        endpoint=endpoint,
+        channel=channel,
+        record_id=record_id,
+        transaction_id=None,
+        user_id=None,
+        visitor_session_id=session_id,
+        duration_ms=sse_duration_ms(started_at),
+        close_reason=None,
+        event_count=event_count,
+    )
     logger.info("[minute-view-sse] Suscrito | session=%s record=%s channel=%s", session_id, record_id, channel)
 
     try:
-        started_at = time.monotonic()
         last_ping_at = started_at
 
         while True:
             now = time.monotonic()
+            if await request.is_disconnected():
+                close_reason = "client_disconnect"
+                logger.info("[minute-view-sse] Cliente desconectado | session=%s record=%s channel=%s", session_id, record_id, channel)
+                break
+
             if now - started_at >= VISITOR_SSE_MAX_CONNECTION_SEC:
+                close_reason = "server_recycle"
+                event_count += 1
+                sse_log(
+                    logger,
+                    "sse.recycle",
+                    connection_id=connection_id,
+                    endpoint=endpoint,
+                    channel=channel,
+                    record_id=record_id,
+                    transaction_id=None,
+                    user_id=None,
+                    visitor_session_id=session_id,
+                    duration_ms=sse_duration_ms(started_at),
+                    close_reason=close_reason,
+                    event_count=event_count,
+                )
                 yield _minute_view_sse_event("keepalive", {"reason": "connection_recycle"})
                 break
 
             if now - last_ping_at >= VISITOR_SSE_KEEPALIVE_SEC:
+                event_count += 1
                 yield _minute_view_sse_event("keepalive", {})
                 last_ping_at = now
 
@@ -521,7 +649,25 @@ async def stream_minute_view_events(
             except asyncio.TimeoutError:
                 continue
             except RedisError as exc:
+                close_reason = "redis_read_error"
+                sse_log(
+                    logger,
+                    "sse.exception",
+                    level="warning",
+                    connection_id=connection_id,
+                    endpoint=endpoint,
+                    channel=channel,
+                    record_id=record_id,
+                    transaction_id=None,
+                    user_id=None,
+                    visitor_session_id=session_id,
+                    duration_ms=sse_duration_ms(started_at),
+                    close_reason=close_reason,
+                    event_count=event_count,
+                    error_type=type(exc).__name__,
+                )
                 logger.warning("[minute-view-sse] Redis interrumpió el stream | session=%s record=%s err=%s", session_id, record_id, exc)
+                event_count += 1
                 yield _minute_view_sse_event(
                     "error",
                     {"message": "Se perdió el canal de actualizaciones. Reintenta en unos segundos."},
@@ -542,28 +688,113 @@ async def stream_minute_view_events(
                 await asyncio.sleep(0.1)
                 continue
 
+            event_count += 1
             yield _minute_view_sse_event(event_data.get("event", "minute_view_update"), event_data)
             await asyncio.sleep(0.1)
+    except Exception as exc:
+        close_reason = "exception"
+        sse_log(
+            logger,
+            "sse.exception",
+            level="exception",
+            connection_id=connection_id,
+            endpoint=endpoint,
+            channel=channel,
+            record_id=record_id,
+            transaction_id=None,
+            user_id=None,
+            visitor_session_id=session_id,
+            duration_ms=sse_duration_ms(started_at),
+            close_reason=close_reason,
+            event_count=event_count,
+            error_type=type(exc).__name__,
+        )
+        raise
     finally:
         try:
             await pubsub.unsubscribe(channel)
+            sse_log(
+                logger,
+                "sse.redis.unsubscribe",
+                connection_id=connection_id,
+                endpoint=endpoint,
+                channel=channel,
+                record_id=record_id,
+                transaction_id=None,
+                user_id=None,
+                visitor_session_id=session_id,
+                duration_ms=sse_duration_ms(started_at),
+                close_reason=close_reason,
+                event_count=event_count,
+            )
             await pubsub.close()
         except Exception:
             pass
-        logger.info("[minute-view-sse] Stream cerrado | session=%s record=%s channel=%s", session_id, record_id, channel)
+        sse_log(
+            logger,
+            "sse.close",
+            connection_id=connection_id,
+            endpoint=endpoint,
+            channel=channel,
+            record_id=record_id,
+            transaction_id=None,
+            user_id=None,
+            visitor_session_id=session_id,
+            duration_ms=sse_duration_ms(started_at),
+            close_reason=close_reason,
+            event_count=event_count,
+        )
+        logger.info("[minute-view-sse] Cleanup ejecutado y stream cerrado | session=%s record=%s channel=%s", session_id, record_id, channel)
 
 
 async def stream_editor_minute_observation_events(
     *,
     record_id: str,
     session: UserSession,
+    request: Request,
 ):
+    connection_id = new_sse_connection_id()
+    endpoint = "minute_editor_observations_events"
+    started_at = time.monotonic()
+    event_count = 0
+    close_reason = "unknown"
     redis = get_redis()
     pubsub = redis.pubsub()
     channel = _editor_observation_events_channel(record_id)
+    sse_log(
+        logger,
+        "sse.open",
+        connection_id=connection_id,
+        endpoint=endpoint,
+        channel=channel,
+        record_id=record_id,
+        transaction_id=None,
+        user_id=session.user_id,
+        visitor_session_id=None,
+        duration_ms=None,
+        close_reason=None,
+        event_count=event_count,
+    )
     try:
         await asyncio.wait_for(pubsub.subscribe(channel), timeout=2.0)
     except (asyncio.TimeoutError, RedisError) as exc:
+        close_reason = "redis_subscribe_error"
+        sse_log(
+            logger,
+            "sse.exception",
+            level="warning",
+            connection_id=connection_id,
+            endpoint=endpoint,
+            channel=channel,
+            record_id=record_id,
+            transaction_id=None,
+            user_id=session.user_id,
+            visitor_session_id=None,
+            duration_ms=sse_duration_ms(started_at),
+            close_reason=close_reason,
+            event_count=event_count,
+            error_type=type(exc).__name__,
+        )
         logger.warning(
             "[minute-editor-observations-sse] No fue posible suscribir a Redis | user=%s record=%s channel=%s err=%s",
             session.user_id,
@@ -571,24 +802,78 @@ async def stream_editor_minute_observation_events(
             channel,
             exc,
         )
+        event_count += 1
         yield _minute_view_sse_event(
             "error",
             {"message": "No fue posible abrir el canal de observaciones. Reintenta en unos segundos."},
         )
+        try:
+            await pubsub.close()
+        except Exception:
+            pass
+        sse_log(
+            logger,
+            "sse.close",
+            connection_id=connection_id,
+            endpoint=endpoint,
+            channel=channel,
+            record_id=record_id,
+            transaction_id=None,
+            user_id=session.user_id,
+            visitor_session_id=None,
+            duration_ms=sse_duration_ms(started_at),
+            close_reason=close_reason,
+            event_count=event_count,
+        )
         return
+    sse_log(
+        logger,
+        "sse.redis.subscribe",
+        connection_id=connection_id,
+        endpoint=endpoint,
+        channel=channel,
+        record_id=record_id,
+        transaction_id=None,
+        user_id=session.user_id,
+        visitor_session_id=None,
+        duration_ms=sse_duration_ms(started_at),
+        close_reason=None,
+        event_count=event_count,
+    )
     logger.info("[minute-editor-observations-sse] Suscrito | user=%s record=%s channel=%s", session.user_id, record_id, channel)
 
     try:
-        started_at = time.monotonic()
         last_ping_at = started_at
 
         while True:
             now = time.monotonic()
+            if await request.is_disconnected():
+                close_reason = "client_disconnect"
+                logger.info("[minute-editor-observations-sse] Cliente desconectado | user=%s record=%s channel=%s", session.user_id, record_id, channel)
+                break
+
             if now - started_at >= EDITOR_OBSERVATION_SSE_MAX_CONNECTION_SEC:
+                close_reason = "server_recycle"
+                event_count += 1
+                sse_log(
+                    logger,
+                    "sse.recycle",
+                    connection_id=connection_id,
+                    endpoint=endpoint,
+                    channel=channel,
+                    record_id=record_id,
+                    transaction_id=None,
+                    user_id=session.user_id,
+                    visitor_session_id=None,
+                    duration_ms=sse_duration_ms(started_at),
+                    close_reason=close_reason,
+                    event_count=event_count,
+                )
                 yield _minute_view_sse_event("keepalive", {"reason": "connection_recycle"})
                 break
 
             if now - last_ping_at >= EDITOR_OBSERVATION_SSE_KEEPALIVE_SEC:
+                event_count += 1
                 yield _minute_view_sse_event("keepalive", {})
                 last_ping_at = now
 
@@ -600,7 +885,25 @@ async def stream_editor_minute_observation_events(
             except asyncio.TimeoutError:
                 continue
             except RedisError as exc:
+                close_reason = "redis_read_error"
+                sse_log(
+                    logger,
+                    "sse.exception",
+                    level="warning",
+                    connection_id=connection_id,
+                    endpoint=endpoint,
+                    channel=channel,
+                    record_id=record_id,
+                    transaction_id=None,
+                    user_id=session.user_id,
+                    visitor_session_id=None,
+                    duration_ms=sse_duration_ms(started_at),
+                    close_reason=close_reason,
+                    event_count=event_count,
+                    error_type=type(exc).__name__,
+                )
                 logger.warning("[minute-editor-observations-sse] Redis interrumpió el stream | user=%s record=%s err=%s", session.user_id, record_id, exc)
+                event_count += 1
                 yield _minute_view_sse_event(
                     "error",
                     {"message": "Se perdió el canal de observaciones. Reintenta en unos segundos."},
@@ -621,15 +924,63 @@ async def stream_editor_minute_observation_events(
                 await asyncio.sleep(0.1)
                 continue
 
+            event_count += 1
             yield _minute_view_sse_event(event_data.get("event", "observation_updated"), event_data)
             await asyncio.sleep(0.1)
+    except Exception as exc:
+        close_reason = "exception"
+        sse_log(
+            logger,
+            "sse.exception",
+            level="exception",
+            connection_id=connection_id,
+            endpoint=endpoint,
+            channel=channel,
+            record_id=record_id,
+            transaction_id=None,
+            user_id=session.user_id,
+            visitor_session_id=None,
+            duration_ms=sse_duration_ms(started_at),
+            close_reason=close_reason,
+            event_count=event_count,
+            error_type=type(exc).__name__,
+        )
+        raise
     finally:
         try:
             await pubsub.unsubscribe(channel)
+            sse_log(
+                logger,
+                "sse.redis.unsubscribe",
+                connection_id=connection_id,
+                endpoint=endpoint,
+                channel=channel,
+                record_id=record_id,
+                transaction_id=None,
+                user_id=session.user_id,
+                visitor_session_id=None,
+                duration_ms=sse_duration_ms(started_at),
+                close_reason=close_reason,
+                event_count=event_count,
+            )
             await pubsub.close()
         except Exception:
             pass
-        logger.info("[minute-editor-observations-sse] Stream cerrado | user=%s record=%s channel=%s", session.user_id, record_id, channel)
+        sse_log(
+            logger,
+            "sse.close",
+            connection_id=connection_id,
+            endpoint=endpoint,
+            channel=channel,
+            record_id=record_id,
+            transaction_id=None,
+            user_id=session.user_id,
+            visitor_session_id=None,
+            duration_ms=sse_duration_ms(started_at),
+            close_reason=close_reason,
+            event_count=event_count,
+        )
+        logger.info("[minute-editor-observations-sse] Cleanup ejecutado y stream cerrado | user=%s record=%s channel=%s", session.user_id, record_id, channel)
 
 
 def _build_observation_groups(
