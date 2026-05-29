@@ -26,7 +26,7 @@ export const useAuthSessionSSE = () => {
 
   useEffect(() => {
     if (sourceRef.current) {
-      sourceRef.current.close();
+      sourceRef.current.close("effect_recreate");
       sourceRef.current = null;
     }
 
@@ -72,7 +72,7 @@ export const useAuthSessionSSE = () => {
     };
 
     return () => {
-      source.close();
+      source.close("unmount");
       if (sourceRef.current === source) {
         sourceRef.current = null;
       }

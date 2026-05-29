@@ -87,7 +87,7 @@ export const useSystemMaintenanceSSE = () => {
 
   useEffect(() => {
     if (sourceRef.current) {
-      sourceRef.current.close();
+      sourceRef.current.close("effect_recreate");
       sourceRef.current = null;
     }
 
@@ -125,7 +125,7 @@ export const useSystemMaintenanceSSE = () => {
     source.addEventListener("maintenance_update", handleUpdate);
     source.addEventListener("keepalive", () => {});
     return () => {
-      source.close();
+      source.close("unmount");
       dispatchConnectionState(false);
       if (sourceRef.current === source) {
         sourceRef.current = null;

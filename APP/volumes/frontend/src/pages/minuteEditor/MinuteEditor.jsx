@@ -11,7 +11,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import useMinuteEditorStore from "@store/minuteEditorStore";
 import useAuthStore from "@/store/authStore";
 import { getMinuteDetail, listMinuteObservations } from "@/services/minutesService";
-import { toastInfo } from "@/components/common/toast/toastHelpers";
+import { toastInfo, toastWarn } from "@/components/common/toast/toastHelpers";
 import { createAuthorizedEventStream } from "@/utils/authorizedEventStream";
 
 import MinuteEditorHeader      from "./MinuteEditorHeader";
@@ -227,15 +227,14 @@ const MinuteEditor = () => {
   }, [recordId]);
 
   useEffect(() => {
-    observationSourceRef.current?.close();
+    observationSourceRef.current?.close("effect_recreate");
     observationSourceRef.current = null;
 
     if (!recordId || !accessToken) return undefined;
 
     const source = createAuthorizedEventStream(
       `/api/v1/minutes/${recordId}/observations/events`,
-      accessToken,
-      { reconnectMs: 3000 }
+      accessToken
     );
     observationSourceRef.current = source;
 
@@ -259,6 +258,35 @@ const MinuteEditor = () => {
           detail: payload,
         })
       );
+    };
+
+    const reconcileEditorRecord = async () => {
+      try {
+        await getMinuteDetail(recordId);
+        await refreshObservations();
+      } catch {
+        source.close("record_unavailable");
+        if (observationSourceRef.current === source) {
+          observationSourceRef.current = null;
+        }
+        toastWarn("Minuta no disponible", "La minuta ya no está disponible. Volverás al listado.", {
+          autoClose: 7000,
+          toastId: `minute-editor-record-unavailable:${recordId}`,
+        });
+        navigate("/minutes", { replace: true });
+      }
+    };
+
+    const handleRecordUnavailable = () => {
+      source.close("terminal_record_unavailable");
+      if (observationSourceRef.current === source) {
+        observationSourceRef.current = null;
+      }
+      toastWarn("Minuta no disponible", "La minuta ya no está disponible. Volverás al listado.", {
+        autoClose: 7000,
+        toastId: `minute-editor-record-terminal:${recordId}`,
+      });
+      navigate("/minutes", { replace: true });
     };
 
     const onObservationCreated = (event) => {
@@ -289,14 +317,22 @@ const MinuteEditor = () => {
     source.addEventListener("observation_updated", onObservationChanged);
     source.addEventListener("observation_deleted", onObservationChanged);
     source.addEventListener("observation_resolved", onObservationResolved);
+    source.addEventListener("not_found", handleRecordUnavailable);
+    source.addEventListener("invalid_request", handleRecordUnavailable);
+    source.addEventListener("forbidden", handleRecordUnavailable);
     source.addEventListener("keepalive", () => {});
+    source.onreconnected = reconcileEditorRecord;
+    source.onmaxretries = handleRecordUnavailable;
 
     return () => {
       source.removeEventListener("observation_created", onObservationCreated);
       source.removeEventListener("observation_updated", onObservationChanged);
       source.removeEventListener("observation_deleted", onObservationChanged);
       source.removeEventListener("observation_resolved", onObservationResolved);
-      source.close();
+      source.removeEventListener("not_found", handleRecordUnavailable);
+      source.removeEventListener("invalid_request", handleRecordUnavailable);
+      source.removeEventListener("forbidden", handleRecordUnavailable);
+      source.close("unmount");
       if (observationSourceRef.current === source) {
         observationSourceRef.current = null;
       }
