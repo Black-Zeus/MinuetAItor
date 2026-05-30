@@ -51,11 +51,11 @@ const Header = ({
   const userMenuItems = [
     ...(isOperationLocked ? [] : [
       { label: 'Mi Perfil',      icon: 'FaPerson',      onClick: () => navigate('/settings/userProfile') },
+      { label: 'Preferencias',   icon: 'FaSliders',     onClick: () => navigate('/settings/userProfile?tab=customization') },
+      { label: 'Seguridad',      icon: 'FaUserShield',  onClick: () => navigate('/settings/userProfile?tab=security') },
+      { label: 'Sesiones',       icon: 'FaClockRotateLeft', onClick: () => navigate('/settings/userProfile?tab=sessions') },
     ]),
     { label: 'Configuración',  icon: 'FaGear',        onClick: () => navigate('/settings/system?tab=maintenance') },
-    ...(isOperationLocked ? [] : [
-      { label: 'Ayuda & Soporte',icon: 'FaCircleInfo',  onClick: () => navigate('/help') },
-    ]),
   ];
 
   const userName     = userDisplay?.fullName  || userDisplay?.username || 'Usuario';
