@@ -448,8 +448,11 @@ const UserProfileCustomization = () => {
     setSyncMessage("Tienes cambios sin guardar.");
   };
 
-  useEffect(() => () => {
-    isMountedRef.current = false;
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
   }, []);
 
   const handleThemeChange = (value) => {
