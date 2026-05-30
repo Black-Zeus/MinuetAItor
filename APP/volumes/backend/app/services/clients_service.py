@@ -10,8 +10,9 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from core.datetime_utils import utc_now_db
-from core.exceptions import ForbiddenException
+from core.exceptions import ConflictException, ForbiddenException
 from models.clients import Client
+from models.projects import Project
 from schemas.clients import ClientCreateRequest, ClientFilterRequest, ClientUpdateRequest
 from schemas.auth import UserSession
 from services.access_control_service import (
@@ -293,6 +294,15 @@ def delete_client(db: Session, client_id: str, deleted_by_id: str, session: User
         raise ForbiddenException("No tienes permisos para eliminar clientes")
 
     obj = _get_or_404(db, client_id)
+    has_projects = (
+        db.query(Project.id)
+        .filter(Project.client_id == client_id, Project.deleted_at.is_(None))
+        .first()
+        is not None
+    )
+    if has_projects:
+        raise ConflictException("No se puede eliminar el cliente porque posee proyectos asociados.")
+
     obj.deleted_at = utc_now_db()
     obj.deleted_by = deleted_by_id
     obj.is_active  = False

@@ -11,6 +11,7 @@ import ClientModal, { CLIENT_MODAL_MODES } from './ClientModal';
 import ActionButton from '@/components/ui/button/ActionButton';
 import clientService from '@/services/clientService';
 import useSessionStore from '@/store/sessionStore';
+import { parseError } from '@/utils/errors';
 
 import logger from '@/utils/logger';
 const clientLog = logger.scope("client");
@@ -147,6 +148,11 @@ const ClientCard = ({ id, summary = null, onUpdated, onDeleted }) => {
       }
     } catch (err) {
       clientLog.log('[ClientCard] Eliminación cancelada o fallida', err);
+      const parsed = parseError(err);
+      ModalManager.warning({
+        title: "No se pudo eliminar el cliente",
+        message: parsed.message || "La operación no pudo completarse.",
+      });
     }
   };
 

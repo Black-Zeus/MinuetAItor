@@ -31,7 +31,8 @@ export const unwrapResponse = (responseData) => responseData?.result ?? response
  */
 export const extractErrorMessage = (data, fallback = 'Error desconocido') => {
   if (!data) return fallback;
-  // error.description es el mensaje técnico del gateway
+  // error.message es el campo real del contrato; description queda como compatibilidad.
+  if (data.error?.message)     return data.error.message;
   if (data.error?.description) return data.error.description;
   // result.detail viene de FastAPI (HTTPException)
   if (data.result?.detail)     return data.result.detail;

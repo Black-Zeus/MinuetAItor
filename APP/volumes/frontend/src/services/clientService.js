@@ -127,7 +127,9 @@ export const clientService = {
    */
   async softDelete(id) {
     if (!id) throw new Error("clientService.softDelete: id es requerido");
-    const res = await axiosInstance.delete(`${BASE}/${encodeURIComponent(id)}`);
+    const res = await axiosInstance.delete(`${BASE}/${encodeURIComponent(id)}`, {
+      skipGlobalErrorToast: true,
+    });
     return unwrap(res);
   },
 };
