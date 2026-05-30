@@ -51,10 +51,7 @@ class Settings(BaseSettings):
     geo_block_enabled: bool = True 
     geo_allowed_countries: list[str] = ["CL"]
 
-    # IA legacy / compatibilidad mínima.
-    # Solo mantenemos OPENAI_API_KEY por helpers antiguos y OPENAI_SYSTEM_PROMPT
-    # para el pipeline actual de minutas.
-    openai_api_key: str = ""
+    # IA runtime / prompt activo para el pipeline actual de minutas.
     openai_system_prompt: str = "system_prompt_v08.txt"
     prompt_path_base: str = "/app/assets/prompts"
     ai_provider_catalog_path: str = "/app/assets/config/ai_provider_catalog.json"
