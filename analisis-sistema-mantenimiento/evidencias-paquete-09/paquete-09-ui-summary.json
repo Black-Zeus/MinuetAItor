@@ -1,0 +1,179 @@
+{
+  "login": {
+    "ok": true,
+    "expiresAt": "2026-05-30T04:11:23.386Z"
+  },
+  "before": {
+    "title": "Acceso Denegado",
+    "url": "http://minuetaitor.vsoto.cl/settings/system?tab=maintenance",
+    "text": "403\n403\nAcceso Denegado\n\nNo tienes los permisos necesarios para acceder a esta página. Contacta al administrador si crees que esto es un error.\n\n🔒\nPanel Principal\nCambiar Usuario\nPáginas Disponibles\nDashboard\nMi Perfil\nSolicitar Acceso\n\nSi crees que deberías tener acceso a esta página, contacta al administrador del sistema",
+    "buttons": [
+      {
+        "i": 0,
+        "text": "Panel Principal",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "i": 1,
+        "text": "Cambiar Usuario",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "i": 2,
+        "text": "Solicitar Acceso",
+        "disabled": false,
+        "aria": null
+      }
+    ]
+  },
+  "click": {
+    "clicked": false,
+    "buttons": [
+      "Panel Principal",
+      "Cambiar Usuario",
+      "Solicitar Acceso"
+    ]
+  },
+  "after": {
+    "url": "http://minuetaitor.vsoto.cl/settings/system?tab=maintenance",
+    "text": "403\n403\nAcceso Denegado\n\nNo tienes los permisos necesarios para acceder a esta página. Contacta al administrador si crees que esto es un error.\n\n🔒\nPanel Principal\nCambiar Usuario\nPáginas Disponibles\nDashboard\nMi Perfil\nSolicitar Acceso\n\nSi crees que deberías tener acceso a esta página, contacta al administrador del sistema",
+    "buttons": [
+      {
+        "i": 0,
+        "text": "Panel Principal",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "i": 1,
+        "text": "Cambiar Usuario",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "i": 2,
+        "text": "Solicitar Acceso",
+        "disabled": false,
+        "aria": null
+      }
+    ]
+  },
+  "network": [
+    {
+      "url": "http://minuetaitor.vsoto.cl/js/authService-C8nsmkaq.js",
+      "status": 200,
+      "mimeType": "text/javascript",
+      "headers": {
+        "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'",
+        "Cache-Control": "no-cache",
+        "Content-Encoding": "gzip",
+        "ETag": "W/\"6785-1780082506000\"",
+        "Referrer-Policy": "strict-origin-when-cross-origin",
+        "X-Content-Type-Options": "nosniff",
+        "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+        "Date": "Sat, 30 May 2026 03:11:20 GMT",
+        "Content-Type": "text/javascript",
+        "Vary": "Origin",
+        "Server": "nginx/1.25.5",
+        "Last-Modified": "Fri, 29 May 2026 19:21:46 GMT",
+        "X-Frame-Options": "DENY"
+      }
+    },
+    {
+      "url": "http://minuetaitor.vsoto.cl/api/v1/system/maintenance/operation-state/public",
+      "status": 200,
+      "mimeType": "application/json",
+      "headers": {
+        "strict-transport-security": "max-age=31536000; includeSubDomains, max-age=31536000; includeSubDomains",
+        "Connection": "keep-alive",
+        "referrer-policy": "strict-origin-when-cross-origin, strict-origin-when-cross-origin",
+        "x-content-type-options": "nosniff, nosniff",
+        "permissions-policy": "camera=(), microphone=(), geolocation=(), camera=(), microphone=(), geolocation=()",
+        "Content-Length": "543",
+        "Date": "Sat, 30 May 2026 03:11:20 GMT",
+        "Content-Type": "application/json",
+        "Server": "nginx/1.25.5",
+        "x-frame-options": "DENY, DENY"
+      }
+    },
+    {
+      "url": "http://minuetaitor.vsoto.cl/api/v1/auth/access-request/status",
+      "status": 200,
+      "mimeType": "application/json",
+      "headers": {
+        "strict-transport-security": "max-age=31536000; includeSubDomains, max-age=31536000; includeSubDomains",
+        "Connection": "keep-alive",
+        "referrer-policy": "strict-origin-when-cross-origin, strict-origin-when-cross-origin",
+        "x-content-type-options": "nosniff, nosniff",
+        "permissions-policy": "camera=(), microphone=(), geolocation=(), camera=(), microphone=(), geolocation=()",
+        "Content-Length": "250",
+        "Date": "Sat, 30 May 2026 03:11:20 GMT",
+        "Content-Type": "application/json",
+        "Server": "nginx/1.25.5",
+        "x-frame-options": "DENY, DENY"
+      }
+    },
+    {
+      "url": "http://minuetaitor.vsoto.cl/api/v1/auth/login",
+      "status": 200,
+      "mimeType": "application/json",
+      "headers": {
+        "strict-transport-security": "max-age=31536000; includeSubDomains, max-age=31536000; includeSubDomains",
+        "Connection": "keep-alive",
+        "referrer-policy": "strict-origin-when-cross-origin, strict-origin-when-cross-origin",
+        "x-content-type-options": "nosniff, nosniff",
+        "permissions-policy": "camera=(), microphone=(), geolocation=(), camera=(), microphone=(), geolocation=()",
+        "Content-Length": "836",
+        "x-system-maintenance": "commissioning",
+        "Date": "Sat, 30 May 2026 03:11:23 GMT",
+        "Content-Type": "application/json",
+        "Server": "nginx/1.25.5",
+        "x-frame-options": "DENY, DENY"
+      }
+    },
+    {
+      "url": "http://minuetaitor.vsoto.cl/api/v1/auth/session-events",
+      "status": 200,
+      "mimeType": "text/event-stream",
+      "headers": {
+        "Transfer-Encoding": "chunked",
+        "strict-transport-security": "max-age=31536000; includeSubDomains, max-age=31536000; includeSubDomains",
+        "cache-control": "no-cache",
+        "Connection": "keep-alive",
+        "x-content-type-options": "nosniff, nosniff",
+        "referrer-policy": "strict-origin-when-cross-origin, strict-origin-when-cross-origin",
+        "permissions-policy": "camera=(), microphone=(), geolocation=(), camera=(), microphone=(), geolocation=()",
+        "access-control-allow-origin": "*",
+        "Date": "Sat, 30 May 2026 03:11:23 GMT",
+        "Content-Type": "text/event-stream; charset=utf-8",
+        "Server": "nginx/1.25.5",
+        "x-frame-options": "DENY, DENY"
+      }
+    },
+    {
+      "url": "http://minuetaitor.vsoto.cl/api/v1/notifications/events",
+      "status": 200,
+      "mimeType": "text/event-stream",
+      "headers": {
+        "Transfer-Encoding": "chunked",
+        "strict-transport-security": "max-age=31536000; includeSubDomains, max-age=31536000; includeSubDomains",
+        "cache-control": "no-cache",
+        "Connection": "keep-alive",
+        "x-content-type-options": "nosniff, nosniff",
+        "referrer-policy": "strict-origin-when-cross-origin, strict-origin-when-cross-origin",
+        "permissions-policy": "camera=(), microphone=(), geolocation=(), camera=(), microphone=(), geolocation=()",
+        "access-control-allow-origin": "*",
+        "Date": "Sat, 30 May 2026 03:11:23 GMT",
+        "Content-Type": "text/event-stream; charset=utf-8",
+        "Server": "nginx/1.25.5",
+        "x-frame-options": "DENY, DENY"
+      }
+    }
+  ],
+  "failures": [],
+  "consoleEvents": [],
+  "eventCount": 144
+}
