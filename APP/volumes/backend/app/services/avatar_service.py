@@ -12,13 +12,15 @@ from db.minio_client import get_minio_client
 from models.buckets import Bucket
 from models.objects import Object
 from models.user import User
-from services.upload_validation import validate_uploaded_image
+from services.upload_validation import build_image_derivative, sanitize_uploaded_image_content
 
 AVATAR_BUCKET = "minuetaitor-attach"
 AVATAR_PREFIX = "avatars"
 AVATAR_BUCKET_CODE = "attachments_container"
 MAX_AVATAR_BYTES = 2 * 1024 * 1024
 ALLOWED_AVATAR_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+AVATAR_FULL_SIZE = (512, 512)
+AVATAR_THUMB_SIZE = (128, 128)
 
 def build_avatar_key(user_id: str, object_id: str, file_ext: str) -> str:
     return f"{AVATAR_PREFIX}/{user_id}/{object_id}.{file_ext}"
@@ -26,7 +28,7 @@ def build_avatar_key(user_id: str, object_id: str, file_ext: str) -> str:
 
 def build_avatar_url(user_id: str, object_id: str | None = None) -> str:
     version = object_id or "current"
-    return f"/api/v1/auth/users/{user_id}/avatar?v={version}"
+    return f"/api/v1/auth/users/{user_id}/avatar?size=thumb&v={version}"
 
 
 def get_avatar_url_if_exists(user: User) -> str | None:
@@ -74,12 +76,16 @@ async def save_user_avatar(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="El archivo esta vacio.")
     if len(content) > MAX_AVATAR_BYTES:
         raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="El avatar supera 2 MB.")
-    content_type, file_ext = validate_uploaded_image(
+    content, content_type, file_ext = sanitize_uploaded_image_content(
         content=content,
         declared_content_type=file.content_type,
         allowed_types=ALLOWED_AVATAR_TYPES,
         label="avatar",
+        max_size=AVATAR_FULL_SIZE,
+        square=True,
     )
+    if len(content) > MAX_AVATAR_BYTES:
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="El avatar sanitizado supera 2 MB.")
 
     user = _get_user_with_avatar(db, user_id)
     object_id = str(uuid.uuid4())
@@ -152,7 +158,7 @@ def remove_user_avatar(db: Session, user_id: str, *, actor_user_id: str | None) 
     db.refresh(user)
 
 
-def read_user_avatar(db: Session, user_id: str) -> tuple[bytes, str]:
+def read_user_avatar(db: Session, user_id: str, *, size: str = "thumb") -> tuple[bytes, str]:
     user = _get_user_with_avatar(db, user_id)
     avatar_object = getattr(user, "avatar_object", None)
     if not avatar_object or getattr(avatar_object, "deleted_at", None):
@@ -163,7 +169,16 @@ def read_user_avatar(db: Session, user_id: str) -> tuple[bytes, str]:
         stat = minio.stat_object(AVATAR_BUCKET, avatar_object.object_key)
         response = minio.get_object(AVATAR_BUCKET, avatar_object.object_key)
         try:
-            return response.read(), stat.content_type or "application/octet-stream"
+            content = response.read()
+            content_type = stat.content_type or "application/octet-stream"
+            if str(size or "thumb").lower() == "full":
+                return content, content_type
+            return build_image_derivative(
+                content,
+                size=AVATAR_THUMB_SIZE,
+                content_type=content_type,
+                square=True,
+            )
         finally:
             response.close()
             response.release_conn()

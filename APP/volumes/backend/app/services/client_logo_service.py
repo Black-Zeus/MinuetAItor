@@ -13,7 +13,7 @@ from db.minio_client import get_minio_client
 from models.buckets import Bucket
 from models.clients import Client
 from models.objects import Object
-from services.upload_validation import validate_uploaded_image
+from services.upload_validation import sanitize_uploaded_image_content
 
 CLIENT_LOGO_BUCKET = "minuetaitor-attach"
 CLIENT_LOGO_PREFIX = "client-logos"
@@ -66,12 +66,15 @@ async def save_client_logo(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="El archivo esta vacio.")
     if len(content) > MAX_CLIENT_LOGO_BYTES:
         raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="El logo supera 2 MB.")
-    content_type, file_ext = validate_uploaded_image(
+    content, content_type, file_ext = sanitize_uploaded_image_content(
         content=content,
         declared_content_type=file.content_type,
         allowed_types=ALLOWED_CLIENT_LOGO_TYPES,
         label="logo",
+        max_size=(512, 512),
     )
+    if len(content) > MAX_CLIENT_LOGO_BYTES:
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="El logo sanitizado supera 2 MB.")
 
     object_id = str(uuid.uuid4())
     object_key = build_client_logo_key(str(client.id), object_id, file_ext)

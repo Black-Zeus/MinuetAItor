@@ -12,7 +12,7 @@ from db.minio_client import get_minio_client
 from models.buckets import Bucket
 from models.objects import Object
 from models.projects import Project
-from services.upload_validation import validate_uploaded_image
+from services.upload_validation import sanitize_uploaded_image_content
 
 PROJECT_LOGO_BUCKET = "minuetaitor-attach"
 PROJECT_LOGO_PREFIX = "project-logos"
@@ -64,12 +64,15 @@ async def save_project_logo(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="El archivo esta vacio.")
     if len(content) > MAX_PROJECT_LOGO_BYTES:
         raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="El logo supera 2 MB.")
-    content_type, file_ext = validate_uploaded_image(
+    content, content_type, file_ext = sanitize_uploaded_image_content(
         content=content,
         declared_content_type=file.content_type,
         allowed_types=ALLOWED_PROJECT_LOGO_TYPES,
         label="logo",
+        max_size=(512, 512),
     )
+    if len(content) > MAX_PROJECT_LOGO_BYTES:
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="El logo sanitizado supera 2 MB.")
 
     object_id = str(uuid.uuid4())
     object_key = build_project_logo_key(str(project.id), object_id, file_ext)

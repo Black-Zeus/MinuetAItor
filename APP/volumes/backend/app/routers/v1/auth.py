@@ -189,8 +189,8 @@ async def delete_my_avatar_endpoint(
 
 
 @router.get("/users/{user_id}/avatar", status_code=status.HTTP_200_OK)
-def user_avatar_endpoint(user_id: str, db: Session = Depends(get_db)):
-    content, content_type = read_user_avatar(db, user_id)
+def user_avatar_endpoint(user_id: str, size: str = "thumb", db: Session = Depends(get_db)):
+    content, content_type = read_user_avatar(db, user_id, size=size)
     return Response(
         content=content,
         media_type=content_type,

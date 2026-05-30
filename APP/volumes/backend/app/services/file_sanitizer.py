@@ -62,6 +62,22 @@ def verify_utf8_for_text(content: bytes, mime_type: str, filename: str) -> None:
             )
 
 
+def sanitize_text_content(content: bytes, mime_type: str) -> bytes:
+    """Normaliza texto UTF-8 y elimina controles no imprimibles peligrosos."""
+    text_mimes = {"text/plain", "text/html", "text/csv", "application/json"}
+    if mime_type not in text_mimes:
+        return content
+
+    text = content.decode("utf-8-sig")
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    cleaned = "".join(
+        char
+        for char in text
+        if char in {"\n", "\t"} or ord(char) >= 32
+    )
+    return cleaned.encode("utf-8")
+
+
 def verify_content_signature(content: bytes, mime_type: str, filename: str) -> None:
     """Comprueba firmas minimas para formatos binarios aceptados."""
     if mime_type == "application/pdf" and not content.startswith(b"%PDF-"):
@@ -100,7 +116,7 @@ def sanitize_file(
     ORIGINAL sin ninguna modificación.
     
     Raises FileSanitizationError si algo no pasa la validación.
-    Returns el mismo `content` sin cambios.
+    Returns el contenido final validado y normalizado.
     """
     if mime_type not in ALLOWED_MIME_TYPES:
         raise FileSanitizationError(f"Tipo MIME no permitido: {mime_type}")
@@ -111,5 +127,7 @@ def sanitize_file(
     verify_not_binary(content, filename)
     verify_utf8_for_text(content, mime_type, filename)
     
-    logger.info(f"✅ Archivo validado: {filename} ({len(content)} bytes, sha256={expected_sha256[:8]}...)")
-    return content  # SIN MODIFICACIONES
+    sanitized = sanitize_text_content(content, mime_type)
+
+    logger.info(f"Archivo validado: {filename} ({len(sanitized)} bytes)")
+    return sanitized
