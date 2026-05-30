@@ -124,7 +124,7 @@ async def sanitize_upload_file(upload: UploadFile, *, max_bytes: int) -> tuple[b
     sha256 = __import__("hashlib").sha256(raw).hexdigest()
 
     try:
-        sanitize_file(
+        raw = sanitize_file(
             content=raw,
             filename=safe_name,
             mime_type=mime_type,
@@ -140,6 +140,7 @@ async def sanitize_upload_file(upload: UploadFile, *, max_bytes: int) -> tuple[b
             },
         )
 
+    sha256 = __import__("hashlib").sha256(raw).hexdigest()
     return raw, safe_name, mime_type, sha256
 
 
