@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -8,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import HTMLResponse, JSONResponse
+from sqlalchemy import text
 
 from core.config import settings
 from core.middleware import ResponseContractMiddleware, GeoBlockMiddleware, register_exception_handlers
@@ -17,6 +19,16 @@ from db.session import SessionLocal, engine
 from db.redis import close_redis
 
 logger = logging.getLogger(__name__)
+
+_OPERATION_STATE_CACHE_TTL_SEC = 3.0
+_OPERATION_STATE_DB_ERROR_CACHE_TTL_SEC = 1.0
+_OPERATION_STATE_DB_ERROR_LOG_INTERVAL_SEC = 30.0
+_operation_state_cache: dict[str, object] = {
+    "expires_at": 0.0,
+    "marker": None,
+    "source": "empty",
+}
+_last_operation_state_db_error_log_at = 0.0
 
 
 @asynccontextmanager
@@ -119,18 +131,147 @@ def _has_admin_bearer(request: Request) -> bool:
     return "ADMIN" in {str(role or "").upper() for role in payload.get("roles", [])}
 
 
+def _is_request_method_safe(request: Request) -> bool:
+    return request.method.upper() in {"GET", "HEAD", "OPTIONS"}
+
+
+def _is_maintenance_bypass_path(path: str) -> bool:
+    if path in {"/", "/health", "/v1/docs", "/v1/openapi.json", "/v1/redoc"}:
+        return True
+    return (
+        path.startswith("/internal/")
+        or path.startswith("/api/internal/")
+        or path.startswith("/static/")
+        or path.startswith("/assets/")
+        or path.startswith("/favicon")
+    )
+
+
+def _get_operation_state_cache(now: float) -> tuple[bool, dict | None]:
+    if float(_operation_state_cache.get("expires_at") or 0.0) <= now:
+        return False, None
+    marker = _operation_state_cache.get("marker")
+    return True, marker if isinstance(marker, dict) else None
+
+
+def _set_operation_state_cache(marker: dict | None, *, source: str, ttl_sec: float) -> None:
+    _operation_state_cache["expires_at"] = time.monotonic() + max(0.1, ttl_sec)
+    _operation_state_cache["marker"] = marker if isinstance(marker, dict) else None
+    _operation_state_cache["source"] = source
+
+
+def _clear_operation_state_cache() -> None:
+    _operation_state_cache["expires_at"] = 0.0
+    _operation_state_cache["marker"] = None
+    _operation_state_cache["source"] = "cleared"
+
+
+def _log_operation_state_db_error(exc: Exception) -> None:
+    global _last_operation_state_db_error_log_at
+    now = time.monotonic()
+    if now - _last_operation_state_db_error_log_at < _OPERATION_STATE_DB_ERROR_LOG_INTERVAL_SEC:
+        return
+    _last_operation_state_db_error_log_at = now
+    logger.warning("No se pudo leer estado operativo desde DB en middleware: %s", exc)
+
+
+def _read_marker_state(marker_path: Path) -> dict | None:
+    if not marker_path.is_file():
+        return None
+    try:
+        marker = json.loads(marker_path.read_text(encoding="utf-8"))
+        return marker if isinstance(marker, dict) else {}
+    except Exception:
+        return {}
+
+
+def _read_db_operation_state() -> tuple[dict | None, bool]:
+    try:
+        db = SessionLocal()
+        try:
+            row = db.execute(
+                text(
+                    """
+                    SELECT mode, operation_id, operation_type, reason
+                    FROM system_operation_state
+                    WHERE id = 1
+                    LIMIT 1
+                    """
+                )
+            ).mappings().first()
+            return (dict(row) if row else None), False
+        finally:
+            db.close()
+    except Exception as exc:
+        _log_operation_state_db_error(exc)
+        return None, True
+
+
+def _effective_operation_marker(marker_path: Path, *, use_cache: bool = True) -> dict | None:
+    now = time.monotonic()
+    if use_cache:
+        cache_hit, cached_marker = _get_operation_state_cache(now)
+        if cache_hit:
+            return cached_marker
+
+    marker = _read_marker_state(marker_path)
+    db_state, db_error = _read_db_operation_state()
+    db_mode = str((db_state or {}).get("mode") or "normal")
+    marker_mode = str((marker or {}).get("mode") or "")
+
+    if db_mode in {"read_only", "maintenance", "commissioning"}:
+        effective = {
+            "mode": db_mode,
+            "operationId": (db_state or {}).get("operation_id"),
+            "operationType": (db_state or {}).get("operation_type"),
+            "status": "running",
+            "source": "database",
+        }
+        _set_operation_state_cache(effective, source="database", ttl_sec=_OPERATION_STATE_CACHE_TTL_SEC)
+        return effective
+
+    if marker_mode in {"read_only", "maintenance", "commissioning"}:
+        if not db_error:
+            logger.warning(
+                "Divergencia conservadora DB/marker: DB normal pero marker restringido | marker_mode=%s marker_operation_id=%s",
+                marker_mode,
+                (marker or {}).get("operationId"),
+            )
+        effective = {
+            **(marker or {}),
+            "source": "db_unavailable_marker_fallback" if db_error else "marker_file_inconsistent",
+        }
+        _set_operation_state_cache(
+            effective,
+            source=str(effective.get("source") or "marker"),
+            ttl_sec=_OPERATION_STATE_DB_ERROR_CACHE_TTL_SEC if db_error else _OPERATION_STATE_CACHE_TTL_SEC,
+        )
+        return effective
+
+    if db_error:
+        _set_operation_state_cache(None, source="db_unavailable_no_marker", ttl_sec=_OPERATION_STATE_DB_ERROR_CACHE_TTL_SEC)
+    else:
+        _set_operation_state_cache(None, source="normal", ttl_sec=_OPERATION_STATE_CACHE_TTL_SEC)
+    return None
+
+
 @app.middleware("http")
 async def maintenance_marker_read_only_middleware(request: Request, call_next):
     marker_path = Path(settings.maintenance_state_file)
-    is_operation_state_endpoint = request.url.path.startswith("/v1/system/maintenance/operation-state")
+    path = request.url.path
+    is_operation_state_endpoint = path.startswith("/v1/system/maintenance/operation-state")
     is_system_maintenance_endpoint = request.url.path.startswith("/v1/system/maintenance")
     is_system_backups_endpoint = request.url.path.startswith("/v1/system/backups")
     is_login_endpoint = request.url.path == "/v1/auth/login"
-    if marker_path.is_file() and request.method.upper() not in {"GET", "HEAD", "OPTIONS"} and not is_operation_state_endpoint:
-        try:
-            marker = json.loads(marker_path.read_text(encoding="utf-8"))
-        except Exception:
-            marker = {}
+
+    if _is_maintenance_bypass_path(path) or _is_request_method_safe(request) or is_operation_state_endpoint:
+        response = await call_next(request)
+        if is_operation_state_endpoint and request.method.upper() in {"POST", "PUT", "PATCH", "DELETE"}:
+            _clear_operation_state_cache()
+        return response
+
+    marker = _effective_operation_marker(marker_path)
+    if marker:
         operation_type = str(marker.get("operationType") or marker.get("operation_type") or "")
         mode = marker.get("mode") or "maintenance"
         if mode == "read_only" and _is_read_only_safe_request(request):
@@ -171,8 +312,8 @@ async def maintenance_marker_read_only_middleware(request: Request, call_next):
             headers={"Retry-After": "30"},
         )
     response = await call_next(request)
-    if marker_path.is_file():
-        response.headers["X-System-Maintenance"] = "restore"
+    if marker:
+        response.headers["X-System-Maintenance"] = str(marker.get("mode") or "restore")
     return response
 
 

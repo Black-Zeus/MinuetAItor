@@ -9,6 +9,7 @@ from typing import AsyncGenerator
 
 from fastapi import Request
 
+from core.config import settings
 from core.datetime_utils import utc_now
 from db.redis import get_redis
 from schemas.auth import UserSession
@@ -26,11 +27,15 @@ def get_maintenance_events_channel() -> str:
 
 
 def maintenance_sse_headers() -> dict:
-    return {
+    headers = {
         "Cache-Control": "no-cache",
         "X-Accel-Buffering": "no",
-        "Access-Control-Allow-Origin": "*",
     }
+    if settings.env_name == "dev":
+        headers["Access-Control-Allow-Origin"] = "*"
+    elif len(settings.cors_allowed_origins) == 1:
+        headers["Access-Control-Allow-Origin"] = settings.cors_allowed_origins[0]
+    return headers
 
 
 def _maintenance_sse_event(event: str, data: dict) -> str:
