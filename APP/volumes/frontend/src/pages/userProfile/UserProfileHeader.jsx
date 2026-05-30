@@ -1,10 +1,10 @@
 /**
  * UserProfileHeader.jsx
- * Header del perfil: avatar, nombre, badges, último acceso + acciones globales
+ * Header del perfil: avatar, nombre, badges y acciones globales
  * Alineado al patrón de ProjectHeader / ClientHeader
  */
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Icon from "@/components/ui/icon/iconManager";
 
 const TXT_TITLE = "text-gray-900 dark:text-white";
@@ -49,6 +49,17 @@ const getStatusConfig = (status) => {
   return map[status] || map.active;
 };
 
+const avatarWithSize = (src, size) => {
+  if (!src || src.startsWith("blob:") || src.startsWith("data:")) return src;
+  try {
+    const url = new URL(src, window.location.origin);
+    url.searchParams.set("size", size);
+    return `${url.pathname}${url.search}`;
+  } catch {
+    return src;
+  }
+};
+
 // ─── Subcomponents ──────────────────────────────────────────────────────────
 
 const Badge = ({ icon, label, cls }) => (
@@ -63,21 +74,39 @@ const Badge = ({ icon, label, cls }) => (
 const AvatarBlock = ({ profile, onChangeAvatar, onRemoveAvatar, canEditAvatar = false }) => {
   const roleConfig   = getRoleConfig(profile?.role);
   const statusConfig = getStatusConfig(profile?.status);
+  const avatarSrc = profile?.avatar || "/images/noImage.png";
+  const thumbnailSrc = avatarWithSize(avatarSrc, "thumb");
+  const fullSrc = avatarWithSize(avatarSrc, "full");
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isPreviewOpen) return undefined;
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") setIsPreviewOpen(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isPreviewOpen]);
 
   return (
     <div className="flex items-center gap-5">
       {/* Avatar */}
       <div className="relative shrink-0">
-        <div className="w-16 h-16 rounded-2xl overflow-hidden ring-4 ring-primary-500/20 bg-gradient-to-br from-primary-600 to-primary-700">
+        <button
+          type="button"
+          onClick={() => setIsPreviewOpen(true)}
+          className="w-16 h-16 rounded-2xl overflow-hidden ring-4 ring-primary-500/20 bg-gradient-to-br from-primary-600 to-primary-700 block focus:outline-none focus:ring-4 focus:ring-primary-500/40"
+          title="Ver avatar"
+        >
           <img
-            src={profile?.avatar || "/images/noImage.png"}
+            src={thumbnailSrc}
             alt={profile?.fullName || "Avatar"}
             className="w-full h-full object-cover"
             onError={(e) => {
               e.target.style.display = "none";
             }}
           />
-        </div>
+        </button>
       </div>
 
       {/* Info */}
@@ -126,6 +155,34 @@ const AvatarBlock = ({ profile, onChangeAvatar, onRemoveAvatar, canEditAvatar = 
           <Badge icon={statusConfig.icon} label={statusConfig.label} cls={statusConfig.cls} />
         </div>
       </div>
+
+      {isPreviewOpen && (
+        <div
+          className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/70 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Avatar"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setIsPreviewOpen(false);
+          }}
+        >
+          <div className="relative max-h-[88vh] max-w-[88vw] overflow-hidden rounded-xl bg-white p-2 shadow-2xl dark:bg-gray-900">
+            <button
+              type="button"
+              onClick={() => setIsPreviewOpen(false)}
+              className="absolute right-3 top-3 inline-flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white transition-colors hover:bg-black/80"
+              aria-label="Cerrar"
+            >
+              <Icon name="FaXmark" className="h-4 w-4" />
+            </button>
+            <img
+              src={fullSrc}
+              alt={profile?.fullName || "Avatar"}
+              className="max-h-[84vh] max-w-[84vw] rounded-lg object-contain"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
