@@ -29,7 +29,9 @@ import { SYSTEM_MAINTENANCE_SSE_STATE_EVENT } from "@/hooks/useSystemMaintenance
 const SYSTEM_MAINTENANCE_RUNTIME_EVENT = "system-maintenance-runtime-update";
 
 const RUNTIME_STATUS_LABELS = {
+  dispatch_pending: "Preparando despacho",
   queued: "En cola",
+  dispatch_error: "Error de despacho",
   running: "En curso",
   success: "OK",
   error: "Error",
@@ -37,14 +39,16 @@ const RUNTIME_STATUS_LABELS = {
 };
 
 const RUNTIME_STATUS_TONES = {
+  dispatch_pending: "info",
   queued: "info",
+  dispatch_error: "danger",
   running: "warning",
   success: "active",
   error: "danger",
   warning: "warning",
 };
 
-const ACTIVE_RUNTIME_STATUSES = new Set(["queued", "running"]);
+const ACTIVE_RUNTIME_STATUSES = new Set(["dispatch_pending", "queued", "running"]);
 const OPERATION_MODE_LABELS = {
   normal: "Normal",
   read_only: "Solo lectura",
@@ -175,6 +179,61 @@ const OperationModeReasonModal = ({ mode, onCancel, onConfirm }) => {
   );
 };
 
+const ManualRunConfirmModal = ({ title, message, onCancel, onConfirm }) => {
+  const [isDispatching, setIsDispatching] = useState(false);
+  const dispatchGuardRef = useRef(false);
+
+  const handleConfirm = async (event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    if (dispatchGuardRef.current) return;
+
+    dispatchGuardRef.current = true;
+    setIsDispatching(true);
+    try {
+      await onConfirm();
+    } catch (error) {
+      dispatchGuardRef.current = false;
+      setIsDispatching(false);
+    }
+  };
+
+  const handleCancel = () => {
+    if (dispatchGuardRef.current) return;
+    onCancel();
+  };
+
+  return (
+    <form
+      className="w-full max-w-lg rounded-2xl border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-800"
+      onSubmit={handleConfirm}
+    >
+      <div className="border-b border-gray-100 px-6 py-5 dark:border-gray-700">
+        <h2 className={`text-xl font-semibold ${TXT_TITLE}`}>{title}</h2>
+        <p className={`mt-2 text-sm ${TXT_BODY}`}>{message}</p>
+      </div>
+
+      <div className="flex flex-col-reverse gap-2 px-6 py-4 sm:flex-row sm:justify-end">
+        <ActionButton
+          label="Cancelar"
+          variant="soft"
+          size="sm"
+          disabled={isDispatching}
+          onClick={handleCancel}
+        />
+        <ActionButton
+          label={isDispatching ? "Encolando..." : "Confirmar"}
+          variant="warning"
+          size="sm"
+          icon={<Icon name="play" />}
+          disabled={isDispatching}
+          type="submit"
+        />
+      </div>
+    </form>
+  );
+};
+
 const openOperationModeReasonModal = ({ mode }) =>
   new Promise((resolve) => {
     const handleClose = (value = null) => {
@@ -193,6 +252,40 @@ const openOperationModeReasonModal = ({ mode }) =>
           mode={mode}
           onCancel={() => handleClose(null)}
           onConfirm={(reason) => handleClose(reason)}
+        />
+      ),
+    });
+  });
+
+const openManualRunConfirmModal = ({ title, message, onDispatch }) =>
+  new Promise((resolve, reject) => {
+    const handleClose = (value = null) => {
+      ModalManager.closeAll();
+      resolve(value);
+    };
+
+    ModalManager.show({
+      type: "custom",
+      title,
+      size: "md",
+      showHeader: false,
+      showFooter: false,
+      closeOnOverlayClick: false,
+      closeOnEscape: false,
+      content: (
+        <ManualRunConfirmModal
+          title={title}
+          message={message}
+          onCancel={() => handleClose(null)}
+          onConfirm={async () => {
+            try {
+              const response = await onDispatch();
+              handleClose(response || {});
+            } catch (error) {
+              ModalManager.closeAll();
+              reject(error);
+            }
+          }}
         />
       ),
     });
@@ -279,10 +372,12 @@ export const MaintenancePanel = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [runningNowAction, setRunningNowAction] = useState("");
+  const [confirmingRunNowAction, setConfirmingRunNowAction] = useState("");
   const [isChangingOperationMode, setIsChangingOperationMode] = useState(false);
   const [maintenanceSseConnected, setMaintenanceSseConnected] = useState(false);
   const [lastStatusRefreshAt, setLastStatusRefreshAt] = useState("");
   const runtimeRequestRef = useRef(null);
+  const runNowGuardRef = useRef("");
 
   const updateDraft = (key, value) => {
     setDraft((prev) => ({ ...prev, [key]: value }));
@@ -395,7 +490,7 @@ export const MaintenancePanel = () => {
   }, []);
 
   const hasChanges = JSON.stringify(draft) !== JSON.stringify(savedDraft);
-  const isRunNowBlocked = hasChanges || isSaving || Boolean(runningNowAction);
+  const isRunNowBlocked = hasChanges || isSaving || Boolean(runningNowAction) || Boolean(confirmingRunNowAction);
 
   const handleDiscard = () => {
     setDraft(clonePlainObject(savedDraft));
@@ -443,7 +538,7 @@ export const MaintenancePanel = () => {
   };
 
   const handleRunNow = async (target) => {
-    if (runningNowAction) return;
+    if (runningNowAction || confirmingRunNowAction || runNowGuardRef.current) return;
 
     if (hasChanges) {
       toastInfo(
@@ -453,26 +548,28 @@ export const MaintenancePanel = () => {
       return;
     }
 
+    runNowGuardRef.current = target;
+    setConfirmingRunNowAction(target);
+
     const isSessionCleanup = target === "session_cleanup";
     const title = isSessionCleanup ? "Ejecutar limpieza de sesiones" : "Ejecutar limpieza de temporales";
     const message = isSessionCleanup
       ? "Se encolará una ejecución manual usando la estrategia guardada actualmente, sin depender del cron."
       : "Se encolará una ejecución manual usando la retención guardada actualmente, sin depender del cron.";
 
-    const confirmed = await ModalManager.confirm({
-      title,
-      message,
-      confirmText: "Ejecutar ahora",
-      cancelText: "Cancelar",
-    });
-
-    if (!confirmed) return;
-
     setRunningNowAction(target);
     try {
-      const response = isSessionCleanup
-        ? await systemMaintenanceService.runSessionCleanupNow()
-        : await systemMaintenanceService.runTempCleanupNow();
+      const response = await openManualRunConfirmModal({
+        title,
+        message,
+        onDispatch: () =>
+          isSessionCleanup
+            ? systemMaintenanceService.runSessionCleanupNow()
+            : systemMaintenanceService.runTempCleanupNow(),
+      });
+
+      if (!response) return;
+
       await loadRuntimeStatus();
       toastSuccess(
         isSessionCleanup ? "Limpieza de sesiones encolada" : "Limpieza de temporales encolada",
@@ -485,6 +582,8 @@ export const MaintenancePanel = () => {
       );
     } finally {
       setRunningNowAction("");
+      setConfirmingRunNowAction("");
+      runNowGuardRef.current = "";
     }
   };
 
@@ -527,12 +626,24 @@ export const MaintenancePanel = () => {
   const hasActiveRuntime =
     ACTIVE_RUNTIME_STATUSES.has(sessionRuntime.rawStatus) ||
     ACTIVE_RUNTIME_STATUSES.has(tempRuntime.rawStatus);
+  const getRunNowLabel = (target, runtime) => {
+    if (confirmingRunNowAction === target) return "Confirmando...";
+    if (runningNowAction === target) return "Encolando...";
+    if (runtime.rawStatus === "dispatch_pending") return "Preparando despacho";
+    if (runtime.rawStatus === "queued") return "En cola";
+    if (runtime.rawStatus === "dispatch_error") return "Reintentar ahora";
+    if (runtime.rawStatus === "running") return "En curso";
+    if (runtime.rawStatus === "warning") return "Finalizado con advertencia";
+    if (runtime.rawStatus === "error") return "Reintentar ahora";
+    return "Ejecutar ahora";
+  };
+  const sessionRunNowBlocked = isRunNowBlocked || ACTIVE_RUNTIME_STATUSES.has(sessionRuntime.rawStatus);
+  const tempRunNowBlocked = isRunNowBlocked || ACTIVE_RUNTIME_STATUSES.has(tempRuntime.rawStatus);
 
   useEffect(() => {
     if (isLoading) return undefined;
-    if (maintenanceSseConnected) return undefined;
 
-    const pollMs = hasActiveRuntime ? 5000 : 120000;
+    const pollMs = hasActiveRuntime ? 5000 : maintenanceSseConnected ? 90000 : 120000;
     const intervalId = window.setInterval(() => {
       loadRuntimeStatus().catch(() => {});
     }, pollMs);
@@ -820,15 +931,17 @@ export const MaintenancePanel = () => {
                 </div>
                 <div className="flex shrink-0 items-center gap-3 self-start">
                   <ActionButton
-                    label={runningNowAction === "session_cleanup" ? "Ejecutando..." : "Ejecutar ahora"}
+                    label={getRunNowLabel("session_cleanup", sessionRuntime)}
                     variant="soft"
                     size="sm"
                     icon={<Icon name="play" />}
                     onClick={() => handleRunNow("session_cleanup")}
-                    disabled={isRunNowBlocked}
+                    disabled={sessionRunNowBlocked}
                     tooltip={
                       hasChanges
                         ? "Guarda o descarta el borrador antes de ejecutar"
+                        : ACTIVE_RUNTIME_STATUSES.has(sessionRuntime.rawStatus)
+                          ? "La rutina ya tiene una ejecución activa"
                         : "Encola una ejecución manual usando la configuración guardada"
                     }
                   />
@@ -884,15 +997,17 @@ export const MaintenancePanel = () => {
                 </div>
                 <div className="flex shrink-0 items-center gap-3 self-start">
                   <ActionButton
-                    label={runningNowAction === "temp_cleanup" ? "Ejecutando..." : "Ejecutar ahora"}
+                    label={getRunNowLabel("temp_cleanup", tempRuntime)}
                     variant="soft"
                     size="sm"
                     icon={<Icon name="play" />}
                     onClick={() => handleRunNow("temp_cleanup")}
-                    disabled={isRunNowBlocked}
+                    disabled={tempRunNowBlocked}
                     tooltip={
                       hasChanges
                         ? "Guarda o descarta el borrador antes de ejecutar"
+                        : ACTIVE_RUNTIME_STATUSES.has(tempRuntime.rawStatus)
+                          ? "La rutina ya tiene una ejecución activa"
                         : "Encola una ejecución manual usando la configuración guardada"
                     }
                   />
@@ -1125,7 +1240,7 @@ export const MaintenancePanel = () => {
               </div>
               <div className="flex flex-wrap items-center gap-3">
                 <StatusBadge tone={hasActiveRuntime ? "warning" : "inactive"}>
-                  {hasActiveRuntime ? "Refresco rápido 5s" : "Refresco normal"}
+                  {hasActiveRuntime ? "Refresco rápido 5s" : maintenanceSseConnected ? "SSE + respaldo 90s" : "Refresco normal"}
                 </StatusBadge>
                 <p className={`text-xs ${TXT_META}`}>Última lectura: {formatDateTime(lastStatusRefreshAt)}</p>
               </div>
