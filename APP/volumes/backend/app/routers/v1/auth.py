@@ -161,6 +161,7 @@ async def update_my_personalization_endpoint(
         theme=payload.theme,
         density=payload.density,
         animations=payload.animations,
+        timezone=payload.timezone,
         sidebar_collapsed=payload.sidebar_collapsed,
         default_module_view=payload.default_module_view,
         dashboard_widgets=normalized_widgets,

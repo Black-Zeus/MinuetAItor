@@ -73,6 +73,7 @@ export const baseIcons = {
   FaMoon,
   FaBriefcase,
   FaGlobe,
+  FaGlobeAmericas: FaGlobe,
   FaSquare,
   FaCalendarAlt: FaCalendar,
   location: FaLocationDot,

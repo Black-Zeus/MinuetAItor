@@ -173,10 +173,6 @@ export const validateEnvironment = () => {
   const sentinels = {
     APP_NAME:          'VITE_FRONTEND_NAME',
     APP_ENV:           'VITE_FRONTEND_ENV',
-    LOG_LEVELS:        'VITE_LOG_LEVELS',
-    LOG_SCOPES:        'VITE_LOG_SCOPES',
-    LOG_DEFAULT_SCOPE: 'VITE_LOG_DEFAULT_SCOPE',
-    LOG_PREFIX:        'VITE_LOG_PREFIX',
     SPINNER_VARIANT:   'VITE_PAGE_SPINNER_VARIANT',
     SPINNER_SIZE:      'VITE_PAGE_SPINNER_SIZE',
     SPINNER_TYPE:      'VITE_PAGE_SPINNER_TYPE',

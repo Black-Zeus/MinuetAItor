@@ -3,6 +3,11 @@
 // Utilidades de formateo para el sistema de inventario
 // ====================================
 
+import useBaseSiteStore from "@/store/baseSiteStore";
+import { resolveTimeZone } from "@/utils/timeZone";
+
+const getUserTimeZone = () => resolveTimeZone(useBaseSiteStore.getState().ui?.timeZone);
+
 // ==========================================
 // FORMATOS DE MONEDA
 // ==========================================
@@ -68,10 +73,15 @@ export const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     
     try {
+        if (typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+            const [year, month, day] = dateString.split('-');
+            return `${day}/${month}/${year}`;
+        }
+
         const date = new Date(dateString);
         if (isNaN(date.getTime())) return 'Fecha inválida';
         
-        return date.toLocaleDateString('es-CL');
+        return date.toLocaleDateString('es-CL', { timeZone: getUserTimeZone() });
     } catch (error) {
         return 'Fecha inválida';
     }
@@ -90,11 +100,13 @@ export const formatDateTime = (dateString) => {
         if (isNaN(date.getTime())) return 'Fecha inválida';
         
         return date.toLocaleString('es-CL', {
+            timeZone: getUserTimeZone(),
             year: 'numeric',
             month: '2-digit',
             day: '2-digit',
             hour: '2-digit',
-            minute: '2-digit'
+            minute: '2-digit',
+            hourCycle: 'h23',
         });
     } catch (error) {
         return 'Fecha inválida';
@@ -113,11 +125,22 @@ export const formatDateTimeTechnical = (dateString) => {
         const date = new Date(dateString);
         if (isNaN(date.getTime())) return 'Fecha inválida';
         
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        const hours = String(date.getHours()).padStart(2, '0');
-        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const parts = new Intl.DateTimeFormat('es-CL', {
+            timeZone: getUserTimeZone(),
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+            hourCycle: 'h23',
+        }).formatToParts(date);
+        const valueFor = (type) => parts.find((part) => part.type === type)?.value || '';
+        const year = valueFor('year');
+        const month = valueFor('month');
+        const day = valueFor('day');
+        const hours = valueFor('hour');
+        const minutes = valueFor('minute');
         
         return `${year}-${month}-${day} ${hours}:${minutes}`;
     } catch (error) {
@@ -138,9 +161,11 @@ export const formatTime = (dateString) => {
         if (isNaN(date.getTime())) return 'Hora inválida';
         
         return date.toLocaleTimeString('es-CL', {
+            timeZone: getUserTimeZone(),
             hour: '2-digit',
             minute: '2-digit',
-            hour12: false
+            hour12: false,
+            hourCycle: 'h23',
         });
     } catch (error) {
         return 'Hora inválida';

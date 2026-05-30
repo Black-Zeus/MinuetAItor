@@ -38,6 +38,7 @@ class UserProfile(Base):
     ui_animations = Column(Boolean, nullable=True)
     sidebar_collapsed = Column(Boolean, nullable=True)
     default_module_view = Column(String(20), nullable=True)
+    timezone = Column(String(64), nullable=True)
 
     user = relationship(
         "User",

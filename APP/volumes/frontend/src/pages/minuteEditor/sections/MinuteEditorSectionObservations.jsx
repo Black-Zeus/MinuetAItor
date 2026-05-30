@@ -4,6 +4,7 @@ import { listMinuteObservations, resolveMinuteObservation, saveMinuteReviewConte
 import Icon from "@components/ui/icon/iconManager";
 import ModalManager from "@components/ui/modal";
 import useMinuteEditorStore from "@/store/minuteEditorStore";
+import { formatDateTime } from "@/utils/formats";
 
 const STATUS_OPTIONS = [
   {
@@ -528,7 +529,7 @@ const MinuteEditorSectionObservations = ({ recordId, onPendingCountChange }) => 
                       </span>
                     </div>
                     <p className="mt-1 text-xs text-gray-500 transition-theme dark:text-gray-400">
-                      {item.authorEmail} · {item.createdAt ? new Date(item.createdAt).toLocaleString("es-CL") : "Sin fecha"}
+                      {item.authorEmail} · {item.createdAt ? formatDateTime(item.createdAt) : "Sin fecha"}
                     </p>
                   </div>
                   <div className="flex items-start gap-3">

@@ -3,11 +3,13 @@
  * Tab "Personalización" — preferencias reales de experiencia y dashboard.
  */
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Icon from "@/components/ui/icon/iconManager";
 import ActionButton from "@/components/ui/button/ActionButton";
 import useBaseSiteStore from "@store/baseSiteStore";
 import personalizationService from "@/services/personalizationService";
+import { BROWSER_TIMEZONE, getBrowserTimeZone } from "@/utils/timeZone";
+import timeZonesCatalog from "@/data/timeZones.json";
 
 const TXT_TITLE = "text-gray-900 dark:text-white";
 const TXT_BODY = "text-gray-600 dark:text-gray-300";
@@ -92,6 +94,34 @@ const MODULE_VIEW_OPTIONS = [
   { value: "table", label: "Tabla", icon: "FaTable" },
 ];
 
+const TIMEZONE_REGION_LABELS = {
+  America: "America",
+  Europe: "Europe",
+  Asia: "Asia",
+  Africa: "Africa",
+  Australia: "Australia",
+  Pacific: "Pacific",
+  Atlantic: "Atlantic",
+  Indian: "Indian",
+  Antarctica: "Antarctica",
+  Arctic: "Arctic",
+  UTC: "UTC",
+  Etc: "Etc",
+};
+
+const BROWSER_TIMEZONE_OPTION = {
+  value: BROWSER_TIMEZONE,
+  label: "Automática del navegador",
+};
+
+const TIMEZONE_OPTIONS = Object.entries(timeZonesCatalog).flatMap(([region, items]) =>
+  (Array.isArray(items) ? items : []).map((item) => ({
+    ...item,
+    regionLabel: TIMEZONE_REGION_LABELS[region] ?? region,
+    searchText: `${item.value} ${item.label} ${item.utc_offset} ${region}`.toLowerCase(),
+  }))
+);
+
 const enrichWidget = (key, storeWidget) => ({
   ...storeWidget,
   ...(WIDGET_META[key] ?? { label: key, icon: "FaSquare", description: "" }),
@@ -135,6 +165,110 @@ const InlineToggle = ({ checked, onChange, disabled = false }) => (
     />
   </button>
 );
+
+const TimeZoneSelect = ({ value, onChange }) => {
+  const wrapperRef = useRef(null);
+  const [query, setQuery] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+  const browserTimeZone = getBrowserTimeZone();
+  const selectedOption = TIMEZONE_OPTIONS.find((option) => option.value === value);
+  const displayValue = value === BROWSER_TIMEZONE || !value
+    ? `${BROWSER_TIMEZONE_OPTION.label} (${browserTimeZone})`
+    : selectedOption?.label ?? value;
+  const normalizedQuery = query.trim().toLowerCase();
+  const visibleOptions = useMemo(() => {
+    if (!normalizedQuery) return TIMEZONE_OPTIONS.slice(0, 80);
+    return TIMEZONE_OPTIONS
+      .filter((option) => option.searchText.includes(normalizedQuery))
+      .slice(0, 80);
+  }, [normalizedQuery]);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+
+    const handlePointerDown = (event) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
+        setIsOpen(false);
+        setQuery("");
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [isOpen]);
+
+  const handleSelect = (nextValue) => {
+    onChange(nextValue);
+    setIsOpen(false);
+    setQuery("");
+  };
+
+  return (
+    <div ref={wrapperRef} className="relative space-y-2">
+      <div className="relative">
+        <Icon name="search" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-slate-400" />
+        <input
+          type="text"
+          value={isOpen ? query : displayValue}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setIsOpen(true);
+          }}
+          onFocus={() => {
+            setQuery("");
+            setIsOpen(true);
+          }}
+          placeholder="Buscar zona horaria"
+          className="w-full rounded-xl border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm font-medium text-gray-700 shadow-sm outline-none transition-colors focus:border-primary-400 focus:ring-2 focus:ring-primary-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+        />
+      </div>
+
+      {isOpen && (
+        <div className="absolute z-30 mt-1 max-h-72 w-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl dark:border-slate-600 dark:bg-slate-800">
+          <button
+            type="button"
+            onClick={() => handleSelect(BROWSER_TIMEZONE)}
+            className="flex w-full items-center justify-between gap-3 border-b border-gray-100 px-3 py-2 text-left text-sm hover:bg-gray-50 dark:border-slate-700 dark:hover:bg-slate-700/75"
+          >
+            <span className="min-w-0">
+              <span className={`block truncate font-semibold ${TXT_TITLE}`}>
+                {BROWSER_TIMEZONE_OPTION.label}
+              </span>
+              <span className={`block truncate text-xs ${TXT_META}`}>
+                {browserTimeZone}
+              </span>
+            </span>
+            {(value === BROWSER_TIMEZONE || !value) && <Icon name="check" className="h-4 w-4 text-primary-500" />}
+          </button>
+
+          <div className="max-h-60 overflow-y-auto py-1">
+            {visibleOptions.length === 0 ? (
+              <p className={`px-3 py-3 text-sm ${TXT_META}`}>Sin resultados.</p>
+            ) : (
+              visibleOptions.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => handleSelect(option.value)}
+                  className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-slate-700/75"
+                >
+                  <span className="min-w-0">
+                    <span className={`block truncate font-medium ${TXT_TITLE}`}>{option.value}</span>
+                    <span className={`block truncate text-xs ${TXT_META}`}>
+                      {option.regionLabel} · {option.utc_offset}
+                    </span>
+                  </span>
+                  {value === option.value && <Icon name="check" className="h-4 w-4 text-primary-500" />}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+};
 
 const PreferenceTile = ({ icon, title, description, children }) => (
   <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition-theme dark:border-gray-700 dark:bg-gray-800">
@@ -237,12 +371,14 @@ const UserProfileCustomization = () => {
   const animations = useBaseSiteStore((s) => s.ui?.animations ?? true);
   const sidebarCollapsed = useBaseSiteStore((s) => s.sidebar?.collapsed ?? false);
   const defaultModuleView = useBaseSiteStore((s) => s.ui?.defaultModuleView ?? "base");
+  const timeZone = useBaseSiteStore((s) => s.ui?.timeZone ?? BROWSER_TIMEZONE);
 
   const setTheme = useBaseSiteStore((s) => s.setTheme);
   const setDensity = useBaseSiteStore((s) => s.setDensity);
   const setAnimations = useBaseSiteStore((s) => s.setAnimations);
   const setSidebarCollapsed = useBaseSiteStore((s) => s.setSidebarCollapsed);
   const setDefaultModuleView = useBaseSiteStore((s) => s.setDefaultModuleView);
+  const setTimeZone = useBaseSiteStore((s) => s.setTimeZone);
   const setWidgetEnabled = useBaseSiteStore((s) => s.setWidgetEnabled);
   const enableAllWidgets = useBaseSiteStore((s) => s.enableAllWidgets);
   const disableAllWidgets = useBaseSiteStore((s) => s.disableAllWidgets);
@@ -251,9 +387,7 @@ const UserProfileCustomization = () => {
   const getPersonalizationSnapshot = useBaseSiteStore((s) => s.getPersonalizationSnapshot);
 
   const [syncState, setSyncState] = useState("saved");
-  const [syncMessage, setSyncMessage] = useState("Se sincroniza automáticamente con tu cuenta.");
-  const syncTimeoutRef = useRef(null);
-  const pendingSyncRef = useRef(false);
+  const [syncMessage, setSyncMessage] = useState("Los cambios se guardan manualmente.");
   const isMountedRef = useRef(true);
 
   const enrichedWidgets = Object.fromEntries(
@@ -271,14 +405,16 @@ const UserProfileCustomization = () => {
   }, {});
 
   const persistPersonalization = async () => {
-    pendingSyncRef.current = false;
+    if (syncState === "saving") return;
+    setSyncState("saving");
+    setSyncMessage("Guardando cambios en tu cuenta...");
     try {
       const payload = getPersonalizationSnapshot();
       const persisted = await personalizationService.updateMyPersonalization(payload);
       hydratePersonalization(persisted);
       if (isMountedRef.current) {
         setSyncState("saved");
-        setSyncMessage("Sincronizado con tu cuenta.");
+        setSyncMessage("Preferencias guardadas.");
       }
     } catch (error) {
       if (isMountedRef.current) {
@@ -288,78 +424,89 @@ const UserProfileCustomization = () => {
     }
   };
 
-  const schedulePersist = () => {
-    pendingSyncRef.current = true;
-    if (syncTimeoutRef.current) {
-      clearTimeout(syncTimeoutRef.current);
-    }
+  const discardPersonalization = async () => {
+    if (syncState === "saving") return;
     setSyncState("saving");
-    setSyncMessage("Guardando cambios en tu cuenta...");
-    syncTimeoutRef.current = setTimeout(() => {
-      syncTimeoutRef.current = null;
-      void persistPersonalization();
-    }, 450);
+    setSyncMessage("Restaurando preferencias guardadas...");
+    try {
+      const persisted = await personalizationService.getMyPersonalization();
+      hydratePersonalization(persisted);
+      if (isMountedRef.current) {
+        setSyncState("saved");
+        setSyncMessage("Preferencias restauradas.");
+      }
+    } catch (error) {
+      if (isMountedRef.current) {
+        setSyncState("error");
+        setSyncMessage(error?.message || "No fue posible restaurar tus preferencias.");
+      }
+    }
+  };
+
+  const markDirty = () => {
+    setSyncState("dirty");
+    setSyncMessage("Tienes cambios sin guardar.");
   };
 
   useEffect(() => () => {
     isMountedRef.current = false;
-    if (syncTimeoutRef.current) {
-      clearTimeout(syncTimeoutRef.current);
-      syncTimeoutRef.current = null;
-    }
-    if (pendingSyncRef.current) {
-      void persistPersonalization();
-    }
   }, []);
 
   const handleThemeChange = (value) => {
     setTheme(value);
-    schedulePersist();
+    markDirty();
   };
 
   const handleDensityChange = (value) => {
     setDensity(value);
-    schedulePersist();
+    markDirty();
   };
 
   const handleAnimationsChange = (value) => {
     setAnimations(value);
-    schedulePersist();
+    markDirty();
   };
 
   const handleSidebarCollapsedChange = (value) => {
     setSidebarCollapsed(value);
-    schedulePersist();
+    markDirty();
   };
 
   const handleDefaultModuleViewChange = (value) => {
     setDefaultModuleView(value);
-    schedulePersist();
+    markDirty();
+  };
+
+  const handleTimeZoneChange = (value) => {
+    setTimeZone(value);
+    markDirty();
   };
 
   const handleToggle = (key, value) => {
     setWidgetEnabled(key, value);
-    schedulePersist();
+    markDirty();
   };
 
   const handleEnableAllWidgets = () => {
     enableAllWidgets();
-    schedulePersist();
+    markDirty();
   };
 
   const handleDisableAllWidgets = () => {
     disableAllWidgets();
-    schedulePersist();
+    markDirty();
   };
 
   const handleResetWidgets = () => {
     resetWidgets();
-    schedulePersist();
+    markDirty();
   };
 
   const syncBadgeClassName = {
     saved:
       "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800/40 dark:bg-emerald-900/25 dark:text-emerald-200",
+    dirty:
+      "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800/40 dark:bg-amber-900/25 dark:text-amber-200",
     saving:
       "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-800/40 dark:bg-sky-900/25 dark:text-sky-200",
     error:
@@ -368,13 +515,15 @@ const UserProfileCustomization = () => {
 
   const syncDotClassName = {
     saved: "bg-emerald-500",
+    dirty: "bg-amber-500",
     saving: "bg-sky-500",
     error: "bg-rose-500",
   }[syncState];
 
   const syncLabel = {
     saved: "Sincronizado",
-    saving: "Sincronizando",
+    dirty: "Cambios sin guardar",
+    saving: "Procesando",
     error: "Error de sincronización",
   }[syncState];
 
@@ -388,7 +537,7 @@ const UserProfileCustomization = () => {
               Personalización del espacio de trabajo
             </h2>
             <p className={`mt-1 text-sm ${TXT_BODY}`}>
-              Ajusta la experiencia visual y define qué bloques quieres ver en tu dashboard. Los cambios se sincronizan automáticamente con tu cuenta.
+              Ajusta la experiencia visual y define qué bloques quieres ver en tu dashboard. Guarda los cambios cuando termines.
             </p>
           </div>
 
@@ -464,29 +613,39 @@ const UserProfileCustomization = () => {
           </div>
         </PreferenceTile>
 
-        <PreferenceTile
-          icon="FaGears"
-          title="Comportamiento"
-          description="Pequeños ajustes de interacción para adaptar la navegación a tu ritmo."
-        >
-          <div className="divide-y divide-gray-100 dark:divide-gray-700/60">
-            <div className="flex items-center justify-between gap-4 py-3">
-              <div>
-                <p className={`text-sm font-semibold ${TXT_TITLE}`}>Animaciones de interfaz</p>
-                <p className={`mt-0.5 text-xs ${TXT_META}`}>Mantiene transiciones y microinteracciones visuales.</p>
+        <div className="space-y-5">
+          <PreferenceTile
+            icon="FaGears"
+            title="Comportamiento"
+            description="Pequeños ajustes de interacción para adaptar la navegación a tu ritmo."
+          >
+            <div className="divide-y divide-gray-100 dark:divide-gray-700/60">
+              <div className="flex items-center justify-between gap-4 py-3">
+                <div>
+                  <p className={`text-sm font-semibold ${TXT_TITLE}`}>Animaciones de interfaz</p>
+                  <p className={`mt-0.5 text-xs ${TXT_META}`}>Mantiene transiciones y microinteracciones visuales.</p>
+                </div>
+                <InlineToggle checked={animations} onChange={handleAnimationsChange} />
               </div>
-              <InlineToggle checked={animations} onChange={handleAnimationsChange} />
-            </div>
 
-            <div className="flex items-center justify-between gap-4 py-3">
-              <div>
-                <p className={`text-sm font-semibold ${TXT_TITLE}`}>Sidebar colapsado al abrir</p>
-                <p className={`mt-0.5 text-xs ${TXT_META}`}>Útil si prefieres más espacio de trabajo desde el inicio.</p>
+              <div className="flex items-center justify-between gap-4 py-3">
+                <div>
+                  <p className={`text-sm font-semibold ${TXT_TITLE}`}>Sidebar colapsado al abrir</p>
+                  <p className={`mt-0.5 text-xs ${TXT_META}`}>Útil si prefieres más espacio de trabajo desde el inicio.</p>
+                </div>
+                <InlineToggle checked={sidebarCollapsed} onChange={handleSidebarCollapsedChange} />
               </div>
-              <InlineToggle checked={sidebarCollapsed} onChange={handleSidebarCollapsedChange} />
             </div>
-          </div>
-        </PreferenceTile>
+          </PreferenceTile>
+
+          <PreferenceTile
+            icon="FaGlobeAmericas"
+            title="Zona horaria"
+            description="Define cómo quieres ver fechas y horas en la interfaz."
+          >
+            <TimeZoneSelect value={timeZone} onChange={handleTimeZoneChange} />
+          </PreferenceTile>
+        </div>
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-6 shadow-sm transition-theme dark:border-slate-700 dark:bg-slate-800/95">
@@ -540,6 +699,26 @@ const UserProfileCustomization = () => {
             onToggle={handleToggle}
           />
         ))}
+      </div>
+
+      <div className="flex justify-end gap-3 border-t border-gray-200 pt-4 transition-theme dark:border-gray-700">
+        <ActionButton
+          label="Descartar"
+          variant="soft"
+          size="sm"
+          icon={<Icon name="rotateLeft" />}
+          onClick={discardPersonalization}
+          disabled={syncState === "saving" || syncState === "saved"}
+          className="disabled:cursor-not-allowed disabled:opacity-50"
+        />
+        <ActionButton
+          label={syncState === "saving" ? "Guardando..." : "Guardar"}
+          variant="primary"
+          size="sm"
+          icon={<Icon name="check" />}
+          onClick={persistPersonalization}
+          disabled={syncState === "saving" || syncState === "saved"}
+        />
       </div>
     </div>
   );
