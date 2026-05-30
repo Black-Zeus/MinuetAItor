@@ -22,6 +22,7 @@ from services.system_maintenance_events_service import maintenance_sse_headers, 
 from services.system_maintenance_service import (
     get_system_maintenance_settings,
     get_system_maintenance_status,
+    get_public_system_operation_state,
     get_system_operation_state,
     run_system_maintenance_action_now,
     set_system_operation_mode,
@@ -102,7 +103,7 @@ def get_operation_state_endpoint(
 def get_public_operation_state_endpoint(
     db: Session = Depends(get_db),
 ):
-    return get_system_operation_state(db)
+    return get_public_system_operation_state(db)
 
 
 @router.post(

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import asyncio
+import logging
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -19,6 +20,7 @@ from core.exceptions import BadRequestException
 from db.redis import get_redis
 from models.roles import Role
 from models.system_backups import SystemOperationState
+from models.system_maintenance_runs import SystemMaintenanceRun
 from models.system_maintenance_setting import SystemMaintenanceSetting
 from models.user import User
 from models.user_roles import UserRole
@@ -34,12 +36,15 @@ from services.system_maintenance_events_service import publish_maintenance_event
 from services.system_queue_catalog import QUEUE_DEFINITIONS
 from repositories.audit_repository import write_audit
 
+logger = logging.getLogger(__name__)
+
 SCHEDULER_TIMEZONE = "America/Santiago"
 MAINTENANCE_QUEUE = "queue:maintenance"
 DLQ_QUEUE = "queue:dlq"
 SYSTEM_MAINTENANCE_SINGLETON_ID = 1
 MAINTENANCE_TICK_LOCK_KEY = "lock:system:maintenance:tick"
 MAINTENANCE_TICK_LOCK_TTL_SEC = 90
+DISPATCHABLE_RUN_STATUSES = {"dispatch_pending", "dispatch_error"}
 INITIAL_COMMISSIONING_REASON = (
     "La puesta en marcha inicial fue activada automáticamente. "
     "El administrador debe completar las validaciones base y confirmar que los componentes críticos funcionan correctamente antes de cambiar el sistema a modo operativo."
@@ -258,23 +263,7 @@ def _operation_state_response_from_marker(marker: dict) -> dict:
     }
 
 
-def get_system_operation_state(db: Session) -> dict:
-    marker = _read_operation_marker()
-    if marker:
-        return _operation_state_response_from_marker(marker)
-
-    row = _get_operation_state_row(db)
-    if not row or str(row.mode or "normal") == "normal":
-        return {
-            "mode": "normal",
-            "operation_id": None,
-            "operation_type": None,
-            "reason": None,
-            "started_by": None,
-            "started_at": None,
-            "source": "default",
-        }
-
+def _operation_state_response_from_row(row: SystemOperationState) -> dict:
     actor = None
     try:
         raw_actor = json.loads(row.started_by_snapshot_json or "{}")
@@ -294,6 +283,78 @@ def get_system_operation_state(db: Session) -> dict:
         "started_by": actor,
         "started_at": _iso(row.started_at),
         "source": "database",
+    }
+
+
+def _normal_operation_state_response(*, source: str = "default") -> dict:
+    return {
+        "mode": "normal",
+        "operation_id": None,
+        "operation_type": None,
+        "reason": None,
+        "started_by": None,
+        "started_at": None,
+        "source": source,
+    }
+
+
+def _is_restricted_marker(marker: dict | None) -> bool:
+    if not marker:
+        return False
+    return str(marker.get("mode") or "").strip() in {"read_only", "maintenance", "commissioning"}
+
+
+def _marker_matches_row(marker: dict | None, row: SystemOperationState | None) -> bool:
+    if not row or str(row.mode or "normal") == "normal":
+        return not _is_restricted_marker(marker)
+    if not marker:
+        return False
+    return (
+        str(marker.get("mode") or "") == str(row.mode or "")
+        and str(marker.get("operationId") or "") == str(row.operation_id or "")
+    )
+
+
+def get_system_operation_state(db: Session) -> dict:
+    marker = _read_operation_marker()
+    row = _get_operation_state_row(db)
+    if not row or str(row.mode or "normal") == "normal":
+        if _is_restricted_marker(marker):
+            response = _operation_state_response_from_marker(marker)
+            response["source"] = "marker_file_inconsistent"
+            response["reason"] = response.get("reason") or (
+                "Estado conservador: existe un marker operativo restringido aunque la base indica modo normal."
+            )
+            return response
+        return _normal_operation_state_response()
+
+    response = _operation_state_response_from_row(row)
+    if not _marker_matches_row(marker, row):
+        response["source"] = "database_marker_inconsistent"
+        logger.warning(
+            "Divergencia DB/marker en modo operativo | db_mode=%s db_operation_id=%s marker_mode=%s marker_operation_id=%s",
+            row.mode,
+            row.operation_id,
+            marker.get("mode") if isinstance(marker, dict) else None,
+            marker.get("operationId") if isinstance(marker, dict) else None,
+        )
+    return response
+
+
+def get_public_system_operation_state(db: Session) -> dict:
+    state = get_system_operation_state(db)
+    mode = state.get("mode") or "normal"
+    public_reason = None
+    if mode != "normal" and str(state.get("source") or "").endswith("inconsistent"):
+        public_reason = "El sistema se encuentra temporalmente en estado operativo restringido."
+    return {
+        "mode": mode,
+        "operation_id": state.get("operation_id"),
+        "operation_type": state.get("operation_type"),
+        "reason": public_reason,
+        "started_by": None,
+        "started_at": state.get("started_at"),
+        "source": state.get("source") or "default",
     }
 
 
@@ -374,6 +435,11 @@ async def set_system_operation_mode(
     normalized_mode = str(mode or "").strip()
     if normalized_mode not in {"normal", "read_only", "maintenance", "commissioning"}:
         raise BadRequestException("El modo operativo solicitado no es válido.")
+    normalized_reason = " ".join(str(reason or "").strip().split()) or None
+    if normalized_mode != "normal" and not normalized_reason:
+        raise BadRequestException("Debes registrar un motivo para activar un modo operativo restringido.")
+    if normalized_reason and len(normalized_reason) > 500:
+        raise BadRequestException("El motivo del modo operativo no puede superar 500 caracteres.")
 
     actor = _actor_snapshot(db, actor_user_id)
     now = utc_now_db()
@@ -411,12 +477,11 @@ async def set_system_operation_mode(
         row.expires_at = None
         row.metadata_json = None
         row.updated_at = now
-        _clear_operation_marker()
         audit_action = "system_operation_normalized"
         audit_entity_id = previous_operation_id
         audit_details = {
             "mode": "normal",
-            "reason": reason or "Modo normal restaurado administrativamente.",
+            "reason": normalized_reason or "Modo normal restaurado administrativamente.",
             "previousState": previous_state,
             "actor": actor,
             "changedAt": now.replace(tzinfo=timezone.utc).isoformat(),
@@ -444,10 +509,12 @@ async def set_system_operation_mode(
             "mode": normalized_mode,
             "operationId": operation_id,
             "operationType": operation_type,
-            "reason": reason or default_reason_by_mode[normalized_mode],
+            "reason": normalized_reason or default_reason_by_mode[normalized_mode],
             "status": "running",
             "actor": actor,
             "startedAt": now.replace(tzinfo=timezone.utc).isoformat(),
+            "updatedAt": now.replace(tzinfo=timezone.utc).isoformat(),
+            "version": 1,
         }
         row.mode = normalized_mode
         row.operation_id = operation_id
@@ -460,7 +527,6 @@ async def set_system_operation_mode(
         row.expires_at = None
         row.metadata_json = json.dumps(marker, ensure_ascii=False, sort_keys=True)
         row.updated_at = now
-        _write_operation_marker(marker)
         audit_action_by_mode = {
             "read_only": "system_read_only_enabled",
             "maintenance": "system_maintenance_enabled",
@@ -479,6 +545,32 @@ async def set_system_operation_mode(
         }
 
     db.commit()
+    marker_error: str | None = None
+    try:
+        if normalized_mode == "normal":
+            _clear_operation_marker()
+        else:
+            _write_operation_marker(marker)
+    except Exception as exc:
+        marker_error = str(exc)
+        logger.error("No se pudo sincronizar marker operativo derivado desde DB | mode=%s err=%s", normalized_mode, exc)
+        try:
+            row = _get_operation_state_row(db)
+            if row:
+                details = {}
+                try:
+                    details = json.loads(row.metadata_json or "{}")
+                    if not isinstance(details, dict):
+                        details = {}
+                except Exception:
+                    details = {}
+                details["marker_sync_error"] = marker_error
+                details["marker_sync_error_at"] = utc_now_db().replace(tzinfo=timezone.utc).isoformat()
+                row.metadata_json = json.dumps(details, ensure_ascii=False, sort_keys=True)
+                row.updated_at = utc_now_db()
+                db.commit()
+        except Exception:
+            db.rollback()
     write_audit(
         db,
         actor_user_id=actor_user_id,
@@ -750,6 +842,13 @@ async def _notify_queue_threshold_exceeded(
         return True
     except Exception:
         # No bloquea el tick de mantenimiento.
+        logger.warning(
+            "No se pudo encolar email de alerta de cola | queue=%s size=%s threshold=%s",
+            definition["queue"],
+            size,
+            warning_threshold,
+            exc_info=True,
+        )
         return False
 
 
@@ -813,6 +912,13 @@ async def _notify_queue_threshold_recovered(
         )
         return True
     except Exception:
+        logger.warning(
+            "No se pudo encolar email de recuperacion de cola | queue=%s size=%s threshold=%s",
+            definition["queue"],
+            size,
+            warning_threshold,
+            exc_info=True,
+        )
         return False
 
 
@@ -889,6 +995,185 @@ def _mark_runtime_enqueued(
     setattr(obj, f"last_{prefix}_affected_count", None)
 
 
+def _mark_runtime_dispatch_error(
+    obj: SystemMaintenanceSetting,
+    prefix: str,
+    *,
+    slot: str,
+    error: Exception,
+    current_utc_dt: datetime,
+) -> None:
+    setattr(obj, f"last_{prefix}_enqueued_slot", slot)
+    setattr(obj, f"last_{prefix}_enqueued_at", current_utc_dt)
+    setattr(obj, f"last_{prefix}_started_at", None)
+    setattr(obj, f"last_{prefix}_finished_at", current_utc_dt)
+    setattr(obj, f"last_{prefix}_status", "error")
+    setattr(obj, f"last_{prefix}_message", f"No se pudo despachar el job a Redis: {error}"[:500])
+    setattr(obj, f"last_{prefix}_affected_count", 0)
+
+
+def _sync_runtime_from_run(
+    obj: SystemMaintenanceSetting,
+    run: SystemMaintenanceRun,
+    prefix: str,
+    *,
+    slot: str,
+    fallback_message: str,
+) -> None:
+    status = str(run.status or "").strip() or None
+    runtime_status = "error" if status == "dispatch_error" else status
+    setattr(obj, f"last_{prefix}_enqueued_slot", slot)
+    setattr(obj, f"last_{prefix}_enqueued_at", run.queued_at or run.created_at)
+    setattr(obj, f"last_{prefix}_started_at", run.started_at)
+    setattr(obj, f"last_{prefix}_finished_at", run.finished_at)
+    setattr(obj, f"last_{prefix}_status", runtime_status)
+    setattr(obj, f"last_{prefix}_message", (run.message or fallback_message or "")[:500])
+    setattr(obj, f"last_{prefix}_affected_count", run.affected_count)
+
+
+def _create_maintenance_run(
+    db: Session,
+    *,
+    action: str,
+    scheduled_slot: str | None,
+    trigger_type: str,
+    requested_by_id: str | None,
+    message: str,
+    current_utc_dt: datetime,
+) -> tuple[SystemMaintenanceRun, bool]:
+    trigger = str(trigger_type or "cron").strip() or "cron"
+    slot_for_unique = scheduled_slot if trigger == "cron" else None
+
+    if trigger == "cron" and slot_for_unique:
+        existing = (
+            db.query(SystemMaintenanceRun)
+            .filter(
+                SystemMaintenanceRun.action == action,
+                SystemMaintenanceRun.scheduled_slot == slot_for_unique,
+                SystemMaintenanceRun.trigger_type == trigger,
+            )
+            .first()
+        )
+        if existing:
+            return existing, False
+
+    run = SystemMaintenanceRun(
+        id=str(uuid.uuid4()),
+        job_id=str(uuid.uuid4()),
+        action=action,
+        scheduled_slot=slot_for_unique,
+        trigger_type=trigger,
+        status="dispatch_pending",
+        attempt=1,
+        max_attempts=int(getattr(settings, "worker_max_retries", 3) or 3),
+        message=str(message or "")[:700],
+        requested_by=requested_by_id,
+        correlation_id=str(uuid.uuid4()),
+        created_at=current_utc_dt,
+        updated_at=current_utc_dt,
+    )
+    db.add(run)
+    try:
+        db.commit()
+        db.refresh(run)
+        return run, True
+    except IntegrityError:
+        db.rollback()
+        if trigger == "cron" and slot_for_unique:
+            existing = (
+                db.query(SystemMaintenanceRun)
+                .filter(
+                    SystemMaintenanceRun.action == action,
+                    SystemMaintenanceRun.scheduled_slot == slot_for_unique,
+                    SystemMaintenanceRun.trigger_type == trigger,
+                )
+                .first()
+            )
+            if existing:
+                return existing, False
+        raise
+
+
+def _build_maintenance_job(run: SystemMaintenanceRun, action: str, payload: dict) -> dict:
+    return {
+        "job_id": run.job_id,
+        "type": action,
+        "queue": MAINTENANCE_QUEUE,
+        "attempt": int(run.attempt or 1),
+        "payload": {
+            "action": action,
+            "run_id": run.id,
+            "correlation_id": run.correlation_id,
+            **payload,
+        },
+    }
+
+
+async def _dispatch_maintenance_run(
+    db: Session,
+    run: SystemMaintenanceRun,
+    *,
+    action: str,
+    payload: dict,
+    current_utc_dt: datetime,
+) -> bool:
+    if str(run.status or "") not in DISPATCHABLE_RUN_STATUSES:
+        return False
+
+    redis = get_redis()
+    job = _build_maintenance_job(run, action, payload)
+    try:
+        await redis.rpush(MAINTENANCE_QUEUE, json.dumps(job))
+    except Exception as exc:
+        fresh = db.query(SystemMaintenanceRun).filter(SystemMaintenanceRun.id == run.id).first()
+        if fresh:
+            fresh.status = "dispatch_error"
+            fresh.error_code = type(exc).__name__[:80]
+            fresh.error_detail = str(exc)[:2000]
+            fresh.message = f"No se pudo despachar el job a Redis: {exc}"[:700]
+            fresh.updated_at = current_utc_dt
+            try:
+                db.commit()
+            except Exception:
+                db.rollback()
+        logger.warning(
+            "Dispatch de mantenimiento falló | action=%s job_id=%s correlation_id=%s status=dispatch_error err=%s",
+            action,
+            run.job_id,
+            run.correlation_id,
+            exc,
+        )
+        raise
+
+    fresh = db.query(SystemMaintenanceRun).filter(SystemMaintenanceRun.id == run.id).first()
+    if fresh:
+        fresh_status = str(fresh.status or "")
+        if fresh_status in DISPATCHABLE_RUN_STATUSES:
+            fresh.status = "queued"
+            fresh.error_code = None
+            fresh.error_detail = None
+        if fresh.queued_at is None:
+            fresh.queued_at = current_utc_dt
+        fresh.updated_at = current_utc_dt
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+        db.refresh(fresh)
+        run.status = fresh.status
+        run.queued_at = fresh.queued_at
+    logger.info(
+        "Dispatch de mantenimiento encolado | action=%s job_id=%s correlation_id=%s trigger=%s slot=%s",
+        action,
+        run.job_id,
+        run.correlation_id,
+        run.trigger_type,
+        run.scheduled_slot,
+    )
+    return True
+
+
 def _split_step_segment(segment: str) -> tuple[str, int | None]:
     parts = str(segment or "").split("/")
     base = parts[0]
@@ -949,23 +1234,6 @@ def _current_slot(current_local_dt: datetime) -> str:
     return current_local_dt.strftime("%Y%m%d%H%M")
 
 
-async def _enqueue_maintenance_job(action: str, payload: dict) -> str:
-    job_id = str(uuid.uuid4())
-    job = {
-        "job_id": job_id,
-        "type": action,
-        "queue": MAINTENANCE_QUEUE,
-        "attempt": 1,
-        "payload": {
-            "action": action,
-            **payload,
-        },
-    }
-    redis = get_redis()
-    await redis.rpush(MAINTENANCE_QUEUE, json.dumps(job))
-    return job_id
-
-
 async def _enqueue_manual_action(
     db: Session,
     obj: SystemMaintenanceSetting,
@@ -998,29 +1266,68 @@ async def _enqueue_manual_action(
             "requested_by_id": requested_by_id,
         }
 
-    job_id = await _enqueue_maintenance_job(action_meta["job_action"], payload)
-    _mark_runtime_enqueued(
-        obj,
-        action_meta["runtime_prefix"],
-        slot=current_slot,
-        enqueued_at=current_utc_dt,
+    run, _created = _create_maintenance_run(
+        db,
+        action=action_meta["job_action"],
+        scheduled_slot=None,
+        trigger_type="manual",
+        requested_by_id=requested_by_id,
         message=message,
+        current_utc_dt=current_utc_dt,
     )
-    db.commit()
+    try:
+        await _dispatch_maintenance_run(
+            db,
+            run,
+            action=action_meta["job_action"],
+            payload=payload,
+            current_utc_dt=current_utc_dt,
+        )
+        if str(run.status or "") == "queued":
+            _mark_runtime_enqueued(
+                obj,
+                action_meta["runtime_prefix"],
+                slot=current_slot,
+                enqueued_at=current_utc_dt,
+                message=message,
+            )
+        else:
+            _sync_runtime_from_run(
+                obj,
+                run,
+                action_meta["runtime_prefix"],
+                slot=current_slot,
+                fallback_message=message,
+            )
+        db.commit()
+    except Exception as exc:
+        _mark_runtime_dispatch_error(
+            obj,
+            action_meta["runtime_prefix"],
+            slot=current_slot,
+            error=exc,
+            current_utc_dt=current_utc_dt,
+        )
+        db.commit()
+        raise
     await publish_maintenance_event(
         status="queued",
         scope=action_key,
         action=action_meta["job_action"],
         message=message,
         trigger="manual",
-        job_id=job_id,
+        job_id=run.job_id,
         scheduled_slot=current_slot,
         actor_user_id=requested_by_id,
+        metadata={
+            "runId": run.id,
+            "correlationId": run.correlation_id,
+        },
     )
 
     return {
         "action": action_meta["job_action"],
-        "job_id": job_id,
+        "job_id": run.job_id,
         "requested_at": current_utc_dt.isoformat(),
         "scheduled_slot": current_slot,
         "trigger": "manual",
@@ -1151,34 +1458,90 @@ async def run_system_maintenance_tick(db: Session) -> dict:
 
         session_due = bool(obj.session_cleanup_enabled) and _cron_matches(obj.session_cleanup_cron, current_local_dt)
         if session_due and obj.last_session_cleanup_enqueued_slot != current_slot:
-            job_id = await _enqueue_maintenance_job(
-                "cleanup_sessions",
-                {
-                    "mode": obj.session_cleanup_mode,
-                    "scheduled_slot": current_slot,
-                },
+            message = "Limpieza de sesiones encolada por programación."
+            run, _created = _create_maintenance_run(
+                db,
+                action="cleanup_sessions",
+                scheduled_slot=current_slot,
+                trigger_type="cron",
+                requested_by_id=None,
+                message=message,
+                current_utc_dt=current_utc_dt,
             )
-            _mark_runtime_enqueued(
-                obj,
-                "session_cleanup",
-                slot=current_slot,
-                enqueued_at=current_utc_dt,
-                message="Limpieza de sesiones encolada por programación.",
-            )
-            enqueued.append({
-                "action": "cleanup_sessions",
-                "reason": "cron_match",
-                "job_id": job_id,
-            })
-            events_to_publish.append({
-                "status": "queued",
-                "scope": "session_cleanup",
-                "action": "cleanup_sessions",
-                "message": "Limpieza de sesiones encolada por programación.",
-                "trigger": "cron",
-                "job_id": job_id,
-                "scheduled_slot": current_slot,
-            })
+            should_dispatch = str(run.status or "") in DISPATCHABLE_RUN_STATUSES
+            if should_dispatch:
+                try:
+                    await _dispatch_maintenance_run(
+                        db,
+                        run,
+                        action="cleanup_sessions",
+                        payload={
+                            "mode": obj.session_cleanup_mode,
+                            "scheduled_slot": current_slot,
+                            "trigger_source": "cron",
+                        },
+                        current_utc_dt=current_utc_dt,
+                    )
+                    if str(run.status or "") == "queued":
+                        _mark_runtime_enqueued(
+                            obj,
+                            "session_cleanup",
+                            slot=current_slot,
+                            enqueued_at=current_utc_dt,
+                            message=message,
+                        )
+                    else:
+                        _sync_runtime_from_run(
+                            obj,
+                            run,
+                            "session_cleanup",
+                            slot=current_slot,
+                            fallback_message=message,
+                        )
+                    enqueued.append({
+                        "action": "cleanup_sessions",
+                        "reason": "cron_match",
+                        "job_id": run.job_id,
+                    })
+                    events_to_publish.append({
+                        "status": "queued",
+                        "scope": "session_cleanup",
+                        "action": "cleanup_sessions",
+                        "message": message,
+                        "trigger": "cron",
+                        "job_id": run.job_id,
+                        "scheduled_slot": current_slot,
+                        "metadata": {
+                            "runId": run.id,
+                            "correlationId": run.correlation_id,
+                        },
+                    })
+                except Exception as exc:
+                    _mark_runtime_dispatch_error(
+                        obj,
+                        "session_cleanup",
+                        slot=current_slot,
+                        error=exc,
+                        current_utc_dt=current_utc_dt,
+                    )
+                    skipped.append({
+                        "action": "cleanup_sessions",
+                        "reason": "dispatch_error",
+                        "job_id": run.job_id,
+                    })
+            else:
+                _sync_runtime_from_run(
+                    obj,
+                    run,
+                    "session_cleanup",
+                    slot=current_slot,
+                    fallback_message=message,
+                )
+                skipped.append({
+                    "action": "cleanup_sessions",
+                    "reason": "already_enqueued",
+                    "job_id": run.job_id,
+                })
         else:
             skipped.append({
                 "action": "cleanup_sessions",
@@ -1188,34 +1551,90 @@ async def run_system_maintenance_tick(db: Session) -> dict:
 
         temp_due = bool(obj.temp_cleanup_enabled) and _cron_matches(obj.temp_cleanup_cron, current_local_dt)
         if temp_due and obj.last_temp_cleanup_enqueued_slot != current_slot:
-            job_id = await _enqueue_maintenance_job(
-                "cleanup_temp_files",
-                {
-                    "max_age_days": int(obj.temp_cleanup_max_age_days),
-                    "scheduled_slot": current_slot,
-                },
+            message = "Limpieza de temporales encolada por programación."
+            run, _created = _create_maintenance_run(
+                db,
+                action="cleanup_temp_files",
+                scheduled_slot=current_slot,
+                trigger_type="cron",
+                requested_by_id=None,
+                message=message,
+                current_utc_dt=current_utc_dt,
             )
-            _mark_runtime_enqueued(
-                obj,
-                "temp_cleanup",
-                slot=current_slot,
-                enqueued_at=current_utc_dt,
-                message="Limpieza de temporales encolada por programación.",
-            )
-            enqueued.append({
-                "action": "cleanup_temp_files",
-                "reason": "cron_match",
-                "job_id": job_id,
-            })
-            events_to_publish.append({
-                "status": "queued",
-                "scope": "temp_cleanup",
-                "action": "cleanup_temp_files",
-                "message": "Limpieza de temporales encolada por programación.",
-                "trigger": "cron",
-                "job_id": job_id,
-                "scheduled_slot": current_slot,
-            })
+            should_dispatch = str(run.status or "") in DISPATCHABLE_RUN_STATUSES
+            if should_dispatch:
+                try:
+                    await _dispatch_maintenance_run(
+                        db,
+                        run,
+                        action="cleanup_temp_files",
+                        payload={
+                            "max_age_days": int(obj.temp_cleanup_max_age_days),
+                            "scheduled_slot": current_slot,
+                            "trigger_source": "cron",
+                        },
+                        current_utc_dt=current_utc_dt,
+                    )
+                    if str(run.status or "") == "queued":
+                        _mark_runtime_enqueued(
+                            obj,
+                            "temp_cleanup",
+                            slot=current_slot,
+                            enqueued_at=current_utc_dt,
+                            message=message,
+                        )
+                    else:
+                        _sync_runtime_from_run(
+                            obj,
+                            run,
+                            "temp_cleanup",
+                            slot=current_slot,
+                            fallback_message=message,
+                        )
+                    enqueued.append({
+                        "action": "cleanup_temp_files",
+                        "reason": "cron_match",
+                        "job_id": run.job_id,
+                    })
+                    events_to_publish.append({
+                        "status": "queued",
+                        "scope": "temp_cleanup",
+                        "action": "cleanup_temp_files",
+                        "message": message,
+                        "trigger": "cron",
+                        "job_id": run.job_id,
+                        "scheduled_slot": current_slot,
+                        "metadata": {
+                            "runId": run.id,
+                            "correlationId": run.correlation_id,
+                        },
+                    })
+                except Exception as exc:
+                    _mark_runtime_dispatch_error(
+                        obj,
+                        "temp_cleanup",
+                        slot=current_slot,
+                        error=exc,
+                        current_utc_dt=current_utc_dt,
+                    )
+                    skipped.append({
+                        "action": "cleanup_temp_files",
+                        "reason": "dispatch_error",
+                        "job_id": run.job_id,
+                    })
+            else:
+                _sync_runtime_from_run(
+                    obj,
+                    run,
+                    "temp_cleanup",
+                    slot=current_slot,
+                    fallback_message=message,
+                )
+                skipped.append({
+                    "action": "cleanup_temp_files",
+                    "reason": "already_enqueued",
+                    "job_id": run.job_id,
+                })
         else:
             skipped.append({
                 "action": "cleanup_temp_files",
