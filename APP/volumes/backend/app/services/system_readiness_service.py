@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import urllib.request
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -10,6 +9,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from core.config import settings
+from core.datetime_utils import utc_isoformat_z, utc_now
 from db.minio_client import REQUIRED_MINIO_BUCKETS, ensure_minio_buckets
 from db.redis import get_redis
 from services.email_template_service import EMAIL_TEMPLATES_DIR, TEMPLATE_DEFINITIONS
@@ -54,7 +54,7 @@ WEAK_SECRET_FRAGMENTS = (
 
 
 def _utc_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return utc_isoformat_z(utc_now())
 
 
 def _check(

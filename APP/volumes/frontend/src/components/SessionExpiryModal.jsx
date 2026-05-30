@@ -13,6 +13,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import useAuthStore from "@/store/authStore";
 import { refreshNow } from "@/services/axiosInterceptor";
+import { parseAppDate } from "@/utils/formats";
 
 import logger from "@/utils/logger";
 const log = logger.scope("sessionExpiry");
@@ -32,7 +33,7 @@ const CHECK_INTERVAL_MS = 5_000;
 
 const getSecondsLeft = (expiresAt) => {
     if (!expiresAt) return Infinity;
-    return Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000));
+    return Math.max(0, Math.floor((parseAppDate(expiresAt).getTime() - Date.now()) / 1000));
 };
 
 const formatTime = (secs) => {

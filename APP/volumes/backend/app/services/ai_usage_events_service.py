@@ -10,7 +10,7 @@ from sqlalchemy import case, func, or_
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session, joinedload
 
-from core.datetime_utils import assume_utc, utc_now_db
+from core.datetime_utils import assume_utc, utc_isoformat_z, utc_now_db
 from models.ai_profiles import AiProfile
 from models.ai_model_pricing import AiModelPricing
 from models.ai_provider_configs import AiProviderConfig
@@ -51,8 +51,7 @@ def _to_utc_naive(value: datetime | None) -> datetime | None:
 
 
 def _as_iso(value: datetime | None) -> str | None:
-    normalized = assume_utc(value)
-    return normalized.isoformat() if normalized else None
+    return utc_isoformat_z(value)
 
 
 def _decimal_to_float(value: Decimal | None) -> float | None:

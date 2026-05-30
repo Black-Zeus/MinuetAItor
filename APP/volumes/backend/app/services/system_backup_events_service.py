@@ -8,7 +8,7 @@ from typing import AsyncGenerator
 
 from fastapi import Request
 
-from core.datetime_utils import utc_now
+from core.datetime_utils import normalize_datetime_strings_to_utc_z, utc_isoformat_z, utc_now
 from db.redis import get_redis
 from schemas.auth import UserSession
 from services.sse_instrumentation import new_sse_connection_id, sse_duration_ms, sse_log
@@ -33,7 +33,7 @@ def backup_sse_headers() -> dict:
 
 
 def _backup_sse_event(event: str, data: dict) -> str:
-    return f"event: {event}\ndata: {json.dumps(data)}\n\n"
+    return f"event: {event}\ndata: {json.dumps(normalize_datetime_strings_to_utc_z(data))}\n\n"
 
 
 async def publish_backup_event(
@@ -61,10 +61,10 @@ async def publish_backup_event(
         "job_id": job_id,
         "artifact_id": artifact_id,
         "actor_user_id": actor_user_id,
-        "ts": utc_now().isoformat(),
+        "ts": utc_isoformat_z(utc_now()),
         "metadata": metadata or {},
     }
-    await redis.publish(get_backup_events_channel(), json.dumps(payload))
+    await redis.publish(get_backup_events_channel(), json.dumps(normalize_datetime_strings_to_utc_z(payload)))
 
 
 async def stream_system_backup_events(session: UserSession, request: Request) -> AsyncGenerator[str, None]:

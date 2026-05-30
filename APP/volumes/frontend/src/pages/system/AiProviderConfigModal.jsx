@@ -4,6 +4,7 @@ import ActionButton from "@/components/ui/button/ActionButton";
 import Icon from "@/components/ui/icon/iconManager";
 import { toastError, toastSuccess } from "@/components/common/toast/toastHelpers";
 import aiProviderConfigService from "@/services/aiProviderConfigService";
+import { formatDateTime as formatUserDateTime } from "@/utils/formats";
 
 export const AI_PROVIDER_MODAL_MODES = {
   CREATE: "create",
@@ -145,17 +146,8 @@ const buildValidationToastMessage = ({ name, ok, status }) => {
 
 const formatDateTime = (value) => {
   if (!value) return "—";
-  try {
-    const date = new Date(value);
-    const day = String(date.getDate()).padStart(2, "0");
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const year = String(date.getFullYear());
-    const hours = String(date.getHours()).padStart(2, "0");
-    const minutes = String(date.getMinutes()).padStart(2, "0");
-    return `${day}/${month}/${year} ${hours}:${minutes}`;
-  } catch {
-    return value;
-  }
+  const formatted = formatUserDateTime(value);
+  return formatted === "N/A" ? "—" : formatted;
 };
 
 const safeJsonStringify = (value) => {

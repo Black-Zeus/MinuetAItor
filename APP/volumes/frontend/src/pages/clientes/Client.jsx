@@ -23,6 +23,7 @@ import PageLoadingSpinner from '@/components/ui/modal/types/system/PageLoadingSp
 import CatalogViewBar from '@/components/common/CatalogViewBar';
 import CatalogPagePagination from '@/components/common/CatalogPagePagination';
 import useModuleViewMode from '@/hooks/useModuleViewMode';
+import { parseAppDate } from '@/utils/formats';
 
 import logger from '@/utils/logger';
 
@@ -122,7 +123,7 @@ const Client = () => {
       case 'recent':
       default: {
         const toTime = (v) => {
-          const t = new Date(v ?? 0).getTime();
+          const t = parseAppDate(v ?? 0).getTime();
           return Number.isFinite(t) ? t : 0;
         };
         result.sort((a, b) => toTime(b.createdAt) - toTime(a.createdAt));

@@ -1,5 +1,5 @@
 // services/minutesService.js
-import api from "@/services/axiosInterceptor";
+import api, { normalizeTransportDateTimes } from "@/services/axiosInterceptor";
 
 const BASE = "/v1/minutes";
 
@@ -120,7 +120,7 @@ export const generateMinute = async (payload, files = []) => {
   const fd = new FormData();
 
   // El backend espera el JSON como string en el campo "input_json"
-  fd.append("input_json", JSON.stringify(payload));
+  fd.append("input_json", JSON.stringify(normalizeTransportDateTimes(payload)));
 
   // Los archivos van todos bajo el mismo campo "files" (array)
   files.forEach((file) => {

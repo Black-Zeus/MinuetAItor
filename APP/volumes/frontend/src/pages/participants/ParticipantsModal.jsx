@@ -4,6 +4,7 @@ import { ModalManager } from "@/components/ui/modal";
 import { toastError, toastSuccess } from "@/components/common/toast/toastHelpers";
 import ActionButton from "@/components/ui/button/ActionButton";
 import participantsService from "@/services/participantsService";
+import { formatDateMedium } from "@/utils/formats";
 
 export const PARTICIPANTS_MODAL_MODES = {
   CREATE: "createParticipant",
@@ -743,11 +744,7 @@ const ParticipantsModal = ({ mode, data, onSubmit, onClose, onSaved }) => {
                   {isView && formData.createdAt ? (
                     <SummaryItem
                       label="Creado"
-                      value={new Date(formData.createdAt).toLocaleDateString("es-ES", {
-                        day: "numeric",
-                        month: "long",
-                        year: "numeric",
-                      })}
+                      value={formatDateMedium(formData.createdAt)}
                     />
                   ) : null}
                 </div>

@@ -17,7 +17,7 @@ from redis.exceptions import RedisError
 from sqlalchemy.orm import Session
 
 from core.config import settings
-from core.datetime_utils import assume_utc, utc_now, utc_now_db
+from core.datetime_utils import assume_utc, utc_isoformat_z, utc_now, utc_now_db
 from core.exceptions import BadRequestException, NotFoundException
 from db.redis import get_redis
 from models.system_backups import (
@@ -109,8 +109,7 @@ EXPECTED_TABLES = {
 
 
 def _iso(value) -> str | None:
-    normalized = assume_utc(value)
-    return normalized.isoformat() if normalized else None
+    return utc_isoformat_z(value)
 
 
 def _json_loads(value: str | None, default: Any) -> Any:

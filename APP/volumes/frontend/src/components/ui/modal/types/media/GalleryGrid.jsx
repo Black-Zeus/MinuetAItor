@@ -10,6 +10,7 @@ import {
     Image as ImageIcon, Video as VideoIcon, Music, FileText,
     Archive, Folder, File, Filter, SortAsc, Download
 } from 'lucide-react';
+import { formatDateMedium, parseAppDate } from '@/utils/formats';
 
 // ====================================
 // COMPONENTE PRINCIPAL
@@ -85,8 +86,8 @@ export const GalleryGrid = ({
                     bValue = (b.name || b.title || '').toLowerCase();
                     break;
                 case 'date':
-                    aValue = new Date(a.date || a.modified || 0);
-                    bValue = new Date(b.date || b.modified || 0);
+                    aValue = parseAppDate(a.date || a.modified || 0);
+                    bValue = parseAppDate(b.date || b.modified || 0);
                     break;
                 case 'size':
                     aValue = a.size || 0;
@@ -161,11 +162,7 @@ export const GalleryGrid = ({
 
     const formatDate = useCallback((date) => {
         if (!date) return '';
-        return new Date(date).toLocaleDateString('es-ES', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric'
-        });
+        return formatDateMedium(date);
     }, []);
 
     // ====================================

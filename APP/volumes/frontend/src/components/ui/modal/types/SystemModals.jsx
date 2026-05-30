@@ -6,6 +6,7 @@
 
 import React from 'react';
 import { MODAL_CLASSES } from '../modalTypes.js';
+import { formatDateTime } from '@/utils/formats';
 
 // Importar componentes específicos
 import { LoadingSpinner } from './system/LoadingSpinner.jsx';
@@ -429,7 +430,7 @@ export const renderSystemNotificationModal = ({
               )}
               {showTimestamp && (
                 <div className="text-xs text-gray-500 dark:text-gray-400">
-                  {new Date(timestamp).toLocaleString()}
+                  {formatDateTime(timestamp)}
                 </div>
               )}
             </div>

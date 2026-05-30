@@ -19,6 +19,11 @@ import { TXT_BODY, TXT_META, TXT_TITLE } from "@/pages/system/SystemSettingsShar
 import aiUsageMetricsService from "@/services/aiUsageMetricsService";
 import clientService from "@/services/clientService";
 import projectService from "@/services/projectService";
+import {
+  formatDateInputValue,
+  formatDateTime as formatUserDateTime,
+  isValidDate,
+} from "@/utils/formats";
 import logger from "@/utils/logger";
 
 const metricsLog = logger.scope("metrics");
@@ -55,10 +60,7 @@ const SECTION_DEFAULTS = {
   events: true,
 };
 
-const toInputDate = (date) => {
-  const normalized = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-  return normalized.toISOString().slice(0, 10);
-};
+const toInputDate = (date) => formatDateInputValue(date);
 
 const buildDefaultFilters = () => {
   const end = new Date();
@@ -99,12 +101,8 @@ const formatLatency = (value) => (value == null ? "Sin dato" : `${formatNumber(M
 
 const formatDateTime = (value) => {
   if (!value) return "Sin fecha";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return String(value);
-  return new Intl.DateTimeFormat("es-CL", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
+  if (!isValidDate(value)) return String(value);
+  return formatUserDateTime(value);
 };
 
 const formatAxisDate = (value) => {

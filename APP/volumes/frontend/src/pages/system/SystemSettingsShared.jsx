@@ -2,6 +2,7 @@ import React from "react";
 
 import ActionButton from "@/components/ui/button/ActionButton";
 import Icon from "@/components/ui/icon/iconManager";
+import { formatDateTime as formatUserDateTime } from "@/utils/formats";
 
 export const TXT_TITLE = "text-gray-900 dark:text-white";
 export const TXT_BODY = "text-gray-600 dark:text-gray-300";
@@ -48,17 +49,8 @@ export const TABS = [
 
 export const formatDateTime = (value) => {
   if (!value) return "—";
-  try {
-    const date = new Date(value);
-    const day = String(date.getDate()).padStart(2, "0");
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const year = String(date.getFullYear());
-    const hours = String(date.getHours()).padStart(2, "0");
-    const minutes = String(date.getMinutes()).padStart(2, "0");
-    return `${day}/${month}/${year} ${hours}:${minutes}`;
-  } catch {
-    return value;
-  }
+  const formatted = formatUserDateTime(value);
+  return formatted === "N/A" ? "—" : formatted;
 };
 
 export const statusClasses = {

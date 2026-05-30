@@ -42,6 +42,7 @@
 
 import { create } from "zustand";
 import { DEFAULT_PDF_TEMPLATE } from "@/constants/pdfTemplates";
+import { formatDate } from "@/utils/formats";
 
 // ============================================================
 // HELPERS
@@ -55,14 +56,8 @@ const asArray = (value) => (Array.isArray(value) ? value : []);
 const formatObservationDateLabel = (value) => {
   if (!value) return "";
 
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return "";
-
-  return parsed.toLocaleDateString("es-CL", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
+  const formatted = formatDate(value);
+  return formatted === "Fecha inválida" || formatted === "N/A" ? "" : formatted;
 };
 
 const buildGuestObservationLabel = ({ authorLabel, createdAt } = {}) => {

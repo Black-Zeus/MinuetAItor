@@ -13,6 +13,7 @@ import { DEFAULT_PDF_TEMPLATE, PDF_TEMPLATE_OPTIONS, getPdfTemplateMeta } from '
 import useMinuteEditorStore from '@/store/minuteEditorStore';
 import { previewMinutePdfBlob } from '@/services/minutesService';
 import { openPdfViewer } from '@/components/ui/pdf/PdfViewerModal';
+import { formatDate, parseAppDate } from '@/utils/formats';
 
 const buildPreviewFilename = (meetingInfo = {}) => {
   const rawTitle = String(meetingInfo.subject ?? 'minuta').trim() || 'minuta';
@@ -219,7 +220,7 @@ const CoverPageConfig = () => {
 
 const SummarySheetConfig = () => {
   const { meetingInfo, meetingTimes, metadataLocked, timeline } = useMinuteEditorStore();
-  const currentVersion = [...timeline].sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))[0]?.version ?? 'v1.0';
+  const currentVersion = [...timeline].sort((a, b) => parseAppDate(b.publishedAt) - parseAppDate(a.publishedAt))[0]?.version ?? 'v1.0';
   return (
     <div className="space-y-3">
       <p className="text-xs text-gray-500 dark:text-gray-400 transition-theme">
@@ -239,7 +240,7 @@ const SummarySheetConfig = () => {
 
 const VersionControlConfig = () => {
   const { timeline } = useMinuteEditorStore();
-  const sorted = [...timeline].sort((a, b) => new Date(a.publishedAt) - new Date(b.publishedAt));
+  const sorted = [...timeline].sort((a, b) => parseAppDate(a.publishedAt) - parseAppDate(b.publishedAt));
   return (
     <div className="space-y-3">
       <p className="text-xs text-gray-500 dark:text-gray-400 transition-theme">
@@ -261,7 +262,7 @@ const VersionControlConfig = () => {
             ) : sorted.map(e => (
               <tr key={e.id} className="border-t border-gray-100 dark:border-gray-700/50 transition-theme">
                 <td className="px-4 py-3 font-mono font-bold text-primary-600 dark:text-primary-400">{e.version}</td>
-                <td className="px-4 py-3 font-mono whitespace-nowrap">{e.publishedAt?.slice(0, 10) ?? '—'}</td>
+                <td className="px-4 py-3 font-mono whitespace-nowrap">{e.publishedAt ? formatDate(e.publishedAt) : '—'}</td>
                 <td className="px-4 py-3 whitespace-nowrap">{e.publishedBy}</td>
                 <td className="px-4 py-3">{e.observation || e.changesSummary || '—'}</td>
               </tr>

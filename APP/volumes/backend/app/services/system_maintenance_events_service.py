@@ -10,7 +10,7 @@ from typing import AsyncGenerator
 from fastapi import Request
 
 from core.config import settings
-from core.datetime_utils import utc_now
+from core.datetime_utils import normalize_datetime_strings_to_utc_z, utc_isoformat_z, utc_now
 from db.redis import get_redis
 from schemas.auth import UserSession
 from services.sse_instrumentation import new_sse_connection_id, sse_duration_ms, sse_log
@@ -39,7 +39,7 @@ def maintenance_sse_headers() -> dict:
 
 
 def _maintenance_sse_event(event: str, data: dict) -> str:
-    return f"event: {event}\ndata: {json.dumps(data)}\n\n"
+    return f"event: {event}\ndata: {json.dumps(normalize_datetime_strings_to_utc_z(data))}\n\n"
 
 
 async def publish_maintenance_event(
@@ -67,10 +67,10 @@ async def publish_maintenance_event(
         "scheduled_slot": scheduled_slot,
         "actor_user_id": actor_user_id,
         "affected_count": affected_count,
-        "ts": utc_now().isoformat(),
+        "ts": utc_isoformat_z(utc_now()),
         "metadata": metadata or {},
     }
-    await redis.publish(get_maintenance_events_channel(), json.dumps(payload))
+    await redis.publish(get_maintenance_events_channel(), json.dumps(normalize_datetime_strings_to_utc_z(payload)))
 
 
 async def stream_system_maintenance_events(session: UserSession, request: Request) -> AsyncGenerator[str, None]:

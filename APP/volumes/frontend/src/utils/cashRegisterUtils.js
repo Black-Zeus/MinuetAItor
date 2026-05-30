@@ -1,4 +1,6 @@
-v/**
+import { formatDateTime as formatUserDateTime } from "@/utils/formats";
+
+/**
  * Utilidades para gestión de sesiones de caja registradora
  * Incluye funciones de formateo, cálculos y validaciones
  */
@@ -24,16 +26,10 @@ export const formatCLP = (amount) => {
  */
 export const formatDateTime = (datetime, options = {}) => {
   if (!datetime) return "-";
-  
-  const defaultOptions = {
-    dateStyle: "short",
-    timeStyle: "short",
-  };
-
-  return new Date(datetime).toLocaleString("es-CL", {
-    ...defaultOptions,
-    ...options,
-  });
+  if (Object.keys(options).length > 0) {
+    return formatUserDateTime(datetime);
+  }
+  return formatUserDateTime(datetime);
 };
 
 /**

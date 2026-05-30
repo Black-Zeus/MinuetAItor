@@ -45,7 +45,7 @@ from typing import Any
 
 import requests
 from minio import Minio
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker
 
 from core.config import settings
@@ -79,6 +79,15 @@ def _get_db_session() -> sessionmaker:
     global _SessionLocal
     if _SessionLocal is None:
         engine = create_engine(settings.DATABASE_URL, pool_pre_ping=True)
+
+        @event.listens_for(engine, "connect")
+        def set_utc_timezone(dbapi_connection, connection_record):
+            cursor = dbapi_connection.cursor()
+            try:
+                cursor.execute("SET time_zone = '+00:00'")
+            finally:
+                cursor.close()
+
         _SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
     return _SessionLocal
 

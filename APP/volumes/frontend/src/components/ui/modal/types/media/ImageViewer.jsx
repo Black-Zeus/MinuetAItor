@@ -9,6 +9,7 @@ import {
   ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCw, 
   Download, Maximize2, Minimize2, Move, RotateCcw
 } from 'lucide-react';
+import { formatDate } from '@/utils/formats';
 
 // ====================================
 // COMPONENTE PRINCIPAL
@@ -407,7 +408,7 @@ export const ImageViewer = ({
           <div>
             <span className="text-gray-600 dark:text-gray-400">Fecha:</span>
             <span className="ml-2 text-gray-900 dark:text-gray-100">
-              {new Date(currentImage.date).toLocaleDateString()}
+              {formatDate(currentImage.date)}
             </span>
           </div>
         )}

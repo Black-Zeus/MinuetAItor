@@ -10,6 +10,7 @@ import {
     Archive, Upload, Search, Grid, List, SortAsc, Eye, Edit, Trash2, Copy,
     Move, MoreHorizontal, ChevronRight, Home, ArrowLeft, Plus, Download
 } from 'lucide-react';
+import { formatDateTime, parseAppDate } from '@/utils/formats';
 
 // ====================================
 // COMPONENTE PRINCIPAL
@@ -104,8 +105,8 @@ export const FileManager = ({
                     bValue = b.size || 0;
                     break;
                 case 'date':
-                    aValue = new Date(a.modified || 0);
-                    bValue = new Date(b.modified || 0);
+                    aValue = parseAppDate(a.modified || 0);
+                    bValue = parseAppDate(b.modified || 0);
                     break;
                 case 'type':
                     aValue = a.type || '';
@@ -210,13 +211,7 @@ export const FileManager = ({
 
     const formatDate = useCallback((date) => {
         if (!date) return '';
-        return new Date(date).toLocaleDateString('es-ES', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
+        return formatDateTime(date);
     }, []);
 
     // ====================================

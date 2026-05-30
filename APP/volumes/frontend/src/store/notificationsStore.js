@@ -1,11 +1,13 @@
 import { create } from "zustand";
 
+import { parseAppDate } from "@/utils/formats";
+
 const PREVIEW_LIMIT = 4;
 
 const sortByCreatedAtDesc = (items = []) =>
   [...items].sort((left, right) => {
-    const leftTs = new Date(left?.createdAt || 0).getTime();
-    const rightTs = new Date(right?.createdAt || 0).getTime();
+    const leftTs = parseAppDate(left?.createdAt || 0).getTime();
+    const rightTs = parseAppDate(right?.createdAt || 0).getTime();
     return rightTs - leftTs;
   });
 

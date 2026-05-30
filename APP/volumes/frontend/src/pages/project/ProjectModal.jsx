@@ -5,6 +5,7 @@ import { toastError, toastSuccess } from "@/components/common/toast/toastHelpers
 import { DEFAULT_PDF_TEMPLATE, PDF_TEMPLATE_OPTIONS, getPdfTemplateLabel } from "@/constants/pdfTemplates";
 import clientService from "@/services/clientService";
 import projectService from "@/services/projectService";
+import { formatDateMedium } from "@/utils/formats";
 
 const MODES = {
   CREATE: "createNewProject",
@@ -1038,11 +1039,7 @@ const ProjectModal = ({
                   {isView && formData.createdAt ? (
                     <SummaryItem
                       label="Creado"
-                      value={new Date(formData.createdAt).toLocaleDateString("es-ES", {
-                        day: "numeric",
-                        month: "long",
-                        year: "numeric",
-                      })}
+                      value={formatDateMedium(formData.createdAt)}
                     />
                   ) : null}
                 </div>

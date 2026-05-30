@@ -6,6 +6,7 @@ from datetime import datetime
 from sqlalchemy import DateTime, ForeignKey, SmallInteger, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from core.datetime_utils import utc_now_db
 from db.base import Base
 
 
@@ -23,7 +24,7 @@ class UserRole(Base):
         primary_key=True,
     )
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now_db)
     created_by: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
 
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

@@ -12,6 +12,7 @@ import ActionButton from '@/components/ui/button/ActionButton';
 import clientService from '@/services/clientService';
 import useSessionStore from '@/store/sessionStore';
 import { parseError } from '@/utils/errors';
+import { formatDateMedium } from '@/utils/formats';
 
 import logger from '@/utils/logger';
 const clientLog = logger.scope("client");
@@ -237,9 +238,7 @@ const ClientCard = ({ id, summary = null, onUpdated, onDeleted }) => {
           <div className="flex items-center gap-2 text-sm">
             <Icon name="FaCalendarPlus" className={`${TXT_META} w-4 h-4 flex-shrink-0`} />
             <span className={`${TXT_META} transition-theme`}>
-              {summary?.createdAt
-                ? new Date(summary.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })
-                : '—'}
+              {summary?.createdAt ? formatDateMedium(summary.createdAt) : '—'}
             </span>
           </div>
         </div>

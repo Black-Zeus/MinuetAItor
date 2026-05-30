@@ -18,7 +18,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from core.config import settings
-from core.datetime_utils import utc_now_db
+from core.datetime_utils import normalize_datetime_strings_to_utc_z, utc_isoformat_z, utc_now_db
 from db.minio_client import get_minio_client
 from db.redis import get_redis
 from models.minute_transaction import MinuteTransaction
@@ -900,9 +900,9 @@ async def _publish_public_pdf_updated_event(record_id: str) -> None:
     payload = {
         "event": "pdf_updated",
         "recordId": str(record_id),
-        "ts": utc_now_db().isoformat(),
+        "ts": utc_isoformat_z(utc_now_db()),
     }
-    await redis.publish(_public_minute_events_channel(record_id), json.dumps(payload))
+    await redis.publish(_public_minute_events_channel(record_id), json.dumps(normalize_datetime_strings_to_utc_z(payload)))
 
 
 async def _publish_public_minute_published_event(record_id: str) -> None:
@@ -911,9 +911,9 @@ async def _publish_public_minute_published_event(record_id: str) -> None:
         "event": "minute_published",
         "recordId": str(record_id),
         "status": RECORD_STATUS_COMPLETED,
-        "ts": utc_now_db().isoformat(),
+        "ts": utc_isoformat_z(utc_now_db()),
     }
-    await redis.publish(_public_minute_events_channel(record_id), json.dumps(payload))
+    await redis.publish(_public_minute_events_channel(record_id), json.dumps(normalize_datetime_strings_to_utc_z(payload)))
 
 
 async def start_minute_pdf_preview_job(db: Session, record_id: str, content: dict[str, Any]) -> dict[str, Any]:

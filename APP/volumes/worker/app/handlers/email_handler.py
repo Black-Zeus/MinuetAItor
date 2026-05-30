@@ -10,12 +10,12 @@ import smtplib
 import threading
 import time
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from email.message import EmailMessage
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import sessionmaker
 
@@ -181,7 +181,7 @@ def _record_email_delivery_status(
     scope_type = _clean_delivery_text(notification_context.get("scopeType") or notification_context.get("scope_type"))
     scope_id = _clean_delivery_text(notification_context.get("scopeId") or notification_context.get("scope_id"))
     record_id = _clean_delivery_text(metadata.get("recordId")) or (scope_id if scope_type == "record" else None)
-    occurred_at = datetime.utcnow()
+    occurred_at = datetime.now(timezone.utc).replace(tzinfo=None)
     sent_at = occurred_at if status == "sent" else None
     failed_at = occurred_at if status == "failed" else None
 
@@ -548,6 +548,15 @@ def _get_db_session() -> sessionmaker:
     global _SessionLocal
     if _SessionLocal is None:
         engine = create_engine(settings.DATABASE_URL, pool_pre_ping=True)
+
+        @event.listens_for(engine, "connect")
+        def set_utc_timezone(dbapi_connection, connection_record):
+            cursor = dbapi_connection.cursor()
+            try:
+                cursor.execute("SET time_zone = '+00:00'")
+            finally:
+                cursor.close()
+
         _SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
     return _SessionLocal
 

@@ -14,6 +14,7 @@ import teamsService from "@/services/teamsService";
 import { toastSuccess, toastError } from "@/components/common/toast/toastHelpers";
 import useSessionStore from "@/store/sessionStore";
 import axiosInstance from "@/services/axiosInterceptor";
+import { formatDate } from "@/utils/formats";
 
 import logger from "@/utils/logger";
 const teamsLog = logger.scope("teams");
@@ -434,9 +435,7 @@ const TeamsCard = ({ id, summary = null, onUpdated, onDeleted }) => {
           <Icon name="FaCalendarPlus" className="w-4 h-4 flex-shrink-0" />
           <span>
             Alta:{" "}
-            {base?.createdAt
-              ? new Date(base.createdAt).toLocaleDateString("es-CL")
-              : "—"}
+            {base?.createdAt ? formatDate(base.createdAt) : "—"}
           </span>
         </div>
       </div>

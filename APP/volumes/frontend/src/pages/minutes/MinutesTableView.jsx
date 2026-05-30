@@ -11,6 +11,7 @@ import {
   getMinuteStatusConfig,
   showConfirmCancelModal,
 } from "./MinuteCard";
+import { parseAppDate } from "@/utils/formats";
 
 const TXT_HEAD = "text-xs font-semibold uppercase tracking-[0.12em] text-gray-500 dark:text-gray-400";
 const TXT_BODY = "text-sm text-gray-700 dark:text-gray-300";
@@ -50,7 +51,7 @@ const MinutesTableView = ({ minutes = [], onStatusChange, onReprocess, isRefresh
     minute: (minute) => minute?.title,
     preparedAt: (minute) => {
       if (!minute?.date) return null;
-      const timestamp = new Date(minute.date).getTime();
+      const timestamp = parseAppDate(minute.date).getTime();
       return Number.isFinite(timestamp) ? timestamp : minute.date;
     },
     status: (minute) => minute?.status,
