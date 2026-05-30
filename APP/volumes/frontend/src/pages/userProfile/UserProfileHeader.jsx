@@ -161,17 +161,6 @@ const UserProfileHeader = ({
           onRemoveAvatar={onRemoveAvatar}
           canEditAvatar={canEditAvatar}
         />
-
-        {/* Último acceso */}
-        <div className="bg-gray-50 dark:bg-gray-700/40 rounded-xl px-5 py-4 border border-gray-200 dark:border-gray-700 transition-theme shrink-0">
-          <p className={`text-xs font-semibold ${TXT_META} flex items-center gap-2 transition-theme`}>
-            <Icon name="clock" className="w-3.5 h-3.5" />
-            Último acceso
-          </p>
-          <p className={`${TXT_TITLE} mt-1 font-medium transition-theme`}>
-            {profile?.lastConection}
-          </p>
-        </div>
       </div>
     </div>
   </div>
