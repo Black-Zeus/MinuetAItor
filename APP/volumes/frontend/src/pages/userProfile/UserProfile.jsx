@@ -14,12 +14,8 @@ import UserProfileCustomization from "./UserProfileCustomization";
 
 import PageLoadingSpinner from "@/components/ui/modal/types/system/PageLoadingSpinner";
 import { ModalManager } from "@/components/ui/modal";
-import useAuthStore from "@/store/authStore";
-import useBaseSiteStore from "@store/baseSiteStore";
 import useSessionStore from "@store/sessionStore";
 import { deleteMyAvatar, uploadMyAvatar } from "@/services/authService";
-
-import { formatDateTimeTechnical } from "@/utils/formats"
 
 import logger from '@/utils/logger';
 const usrProfLog = logger.scope("user-profile");
@@ -27,7 +23,7 @@ const usrProfLog = logger.scope("user-profile");
 // ─── Mapeo store → shape que espera el form ───────────────────────────────────
 // El form usa camelCase y nombres propios del UI.
 // El store usa snake_case igual que el backend.
-const sessionToForm = (user, profile, connections, loginTimestamp) => ({
+const sessionToForm = (user, profile) => ({
   fullName: user?.full_name ?? "",   // user.full_name   → campo "Nombre completo"
   position: user?.job_title ?? "",   // user.job_title   → campo "Cargo"
   department: profile?.department ?? "",  // profile.department → campo "Departamento"
@@ -35,15 +31,7 @@ const sessionToForm = (user, profile, connections, loginTimestamp) => ({
   notes: user?.description ?? "",   // user.description → campo "Notas"
   phone: user?.phone ?? "",                          // no viene del backend aún — solo local
   area: user?.area ?? "",                          // no viene del backend aún — solo local
-  lastConection: formatDateTimeTechnical(
-    connections?.active?.ts ?? user?.last_login_at ?? loginTimestamp ?? ""
-  )
 });
-
-const getLastConnectionLabel = (user, connections, loginTimestamp) =>
-  formatDateTimeTechnical(
-    connections?.active?.ts ?? user?.last_login_at ?? loginTimestamp ?? ""
-  );
 
 // ─── Mapeo inverso form → body del PATCH /users/me ───────────────────────────
 // Cuando el usuario guarde, necesitas enviar esto al backend.
@@ -55,7 +43,6 @@ const formToRequest = (formData) => ({
   department: formData.department,
   phone: formData.phone,
   area: formData.area,
-  lastConection: formData.lastConection,
 });
 
 const comparableProfile = (formData) => ({
@@ -76,16 +63,13 @@ const UserProfile = () => {
   // Si cambia user, re-renderiza. Si cambia solo profile.color, también.
   const storeUser = useSessionStore((s) => s.user);
   const storeProfile = useSessionStore((s) => s.profile);
-  const connections = useSessionStore((s) => s.connections);
   const isLoading = useSessionStore((s) => s.isLoading);
-  const loginTimestamp = useAuthStore((s) => s.loginTimestamp);
-  const timeZone = useBaseSiteStore((s) => s.ui?.timeZone);
 
   // ── 2. Form state local ──────────────────────────────────────────────────────
   // Los datos del form son una COPIA local — no escriben directo al store.
   // Se inicializan con lo que ya haya en el store (del login).
   const [formData, setFormData] = useState(() =>
-    sessionToForm(storeUser, storeProfile, connections, loginTimestamp)
+    sessionToForm(storeUser, storeProfile)
   );
   const [pendingAvatar, setPendingAvatar] = useState({
     action: null,
@@ -113,16 +97,9 @@ const UserProfile = () => {
   // → el form muestra los datos frescos del servidor
   useEffect(() => {
     if (storeUser) {
-      setFormData(sessionToForm(storeUser, storeProfile, connections, loginTimestamp));
+      setFormData(sessionToForm(storeUser, storeProfile));
     }
-  }, [storeUser, storeProfile, connections, loginTimestamp]);
-
-  useEffect(() => {
-    setFormData((current) => ({
-      ...current,
-      lastConection: getLastConnectionLabel(storeUser, connections, loginTimestamp),
-    }));
-  }, [storeUser, connections, loginTimestamp, timeZone]);
+  }, [storeUser, storeProfile]);
 
   useEffect(() => () => {
     if (pendingAvatar.previewUrl) URL.revokeObjectURL(pendingAvatar.previewUrl);
@@ -131,7 +108,7 @@ const UserProfile = () => {
 
   // ── Handlers ─────────────────────────────────────────────────────────────────
   const hasProfileChanges = JSON.stringify(comparableProfile(formData)) !== JSON.stringify(
-    comparableProfile(sessionToForm(storeUser, storeProfile, connections, loginTimestamp))
+    comparableProfile(sessionToForm(storeUser, storeProfile))
   ) || Boolean(pendingAvatar.action);
 
   const handleProfileChange = (updated) => setFormData(updated);
@@ -139,7 +116,7 @@ const UserProfile = () => {
   // Restablecer = volver al estado actual del store (no del servidor)
   const handleReset = () => {
     clearPendingAvatar();
-    setFormData(sessionToForm(storeUser, storeProfile, connections, loginTimestamp));
+    setFormData(sessionToForm(storeUser, storeProfile));
   };
   
   const handleSave = async () => {
