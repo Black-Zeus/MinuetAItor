@@ -3,6 +3,7 @@
  */
 
 import React, { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import UserProfileTabNav from "./UserProfileTabNav";
 import UserProfileHeader from "./UserProfileHeader";
@@ -19,6 +20,7 @@ import { deleteMyAvatar, uploadMyAvatar } from "@/services/authService";
 
 import logger from '@/utils/logger';
 const usrProfLog = logger.scope("user-profile");
+const VALID_TABS = new Set(["profile", "security", "sessions", "notifications", "customization"]);
 
 // ─── Mapeo store → shape que espera el form ───────────────────────────────────
 // El form usa camelCase y nombres propios del UI.
@@ -56,7 +58,9 @@ const comparableProfile = (formData) => ({
 
 // ─── Componente ───────────────────────────────────────────────────────────────
 const UserProfile = () => {
-  const [activeTab, setActiveTab] = useState("profile");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = searchParams.get("tab");
+  const [activeTab, setActiveTab] = useState(VALID_TABS.has(initialTab) ? initialTab : "profile");
 
   // ── 1. Leer del store con selectores ────────────────────────────────────────
   // Cada selector suscribe el componente SOLO a esa propiedad.
@@ -91,6 +95,23 @@ const UserProfile = () => {
   useEffect(() => {
     useSessionStore.getState().loadFromApi(true);
   }, []);
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (!tab && activeTab !== "profile") {
+      setActiveTab("profile");
+      return;
+    }
+    if (VALID_TABS.has(tab) && tab !== activeTab) {
+      setActiveTab(tab);
+    }
+  }, [activeTab, searchParams]);
+
+  const handleTabChange = (tab) => {
+    if (!VALID_TABS.has(tab)) return;
+    setActiveTab(tab);
+    setSearchParams(tab === "profile" ? {} : { tab });
+  };
 
   // ── 4. Re-sincronizar form cuando el store se actualiza ──────────────────────
   // Después del fetch, storeUser y storeProfile cambian → este efecto se dispara
@@ -186,7 +207,7 @@ const UserProfile = () => {
 
       <UserProfileTabNav
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={handleTabChange}
       />
 
       {activeTab === "profile" && (
