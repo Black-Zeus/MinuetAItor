@@ -4,6 +4,7 @@ import Icon from "@/components/ui/icon/iconManager";
 import ActionButton from "@/components/ui/button/ActionButton";
 import ModalManager from "@/components/ui/modal";
 import useSessionStore from "@/store/sessionStore";
+import { isAdmin as isAdminAuthz } from "@/utils/authz";
 import TeamsModal, { TEAMS_MODAL_MODES } from "./TeamsModal";
 import teamsService from "@/services/teamsService";
 import axiosInstance from "@/services/axiosInterceptor";
@@ -159,9 +160,7 @@ const ChangePasswordModal = ({ userId, userName, onClose }) => {
 
 const TeamsViewActions = ({ id, summary = null, onUpdated, onDeleted, buttonClassName = "w-full" }) => {
   const [loadingDetail, setLoadingDetail] = useState(false);
-  const isAdmin = useSessionStore((state) =>
-    Array.isArray(state.authz?.roles) && state.authz.roles.includes("ADMIN")
-  );
+  const isAdmin = useSessionStore((state) => isAdminAuthz(state.authz));
 
   const fetchDetail = async () => {
     setLoadingDetail(true);

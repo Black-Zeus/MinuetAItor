@@ -11,6 +11,7 @@ import ProjectModal, { PROJECT_MODAL_MODES } from './ProjectModal';
 import ActionButton from '@/components/ui/button/ActionButton';
 import projectService from '@/services/projectService';
 import useSessionStore from '@/store/sessionStore';
+import { canManageProjects as canManageProjectsAuthz } from '@/utils/authz';
 import { parseError } from '@/utils/errors';
 
 import logger from '@/utils/logger';
@@ -65,10 +66,7 @@ const ProjectCard = ({ id, summary = null, clientCatalog = [], onUpdated, onDele
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [logoFailed, setLogoFailed] = useState(false);
   const authz = useSessionStore((s) => s.authz);
-  const canManageProjects =
-    Array.isArray(authz?.roles) && authz.roles.includes("ADMIN")
-      ? true
-      : Array.isArray(authz?.permissions) && authz.permissions.includes("clients.manage");
+  const canManageProjects = canManageProjectsAuthz(authz);
 
   // ─── Carga de detalle on-demand ───────────────────────────────────────────
 

@@ -143,6 +143,16 @@ export const formatDateTime = (dateString) => {
     }
 };
 
+export const formatNullableDateTime = (dateString, fallback = '—', invalidFallback) => {
+    if (!dateString) return fallback;
+
+    const formatted = formatDateTime(dateString);
+    if (formatted === 'Fecha inválida' && invalidFallback !== undefined) {
+        return typeof invalidFallback === 'function' ? invalidFallback(dateString) : invalidFallback;
+    }
+    return formatted === 'N/A' ? fallback : formatted;
+};
+
 /**
  * Formatea fecha y hora en formato técnico YYYY-MM-DD HH:mm
  * @param {string|Date} dateString - Fecha a formatear

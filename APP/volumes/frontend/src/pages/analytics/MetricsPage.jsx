@@ -21,8 +21,7 @@ import clientService from "@/services/clientService";
 import projectService from "@/services/projectService";
 import {
   formatDateInputValue,
-  formatDateTime as formatUserDateTime,
-  isValidDate,
+  formatNullableDateTime,
 } from "@/utils/formats";
 import logger from "@/utils/logger";
 
@@ -100,9 +99,7 @@ const formatPercent = (value) => `${percentFmt.format(Number(value ?? 0))}%`;
 const formatLatency = (value) => (value == null ? "Sin dato" : `${formatNumber(Math.round(value))} ms`);
 
 const formatDateTime = (value) => {
-  if (!value) return "Sin fecha";
-  if (!isValidDate(value)) return String(value);
-  return formatUserDateTime(value);
+  return formatNullableDateTime(value, "Sin fecha", String(value));
 };
 
 const formatAxisDate = (value) => {

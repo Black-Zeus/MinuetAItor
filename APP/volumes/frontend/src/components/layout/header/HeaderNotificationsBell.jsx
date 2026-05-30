@@ -8,12 +8,7 @@ import ModalManager from "@/components/ui/modal";
 import notificationsService from "@/services/notificationsService";
 import useNotificationsStore from "@/store/notificationsStore";
 import { openNotificationDetailModal } from "@/pages/notifications/NotificationDetailModal";
-import { formatDateTime as formatUserDateTime } from "@/utils/formats";
-
-const formatDateTime = (value) => {
-  if (!value) return "—";
-  return formatUserDateTime(value);
-};
+import { formatNullableDateTime as formatDateTime } from "@/utils/formats";
 
 const unreadRowClass =
   "border-l-2 border-l-primary-400 bg-primary-500/[0.05] dark:border-l-primary-300 dark:bg-primary-400/[0.07]";

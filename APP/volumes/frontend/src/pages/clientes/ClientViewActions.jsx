@@ -4,6 +4,7 @@ import Icon from "@/components/ui/icon/iconManager";
 import ActionButton from "@/components/ui/button/ActionButton";
 import { ModalManager } from "@/components/ui/modal";
 import useSessionStore from "@/store/sessionStore";
+import { canManageClients as canManageClientsAuthz } from "@/utils/authz";
 import ClientModal, { CLIENT_MODAL_MODES } from "./ClientModal";
 import clientService from "@/services/clientService";
 import { parseError } from "@/utils/errors";
@@ -35,10 +36,7 @@ const toApiPayload = (formData) => ({
 const ClientViewActions = ({ id, summary = null, onUpdated, onDeleted, buttonClassName = "w-full" }) => {
   const [loadingDetail, setLoadingDetail] = useState(false);
   const authz = useSessionStore((state) => state.authz);
-  const canManageClients =
-    Array.isArray(authz?.roles) && authz.roles.includes("ADMIN")
-      ? true
-      : Array.isArray(authz?.permissions) && authz.permissions.includes("clients.manage");
+  const canManageClients = canManageClientsAuthz(authz);
 
   const fetchDetail = async () => {
     setLoadingDetail(true);

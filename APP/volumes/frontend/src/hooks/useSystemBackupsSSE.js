@@ -4,6 +4,7 @@ import { toastError, toastInfo, toastSuccess, toastWarn } from "@/components/com
 import useAuthStore from "@/store/authStore";
 import useSessionStore from "@/store/sessionStore";
 import { createAuthorizedEventStream } from "@/utils/authorizedEventStream";
+import { isAdmin as isAdminAuthz } from "@/utils/authz";
 
 export const SYSTEM_BACKUPS_RUNTIME_EVENT = "system-backups-runtime-update";
 
@@ -73,9 +74,9 @@ const buildToastCopy = (payload) => {
 
 export const useSystemBackupsSSE = () => {
   const accessToken = useAuthStore((s) => s.accessToken);
-  const roles = useSessionStore((s) => s.authz?.roles ?? []);
+  const authz = useSessionStore((s) => s.authz);
   const sourceRef = useRef(null);
-  const isAdmin = roles.some((role) => String(role || "").toUpperCase() === "ADMIN");
+  const isAdmin = isAdminAuthz(authz);
 
   useEffect(() => {
     if (sourceRef.current) {

@@ -6,12 +6,7 @@ import ModalManager from "@/components/ui/modal";
 import notificationsService, { normalizeNotificationItem } from "@/services/notificationsService";
 import useNotificationsStore from "@/store/notificationsStore";
 import { getNotificationTagLabel } from "@/utils/notificationTags";
-import { formatDateTime as formatUserDateTime } from "@/utils/formats";
-
-const formatDateTime = (value) => {
-  if (!value) return "—";
-  return formatUserDateTime(value);
-};
+import { formatNullableDateTime as formatDateTime } from "@/utils/formats";
 
 const levelMeta = {
   success: {

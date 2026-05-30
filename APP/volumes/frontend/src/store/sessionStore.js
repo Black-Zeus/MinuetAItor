@@ -26,6 +26,8 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { shouldLog } from "@/utils/environment";
+import { hasPermission, hasRole } from "@/utils/authz";
+import { buildSessionDisplayData } from "@/utils/userDisplay";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -190,42 +192,19 @@ const useSessionStore = create(
       /** Devuelve datos para mostrar en UI (nombre, initials, color, avatar) */
       getDisplayData: () => {
         const { user, profile } = get();
-        if (!user) return null;
-
-        const fullName = user.full_name || user.username || "Usuario";
-        const parts = fullName.trim().split(" ");
-        const defaultInitials =
-          parts.length >= 2
-            ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
-            : fullName.substring(0, 2).toUpperCase();
-
-        return {
-          userId: user.user_id,
-          username: user.username,
-          fullName,
-          email: user.email,
-          isActive: user.is_active,
-          initials: profile.initials ?? defaultInitials,
-          color: profile.color ?? null,
-          department: profile.department ?? null,
-          avatarUrl: profile.avatarUrl ?? null,
-          job_title: user.job_title ?? null,
-          description: user.description ?? null,
-          phone: user.phone ?? null,
-          area: user.area ?? null,
-        };
+        return buildSessionDisplayData(user, profile);
       },
 
       /** Verifica si el usuario tiene un permiso específico */
       hasPermission: (permission) => {
         const { authz } = get();
-        return Array.isArray(authz.permissions) && authz.permissions.includes(permission);
+        return hasPermission(authz, permission);
       },
 
       /** Verifica si el usuario tiene un rol específico */
       hasRole: (role) => {
         const { authz } = get();
-        return Array.isArray(authz.roles) && authz.roles.includes(role);
+        return hasRole(authz, role);
       },
     }),
 

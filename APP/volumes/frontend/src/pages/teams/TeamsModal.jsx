@@ -24,6 +24,7 @@ import { toastError, toastSuccess } from "@/components/common/toast/toastHelpers
 
 import clientService  from "@/services/clientService";
 import projectService from "@/services/projectService";
+import { computeInitials } from "@/utils/userDisplay";
 
 // ─── Modos ────────────────────────────────────────────────────────────────────
 
@@ -82,13 +83,6 @@ const normalizeText = (v) => String(v ?? "").trim();
 const EMAIL_RE      = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const EMPTY_VALUE   = <span className="italic text-gray-400 dark:text-gray-500">Sin información</span>;
 
-const computeInitials = (name) => {
-  const n = normalizeText(name);
-  if (!n) return "";
-  const p = n.split(/\s+/).filter(Boolean);
-  return ((p[0]?.[0] ?? "") + (p.length > 1 ? p[p.length - 1]?.[0] ?? "" : "")).toUpperCase();
-};
-
 /**
  * normalizeUser — convierte el shape del backend al shape interno del modal.
  *
@@ -136,7 +130,7 @@ const normalizeUser = (data = {}) => {
     systemRole,
     assignmentMode,
     notes:          normalizeText(data.notes),
-    initials:       normalizeText(data.initials) || computeInitials(name),
+    initials:       normalizeText(data.initials) || computeInitials(name, ""),
     color:          normalizeColor(data.color),
     createdAt:      normalizeText(data.createdAt),
     _clientIds:     clientIds,    // arrays planos originales del backend
@@ -164,7 +158,7 @@ const AvatarPreview = ({ avatarUrl, color, initials, name, sizeClass, textClass 
           onError={() => setAvatarFailed(true)}
         />
       ) : (
-        initials || computeInitials(name) || "?"
+        initials || computeInitials(name, "") || "?"
       )}
     </div>
   );
@@ -951,7 +945,7 @@ const TeamsModal = ({ mode, data, onSubmit, onClose, onSaved }) => {
                           setFormData((prev) => ({
                             ...prev,
                             name: val,
-                            initials: prev.initials || computeInitials(val),
+                            initials: prev.initials || computeInitials(val, ""),
                           }));
                           if (errors.name) setErrors((p) => ({ ...p, name: undefined }));
                         }}

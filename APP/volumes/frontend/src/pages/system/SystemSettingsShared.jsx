@@ -2,7 +2,7 @@ import React from "react";
 
 import ActionButton from "@/components/ui/button/ActionButton";
 import Icon from "@/components/ui/icon/iconManager";
-import { formatDateTime as formatUserDateTime } from "@/utils/formats";
+import { formatNullableDateTime } from "@/utils/formats";
 
 export const TXT_TITLE = "text-gray-900 dark:text-white";
 export const TXT_BODY = "text-gray-600 dark:text-gray-300";
@@ -48,9 +48,7 @@ export const TABS = [
 ];
 
 export const formatDateTime = (value) => {
-  if (!value) return "—";
-  const formatted = formatUserDateTime(value);
-  return formatted === "N/A" ? "—" : formatted;
+  return formatNullableDateTime(value);
 };
 
 export const statusClasses = {

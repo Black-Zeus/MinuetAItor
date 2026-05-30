@@ -13,6 +13,7 @@ import TeamsModal, { TEAMS_MODAL_MODES } from "@/pages/teams/TeamsModal";
 import teamsService from "@/services/teamsService";
 import { toastSuccess, toastError } from "@/components/common/toast/toastHelpers";
 import useSessionStore from "@/store/sessionStore";
+import { isAdmin as isAdminAuthz } from "@/utils/authz";
 import axiosInstance from "@/services/axiosInterceptor";
 import { formatDate } from "@/utils/formats";
 
@@ -239,10 +240,7 @@ const TeamsCard = ({ id, summary = null, onUpdated, onDeleted }) => {
     setAvatarFailed(false);
   }, [avatarUrl]);
 
-  // Detectar si el usuario conectado es administrador
-  const isAdmin = useSessionStore((s) =>
-    Array.isArray(s.authz?.roles) && s.authz.roles.includes("ADMIN")
-  );
+  const isAdmin = useSessionStore((s) => isAdminAuthz(s.authz));
 
   // ── fetchDetail on-demand ────────────────────────────────────────────────
 
