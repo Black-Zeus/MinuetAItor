@@ -6,6 +6,7 @@ import SidebarNav from './SidebarNav';
 import SidebarFooter from './SidebarFooter';
 import { SIDEBAR_MODULES, filterModulesByPermissions } from '@config/sidebarConfig';
 import useBaseSiteStore from '@store/baseSiteStore';
+import useAuthStore from '@store/authStore';
 
 const Sidebar = ({
   user = {
@@ -23,6 +24,7 @@ const Sidebar = ({
   const isSidebarCollapsed   = useBaseSiteStore((s) => s.sidebar?.collapsed ?? false);
   const toggleSidebar        = useBaseSiteStore((s) => s.toggleSidebar);
   const addToNavigationHistory = useBaseSiteStore((s) => s.addToNavigationHistory);
+  const logout = useAuthStore((s) => s.logout);
 
   const activePath = pathname || '/';
 
@@ -43,6 +45,11 @@ const Sidebar = ({
     }
 
     onModuleChange?.(module);
+  };
+
+  const handleLogout = () => {
+    logout('Manual logout from sidebar');
+    navigate('/login', { replace: true });
   };
 
   return (
@@ -75,8 +82,11 @@ const Sidebar = ({
 
       <SidebarFooter
         isCollapsed={isSidebarCollapsed}
+        isOperationLocked={isOperationLocked}
         user={user}
-        onClick={() => {}}
+        onOpenProfile={() => navigate('/settings/userProfile')}
+        onOpenPreferences={() => navigate('/settings/userProfile?tab=customization')}
+        onLogout={handleLogout}
       />
     </aside>
   );

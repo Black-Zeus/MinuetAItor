@@ -10,6 +10,8 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import Icon from '@components/ui/icon/iconManager';
+import useBaseSiteStore from '@store/baseSiteStore';
+import { BROWSER_TIMEZONE, resolveTimeZone } from '@/utils/timeZone';
 
 const HeaderUserMenu = ({
   avatar,
@@ -24,6 +26,11 @@ const HeaderUserMenu = ({
   const [isOpen, setIsOpen] = useState(false);
   const [avatarFailed, setAvatarFailed] = useState(false);
   const containerRef = useRef(null);
+  const configuredTimeZone = useBaseSiteStore((s) => s.ui?.timeZone ?? BROWSER_TIMEZONE);
+  const effectiveTimeZone = resolveTimeZone(configuredTimeZone);
+  const timeZoneLabel = configuredTimeZone === BROWSER_TIMEZONE
+    ? `${effectiveTimeZone} (navegador)`
+    : effectiveTimeZone;
 
   useEffect(() => {
     setAvatarFailed(false);
@@ -104,6 +111,10 @@ const HeaderUserMenu = ({
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">
               {email}
             </p>
+            <div className="mt-2 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+              <Icon name="FaClock" className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">{timeZoneLabel}</span>
+            </div>
           </div>
 
           {/* Menu items */}

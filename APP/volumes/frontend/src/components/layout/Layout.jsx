@@ -102,6 +102,7 @@ const Layout = ({ children }) => {
     initials: userDisplay?.initials  || '?',
     avatar:   userDisplay?.avatarUrl || null,
     name:     userDisplay?.fullName  || userDisplay?.username || 'Usuario',
+    email:    userDisplay?.email     || '',
     role:     userDisplay?.position  || authz?.roles?.[0] || 'Sin rol',
     isAdmin:  authz?.roles?.includes('ADMIN') ?? false,
   };
