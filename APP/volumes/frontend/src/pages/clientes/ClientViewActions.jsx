@@ -6,6 +6,7 @@ import { ModalManager } from "@/components/ui/modal";
 import useSessionStore from "@/store/sessionStore";
 import ClientModal, { CLIENT_MODAL_MODES } from "./ClientModal";
 import clientService from "@/services/clientService";
+import { parseError } from "@/utils/errors";
 
 import logger from "@/utils/logger";
 
@@ -114,6 +115,11 @@ const ClientViewActions = ({ id, summary = null, onUpdated, onDeleted, buttonCla
       onDeleted?.(id);
     } catch (error) {
       clientLog.log("[ClientViewActions] Eliminación cancelada o fallida", error);
+      const parsed = parseError(error);
+      ModalManager.warning({
+        title: "No se pudo eliminar el cliente",
+        message: parsed.message || "La operación no pudo completarse.",
+      });
     }
   };
 

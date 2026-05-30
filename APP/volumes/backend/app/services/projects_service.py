@@ -9,7 +9,8 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from core.datetime_utils import utc_now_db
-from core.exceptions import ForbiddenException
+from core.exceptions import ConflictException, ForbiddenException
+from models.records import Record
 from models.projects import Project
 from schemas.auth import UserSession
 from schemas.projects import ProjectCreateRequest, ProjectFilterRequest, ProjectUpdateRequest
@@ -288,6 +289,14 @@ def delete_project(db: Session, project_id: str, deleted_by_id: str, session: Us
 
     ensure_project_read_access(db, session, project_id)
     obj = _get_or_404(db, project_id)
+    has_minutes = (
+        db.query(Record.id)
+        .filter(Record.project_id == project_id, Record.deleted_at.is_(None))
+        .first()
+        is not None
+    )
+    if has_minutes:
+        raise ConflictException("No se puede eliminar el proyecto porque posee minutas asociadas.")
 
     obj.deleted_at = utc_now_db()
     obj.deleted_by = deleted_by_id

@@ -119,7 +119,9 @@ export const projectService = {
    */
   async softDelete(id) {
     if (!id) throw new Error("projectService.softDelete: id es requerido");
-    const res = await axiosInstance.delete(`${BASE}/${encodeURIComponent(id)}`);
+    const res = await axiosInstance.delete(`${BASE}/${encodeURIComponent(id)}`, {
+      skipGlobalErrorToast: true,
+    });
     return unwrap(res);
   },
 };

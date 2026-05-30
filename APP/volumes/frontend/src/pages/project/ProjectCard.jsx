@@ -11,6 +11,7 @@ import ProjectModal, { PROJECT_MODAL_MODES } from './ProjectModal';
 import ActionButton from '@/components/ui/button/ActionButton';
 import projectService from '@/services/projectService';
 import useSessionStore from '@/store/sessionStore';
+import { parseError } from '@/utils/errors';
 
 import logger from '@/utils/logger';
 const projectLog = logger.scope("project");
@@ -163,6 +164,11 @@ const ProjectCard = ({ id, summary = null, clientCatalog = [], onUpdated, onDele
       }
     } catch (err) {
       projectLog.log('[ProjectCard] Eliminación cancelada o fallida', err);
+      const parsed = parseError(err);
+      ModalManager.warning({
+        title: "No se pudo eliminar el proyecto",
+        message: parsed.message || "La operación no pudo completarse.",
+      });
     }
   };
 

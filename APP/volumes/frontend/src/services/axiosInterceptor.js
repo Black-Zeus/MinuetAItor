@@ -343,7 +343,7 @@ axiosInstance.interceptors.response.use(
     const code = isTimeoutError ? "TIMEOUT_ERROR" : resData?.error?.code || null;
     const message = extractErrorMessage(resData, error.message);
 
-    if (status !== 401) {
+    if (status !== 401 && !originalRequest?.skipGlobalErrorToast) {
       if (status === 503 && resData?.maintenance) {
         await notify.warning(message || "El sistema está en modo mantenimiento.");
       } else {
