@@ -8,19 +8,11 @@ import ModalManager from "@/components/ui/modal";
 import notificationsService from "@/services/notificationsService";
 import useNotificationsStore from "@/store/notificationsStore";
 import { openNotificationDetailModal } from "@/pages/notifications/NotificationDetailModal";
+import { formatDateTime as formatUserDateTime } from "@/utils/formats";
 
 const formatDateTime = (value) => {
   if (!value) return "—";
-  try {
-    return new Date(value).toLocaleString("es-CL", {
-      day: "2-digit",
-      month: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return value;
-  }
+  return formatUserDateTime(value);
 };
 
 const unreadRowClass =

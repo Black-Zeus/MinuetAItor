@@ -18,6 +18,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import Icon from "@components/ui/icon/iconManager";
 import { getMinuteVersions } from "@/services/minutesService";
 import { openPdfViewer } from "@/components/ui/pdf/PdfViewerModal";
+import { formatDateTime } from "@/utils/formats";
 
 import logger from "@/utils/logger";
 const log = logger.scope("minute-editor-timeline");
@@ -28,12 +29,7 @@ const log = logger.scope("minute-editor-timeline");
 
 const fmtDate = (iso) => {
   if (!iso) return "—";
-  try {
-    return new Date(iso).toLocaleString("es-CL", {
-      day: "2-digit", month: "2-digit", year: "numeric",
-      hour: "2-digit", minute: "2-digit",
-    });
-  } catch { return iso; }
+  return formatDateTime(iso);
 };
 
 const isTransitionEntry = (version) => version?.entryType === "transition";

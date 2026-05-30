@@ -6,20 +6,11 @@ import ModalManager from "@/components/ui/modal";
 import notificationsService, { normalizeNotificationItem } from "@/services/notificationsService";
 import useNotificationsStore from "@/store/notificationsStore";
 import { getNotificationTagLabel } from "@/utils/notificationTags";
+import { formatDateTime as formatUserDateTime } from "@/utils/formats";
 
 const formatDateTime = (value) => {
   if (!value) return "—";
-  try {
-    return new Date(value).toLocaleString("es-CL", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return value;
-  }
+  return formatUserDateTime(value);
 };
 
 const levelMeta = {

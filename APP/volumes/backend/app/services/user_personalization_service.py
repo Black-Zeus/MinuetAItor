@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import HTTPException
 from sqlalchemy.exc import IntegrityError
@@ -15,6 +16,7 @@ DEFAULT_DENSITY = "comfortable"
 DEFAULT_ANIMATIONS = True
 DEFAULT_SIDEBAR_COLLAPSED = False
 DEFAULT_MODULE_VIEW = "base"
+DEFAULT_TIMEZONE = "browser"
 
 ALLOWED_THEMES = {"light", "dark", "system"}
 ALLOWED_DENSITIES = {"comfortable", "compact"}
@@ -40,6 +42,17 @@ def _normalize_theme(value: str | None) -> str:
 def _normalize_density(value: str | None) -> str:
     normalized = str(value or "").strip().lower()
     return normalized if normalized in ALLOWED_DENSITIES else DEFAULT_DENSITY
+
+
+def _normalize_timezone(value: str | None) -> str:
+    normalized = str(value or "").strip()
+    if not normalized or normalized.lower() == DEFAULT_TIMEZONE:
+        return DEFAULT_TIMEZONE
+    try:
+        ZoneInfo(normalized)
+    except ZoneInfoNotFoundError as exc:
+        raise HTTPException(status_code=422, detail=f"TIMEZONE_NOT_SUPPORTED:{normalized}") from exc
+    return normalized
 
 
 def _load_profile(db: Session, user_id: str) -> UserProfile | None:
@@ -145,6 +158,7 @@ def get_user_personalization(db: Session, user_id: str) -> dict[str, Any]:
         "animations": bool(
             DEFAULT_ANIMATIONS if getattr(profile, "ui_animations", None) is None else profile.ui_animations
         ),
+        "timezone": _normalize_timezone(getattr(profile, "timezone", None)),
         "sidebar_collapsed": bool(
             DEFAULT_SIDEBAR_COLLAPSED
             if getattr(profile, "sidebar_collapsed", None) is None
@@ -164,6 +178,7 @@ def update_user_personalization(
     theme: str | None,
     density: str | None,
     animations: bool | None,
+    timezone: str | None,
     sidebar_collapsed: bool | None,
     default_module_view: str | None,
     dashboard_widgets: list[dict[str, Any]] | None,
@@ -177,6 +192,8 @@ def update_user_personalization(
         profile.ui_density = _normalize_density(density)
     if animations is not None:
         profile.ui_animations = bool(animations)
+    if timezone is not None:
+        profile.timezone = _normalize_timezone(timezone)
     if sidebar_collapsed is not None:
         profile.sidebar_collapsed = bool(sidebar_collapsed)
     if default_module_view is not None:

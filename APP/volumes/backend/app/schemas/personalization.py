@@ -15,6 +15,11 @@ class UserPersonalizationResponse(BaseModel):
     theme: str
     density: str
     animations: bool
+    timezone: str = Field(
+        "browser",
+        validation_alias="timeZone",
+        serialization_alias="timeZone",
+    )
     sidebar_collapsed: bool = Field(..., serialization_alias="sidebarCollapsed")
     default_module_view: str = Field(
         "base",
@@ -44,6 +49,11 @@ class UserPersonalizationUpdateRequest(BaseModel):
     theme: str | None = None
     density: str | None = None
     animations: bool | None = None
+    timezone: str | None = Field(
+        None,
+        validation_alias="timeZone",
+        serialization_alias="timeZone",
+    )
     sidebar_collapsed: bool | None = Field(
         None,
         validation_alias="sidebarCollapsed",

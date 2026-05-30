@@ -1,8 +1,10 @@
 import api from "@/services/axiosInterceptor";
 import { API_ENDPOINTS } from "@/constants";
 import { extractErrorMessage } from "@/utils/errors";
+import { normalizeTimeZone } from "@/utils/timeZone";
 
 const unwrap = (response) => response?.data?.result ?? response?.data ?? {};
+const PERSONALIZATION_TIMEOUT_MS = 15000;
 
 const normalizeTheme = (value) => {
   const theme = String(value || "").trim();
@@ -13,6 +15,7 @@ const normalizePersonalization = (payload = {}) => ({
   theme: normalizeTheme(payload?.theme),
   density: String(payload?.density || "comfortable"),
   animations: Boolean(payload?.animations ?? true),
+  timeZone: normalizeTimeZone(payload?.timeZone ?? payload?.timezone),
   sidebarCollapsed: Boolean(payload?.sidebarCollapsed ?? payload?.sidebar_collapsed ?? false),
   defaultModuleView: String(payload?.defaultModuleView ?? payload?.default_module_view ?? "base"),
   dashboardWidgets: Array.isArray(payload?.dashboardWidgets ?? payload?.dashboard_widgets)
@@ -28,6 +31,9 @@ const toPersonalizationError = (error, fallbackMessage) => {
   if (error?.response?.data) {
     return new Error(extractErrorMessage(error.response.data, fallbackMessage));
   }
+  if (error?.code === "ECONNABORTED") {
+    return new Error("La solicitud tardó demasiado. Revisa si el backend respondió y vuelve a intentar.");
+  }
   if (error?.code === "ERR_NETWORK" || !error?.response) {
     return new Error("No fue posible sincronizar tu personalización.");
   }
@@ -37,7 +43,9 @@ const toPersonalizationError = (error, fallbackMessage) => {
 const personalizationService = {
   async getMyPersonalization() {
     try {
-      const response = await api.get(API_ENDPOINTS.AUTH.ME_PERSONALIZATION);
+      const response = await api.get(API_ENDPOINTS.AUTH.ME_PERSONALIZATION, {
+        timeout: PERSONALIZATION_TIMEOUT_MS,
+      });
       return normalizePersonalization(unwrap(response));
     } catch (error) {
       throw toPersonalizationError(error, "No fue posible cargar tu personalización.");
@@ -46,20 +54,25 @@ const personalizationService = {
 
   async updateMyPersonalization(payload = {}) {
     try {
-      const response = await api.put(API_ENDPOINTS.AUTH.ME_PERSONALIZATION, {
-        theme: payload?.theme,
-        density: payload?.density,
-        animations: Boolean(payload?.animations),
-        sidebarCollapsed: Boolean(payload?.sidebarCollapsed),
-        defaultModuleView: payload?.defaultModuleView,
-        dashboardWidgets: Array.isArray(payload?.dashboardWidgets)
-          ? payload.dashboardWidgets.map((item) => ({
-              code: String(item?.code || "").trim(),
-              enabled: Boolean(item?.enabled),
-              sortOrder: Number(item?.sortOrder ?? 0) || null,
-            })).filter((item) => item.code)
-          : [],
-      });
+      const response = await api.put(
+        API_ENDPOINTS.AUTH.ME_PERSONALIZATION,
+        {
+          theme: payload?.theme,
+          density: payload?.density,
+          animations: Boolean(payload?.animations),
+          timeZone: normalizeTimeZone(payload?.timeZone),
+          sidebarCollapsed: Boolean(payload?.sidebarCollapsed),
+          defaultModuleView: payload?.defaultModuleView,
+          dashboardWidgets: Array.isArray(payload?.dashboardWidgets)
+            ? payload.dashboardWidgets.map((item) => ({
+                code: String(item?.code || "").trim(),
+                enabled: Boolean(item?.enabled),
+                sortOrder: Number(item?.sortOrder ?? 0) || null,
+              })).filter((item) => item.code)
+            : [],
+        },
+        { timeout: PERSONALIZATION_TIMEOUT_MS }
+      );
       return normalizePersonalization(unwrap(response));
     } catch (error) {
       throw toPersonalizationError(error, "No fue posible guardar tu personalización.");

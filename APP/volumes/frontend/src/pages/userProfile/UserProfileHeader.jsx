@@ -6,7 +6,6 @@
 
 import React from "react";
 import Icon from "@/components/ui/icon/iconManager";
-import ActionButton from "@/components/ui/button/ActionButton";
 
 const TXT_TITLE = "text-gray-900 dark:text-white";
 const TXT_BODY  = "text-gray-600 dark:text-gray-300";
@@ -61,7 +60,7 @@ const Badge = ({ icon, label, cls }) => (
   </span>
 );
 
-const AvatarBlock = ({ profile, onChangeAvatar, onRemoveAvatar }) => {
+const AvatarBlock = ({ profile, onChangeAvatar, onRemoveAvatar, canEditAvatar = false }) => {
   const roleConfig   = getRoleConfig(profile?.role);
   const statusConfig = getStatusConfig(profile?.status);
 
@@ -88,33 +87,36 @@ const AvatarBlock = ({ profile, onChangeAvatar, onRemoveAvatar }) => {
             {profile?.fullName || "Usuario"}
           </p>
 
-          {/* Cambiar avatar */}
-          <label
-            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border border-white/10
-                       bg-gray-100 dark:bg-gray-800/60 text-gray-600 dark:text-gray-300
-                       hover:bg-gray-200 dark:hover:bg-gray-700 cursor-pointer transition-theme"
-          >
-            <Icon name="FaCamera" className="w-3 h-3" />
-            Cambiar avatar
-            <input
-              type="file"
-              className="hidden"
-              accept="image/*"
-              onChange={onChangeAvatar}
-            />
-          </label>
+          {canEditAvatar && (
+            <>
+              <label
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border border-white/10
+                           bg-gray-100 dark:bg-gray-800/60 text-gray-600 dark:text-gray-300
+                           hover:bg-gray-200 dark:hover:bg-gray-700 cursor-pointer transition-theme"
+              >
+                <Icon name="FaCamera" className="w-3 h-3" />
+                Cambiar avatar
+                <input
+                  type="file"
+                  className="hidden"
+                  accept="image/*"
+                  onChange={onChangeAvatar}
+                />
+              </label>
 
-          <button
-            type="button"
-            onClick={onRemoveAvatar}
-            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border border-white/10
-                       bg-gray-100 dark:bg-gray-800/60 text-gray-500 dark:text-gray-400
-                       hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400
-                       transition-theme"
-          >
-            <Icon name="FaTrash" className="w-3 h-3" />
-            Eliminar
-          </button>
+              <button
+                type="button"
+                onClick={onRemoveAvatar}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border border-white/10
+                           bg-gray-100 dark:bg-gray-800/60 text-gray-500 dark:text-gray-400
+                           hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400
+                           transition-theme"
+              >
+                <Icon name="FaTrash" className="w-3 h-3" />
+                Eliminar
+              </button>
+            </>
+          )}
         </div>
 
         <p className={`text-sm ${TXT_BODY} mt-1 transition-theme`}>{profile?.email}</p>
@@ -132,14 +134,13 @@ const AvatarBlock = ({ profile, onChangeAvatar, onRemoveAvatar }) => {
 
 const UserProfileHeader = ({
   profile,
-  onSave,
-  onDiscard,
   onChangeAvatar,
   onRemoveAvatar,
+  canEditAvatar = false,
 }) => (
   <div className="space-y-4">
     {/* Page title row */}
-    <div className="flex items-center justify-between gap-6">
+    <div>
       <div>
         <h1 className={`text-3xl font-bold ${TXT_TITLE} flex items-center gap-3 transition-theme`}>
           <Icon name="FaGear" className="text-primary-600 dark:text-primary-400 w-8 h-8" />
@@ -148,23 +149,6 @@ const UserProfileHeader = ({
         <p className={`${TXT_BODY} mt-1 transition-theme`}>
           Configura tu información personal, credenciales y preferencias de cuenta.
         </p>
-      </div>
-
-      <div className="flex items-center gap-3 shrink-0">
-        <ActionButton
-          label="Descartar"
-          variant="soft"
-          size="md"
-          icon={<Icon name="rotateLeft" />}
-          onClick={onDiscard}
-        />
-        <ActionButton
-          label="Guardar"
-          variant="primary"
-          size="md"
-          icon={<Icon name="FaFloppyDisk" />}
-          onClick={onSave}
-        />
       </div>
     </div>
 
@@ -175,6 +159,7 @@ const UserProfileHeader = ({
           profile={profile}
           onChangeAvatar={onChangeAvatar}
           onRemoveAvatar={onRemoveAvatar}
+          canEditAvatar={canEditAvatar}
         />
 
         {/* Último acceso */}

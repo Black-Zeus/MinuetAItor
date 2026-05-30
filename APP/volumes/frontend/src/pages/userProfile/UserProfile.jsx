@@ -52,6 +52,15 @@ const formToRequest = (formData) => ({
   lastConection: formData.lastConection,
 });
 
+const comparableProfile = (formData) => ({
+  fullName: String(formData?.fullName ?? ""),
+  position: String(formData?.position ?? ""),
+  department: String(formData?.department ?? ""),
+  notes: String(formData?.notes ?? ""),
+  phone: String(formData?.phone ?? ""),
+  area: String(formData?.area ?? ""),
+});
+
 // ─── Componente ───────────────────────────────────────────────────────────────
 const UserProfile = () => {
   const [activeTab, setActiveTab] = useState("profile");
@@ -71,6 +80,19 @@ const UserProfile = () => {
   const [formData, setFormData] = useState(() =>
     sessionToForm(storeUser, storeProfile, connections, loginTimestamp)
   );
+  const [pendingAvatar, setPendingAvatar] = useState({
+    action: null,
+    file: null,
+    previewUrl: null,
+  });
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+
+  const clearPendingAvatar = () => {
+    setPendingAvatar((current) => {
+      if (current.previewUrl) URL.revokeObjectURL(current.previewUrl);
+      return { action: null, file: null, previewUrl: null };
+    });
+  };
 
   // ── 3. Forzar refresco al entrar al módulo ───────────────────────────────────
   // loadFromApi(true) ignora el cache de 5 min y hace GET /auth/me
@@ -88,63 +110,75 @@ const UserProfile = () => {
     }
   }, [storeUser, storeProfile, connections, loginTimestamp]);
 
+  useEffect(() => () => {
+    if (pendingAvatar.previewUrl) URL.revokeObjectURL(pendingAvatar.previewUrl);
+  }, [pendingAvatar.previewUrl]);
+
 
   // ── Handlers ─────────────────────────────────────────────────────────────────
+  const hasProfileChanges = JSON.stringify(comparableProfile(formData)) !== JSON.stringify(
+    comparableProfile(sessionToForm(storeUser, storeProfile, connections, loginTimestamp))
+  ) || Boolean(pendingAvatar.action);
+
   const handleProfileChange = (updated) => setFormData(updated);
 
   // Restablecer = volver al estado actual del store (no del servidor)
-  const handleReset = () => setFormData(sessionToForm(storeUser, storeProfile, connections, loginTimestamp));
+  const handleReset = () => {
+    clearPendingAvatar();
+    setFormData(sessionToForm(storeUser, storeProfile, connections, loginTimestamp));
+  };
   
   const handleSave = async () => {
+    if (!hasProfileChanges || isSavingProfile) return;
     const body = formToRequest(formData);
     usrProfLog.log("[UserProfile] PATCH /users/me →", body);
     // TODO: await userService.updateMe(body)
-    // TODO: await useSessionStore.getState().loadFromApi(true) para refrescar
-    ModalManager.success?.({
-      title: "Perfil actualizado",
-      message: "Los datos personales se guardaron correctamente.",
-    });
-  };
 
-  const handleChangeAvatar = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
     try {
-      const result = await uploadMyAvatar(file);
-      const avatarUrl = result?.avatar_url ?? result?.avatarUrl ?? null;
-      setFormData((prev) => ({ ...prev, avatar: avatarUrl }));
+      setIsSavingProfile(true);
+
+      if (pendingAvatar.action === "upload" && pendingAvatar.file) {
+        await uploadMyAvatar(pendingAvatar.file);
+      } else if (pendingAvatar.action === "delete") {
+        await deleteMyAvatar();
+      }
+
+      clearPendingAvatar();
       await useSessionStore.getState().loadFromApi(true);
+
       ModalManager.success?.({
-        title: "Avatar actualizado",
-        message: "La imagen de perfil se guardo correctamente.",
+        title: "Perfil actualizado",
+        message: "Los cambios del perfil se guardaron correctamente.",
       });
     } catch (error) {
-      usrProfLog.error("[UserProfile] avatar upload error", error);
+      usrProfLog.error("[UserProfile] save error", error);
       ModalManager.error?.({
-        title: "No se pudo actualizar el avatar",
-        message: error?.message ?? "Intenta nuevamente con una imagen valida.",
-      });
-    } finally {
-      e.target.value = "";
-    }
-  };
-
-  const handleRemoveAvatar = async () => {
-    try {
-      await deleteMyAvatar();
-      setFormData((prev) => ({ ...prev, avatar: null }));
-      await useSessionStore.getState().loadFromApi(true);
-      ModalManager.success?.({
-        title: "Avatar eliminado",
-        message: "Se volveran a mostrar tus iniciales.",
-      });
-    } catch (error) {
-      usrProfLog.error("[UserProfile] avatar delete error", error);
-      ModalManager.error?.({
-        title: "No se pudo eliminar el avatar",
+        title: "No se pudo guardar el perfil",
         message: error?.message ?? "Intenta nuevamente.",
       });
+    } finally {
+      setIsSavingProfile(false);
     }
+  };
+
+  const handleChangeAvatar = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const previewUrl = URL.createObjectURL(file);
+    setPendingAvatar((current) => {
+      if (current.previewUrl) URL.revokeObjectURL(current.previewUrl);
+      return { action: "upload", file, previewUrl };
+    });
+    setFormData((prev) => ({ ...prev, avatar: previewUrl }));
+    e.target.value = "";
+  };
+
+  const handleRemoveAvatar = () => {
+    setPendingAvatar((current) => {
+      if (current.previewUrl) URL.revokeObjectURL(current.previewUrl);
+      return { action: "delete", file: null, previewUrl: null };
+    });
+    setFormData((prev) => ({ ...prev, avatar: null }));
   };
 
   if (isLoading) return <PageLoadingSpinner message="Cargando perfil..." />;
@@ -154,10 +188,9 @@ const UserProfile = () => {
 
       <UserProfileHeader
         profile={formData}
-        onSave={handleSave}
-        onDiscard={handleReset}
         onChangeAvatar={handleChangeAvatar}
         onRemoveAvatar={handleRemoveAvatar}
+        canEditAvatar={activeTab === "profile"}
       />
 
       <UserProfileTabNav
@@ -171,6 +204,8 @@ const UserProfile = () => {
           onChange={handleProfileChange}
           onSave={handleSave}
           onReset={handleReset}
+          hasChanges={hasProfileChanges}
+          isSaving={isSavingProfile}
         />
       )}
 

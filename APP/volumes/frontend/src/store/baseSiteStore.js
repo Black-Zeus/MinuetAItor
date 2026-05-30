@@ -10,10 +10,11 @@
 
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import { BROWSER_TIMEZONE, normalizeTimeZone } from "@/utils/timeZone";
 
 // ─── Defaults ─────────────────────────────────────────────────────────────────
 const SIDEBAR_DEFAULT = { collapsed: false, activeModule: null };
-const UI_DEFAULT      = { density: "comfortable", animations: true, defaultModuleView: "base" };
+const UI_DEFAULT      = { density: "comfortable", animations: true, defaultModuleView: "base", timeZone: BROWSER_TIMEZONE };
 
 const WIDGETS_DEFAULT = {
   stats:                    { enabled: true, order: 1, category: "resumen"  },
@@ -163,6 +164,10 @@ const useBaseSiteStore = create(
         set((s) => ({
           ui: { ...s.ui, defaultModuleView: normalizeDefaultModuleView(defaultModuleView) },
         })),
+      setTimeZone: (timeZone) =>
+        set((s) => ({
+          ui: { ...s.ui, timeZone: normalizeTimeZone(timeZone) },
+        })),
 
       // ── Dashboard widgets ──────────────────────────────────────────────────
       toggleWidget: (key) =>
@@ -249,6 +254,11 @@ const useBaseSiteStore = create(
               personalization?.default_module_view ??
               s.ui?.defaultModuleView
             ),
+            timeZone: normalizeTimeZone(
+              personalization?.timeZone ??
+              personalization?.timezone ??
+              s.ui?.timeZone
+            ),
           },
           dashboard: {
             ...s.dashboard,
@@ -266,6 +276,7 @@ const useBaseSiteStore = create(
           animations: Boolean(state.ui?.animations),
           sidebarCollapsed: Boolean(state.sidebar?.collapsed),
           defaultModuleView: normalizeDefaultModuleView(state.ui?.defaultModuleView),
+          timeZone: normalizeTimeZone(state.ui?.timeZone),
           dashboardWidgets: buildDashboardWidgetsPayload(state.dashboard?.widgets ?? {}),
         };
       },
@@ -311,6 +322,7 @@ const useBaseSiteStore = create(
             defaultModuleView: normalizeDefaultModuleView(
               s.ui?.defaultModuleView ?? UI_DEFAULT.defaultModuleView
             ),
+            timeZone: normalizeTimeZone(s.ui?.timeZone ?? UI_DEFAULT.timeZone),
           },
           navigationHistory: Array.isArray(s.navigationHistory) ? s.navigationHistory : [],
           dashboard: {
@@ -342,6 +354,7 @@ export const siteSelectors = {
   density:            (s) => s.ui?.density ?? "comfortable",
   animations:         (s) => s.ui?.animations ?? true,
   defaultModuleView:  (s) => normalizeDefaultModuleView(s.ui?.defaultModuleView),
+  timeZone:           (s) => normalizeTimeZone(s.ui?.timeZone),
   dashboard:          (s) => s.dashboard,
   widgets:            (s) => s.dashboard?.widgets ?? {},
   layout:             (s) => s.dashboard?.layout ?? LAYOUT_DEFAULT,

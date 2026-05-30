@@ -115,6 +115,7 @@ const ChangePasswordSection = () => {
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const hasChanges = Boolean(form.currentPassword || form.newPassword || form.confirmPassword);
 
   const handleChange = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
   const handleReset = () => setForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
@@ -277,6 +278,7 @@ const ChangePasswordSection = () => {
           size="sm"
           icon={<Icon name="FaEraser" />}
           onClick={handleReset}
+          disabled={isSubmitting || !hasChanges}
         />
         <ActionButton
           label="Cambiar contraseña"
@@ -284,7 +286,7 @@ const ChangePasswordSection = () => {
           size="sm"
           icon={<Icon name="FaLock" />}
           onClick={handleSave}
-          disabled={isSubmitting}
+          disabled={isSubmitting || !hasChanges}
         />
       </div>
     </div>

@@ -10,23 +10,14 @@ import notificationsService from "@/services/notificationsService";
 import useNotificationsStore from "@/store/notificationsStore";
 import { getNotificationTagLabel } from "@/utils/notificationTags";
 import { openNotificationDetailModal } from "@/pages/notifications/NotificationDetailModal";
+import { formatDateTime as formatUserDateTime } from "@/utils/formats";
 
 const LIST_LIMIT = 20;
 const NOTIFICATIONS_CENTER_EVENT = "notifications-center-updated";
 
 const formatDateTime = (value) => {
   if (!value) return "—";
-  try {
-    return new Date(value).toLocaleString("es-CL", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return value;
-  }
+  return formatUserDateTime(value);
 };
 
 const levelAccent = {

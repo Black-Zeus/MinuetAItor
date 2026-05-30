@@ -33,7 +33,7 @@ const Field = ({ label, icon, children }) => (
 );
 
 // ─── Main component ───────────────────────────────────────────────────────────
-const UserProfilePersonalData = ({ profile, onChange, onSave, onReset }) => {
+const UserProfilePersonalData = ({ profile, onChange, onSave, onReset, hasChanges = false, isSaving = false }) => {
   const handleChange = (field, value) => {
     onChange?.({ ...profile, [field]: value });
   };
@@ -129,13 +129,15 @@ const UserProfilePersonalData = ({ profile, onChange, onSave, onReset }) => {
           size="sm"
           icon={<Icon name="FaEraser" />}
           onClick={onReset}
+          disabled={isSaving || !hasChanges}
         />
         <ActionButton
-          label="Guardar"
+          label={isSaving ? "Guardando..." : "Guardar"}
           variant="primary"
           size="sm"
           icon={<Icon name="check" />}
           onClick={onSave}
+          disabled={isSaving || !hasChanges}
         />
       </div>
     </div>
