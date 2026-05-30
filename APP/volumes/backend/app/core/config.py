@@ -91,6 +91,9 @@ class Settings(BaseSettings):
     redis_ttl_transaction_hours: int = 24
     redis_ttl_lock_seconds: int = 30
 
+    # Worker coordination
+    worker_max_retries: int = 3
+
     def model_post_init(self, __context) -> None:
         if self.mariadb_password_file:
             self.mariadb_password = _read_secret_file(self.mariadb_password_file) or self.mariadb_password

@@ -43,6 +43,28 @@ class WorkerConfig:
     TRACE_ENABLED:   bool = os.environ.get("TRACE_ENABLED",   "false").lower() == "true"
     TRACE_BASE_DIR:  str  = os.environ.get("TRACE_BASE_DIR",  "/app/assets/temp")
     PROMPT_PATH_BASE: str = os.environ.get("PROMPT_PATH_BASE", "/app/assets/prompts")
+    MAINTENANCE_TEMP_CLEANUP_ALLOWED_SUBDIRS: str = os.environ.get(
+        "MAINTENANCE_TEMP_CLEANUP_ALLOWED_SUBDIRS",
+        "traces/tmp,render/tmp,uploads/tmp,maintenance/tmp",
+    )
+    MAINTENANCE_TEMP_CLEANUP_DRY_RUN: bool = (
+        os.environ.get("MAINTENANCE_TEMP_CLEANUP_DRY_RUN", "false").lower() == "true"
+    )
+    MAINTENANCE_TEMP_CLEANUP_SAFETY_GRACE_MINUTES: int = int(
+        os.environ.get("MAINTENANCE_TEMP_CLEANUP_SAFETY_GRACE_MINUTES", "30")
+    )
+    MAINTENANCE_TEMP_CLEANUP_ALLOW_TMP_ROOT: bool = (
+        os.environ.get("MAINTENANCE_TEMP_CLEANUP_ALLOW_TMP_ROOT", "false").lower() == "true"
+    )
+    MAINTENANCE_SESSION_CLEANUP_GRACE_MINUTES: int = int(
+        os.environ.get("MAINTENANCE_SESSION_CLEANUP_GRACE_MINUTES", "240")
+    )
+    MAINTENANCE_SESSION_CLEANUP_BATCH_SIZE: int = int(
+        os.environ.get("MAINTENANCE_SESSION_CLEANUP_BATCH_SIZE", "500")
+    )
+    MAINTENANCE_SESSION_CLEANUP_MAX_AFFECTED: int = int(
+        os.environ.get("MAINTENANCE_SESSION_CLEANUP_MAX_AFFECTED", "100")
+    )
 
     EMAIL_INLINE_LOGO_PATH: str = os.environ.get(
         "EMAIL_INLINE_LOGO_PATH",

@@ -185,7 +185,7 @@ class MaintenanceRunNowResponse(BaseModel):
 
 class SystemOperationModeRequest(BaseModel):
     mode: str
-    reason: str | None = None
+    reason: str | None = Field(None, max_length=500)
 
     @field_validator("mode")
     @classmethod
@@ -194,6 +194,14 @@ class SystemOperationModeRequest(BaseModel):
         if normalized not in VALID_OPERATION_MODES:
             raise ValueError("El modo operativo solicitado no es válido.")
         return normalized
+
+    @field_validator("reason")
+    @classmethod
+    def normalize_reason(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = " ".join(str(value or "").strip().split())
+        return normalized or None
 
     model_config = {"populate_by_name": True}
 
