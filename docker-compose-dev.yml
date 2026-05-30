@@ -246,7 +246,6 @@ services:
 
       # ── Rutas del Worker ─────────────────────────────────────────────────────
       PROMPT_PATH_BASE: "/app/assets/prompts"      # Directorio de prompts
-      TRACE_BASE_DIR:   "/app/assets/temp"         # Directorio para trazas/debug
 
       # ── Redis ────────────────────────────────────────────────────────────────
       REDIS_HOST:      ${REDIS_HOST:-redis}
