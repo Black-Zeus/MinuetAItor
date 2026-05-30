@@ -8,13 +8,11 @@ import React from 'react';
 import ModuleHeader from '@/components/common/page/ModuleHeader';
 import NewProject from '@/components/ui/button/NewProject';
 import useSessionStore from '@/store/sessionStore';
+import { canManageProjects } from '@/utils/authz';
 
 const ProjectHeader = ({ onCreated, clientCatalog = [] }) => {
   const authz = useSessionStore((s) => s.authz);
-  const canManageProjects =
-    Array.isArray(authz?.roles) && authz.roles.includes("ADMIN")
-      ? true
-      : Array.isArray(authz?.permissions) && authz.permissions.includes("clients.manage");
+  const canCreateProject = canManageProjects(authz);
 
   return (
     <ModuleHeader
@@ -22,7 +20,7 @@ const ProjectHeader = ({ onCreated, clientCatalog = [] }) => {
       title="Proyectos"
       description="Gestiona todos tus proyectos y sus minutas asociadas"
       actions={
-        canManageProjects ? (
+        canCreateProject ? (
           <NewProject
             onCreated={onCreated}
             clientCatalog={clientCatalog}

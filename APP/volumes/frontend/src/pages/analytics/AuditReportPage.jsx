@@ -8,7 +8,7 @@ import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import useTableSorting from "@/hooks/useTableSorting";
 import ReportModulePage from "@/pages/analytics/reports/components/ReportModulePage";
 import { listAuditEvents, previewReportPdfBlob } from "@/services/reportsService";
-import { formatDateTime as formatUserDateTime, formatNumber } from "@/utils/formats";
+import { formatNullableDateTime, formatNumber } from "@/utils/formats";
 import logger from "@/utils/logger";
 
 const reportLog = logger.scope("audit-reports");
@@ -170,12 +170,7 @@ const buildSelectOptions = (values, selectedValue = "") => {
 };
 
 const formatDateTime = (value) => {
-  if (!value) return "Sin fecha";
-  try {
-    return formatUserDateTime(value);
-  } catch {
-    return String(value);
-  }
+  return formatNullableDateTime(value, "Sin fecha", String(value));
 };
 
 const safeText = (value, fallback = "-") => {

@@ -4,7 +4,7 @@ import ActionButton from "@/components/ui/button/ActionButton";
 import Icon from "@/components/ui/icon/iconManager";
 import { toastError, toastSuccess } from "@/components/common/toast/toastHelpers";
 import aiProviderConfigService from "@/services/aiProviderConfigService";
-import { formatDateTime as formatUserDateTime } from "@/utils/formats";
+import { formatNullableDateTime as formatDateTime } from "@/utils/formats";
 
 export const AI_PROVIDER_MODAL_MODES = {
   CREATE: "create",
@@ -142,12 +142,6 @@ const buildValidationToastMessage = ({ name, ok, status }) => {
   const configName = String(name || "").trim() || "Configuración";
   const resultLabel = ok ? "validada correctamente" : VALIDATION_LABELS[status] || "con observaciones";
   return `${configName} / ${resultLabel}`;
-};
-
-const formatDateTime = (value) => {
-  if (!value) return "—";
-  const formatted = formatUserDateTime(value);
-  return formatted === "N/A" ? "—" : formatted;
 };
 
 const safeJsonStringify = (value) => {

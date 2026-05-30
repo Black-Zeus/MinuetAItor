@@ -12,6 +12,7 @@ import { useMinuteSSE } from '@/hooks/useMinuteSSE';
 import { SYSTEM_MAINTENANCE_SSE_STATE_EVENT } from '@/hooks/useSystemMaintenanceSSE';
 import useSessionStore from '@store/sessionStore';
 import systemMaintenanceService from '@/services/systemMaintenanceService';
+import { buildSidebarUser } from '@/utils/userDisplay';
 
 const MAINTENANCE_RUNTIME_EVENT = "system-maintenance-runtime-update";
 const SYSTEM_SETTINGS_PATH = "/settings/system";
@@ -98,14 +99,7 @@ const Layout = ({ children }) => {
   }, [isOperationLocked, operationMode]);
   const operationReason = String(operationState?.reason || "").trim();
 
-  const sidebarUser = {
-    initials: userDisplay?.initials  || '?',
-    avatar:   userDisplay?.avatarUrl || null,
-    name:     userDisplay?.fullName  || userDisplay?.username || 'Usuario',
-    email:    userDisplay?.email     || '',
-    role:     userDisplay?.position  || authz?.roles?.[0] || 'Sin rol',
-    isAdmin:  authz?.roles?.includes('ADMIN') ?? false,
-  };
+  const sidebarUser = buildSidebarUser(userDisplay, authz);
 
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900">

@@ -4,6 +4,7 @@ import { toastError, toastInfo, toastSuccess, toastWarn } from "@/components/com
 import useAuthStore from "@/store/authStore";
 import useSessionStore from "@/store/sessionStore";
 import { createAuthorizedEventStream } from "@/utils/authorizedEventStream";
+import { isAdmin as isAdminAuthz } from "@/utils/authz";
 
 const SYSTEM_MAINTENANCE_EVENTS_URL = "/api/v1/system/maintenance/events";
 const SYSTEM_MAINTENANCE_RUNTIME_EVENT = "system-maintenance-runtime-update";
@@ -81,9 +82,9 @@ const dispatchConnectionState = (connected) => {
 
 export const useSystemMaintenanceSSE = () => {
   const accessToken = useAuthStore((s) => s.accessToken);
-  const roles = useSessionStore((s) => s.authz?.roles ?? []);
+  const authz = useSessionStore((s) => s.authz);
   const sourceRef = useRef(null);
-  const isAdmin = roles.some((role) => String(role || "").toUpperCase() === "ADMIN");
+  const isAdmin = isAdminAuthz(authz);
 
   useEffect(() => {
     if (sourceRef.current) {

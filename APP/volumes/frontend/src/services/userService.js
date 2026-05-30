@@ -13,6 +13,7 @@
 
 import api from "@/services/axiosInterceptor";
 import { API_ENDPOINTS } from "@/constants";
+import { hasPermission, hasRole } from "@/utils/authz";
 import { getFormattedError } from "@/utils/errors";
 import { shouldLog } from "@/utils/environment";
 
@@ -208,15 +209,11 @@ class UserService {
   // ==========================================
 
   hasRole(userRoles, requiredRole) {
-    if (!Array.isArray(userRoles)) return false;
-    if (Array.isArray(requiredRole)) return requiredRole.some((r) => userRoles.includes(r));
-    return userRoles.includes(requiredRole);
+    return hasRole(userRoles, requiredRole);
   }
 
   hasPermission(userPermissions, requiredPermission) {
-    if (!Array.isArray(userPermissions)) return false;
-    if (Array.isArray(requiredPermission)) return requiredPermission.some((p) => userPermissions.includes(p));
-    return userPermissions.includes(requiredPermission);
+    return hasPermission(userPermissions, requiredPermission);
   }
 
   calculateProfileCompleteness(profileData) {

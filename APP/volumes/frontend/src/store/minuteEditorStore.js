@@ -43,6 +43,7 @@
 import { create } from "zustand";
 import { DEFAULT_PDF_TEMPLATE } from "@/constants/pdfTemplates";
 import { formatDate } from "@/utils/formats";
+import { computeInitials } from "@/utils/userDisplay";
 
 // ============================================================
 // HELPERS
@@ -409,7 +410,7 @@ export const mapIAResponseToEditorState = (iaResponse) => {
     asArray(list).map((p) => ({
       id:       uid(),
       fullName: p.fullName,
-      initials: p.initials ?? (p.fullName?.slice(0, 2).toUpperCase() ?? ""),
+      initials: p.initials ?? computeInitials(p.fullName, ""),
       type,
       role:     "",
       email:    "",

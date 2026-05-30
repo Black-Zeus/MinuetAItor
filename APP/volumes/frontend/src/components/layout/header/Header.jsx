@@ -58,11 +58,6 @@ const Header = ({
     { label: 'Configuración',  icon: 'FaGear',        onClick: () => navigate('/settings/system?tab=maintenance') },
   ];
 
-  const userName     = userDisplay?.fullName  || userDisplay?.username || 'Usuario';
-  const userInitials = userDisplay?.initials  || userName.substring(0, 2).toUpperCase();
-  const userEmail    = userDisplay?.email     || '';
-  const userRole     = userDisplay?.job_title || 'Sin rol';
-
   return (
     <HeaderContainer>
       {/* LEFT — HeaderBreadcrumb ahora es autónomo, sin props de items */}
@@ -88,10 +83,10 @@ const Header = ({
         <HeaderDivider />
         <HeaderUserMenu
           avatar={userDisplay?.avatarUrl}
-          initials={userInitials}
-          name={userName}
-          role={userRole}
-          email={userEmail}
+          initials={userDisplay?.initials || 'U'}
+          name={userDisplay?.fullName || userDisplay?.username || 'Usuario'}
+          role={userDisplay?.position || 'Sin rol'}
+          email={userDisplay?.email || ''}
           menuItems={userMenuItems}
           onLogout={handleLogout}
         />

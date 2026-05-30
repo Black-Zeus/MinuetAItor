@@ -4,6 +4,7 @@ import Icon from "@/components/ui/icon/iconManager";
 import ActionButton from "@/components/ui/button/ActionButton";
 import { ModalManager } from "@/components/ui/modal";
 import useSessionStore from "@/store/sessionStore";
+import { canManageProjects as canManageProjectsAuthz } from "@/utils/authz";
 import ProjectModal, { PROJECT_MODAL_MODES } from "./ProjectModal";
 import projectService from "@/services/projectService";
 import { parseError } from "@/utils/errors";
@@ -37,10 +38,7 @@ const ProjectViewActions = ({
 }) => {
   const [loadingDetail, setLoadingDetail] = useState(false);
   const authz = useSessionStore((state) => state.authz);
-  const canManageProjects =
-    Array.isArray(authz?.roles) && authz.roles.includes("ADMIN")
-      ? true
-      : Array.isArray(authz?.permissions) && authz.permissions.includes("clients.manage");
+  const canManageProjects = canManageProjectsAuthz(authz);
 
   const fetchDetail = async () => {
     setLoadingDetail(true);

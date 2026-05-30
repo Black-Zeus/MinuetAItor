@@ -9,14 +9,14 @@ import { Navigate, useLocation } from "react-router-dom";
 import useAuthStore    from "@/store/authStore";
 import useSessionStore from "@/store/sessionStore";
 import ForbiddenPage   from "@/pages/errorPages/ForbiddenPage";
+import { hasAnyPermission, hasAnyRole } from "@/utils/authz";
 
 const ProtectedRoute = ({ children, requiredRoles = [], requiredPermissions = [] }) => {
   const location = useLocation();
 
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isLoading       = useAuthStore((s) => s.isLoading);
-  const roles           = useSessionStore((s) => s.authz?.roles ?? []);
-  const permissions     = useSessionStore((s) => s.authz?.permissions ?? []);
+  const authz           = useSessionStore((s) => s.authz);
 
   // ── Loading ───────────────────────────────────────────────────────────────
   if (isLoading) {
@@ -37,19 +37,11 @@ const ProtectedRoute = ({ children, requiredRoles = [], requiredPermissions = []
 
   // ── Verificar roles (case-insensitive) ────────────────────────────────────
   if (requiredRoles.length > 0) {
-    const userRoles     = roles.map((r) => r.toLowerCase());
-    const requiredLower = requiredRoles.map((r) => r.toLowerCase());
-    const hasRole       = requiredLower.some((r) => userRoles.includes(r));
-
-    if (!hasRole) return <ForbiddenPage />;
+    if (!hasAnyRole(authz, requiredRoles)) return <ForbiddenPage />;
   }
 
   if (requiredPermissions.length > 0) {
-    const userPermissions     = permissions.map((p) => String(p).trim());
-    const requiredNormalized  = requiredPermissions.map((p) => String(p).trim());
-    const hasPermission       = requiredNormalized.some((p) => userPermissions.includes(p));
-
-    if (!hasPermission) return <ForbiddenPage />;
+    if (!hasAnyPermission(authz, requiredPermissions)) return <ForbiddenPage />;
   }
 
   return children;

@@ -10,15 +10,10 @@ import notificationsService from "@/services/notificationsService";
 import useNotificationsStore from "@/store/notificationsStore";
 import { getNotificationTagLabel } from "@/utils/notificationTags";
 import { openNotificationDetailModal } from "@/pages/notifications/NotificationDetailModal";
-import { formatDateTime as formatUserDateTime } from "@/utils/formats";
+import { formatNullableDateTime as formatDateTime } from "@/utils/formats";
 
 const LIST_LIMIT = 20;
 const NOTIFICATIONS_CENTER_EVENT = "notifications-center-updated";
-
-const formatDateTime = (value) => {
-  if (!value) return "—";
-  return formatUserDateTime(value);
-};
 
 const levelAccent = {
   success: "border-emerald-300/70",

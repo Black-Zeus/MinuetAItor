@@ -18,7 +18,7 @@ import MinutesSection from "./MinutesSection";
 import PageLoadingSpinner from "@/components/ui/modal/types/system/PageLoadingSpinner";
 
 import useBaseSiteStore from "@store/baseSiteStore"; // ← FIX: era dashboardStore
-import useSessionStore, { sessionSelectors } from "@store/sessionStore";
+import useSessionStore from "@store/sessionStore";
 import { listMinutes } from "@/services/minutesService";
 import clientService from "@/services/clientService";
 import { getDashboardStats } from "@/services/dashboardService";
@@ -87,7 +87,8 @@ const Dashboard = () => {
   // FIX: widgets viven en baseSiteStore.dashboard.widgets (no en dashboardStore)
   const widgets = useBaseSiteStore((s) => s.dashboard?.widgets ?? {});
   const w = (key) => widgets[key]?.enabled ?? true;
-  const sessionUser = useSessionStore(sessionSelectors.user);
+  const getDisplayData = useSessionStore((s) => s.getDisplayData);
+  const userDisplay = getDisplayData();
 
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
@@ -106,7 +107,7 @@ const Dashboard = () => {
       statusDistribution: [],
     },
   });
-  const userName = sessionUser?.full_name || sessionUser?.username || "Usuario";
+  const userName = userDisplay?.fullName || userDisplay?.username || "Usuario";
 
   useEffect(() => {
     const load = async () => {
