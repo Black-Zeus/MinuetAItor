@@ -559,6 +559,9 @@ services:
       APP_VERSION: ${APP_VERSION}
       TZ: America/Santiago
       MP_WEBROOT: /mailpit
+    ports:
+      - "${MAILPIT_UI_PORT:-8025}:8025"
+      - "${MAILPIT_SMTP_PORT:-1025}:1025"
     networks:
       - internal
     healthcheck:
