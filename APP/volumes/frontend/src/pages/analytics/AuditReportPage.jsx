@@ -8,7 +8,7 @@ import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import useTableSorting from "@/hooks/useTableSorting";
 import ReportModulePage from "@/pages/analytics/reports/components/ReportModulePage";
 import { listAuditEvents, previewReportPdfBlob } from "@/services/reportsService";
-import { formatNumber } from "@/utils/formats";
+import { formatDateTime as formatUserDateTime, formatNumber } from "@/utils/formats";
 import logger from "@/utils/logger";
 
 const reportLog = logger.scope("audit-reports");
@@ -172,10 +172,7 @@ const buildSelectOptions = (values, selectedValue = "") => {
 const formatDateTime = (value) => {
   if (!value) return "Sin fecha";
   try {
-    return new Intl.DateTimeFormat("es-CL", {
-      dateStyle: "short",
-      timeStyle: "short",
-    }).format(new Date(value));
+    return formatUserDateTime(value);
   } catch {
     return String(value);
   }

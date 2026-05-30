@@ -21,7 +21,7 @@ import clientService from "@/services/clientService";
 import profileService from "@/services/profileService";
 import projectService from "@/services/projectService";
 import { previewReportPdfBlob } from "@/services/reportsService";
-import { formatNumber } from "@/utils/formats";
+import { formatDateInputValue, formatDateTime, formatNumber, parseAppDate } from "@/utils/formats";
 import logger from "@/utils/logger";
 
 const reportLog = logger.scope("ai-reports");
@@ -78,14 +78,6 @@ const USD_FORMATTER = new Intl.NumberFormat("es-CL", {
   currency: "USD",
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
-});
-
-const DATE_TIME_FORMATTER = new Intl.DateTimeFormat("es-CL", {
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
 });
 
 const PERCENT_FORMATTER = new Intl.NumberFormat("es-CL", {
@@ -308,10 +300,7 @@ const buildPricingCoverageHelper = (overview = {}) => {
   return `${formatNumber(estimatedCostEvents)} eventos con pricing resuelto.`;
 };
 
-const formatDateForInput = (date) => {
-  const normalized = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-  return normalized.toISOString().slice(0, 10);
-};
+const formatDateForInput = (date) => formatDateInputValue(date);
 
 const buildDefaultFilters = () => {
   const today = new Date();
@@ -877,9 +866,9 @@ const sortMetricItems = (items = [], selector) =>
 const buildRawEventRows = (items = [], catalogs = {}) =>
   items.map((event) => {
     const startedAtLabel = event.startedAt
-      ? DATE_TIME_FORMATTER.format(new Date(event.startedAt))
+      ? formatDateTime(event.startedAt)
       : "Sin fecha";
-    const startedAtTimestamp = event.startedAt ? new Date(event.startedAt).getTime() : 0;
+    const startedAtTimestamp = event.startedAt ? parseAppDate(event.startedAt).getTime() : 0;
     const clientLabel = coalesceName(
       catalogs.clientMap?.get?.(event.clientId),
       event.clientId ? "Cliente no resuelto" : "Sin cliente"

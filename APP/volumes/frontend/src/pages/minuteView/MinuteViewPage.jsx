@@ -18,6 +18,7 @@ import {
   updateMinuteObservation,
   verifyMinuteViewOtp,
 } from "@/services/minuteViewService";
+import { formatDateTime } from "@/utils/formats";
 
 const OBSERVATION_STATUS_META = {
   new: {
@@ -959,7 +960,7 @@ const MinuteViewPage = () => {
                                     <td className="px-4 py-3">
                                       <p className="font-medium text-slate-950 dark:text-white">{item.authorName || item.authorEmail}</p>
                                       <p className="mt-1 text-xs text-slate-500">
-                                        {item.createdAt ? new Date(item.createdAt).toLocaleString("es-CL") : ""}
+                                        {item.createdAt ? formatDateTime(item.createdAt) : ""}
                                       </p>
                                     </td>
                                     <td className="px-4 py-3 text-slate-700 dark:text-slate-200">{item.body}</td>
@@ -1120,7 +1121,7 @@ const MinuteViewPage = () => {
                                     <td className="px-4 py-3">
                                       <p className="font-medium text-slate-950 dark:text-white">{item.authorName || item.authorEmail}</p>
                                       <p className="mt-1 text-xs text-slate-500">
-                                        {item.createdAt ? new Date(item.createdAt).toLocaleString("es-CL") : ""}
+                                        {item.createdAt ? formatDateTime(item.createdAt) : ""}
                                       </p>
                                     </td>
                                     <td className="px-4 py-3 text-slate-700 dark:text-slate-200">{item.body}</td>

@@ -1,9 +1,8 @@
 # services/redis_minute_cache.py
 import json
 import logging
-from datetime import datetime, timezone
 
-from core.datetime_utils import utc_now
+from core.datetime_utils import utc_isoformat_z, utc_now
 from db.redis import get_redis
 
 logger = logging.getLogger(__name__)
@@ -25,7 +24,7 @@ async def get_cached_file_id(sha256: str) -> str | None:
 async def cache_file_id(sha256: str, file_id: str, ttl_days: int = 30) -> None:
     r = await get_redis()
     key = f"file:{PROVIDER}:{sha256}"
-    payload = json.dumps({"file_id": file_id, "uploaded_at": utc_now().isoformat()})
+    payload = json.dumps({"file_id": file_id, "uploaded_at": utc_isoformat_z(utc_now())})
     await r.setex(key, ttl_days * 86400, payload)
     logger.info(f"Cache STORE file_id={file_id} para sha256={sha256[:8]}...")
 
@@ -42,7 +41,7 @@ async def set_transaction_status(transaction_id: str, status: str, ttl_hours: in
     key = f"tx:{transaction_id}"
     payload = json.dumps({
         "status": status,
-        "updated_at": utc_now().isoformat(),
+        "updated_at": utc_isoformat_z(utc_now()),
         **extra
     })
     await r.setex(key, ttl_hours * 3600, payload)
@@ -57,9 +56,8 @@ async def acquire_lock(transaction_id: str, ttl_seconds: int = 30) -> bool:
 
 async def check_rate_limit(client_ip: str, limit: int = 20) -> bool:
     """Retorna True si está dentro del límite, False si lo superó."""
-    from datetime import date
     r = await get_redis()
-    today = date.today().strftime("%Y%m%d")
+    today = utc_now().strftime("%Y%m%d")
     key = f"rate:{client_ip}:{today}"
     count = await r.incr(key)
     if count == 1:

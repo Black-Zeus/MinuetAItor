@@ -13,6 +13,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from core.authz import require_permissions
+from core.datetime_utils import normalize_datetime_strings_to_utc_z
 from db.session import SessionLocal, get_db
 from db.redis import get_redis
 from schemas.auth import UserSession
@@ -116,7 +117,7 @@ async def generate_endpoint(
     session:    UserSession      = Depends(require_permissions("records.create")),
 ):
     try:
-        data    = json.loads(input_json)
+        data    = normalize_datetime_strings_to_utc_z(json.loads(input_json))
         request = MinuteGenerateRequest.model_validate(data)
     except json.JSONDecodeError as e:
         raise HTTPException(status_code=422, detail=f"input_json no es JSON válido: {e}")
@@ -768,7 +769,7 @@ def _sse_headers() -> dict:
 
 
 def _sse_event(event: str, data: dict) -> str:
-    return f"event: {event}\ndata: {json.dumps(data)}\n\n"
+    return f"event: {event}\ndata: {json.dumps(normalize_datetime_strings_to_utc_z(data))}\n\n"
 
 
 def _minutes_sse_channel(transaction_id: str) -> str:

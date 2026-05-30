@@ -18,7 +18,7 @@ import os
 import sys
 import time
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import redis
@@ -203,7 +203,7 @@ def _upcoming(x: dict) -> dict:
 def enqueue_job(template: str, watermark: bool, data: dict) -> tuple[str, str]:
     record_id  = str(uuid.uuid4())[:8]
     job_id     = str(uuid.uuid4())
-    timestamp  = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp  = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
 
     template_num = template.split("_")[1] if "_" in template else template
     filename     = f"template_{template_num}_{timestamp}.pdf"

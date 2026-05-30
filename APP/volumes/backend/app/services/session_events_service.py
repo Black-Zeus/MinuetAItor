@@ -10,7 +10,7 @@ from typing import AsyncGenerator
 from fastapi import HTTPException, Request, status
 from redis.exceptions import RedisError
 
-from core.datetime_utils import utc_now
+from core.datetime_utils import normalize_datetime_strings_to_utc_z, utc_isoformat_z, utc_now
 from db.redis import get_redis
 from schemas.auth import UserSession
 from services.sse_instrumentation import new_sse_connection_id, sse_duration_ms, sse_log
@@ -74,12 +74,12 @@ async def publish_session_event(
         "reason": reason,
         "message": message,
         "force_logout": force_logout,
-        "ts": utc_now().isoformat(),
+        "ts": utc_isoformat_z(utc_now()),
         "metadata": metadata or {},
     }
     try:
         await asyncio.wait_for(
-            redis.publish(get_session_events_channel(user_id), json.dumps(payload)),
+            redis.publish(get_session_events_channel(user_id), json.dumps(normalize_datetime_strings_to_utc_z(payload))),
             timeout=SESSION_REDIS_TIMEOUT_SEC,
         )
     except (asyncio.TimeoutError, RedisError) as exc:
@@ -100,7 +100,7 @@ def auth_sse_headers() -> dict:
 
 
 def _auth_sse_event(event: str, data: dict) -> str:
-    return f"event: {event}\ndata: {json.dumps(data)}\n\n"
+    return f"event: {event}\ndata: {json.dumps(normalize_datetime_strings_to_utc_z(data))}\n\n"
 
 
 async def stream_session_events(session: UserSession, request: Request) -> AsyncGenerator[str, None]:

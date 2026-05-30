@@ -17,10 +17,14 @@ El nodo `ia_response` replica la estructura de AI_output.json exactamente.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field
+
+
+def utc_now() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 # ---------------------------------------------------------------------------
@@ -253,7 +257,7 @@ class PdfJobMetadata(BaseModel):
     elaborated_by_email: str
 
     # Timestamps de sistema
-    generated_at: datetime = Field(default_factory=datetime.utcnow)
+    generated_at: datetime = Field(default_factory=utc_now)
 
 
 # ---------------------------------------------------------------------------
@@ -294,7 +298,7 @@ class PdfJobPayload(BaseModel):
     """
     job_id: str = Field(default_factory=lambda: f"pdf-{uuid.uuid4()}")
     job_type: Literal["generate_pdf"] = "generate_pdf"
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
 
     context: PdfJobContext
     options: PdfJobOptions

@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
+import { formatDateTime } from '@/utils/formats';
 
 const ServerErrorPage = () => {
     const navigate = useNavigate();
@@ -32,7 +33,7 @@ const ServerErrorPage = () => {
         const subject = encodeURIComponent('Error 500 - Reporte de problema');
         const body = encodeURIComponent(`
 Error detectado en: ${window.location.href}
-Fecha: ${new Date().toLocaleString()}
+Fecha: ${formatDateTime(new Date())}
 Navegador: ${navigator.userAgent}
 Intentos de reintento: ${retryCount}
     `);
@@ -97,7 +98,7 @@ Intentos de reintento: ${retryCount}
                                     ID del error: ERR-{Date.now().toString(36).toUpperCase()}
                                 </p>
                                 <p className="text-xs text-red-500 dark:text-red-400 mt-1">
-                                    Timestamp: {new Date().toISOString()}
+                                    Timestamp: {formatDateTime(new Date())}
                                 </p>
                             </div>
                         </div>

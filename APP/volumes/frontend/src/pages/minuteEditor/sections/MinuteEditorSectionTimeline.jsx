@@ -174,7 +174,7 @@ const TimelineEntry = ({ version, isLatest, isLast, recordId }) => {
                   <div>
                     <p className="text-xs text-gray-500 dark:text-gray-400 transition-theme">Timestamp</p>
                     <p className="text-xs font-mono text-gray-700 dark:text-gray-300 transition-theme">
-                      {version.publishedAt ? new Date(version.publishedAt).toISOString() : "—"}
+                      {version.publishedAt ? fmtDate(version.publishedAt) : "—"}
                     </p>
                   </div>
                 </div>

@@ -10,6 +10,7 @@ import {
     MODAL_CLASSES,
     getModalConfig
 } from '../modalTypes.js';
+import { formatDate, parseAppDate } from '@/utils/formats';
 
 
 import logger from '@/utils/logger';
@@ -614,7 +615,7 @@ const CalendarModalContent = ({
 
     // Eventos de cada día
     const getEventsForDate = (date) =>
-        events.filter(event => new Date(event.date).toDateString() === date.toDateString());
+        events.filter(event => parseAppDate(event.date).toDateString() === date.toDateString());
 
     const handleEventClick = (event, e) => {
         e.stopPropagation();
@@ -730,13 +731,13 @@ const CalendarModalContent = ({
                             {/* Mensaje según selección */}
                             {rangeSelection
                                 ? (startDate && endDate
-                                    ? <>Rango seleccionado: <span className="font-semibold">{startDate.toLocaleDateString()} — {endDate.toLocaleDateString()}</span></>
+                                    ? <>Rango seleccionado: <span className="font-semibold">{formatDate(startDate)} — {formatDate(endDate)}</span></>
                                     : startDate
-                                        ? <>Inicio de rango: <span className="font-semibold">{startDate.toLocaleDateString()}</span></>
+                                        ? <>Inicio de rango: <span className="font-semibold">{formatDate(startDate)}</span></>
                                         : "Seleccione un rango de días"
                                 )
                                 : startDate
-                                    ? <>Día seleccionado: <span className="font-semibold">{startDate.toLocaleDateString()}</span></>
+                                    ? <>Día seleccionado: <span className="font-semibold">{formatDate(startDate)}</span></>
                                     : "Seleccione un día"}
                         </div>
                         <div className="flex gap-2">

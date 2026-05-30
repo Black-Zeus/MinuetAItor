@@ -18,7 +18,8 @@ if (isDev() || isQA()) {
 }
 
 function App() {
-  const { theme } = useBaseSiteStore();
+  const theme = useBaseSiteStore((s) => s.theme);
+  useBaseSiteStore((s) => s.ui?.timeZone);
 
   useLayoutEffect(() => {
     applyThemeToDocument(theme);

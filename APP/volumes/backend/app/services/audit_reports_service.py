@@ -7,6 +7,7 @@ from typing import Any
 from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
+from core.datetime_utils import utc_now_db
 from models.audit_logs import AuditLog
 from models.clients import Client
 from models.email_delivery_events import EmailDeliveryEvent
@@ -416,7 +417,7 @@ def _visitor_sessions(db: Session, session: UserSession, payload: AuditReportReq
     query = apply_record_scope_filter(query, db, session, Record)
     query = _record_filters(query, payload, Client, Project)
     if payload.status == "active":
-        query = query.filter(VisitorSession.revoked_at.is_(None), VisitorSession.expires_at >= datetime.utcnow())
+        query = query.filter(VisitorSession.revoked_at.is_(None), VisitorSession.expires_at >= utc_now_db())
     elif payload.status == "revoked":
         query = query.filter(VisitorSession.revoked_at.is_not(None))
     rows = query.order_by(VisitorSession.created_at.desc()).limit(payload.limit).all()

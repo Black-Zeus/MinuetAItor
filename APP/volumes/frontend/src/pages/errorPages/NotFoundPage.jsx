@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
+import { formatDateTime } from "@/utils/formats";
 
 import logger from '@/utils/logger';
 const erNotFoundLog = logger.scope("error-page");
@@ -42,7 +43,7 @@ const NotFoundPage = () => {
     const body = encodeURIComponent(`
 Enlace roto encontrado: ${window.location.href}
 Referencia desde: ${document.referrer || "Directo"}
-Fecha: ${new Date().toLocaleString()}
+Fecha: ${formatDateTime(new Date())}
 Navegador: ${navigator.userAgent}
 Descripción del problema: [Escriba aquí cómo llegó a este enlace]
     `);

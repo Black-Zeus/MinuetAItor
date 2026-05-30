@@ -10,6 +10,7 @@ import {
   MODAL_CLASSES,
   getModalConfig
 } from '../modalTypes.js';
+import { formatDateMedium } from '@/utils/formats';
 
 
 import logger from '@/utils/logger';
@@ -711,11 +712,7 @@ const WizardModal_v2 = ({
                     ) : field.type === 'textarea' ? (
                       <pre className="whitespace-pre-wrap font-sans text-sm">{field.value}</pre>
                     ) : field.type === 'date' ? (
-                      new Date(field.value).toLocaleDateString('es-CL', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                      })
+                      formatDateMedium(field.value)
                     ) : field.type === 'time' ? (
                       field.value
                     ) : field.type === 'select' ? (
@@ -1077,11 +1074,7 @@ const WizardModal_v3 = ({
                         ) : field.type === 'textarea' ? (
                           <pre className="whitespace-pre-wrap font-sans text-sm">{field.value}</pre>
                         ) : field.type === 'date' ? (
-                          new Date(field.value).toLocaleDateString('es-CL', {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric'
-                          })
+                          formatDateMedium(field.value)
                         ) : field.type === 'time' ? (
                           field.value
                         ) : field.type === 'select' ? (
@@ -1477,11 +1470,7 @@ const handleComplete = useCallback(async () => {
                         ) : field.type === 'textarea' ? (
                           <pre className="whitespace-pre-wrap font-sans text-sm">{field.value}</pre>
                         ) : field.type === 'date' ? (
-                          new Date(field.value).toLocaleDateString('es-CL', {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric'
-                          })
+                          formatDateMedium(field.value)
                         ) : field.type === 'time' ? (
                           field.value
                         ) : field.type === 'select' ? (
@@ -1910,11 +1899,7 @@ const handleComplete = useCallback(async () => {
                         ) : field.type === 'textarea' ? (
                           <pre className="whitespace-pre-wrap font-sans text-sm">{field.value}</pre>
                         ) : field.type === 'date' ? (
-                          new Date(field.value).toLocaleDateString('es-CL', {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric'
-                          })
+                          formatDateMedium(field.value)
                         ) : field.type === 'time' ? (
                           field.value
                         ) : field.type === 'select' ? (

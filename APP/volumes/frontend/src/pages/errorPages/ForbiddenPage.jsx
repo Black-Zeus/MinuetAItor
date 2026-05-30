@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import useAuthStore       from "@/store/authStore";
 import useSessionStore    from "@/store/sessionStore";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
+import { formatDateTime } from "@/utils/formats";
 
 const ForbiddenPage = () => {
   const navigate = useNavigate();
@@ -35,7 +36,7 @@ const ForbiddenPage = () => {
 Solicito acceso a: ${window.location.href}
 Usuario actual: ${user?.email || user?.username || "Desconocido"}
 Rol actual: ${authz?.roles?.join(", ") || "Sin roles"}
-Fecha: ${new Date().toLocaleString()}
+Fecha: ${formatDateTime(new Date())}
 Justificación: [Escriba aquí por qué necesita acceso]
     `);
     window.open(`mailto:admin@tudominio.com?subject=${subject}&body=${body}`);

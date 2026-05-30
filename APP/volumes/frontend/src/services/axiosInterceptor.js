@@ -41,6 +41,37 @@ const notify = {
 };
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const ISO_DATETIME_RE = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d{1,6})?)?(?:Z|[+-]\d{2}:\d{2})?$/;
+
+const normalizeIsoDateTimeStringToUtcZ = (value) => {
+  if (typeof value !== "string") return value;
+  const raw = value.trim();
+  if (!ISO_DATETIME_RE.test(raw)) return value;
+
+  const normalized = raw.replace(" ", "T");
+  const date = new Date(
+    /(?:Z|[+-]\d{2}:\d{2})$/.test(normalized) ? normalized : `${normalized}Z`
+  );
+  return Number.isNaN(date.getTime()) ? value : date.toISOString();
+};
+
+export const normalizeTransportDateTimes = (value) => {
+  if (!value) return value;
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === "string") return normalizeIsoDateTimeStringToUtcZ(value);
+  if (Array.isArray(value)) return value.map((item) => normalizeTransportDateTimes(item));
+  if (
+    typeof value === "object" &&
+    !(typeof Blob !== "undefined" && value instanceof Blob) &&
+    !(typeof FormData !== "undefined" && value instanceof FormData) &&
+    !(typeof URLSearchParams !== "undefined" && value instanceof URLSearchParams)
+  ) {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [key, normalizeTransportDateTimes(item)])
+    );
+  }
+  return value;
+};
 
 // ─── Token Adapter — única fuente: authStore ─────────────────────────────────
 const TokenAdapter = {
@@ -200,6 +231,13 @@ axiosInstance.interceptors.request.use(
   (config) => {
     const accessToken = TokenAdapter.access;
     if (accessToken) config.headers.Authorization = `Bearer ${accessToken}`;
+
+    if (config.data) {
+      config.data = normalizeTransportDateTimes(config.data);
+    }
+    if (config.params) {
+      config.params = normalizeTransportDateTimes(config.params);
+    }
 
     config.metadata = { startTime: new Date() };
 

@@ -3,6 +3,7 @@ import React from "react";
 import Icon from "@/components/ui/icon/iconManager";
 import CatalogEmptyState from "@/components/common/CatalogEmptyState";
 import ClientViewActions from "./ClientViewActions";
+import { formatDate } from "@/utils/formats";
 
 const ClientListView = ({ clients = [], hasFilters = false, onUpdate, onDelete }) => {
   if (!clients.length) {
@@ -57,11 +58,7 @@ const ClientListView = ({ clients = [], hasFilters = false, onUpdate, onDelete }
                 </div>
                 <div className="flex items-center gap-2">
                   <Icon name="FaCalendarPlus" className="h-4 w-4 text-gray-400" />
-                  <span>
-                    {client.createdAt
-                      ? new Date(client.createdAt).toLocaleDateString("es-CL")
-                      : "Sin fecha"}
-                  </span>
+                  <span>{client.createdAt ? formatDate(client.createdAt) : "Sin fecha"}</span>
                 </div>
               </div>
             </div>

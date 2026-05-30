@@ -11,7 +11,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
 from core.config import settings
-from core.datetime_utils import utc_now
+from core.datetime_utils import normalize_datetime_strings_to_utc_z, utc_now
 from core.exceptions import AppException
 from schemas.response import ErrorDetail, MetaSchema, RouteInfo, fail, ok
 from utils.geo import get_geo, _is_private_ip
@@ -23,14 +23,14 @@ from utils.network import get_client_ip
 def _build_meta(request: Request, duration_ms: int) -> MetaSchema:
     return MetaSchema(
         request_id=f"req_{uuid.uuid4().hex[:24]}",
-        timestamp=utc_now().isoformat(),
+        timestamp=normalize_datetime_strings_to_utc_z(utc_now()),
         duration_ms=duration_ms,
         route=RouteInfo(method=request.method, path=request.url.path),
     )
 
 
 def _json_response(status_code: int, body: dict) -> JSONResponse:
-    return JSONResponse(status_code=status_code, content=body)
+    return JSONResponse(status_code=status_code, content=normalize_datetime_strings_to_utc_z(body))
 
 
 _SENSITIVE_VALIDATION_FIELDS = {
@@ -120,6 +120,34 @@ class GeoBlockMiddleware(BaseHTTPMiddleware):
 
 # ── Contract ──────────────────────────────────────────
 
+class RequestDateTimeNormalizationMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next) -> Response:
+        content_type = request.headers.get("content-type", "")
+        if "application/json" not in content_type:
+            return await call_next(request)
+
+        body = await request.body()
+        if not body:
+            return await call_next(request)
+
+        try:
+            payload = json.loads(body)
+        except Exception:
+            return await call_next(request)
+
+        normalized_body = json.dumps(
+            normalize_datetime_strings_to_utc_z(payload),
+            ensure_ascii=False,
+            separators=(",", ":"),
+        ).encode("utf-8")
+
+        async def receive():
+            return {"type": "http.request", "body": normalized_body, "more_body": False}
+
+        request._receive = receive
+        return await call_next(request)
+
+
 class ResponseContractMiddleware(BaseHTTPMiddleware):
     EXCLUDE = {
         "/docs",         "/v1/docs",
@@ -149,12 +177,17 @@ class ResponseContractMiddleware(BaseHTTPMiddleware):
         except Exception:
             return response
 
+        payload = normalize_datetime_strings_to_utc_z(payload)
+
         # Si ya viene con el contrato (errores del handler), no re-envolver
         if isinstance(payload, dict) and "success" in payload:
             return JSONResponse(status_code=response.status_code, content=payload)
 
         wrapped = ok(result=payload, meta=meta, status=response.status_code)
-        return JSONResponse(status_code=response.status_code, content=wrapped.model_dump())
+        return JSONResponse(
+            status_code=response.status_code,
+            content=normalize_datetime_strings_to_utc_z(wrapped.model_dump()),
+        )
 
 
 # ── Exception handlers ────────────────────────────────
@@ -166,7 +199,7 @@ def register_exception_handlers(app: FastAPI) -> None:
         meta = _build_meta(request, 0)
         body = fail(message=exc.message, code=exc.code, status=exc.status_code,
                     details=exc.details, meta=meta).model_dump()
-        return JSONResponse(status_code=exc.status_code, content=body)
+        return JSONResponse(status_code=exc.status_code, content=normalize_datetime_strings_to_utc_z(body))
 
     @app.exception_handler(RequestValidationError)
     async def validation_handler(request: Request, exc: RequestValidationError):
@@ -182,11 +215,17 @@ def register_exception_handlers(app: FastAPI) -> None:
         body = fail(message="Error de validación", code="VALIDATION_ERROR",
                     status=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     details=details, meta=meta).model_dump()
-        return JSONResponse(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, content=body)
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            content=normalize_datetime_strings_to_utc_z(body),
+        )
 
     @app.exception_handler(Exception)
     async def unhandled_handler(request: Request, exc: Exception):
         meta = _build_meta(request, 0)
         body = fail(message="Error interno del servidor", code="INTERNAL_ERROR",
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR, meta=meta).model_dump()
-        return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content=body)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content=normalize_datetime_strings_to_utc_z(body),
+        )

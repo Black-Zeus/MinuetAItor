@@ -22,6 +22,7 @@ services:
   mariadb:
     image: mariadb:11.4
     container_name: ${PROJECT_NAME}-mariadb
+    command: ["mariadbd", "--default-time-zone=+00:00"]
     labels:
       stack: ${PROJECT_NAME}
       env: ${ENV_NAME:-dev}

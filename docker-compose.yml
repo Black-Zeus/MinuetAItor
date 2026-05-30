@@ -63,6 +63,7 @@ services:
     container_name: ${PROJECT_NAME}-mariadb
     restart: unless-stopped
     user: "999:999"
+    command: ["mariadbd", "--default-time-zone=+00:00"]
     environment:
       TZ: America/Santiago
       MARIADB_ROOT_PASSWORD_FILE: /run/secrets/mariadb_root_password

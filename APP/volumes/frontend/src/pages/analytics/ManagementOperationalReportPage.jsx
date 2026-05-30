@@ -34,7 +34,7 @@ import aiProviderConfigService from "@/services/aiProviderConfigService";
 import systemMaintenanceService from "@/services/systemMaintenanceService";
 import systemQueueService from "@/services/systemQueueService";
 import teamsService from "@/services/teamsService";
-import { formatNumber } from "@/utils/formats";
+import { formatDate, formatDateInputValue, formatDateTime, formatNumber, parseAppDate } from "@/utils/formats";
 import logger from "@/utils/logger";
 
 const reportLog = logger.scope("reports");
@@ -254,20 +254,6 @@ const COMMITMENT_STATUS_CONFIG = {
   },
 };
 
-const DATE_FORMATTER = new Intl.DateTimeFormat("es-CL", {
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-});
-
-const DATE_TIME_FORMATTER = new Intl.DateTimeFormat("es-CL", {
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-});
-
 const PERCENT_FORMATTER = new Intl.NumberFormat("es-CL", {
   minimumFractionDigits: 1,
   maximumFractionDigits: 1,
@@ -401,10 +387,7 @@ const formatDurationMs = (value) => {
 const getReprocessReasonLabel = (reason, fallback = "Señal operativa") =>
   REPROCESS_REASON_LABELS[String(reason ?? "").trim()] ?? fallback;
 
-const formatDateForInput = (date) => {
-  const normalized = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-  return normalized.toISOString().slice(0, 10);
-};
+const formatDateForInput = (date) => formatDateInputValue(date);
 
 const buildDefaultFilters = () => {
   const today = new Date();
@@ -436,7 +419,7 @@ const parseFlexibleDate = (value) => {
   const raw = String(value).trim();
   if (!raw) return null;
 
-  const directDate = new Date(raw);
+  const directDate = parseAppDate(raw);
   if (!Number.isNaN(directDate.getTime())) return directDate;
 
   const monthMap = {
@@ -477,23 +460,20 @@ const parseFlexibleDate = (value) => {
 const formatDateLabel = (value) => {
   const parsedDate = parseFlexibleDate(value);
   if (!parsedDate) return String(value ?? "Sin fecha");
-  return DATE_FORMATTER.format(parsedDate);
+  return formatDate(parsedDate);
 };
 
 const formatDateTimeLabel = (value) => {
   const parsedDate = parseFlexibleDate(value);
   if (!parsedDate) return String(value ?? "Sin fecha");
-  return DATE_TIME_FORMATTER.format(parsedDate);
+  return formatDateTime(parsedDate);
 };
 
 const toInputDate = (value) => {
   const parsedDate = parseFlexibleDate(value);
   if (!parsedDate) return "";
 
-  const normalized = new Date(
-    parsedDate.getTime() - parsedDate.getTimezoneOffset() * 60000
-  );
-  return normalized.toISOString().slice(0, 10);
+  return formatDateInputValue(parsedDate);
 };
 
 const isBacklogStatus = (statusKey) =>

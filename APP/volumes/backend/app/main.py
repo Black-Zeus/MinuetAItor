@@ -12,7 +12,12 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy import text
 
 from core.config import settings
-from core.middleware import ResponseContractMiddleware, GeoBlockMiddleware, register_exception_handlers
+from core.middleware import (
+    GeoBlockMiddleware,
+    RequestDateTimeNormalizationMiddleware,
+    ResponseContractMiddleware,
+    register_exception_handlers,
+)
 from core.security import decode_access_token
 from db.schema_compat import ensure_projects_auto_send_columns
 from db.session import SessionLocal, engine
@@ -69,6 +74,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.add_middleware(GeoBlockMiddleware)
+app.add_middleware(RequestDateTimeNormalizationMiddleware)
 app.add_middleware(ResponseContractMiddleware)
 
 

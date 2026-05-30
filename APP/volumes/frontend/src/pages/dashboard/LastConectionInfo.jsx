@@ -8,6 +8,7 @@
 
 import React, { useMemo, useState } from "react";
 import Icon from "@/components/ui/icon/iconManager";
+import useBaseSiteStore from "@store/baseSiteStore";
 import useSessionStore from "@store/sessionStore"; // ← FIX: era authStore
 import { formatDateTimeTechnical } from "@/utils/formats";
 import { toUiConnection, resolveCurrentConnection, buildIpLines } from "@/utils/connectionUtils";
@@ -130,6 +131,7 @@ const LastConectionInfo = () => {
   // FIX: fuente de verdad → sessionStore.connections (no authStore.user)
   const connections    = useSessionStore((s) => s.connections);
   const isLoaded       = useSessionStore((s) => !!s.user);
+  const timeZone       = useBaseSiteStore((s) => s.ui?.timeZone);
 
   const [historyOpen, setHistoryOpen] = useState(false);
 
@@ -149,7 +151,7 @@ const LastConectionInfo = () => {
       lastIp:       active?.ip_v4    ?? "",
       lastIpV6:     active?.ip_v6    ?? "",
     };
-  }, [connections, isLoaded]);
+  }, [connections, isLoaded, timeZone]);
 
   const history           = session.lastConnections;
   const current           = resolveCurrentConnection(session);

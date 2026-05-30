@@ -2,6 +2,8 @@
 // Adaptador actualizado para API real
 // ====================================
 
+import { parseAppDate } from "@/utils/formats";
+
 /**
  * Mapeo de roles de códigos a nombres legibles
  */
@@ -152,7 +154,7 @@ const calculateNewUsersThisMonth = (users) => {
 
     return users.filter(user => {
         if (!user.created_at) return false;
-        const created = new Date(user.created_at);
+        const created = parseAppDate(user.created_at);
         return created.getMonth() === thisMonth && created.getFullYear() === thisYear;
     }).length;
 };

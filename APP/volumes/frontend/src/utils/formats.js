@@ -7,6 +7,18 @@ import useBaseSiteStore from "@/store/baseSiteStore";
 import { resolveTimeZone } from "@/utils/timeZone";
 
 const getUserTimeZone = () => resolveTimeZone(useBaseSiteStore.getState().ui?.timeZone);
+const DATE_TIME_WITHOUT_TZ_RE = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d{1,6})?)?$/;
+
+export const parseAppDate = (value) => {
+    if (value instanceof Date) return value;
+    if (typeof value === 'string') {
+        const normalized = value.trim();
+        if (DATE_TIME_WITHOUT_TZ_RE.test(normalized)) {
+            return new Date(`${normalized.replace(' ', 'T')}Z`);
+        }
+    }
+    return new Date(value);
+};
 
 // ==========================================
 // FORMATOS DE MONEDA
@@ -78,10 +90,28 @@ export const formatDate = (dateString) => {
             return `${day}/${month}/${year}`;
         }
 
-        const date = new Date(dateString);
+        const date = parseAppDate(dateString);
         if (isNaN(date.getTime())) return 'Fecha inválida';
         
         return date.toLocaleDateString('es-CL', { timeZone: getUserTimeZone() });
+    } catch (error) {
+        return 'Fecha inválida';
+    }
+};
+
+export const formatDateMedium = (dateString) => {
+    if (!dateString) return 'N/A';
+
+    try {
+        const date = parseAppDate(dateString);
+        if (isNaN(date.getTime())) return 'Fecha inválida';
+
+        return date.toLocaleDateString('es-CL', {
+            timeZone: getUserTimeZone(),
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+        });
     } catch (error) {
         return 'Fecha inválida';
     }
@@ -96,7 +126,7 @@ export const formatDateTime = (dateString) => {
     if (!dateString) return 'N/A';
     
     try {
-        const date = new Date(dateString);
+        const date = parseAppDate(dateString);
         if (isNaN(date.getTime())) return 'Fecha inválida';
         
         return date.toLocaleString('es-CL', {
@@ -122,7 +152,7 @@ export const formatDateTimeTechnical = (dateString) => {
     if (!dateString) return 'N/A';
     
     try {
-        const date = new Date(dateString);
+        const date = parseAppDate(dateString);
         if (isNaN(date.getTime())) return 'Fecha inválida';
         
         const parts = new Intl.DateTimeFormat('es-CL', {
@@ -148,6 +178,26 @@ export const formatDateTimeTechnical = (dateString) => {
     }
 };
 
+export const formatDateInputValue = (dateString) => {
+    if (!dateString) return '';
+
+    try {
+        const date = parseAppDate(dateString);
+        if (isNaN(date.getTime())) return '';
+
+        const parts = new Intl.DateTimeFormat('es-CL', {
+            timeZone: getUserTimeZone(),
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+        }).formatToParts(date);
+        const valueFor = (type) => parts.find((part) => part.type === type)?.value || '';
+        return `${valueFor('year')}-${valueFor('month')}-${valueFor('day')}`;
+    } catch (error) {
+        return '';
+    }
+};
+
 /**
  * Formatea solo la hora en formato HH:mm
  * @param {string|Date} dateString - Fecha a formatear
@@ -157,7 +207,7 @@ export const formatTime = (dateString) => {
     if (!dateString) return 'N/A';
     
     try {
-        const date = new Date(dateString);
+        const date = parseAppDate(dateString);
         if (isNaN(date.getTime())) return 'Hora inválida';
         
         return date.toLocaleTimeString('es-CL', {
@@ -181,7 +231,7 @@ export const formatTimeAgo = (dateString) => {
     if (!dateString) return 'N/A';
     
     try {
-        const date = new Date(dateString);
+        const date = parseAppDate(dateString);
         const now = new Date();
         const diffMs = now - date;
         const diffMinutes = Math.floor(diffMs / (1000 * 60));
@@ -298,7 +348,7 @@ export const formatRUT = (rut) => {
  */
 export const isValidDate = (dateString) => {
     if (!dateString) return false;
-    const date = new Date(dateString);
+    const date = parseAppDate(dateString);
     return !isNaN(date.getTime());
 };
 

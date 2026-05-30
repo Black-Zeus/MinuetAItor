@@ -14,7 +14,7 @@ from redis.exceptions import RedisError
 from sqlalchemy.orm import Session
 from starlette.requests import Request
 
-from core.datetime_utils import utc_now, utc_now_db
+from core.datetime_utils import normalize_datetime_strings_to_utc_z, utc_isoformat_z, utc_now, utc_now_db
 from core.exceptions import UnauthorizedException
 from core.rate_limit import enforce_rate_limit, rate_limit_key
 from core.security import create_access_token, decode_access_token
@@ -100,7 +100,7 @@ def minute_view_sse_headers() -> dict:
 
 
 def _minute_view_sse_event(event: str, data: dict) -> str:
-    return f"event: {event}\ndata: {json.dumps(data)}\n\n"
+    return f"event: {event}\ndata: {json.dumps(normalize_datetime_strings_to_utc_z(data))}\n\n"
 
 
 async def publish_minute_view_observation_event(
@@ -119,9 +119,9 @@ async def publish_minute_view_observation_event(
         "recordVersionId": str(record_version_id) if record_version_id else None,
         "status": str(status or "").strip(),
         "resolutionType": str(resolution_type or "").strip(),
-        "ts": utc_now().isoformat(),
+        "ts": utc_isoformat_z(utc_now()),
     }
-    await redis.publish(_visitor_events_channel(record_id), json.dumps(payload))
+    await redis.publish(_visitor_events_channel(record_id), json.dumps(normalize_datetime_strings_to_utc_z(payload)))
 
 
 async def publish_editor_minute_observation_event(
@@ -145,9 +145,9 @@ async def publish_editor_minute_observation_event(
         "resolutionType": str(resolution_type or "").strip(),
         "authorEmail": author_email,
         "authorName": author_name,
-        "ts": utc_now().isoformat(),
+        "ts": utc_isoformat_z(utc_now()),
     }
-    await redis.publish(_editor_observation_events_channel(record_id), json.dumps(payload))
+    await redis.publish(_editor_observation_events_channel(record_id), json.dumps(normalize_datetime_strings_to_utc_z(payload)))
 
 
 def _normalize_email(email: str) -> str:

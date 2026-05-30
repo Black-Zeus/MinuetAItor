@@ -6,6 +6,7 @@
 
 import React from "react";
 import { APP_NAME, APP_VERSION } from "@/utils/environment";
+import { formatDateTime, formatTime } from "@/utils/formats";
 import logger from "@/utils/logger";
 
 const ebLog = logger.scope("error-boundary");
@@ -172,7 +173,7 @@ class ErrorBoundary extends React.Component {
                   <p className="text-sm opacity-90 font-medium">
                     Severidad: {severity.level.toUpperCase()}
                   </p>
-                  <p className="text-xs opacity-75 font-mono">{new Date().toLocaleString()}</p>
+                  <p className="text-xs opacity-75 font-mono">{formatDateTime(new Date())}</p>
                 </div>
               </div>
             </div>
@@ -224,7 +225,7 @@ class ErrorBoundary extends React.Component {
                       <div className="flex-between">
                         <span className="text-text-muted-light dark:text-text-muted-dark">Timestamp:</span>
                         <span className="text-text dark:text-text-dark font-mono text-xs">
-                          {new Date().toISOString()}
+                          {formatDateTime(new Date())}
                         </span>
                       </div>
 
@@ -453,7 +454,7 @@ class ErrorBoundary extends React.Component {
                   )}
                 </span>
 
-                <span className="font-mono">{new Date().toLocaleTimeString()}</span>
+                <span className="font-mono">{formatTime(new Date())}</span>
               </div>
             </div>
           </div>

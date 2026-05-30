@@ -3,6 +3,7 @@ import Icon from "@/components/ui/icon/iconManager";
 import ActionButton from "@/components/ui/button/ActionButton";
 import { ModalManager } from "@/components/ui/modal";
 import useAuthStore from "@/store/authStore";
+import useBaseSiteStore from "@store/baseSiteStore";
 import useSessionStore from "@store/sessionStore";
 import { getMySessions, logoutAllSessions, logoutSession } from "@/services/authService";
 import { formatDateTimeTechnical } from "@/utils/formats";
@@ -146,6 +147,7 @@ const UserProfileSessions = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isRevoking, setIsRevoking] = useState(false);
   const [revokingSessionId, setRevokingSessionId] = useState(null);
+  const timeZone = useBaseSiteStore((s) => s.ui?.timeZone);
 
   const getFallbackCurrentSession = () => {
     const { user, connections } = useSessionStore.getState();
@@ -252,7 +254,7 @@ const UserProfileSessions = () => {
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6 transition-theme">
+    <div data-time-zone={timeZone} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6 transition-theme">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className={`text-lg font-bold ${TXT_TITLE} flex items-center gap-2 transition-theme`}>

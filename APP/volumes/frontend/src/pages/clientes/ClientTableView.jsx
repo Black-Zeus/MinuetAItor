@@ -4,6 +4,7 @@ import CatalogEmptyState from "@/components/common/CatalogEmptyState";
 import SortableTableHeader from "@/components/common/SortableTableHeader";
 import useTableSorting from "@/hooks/useTableSorting";
 import ClientViewActions from "./ClientViewActions";
+import { formatDate, parseAppDate } from "@/utils/formats";
 
 const ClientTableView = ({ clients = [], hasFilters = false, onUpdate, onDelete }) => {
   const { sortedItems, sortConfig, toggleSort } = useTableSorting(clients, {
@@ -11,7 +12,7 @@ const ClientTableView = ({ clients = [], hasFilters = false, onUpdate, onDelete 
     industry: (client) => client?.industry,
     email: (client) => client?.email,
     status: (client) => client?.isActive,
-    createdAt: (client) => (client?.createdAt ? new Date(client.createdAt).getTime() : null),
+    createdAt: (client) => (client?.createdAt ? parseAppDate(client.createdAt).getTime() : null),
   });
 
   if (!clients.length) {
@@ -70,7 +71,7 @@ const ClientTableView = ({ clients = [], hasFilters = false, onUpdate, onDelete 
                   </span>
                 </td>
                 <td className="px-4 py-4 text-sm text-gray-600 dark:text-gray-300">
-                  {client.createdAt ? new Date(client.createdAt).toLocaleDateString("es-CL") : "—"}
+                  {client.createdAt ? formatDate(client.createdAt) : "—"}
                 </td>
                 <td className="px-4 py-4">
                   <div className="min-w-[148px]">
