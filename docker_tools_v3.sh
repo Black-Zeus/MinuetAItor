@@ -244,9 +244,7 @@ validate_compose_env_files() {
     done < <(grep -oE '\$\{[A-Z0-9_]+(:-[^}]*)?\}' "$COMPOSE_FILE" 2>/dev/null | sed -E 's/^\$\{([A-Z0-9_]+).*/\1/' | sort -u)
 
     local missing_vars=()
-    local optional_empty_vars=(
-        "ITOP_PACKAGE_URL"
-    )
+    local optional_empty_vars=()
     local var_name=""
     for var_name in "${required_vars[@]}"; do
         if [[ " ${optional_empty_vars[*]} " == *" ${var_name} "* ]]; then
