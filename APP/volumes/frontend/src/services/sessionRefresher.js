@@ -78,6 +78,13 @@ const schedule = async () => {
   // Detenido o no hay token => nada que hacer
   if (!opts) return;
   if (!hasAccessToken()) return;
+  if (
+    opts.visibleDocumentOnly &&
+    typeof document !== "undefined" &&
+    document.visibilityState !== "visible"
+  ) {
+    return;
+  }
 
   const delayMs = computeNextDelayMs({
     accessToken: getAccessToken(),
@@ -91,6 +98,13 @@ const schedule = async () => {
   const run = async () => {
     // si se detuvo entre schedule y run
     if (!opts) return;
+    if (
+      opts.visibleDocumentOnly &&
+      typeof document !== "undefined" &&
+      document.visibilityState !== "visible"
+    ) {
+      return;
+    }
 
     try {
       await reconnectSessionSilent(opts.minTTLSeconds);
@@ -132,6 +146,7 @@ const schedule = async () => {
  * @param {number} [options.skewSeconds=5]
  * @param {number} [options.minTTLSeconds=120]
  * @param {boolean}[options.bindWindowListeners=true]
+ * @param {boolean}[options.visibleDocumentOnly=true] - evita refresh desde pestañas en segundo plano
  * @param {number} [options.minScheduleMs=1500]     - mínimo delay cuando delayMs<=0
  * @param {number} [options.failBackoffMs=10000]    - backoff si refresh falla
  * @returns {Function} stop()
@@ -143,6 +158,7 @@ export const startSessionAutoRefresh = (options = {}) => {
     skewSeconds: 5,
     minTTLSeconds: 120,
     bindWindowListeners: true,
+    visibleDocumentOnly: true,
     minScheduleMs: 1500,
     failBackoffMs: 10000,
     ...options,

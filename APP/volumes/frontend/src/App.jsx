@@ -4,6 +4,8 @@ import useBaseSiteStore from "@store/baseSiteStore";
 import { isDev, isQA } from "@/utils/environment";
 import { applyThemeToDocument } from "@/utils/theme";
 import { exposeViteEnvToWindow } from "./utils/exposeEnv";
+import useAuthStore from "@/store/authStore";
+import { startSessionAutoRefresh } from "@/services/sessionRefresher";
 import ToasterManager from "./components/common/toast/ToasterManager";
 import SessionExpiryModal from "./components/SessionExpiryModal";
 import AuthSessionEventsBridge from "./components/AuthSessionEventsBridge";
@@ -18,6 +20,8 @@ if (isDev() || isQA()) {
 
 function App() {
   const theme = useBaseSiteStore((s) => s.theme);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const accessToken = useAuthStore((s) => s.accessToken);
   useBaseSiteStore((s) => s.ui?.timeZone);
 
   useLayoutEffect(() => {
@@ -37,6 +41,11 @@ function App() {
     media.addEventListener?.("change", handleSystemThemeChange);
     return () => media.removeEventListener?.("change", handleSystemThemeChange);
   }, [theme]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !accessToken) return undefined;
+    return startSessionAutoRefresh();
+  }, [accessToken, isAuthenticated]);
 
   return (
     <>
