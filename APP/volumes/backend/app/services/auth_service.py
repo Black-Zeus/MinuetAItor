@@ -52,6 +52,7 @@ from utils.geo import get_geo
 from utils.network import get_client_ip
 from jose import jwt as jose_jwt
 from repositories.audit_repository import write_audit
+from models.system_backups import SystemOperationState
 
 
 def _audit_identifier(value: str | None) -> str | None:
@@ -73,14 +74,38 @@ def _read_manual_operation_marker() -> dict | None:
     return marker if operation_type.startswith("manual_") else None
 
 
+def _restricted_operation_mode_from_db(db: Session | None = None) -> str:
+    owns_session = db is None
+    local_db = db or SessionLocal()
+    try:
+        row = local_db.query(SystemOperationState).filter(SystemOperationState.id == 1).first()
+        mode = str(getattr(row, "mode", "") or "").strip()
+        return mode if mode in {"maintenance", "commissioning"} else ""
+    except Exception:
+        return ""
+    finally:
+        if owns_session:
+            local_db.close()
+
+
+def _current_restricted_operation_mode(db: Session | None = None) -> str:
+    manual_marker = _read_manual_operation_marker()
+    manual_mode = str((manual_marker or {}).get("mode") or "").strip()
+    if manual_mode in {"maintenance", "commissioning"}:
+        return manual_mode
+    return _restricted_operation_mode_from_db(db)
+
+
 def _role_codes(roles: list[str] | tuple[str, ...] | set[str] | None) -> set[str]:
     return {str(role or "").upper() for role in (roles or [])}
 
 
-def _enforce_commissioning_admin_access(roles: list[str] | tuple[str, ...] | set[str] | None) -> None:
-    manual_marker = _read_manual_operation_marker()
-    manual_mode = str((manual_marker or {}).get("mode") or "")
-    if manual_mode == "commissioning" and "ADMIN" not in _role_codes(roles):
+def _enforce_commissioning_admin_access(
+    roles: list[str] | tuple[str, ...] | set[str] | None,
+    db: Session | None = None,
+) -> None:
+    restricted_mode = _current_restricted_operation_mode(db)
+    if restricted_mode == "commissioning" and "ADMIN" not in _role_codes(roles):
         raise ForbiddenException("Sistema en puesta en marcha. Acceso temporalmente habilitado solo para administradores.")
 
 
@@ -177,10 +202,9 @@ async def login(db: Session, credential: str, password: str, request: Request) -
     # ── Cargar roles/permisos ─────────────────────────
     user_full = get_user_with_roles_permissions(db, user.id)
     session = _build_user_session(user_full)
-    manual_marker = _read_manual_operation_marker()
-    manual_mode = str((manual_marker or {}).get("mode") or "")
-    if manual_mode in {"maintenance", "commissioning"} and "ADMIN" not in _role_codes(session.roles):
-        if manual_mode == "commissioning":
+    restricted_mode = _current_restricted_operation_mode(db)
+    if restricted_mode in {"maintenance", "commissioning"} and "ADMIN" not in _role_codes(session.roles):
+        if restricted_mode == "commissioning":
             raise ForbiddenException("Sistema en puesta en marcha. Acceso temporalmente habilitado solo para administradores.")
         raise ForbiddenException("No se puede acceder porque el sistema está en modo mantenimiento.")
 
@@ -395,7 +419,7 @@ async def get_me(token: str, db: Session) -> MeResponse:
     if not await session_exists(user_id, jti):
         raise UnauthorizedException("Sesión expirada o cerrada")
 
-    _enforce_commissioning_admin_access(payload.get("roles", []))
+    _enforce_commissioning_admin_access(payload.get("roles", []), db)
 
     user = get_user_full(db, user_id)
     if not user:
@@ -466,7 +490,7 @@ async def refresh_token(token: str, db: Session, request: Request) -> TokenRespo
     if not await session_exists(user_id, jti):
         raise UnauthorizedException("Sesión expirada o cerrada")
 
-    _enforce_commissioning_admin_access(payload.get("roles", []))
+    _enforce_commissioning_admin_access(payload.get("roles", []), db)
 
     # Baja el token viejo
     redis = get_redis()

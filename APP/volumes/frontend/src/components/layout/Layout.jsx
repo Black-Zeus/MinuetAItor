@@ -69,8 +69,10 @@ const Layout = ({ children }) => {
   const operationMode = operationState?.mode || "normal";
   const isOperationLocked = operationMode !== "normal";
   const isMaintenanceMode = operationMode === "maintenance";
-  const shouldRestrictShell = isMaintenanceMode;
+  const isCommissioningMode = operationMode === "commissioning";
+  const shouldRestrictShell = isMaintenanceMode || isCommissioningMode;
   const isSystemSettingsRoute = location.pathname.startsWith(SYSTEM_SETTINGS_PATH);
+  const isSettingsRoute = location.pathname.startsWith("/settings");
 
   useMinuteSSE(!isMaintenanceMode);
 
@@ -78,7 +80,10 @@ const Layout = ({ children }) => {
     if (isMaintenanceMode && !isSystemSettingsRoute) {
       navigate(`${SYSTEM_SETTINGS_PATH}?tab=maintenance`, { replace: true });
     }
-  }, [isMaintenanceMode, isSystemSettingsRoute, navigate]);
+    if (isCommissioningMode && !isSettingsRoute) {
+      navigate(`${SYSTEM_SETTINGS_PATH}?tab=commissioning`, { replace: true });
+    }
+  }, [isCommissioningMode, isMaintenanceMode, isSettingsRoute, isSystemSettingsRoute, navigate]);
 
   const operationLabel = isOperationChecking
     ? "verificación"
@@ -109,7 +114,11 @@ const Layout = ({ children }) => {
 
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
-      <Sidebar user={sidebarUser} isOperationLocked={shouldRestrictShell} />
+      <Sidebar
+        user={sidebarUser}
+        isOperationLocked={shouldRestrictShell}
+        operationMode={operationMode}
+      />
 
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header
@@ -143,7 +152,7 @@ const Layout = ({ children }) => {
               </button>
             </div>
           )}
-          {isMaintenanceMode && !isSystemSettingsRoute ? (
+          {(isMaintenanceMode && !isSystemSettingsRoute) || (isCommissioningMode && !isSettingsRoute) ? (
             <section className="rounded-lg border border-gray-200 bg-white p-6 text-gray-700 shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200">
               <h1 className="text-lg font-semibold">Acceso temporalmente restringido</h1>
               <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">

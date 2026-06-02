@@ -17,6 +17,7 @@ const Sidebar = ({
     isAdmin: true
   },
   isOperationLocked = false,
+  operationMode = 'normal',
   onModuleChange = () => {}
 }) => {
   const navigate = useNavigate();
@@ -61,7 +62,11 @@ const Sidebar = ({
   }, []);
 
   const visibleModules = filterModulesByPermissions(SIDEBAR_MODULES, userWithFeatures)
-    .filter((module) => !isOperationLocked || module.id === 'system');
+    .filter((module) => {
+      if (!isOperationLocked) return true;
+      if (operationMode === 'commissioning') return module.section === 'config';
+      return module.id === 'system';
+    });
 
   const handleModuleClick = (module) => {
     // Historial (opcional)
