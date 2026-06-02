@@ -31,13 +31,25 @@ export const unwrapResponse = (responseData) => responseData?.result ?? response
  */
 export const extractErrorMessage = (data, fallback = 'Error desconocido') => {
   if (!data) return fallback;
+  if (typeof data === 'string') return data || fallback;
+  if (Array.isArray(data)) {
+    const joined = data
+      .map((item) => extractErrorMessage(item, ''))
+      .filter(Boolean)
+      .join(' ');
+    return joined || fallback;
+  }
   // error.message es el campo real del contrato; description queda como compatibilidad.
   if (data.error?.message)     return data.error.message;
   if (data.error?.description) return data.error.description;
+  if (typeof data.error === 'string') return data.error;
   // result.detail viene de FastAPI (HTTPException)
   if (data.result?.detail)     return data.result.detail;
   // result.message viene de errores de validación u otros
   if (data.result?.message)    return data.result.message;
+  if (data.detail)             return Array.isArray(data.detail)
+    ? data.detail.map((item) => item?.msg || item?.message || String(item)).join(', ')
+    : data.detail;
   // Fallback al mensaje raíz
   return data.message || fallback;
 };

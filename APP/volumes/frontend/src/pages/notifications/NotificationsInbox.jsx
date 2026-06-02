@@ -6,7 +6,7 @@ import ActionButton from "@/components/ui/button/ActionButton";
 import Icon from "@/components/ui/icon/iconManager";
 import ModalManager from "@/components/ui/modal";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
-import notificationsService from "@/services/notificationsService";
+import notificationsService, { getNotificationErrorMessage } from "@/services/notificationsService";
 import useNotificationsStore from "@/store/notificationsStore";
 import { getNotificationTagLabel } from "@/utils/notificationTags";
 import { openNotificationDetailModal } from "@/pages/notifications/NotificationDetailModal";
@@ -84,7 +84,7 @@ const NotificationsInbox = () => {
       return result;
     } catch (err) {
       if (listRequestRef.current !== requestId) return null;
-      setError(err?.message ?? "No fue posible cargar la bandeja.");
+      setError(getNotificationErrorMessage(err, "No fue posible cargar la bandeja."));
       return null;
     } finally {
       if (listRequestRef.current === requestId) {
@@ -213,7 +213,7 @@ const NotificationsInbox = () => {
       await loadNotifications({ reset: true, forceUnreadOnly: unreadOnly, forceTag: selectedTag });
       loadAvailableTags({ delayMs: 0 });
     } catch (err) {
-      setError(err?.message ?? "No fue posible marcar las notificaciones.");
+      setError(getNotificationErrorMessage(err, "No fue posible marcar las notificaciones."));
     }
   };
 
@@ -273,7 +273,7 @@ const NotificationsInbox = () => {
     } catch (err) {
       toastError(
         isRead ? "No se pudo marcar como leídas" : "No se pudo marcar como no leídas",
-        err?.message ?? "Intenta nuevamente."
+        getNotificationErrorMessage(err, "Intenta nuevamente.")
       );
     } finally {
       setBulkAction("");
@@ -303,7 +303,10 @@ const NotificationsInbox = () => {
       loadAvailableTags({ delayMs: 300 });
       toastSuccess("Notificación eliminada", "La entrada fue eliminada de tu bandeja.");
     } catch (err) {
-      toastError("No se pudo eliminar", err?.message ?? "La notificación sigue visible en tu bandeja.");
+      toastError(
+        "No se pudo eliminar",
+        getNotificationErrorMessage(err, "La notificación sigue visible en tu bandeja.")
+      );
     } finally {
       setBusyNotificationId("");
     }
@@ -325,7 +328,7 @@ const NotificationsInbox = () => {
       loadAvailableTags({ delayMs: 300 });
       toastInfo("Bandeja limpiada", result.message || "Las entradas visibles fueron apartadas de tu bandeja.");
     } catch (err) {
-      toastError("No se pudo limpiar la bandeja", err?.message ?? "Intenta nuevamente.");
+      toastError("No se pudo limpiar la bandeja", getNotificationErrorMessage(err, "Intenta nuevamente."));
     } finally {
       setIsClearing(false);
     }
@@ -355,7 +358,7 @@ const NotificationsInbox = () => {
       loadAvailableTags({ delayMs: 300 });
       toastInfo("Selección eliminada", result.message || "Las notificaciones seleccionadas fueron eliminadas.");
     } catch (err) {
-      toastError("No se pudo eliminar la selección", err?.message ?? "Intenta nuevamente.");
+      toastError("No se pudo eliminar la selección", getNotificationErrorMessage(err, "Intenta nuevamente."));
     } finally {
       setBulkAction("");
     }

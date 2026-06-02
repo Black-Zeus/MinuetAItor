@@ -5,7 +5,7 @@ import { toastError, toastSuccess } from "@/components/common/toast/toastHelpers
 import ActionButton from "@/components/ui/button/ActionButton";
 import Icon from "@/components/ui/icon/iconManager";
 import ModalManager from "@/components/ui/modal";
-import notificationsService from "@/services/notificationsService";
+import notificationsService, { getNotificationErrorMessage } from "@/services/notificationsService";
 import useNotificationsStore from "@/store/notificationsStore";
 import { openNotificationDetailModal } from "@/pages/notifications/NotificationDetailModal";
 import { formatNullableDateTime as formatDateTime } from "@/utils/formats";
@@ -87,7 +87,10 @@ const HeaderNotificationsBell = () => {
       removeNotificationLocal(result.notificationId, result.unreadCount);
       toastSuccess("Notificación eliminada", "La entrada fue eliminada de tu bandeja.");
     } catch (err) {
-      toastError("No se pudo eliminar", err?.message ?? "La notificación sigue visible en tu bandeja.");
+      toastError(
+        "No se pudo eliminar",
+        getNotificationErrorMessage(err, "La notificación sigue visible en tu bandeja.")
+      );
     } finally {
       setBusyNotificationId("");
     }

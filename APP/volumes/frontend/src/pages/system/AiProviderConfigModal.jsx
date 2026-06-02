@@ -4,6 +4,7 @@ import ActionButton from "@/components/ui/button/ActionButton";
 import Icon from "@/components/ui/icon/iconManager";
 import { toastError, toastSuccess } from "@/components/common/toast/toastHelpers";
 import aiProviderConfigService from "@/services/aiProviderConfigService";
+import { extractErrorMessage } from "@/utils/errors";
 import { formatNullableDateTime as formatDateTime } from "@/utils/formats";
 
 export const AI_PROVIDER_MODAL_MODES = {
@@ -116,6 +117,24 @@ const VALIDATION_ICONS = {
   connection_error: "triangleExclamation",
   timeout: "FaClock",
   endpoint_unavailable: "triangleExclamation",
+};
+
+const AI_PROVIDER_VALIDATION_FALLBACK =
+  "No fue posible validar la configuración AI. Revisa la URL base, las credenciales y el endpoint de validación del proveedor.";
+
+const getAiProviderValidationErrorMessage = (error) => {
+  const message = error?.response?.data
+    ? extractErrorMessage(error.response.data, "")
+    : "";
+  const cleaned = String(message || "").trim();
+  if (cleaned) return cleaned;
+  if (error?.code === "ECONNABORTED") {
+    return "La validación superó el tiempo máximo de espera. Revisa que el proveedor responda y vuelve a intentar.";
+  }
+  if (!error?.response && error?.request) {
+    return "No se pudo conectar con el servicio de validación. Revisa conectividad, URL base y disponibilidad del proveedor.";
+  }
+  return AI_PROVIDER_VALIDATION_FALLBACK;
 };
 
 const normalizeProviderOptions = (items = []) => {
@@ -459,7 +478,7 @@ export const AiProviderValidationModal = ({ config, providerCatalog = [], onClos
       }
       onValidated?.(result?.config ?? null);
     } catch (error) {
-      const message = error?.message ?? "No fue posible ejecutar la validación AI.";
+      const message = getAiProviderValidationErrorMessage(error);
       setValidationState({
         status: "error",
         message,
@@ -643,7 +662,7 @@ const AiProviderConfigModal = ({
         );
       }
     } catch (error) {
-      const message = error?.message ?? "No fue posible ejecutar la validación AI.";
+      const message = getAiProviderValidationErrorMessage(error);
       setValidationSession(null);
       setFormData((prev) => ({
         ...prev,

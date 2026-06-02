@@ -3,7 +3,10 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import ActionButton from "@/components/ui/button/ActionButton";
 import Icon from "@/components/ui/icon/iconManager";
 import ModalManager from "@/components/ui/modal";
-import notificationsService, { normalizeNotificationItem } from "@/services/notificationsService";
+import notificationsService, {
+  getNotificationErrorMessage,
+  normalizeNotificationItem,
+} from "@/services/notificationsService";
 import useNotificationsStore from "@/store/notificationsStore";
 import { getNotificationTagLabel } from "@/utils/notificationTags";
 import { formatNullableDateTime as formatDateTime } from "@/utils/formats";
@@ -67,7 +70,7 @@ const NotificationDetailModal = ({ notificationId, initialNotification = null, o
         setError("");
       } catch (err) {
         if (!isMounted) return;
-        setError(err?.message ?? "No fue posible cargar la notificacion.");
+        setError(getNotificationErrorMessage(err, "No fue posible cargar la notificación."));
       } finally {
         if (isMounted) setIsLoading(false);
       }

@@ -7,7 +7,7 @@ import React, { useEffect, useState } from "react";
 import Icon from "@/components/ui/icon/iconManager";
 import ActionButton from "@/components/ui/button/ActionButton";
 import { ModalManager } from "@/components/ui/modal";
-import notificationsService from "@/services/notificationsService";
+import notificationsService, { getNotificationErrorMessage } from "@/services/notificationsService";
 
 const TXT_TITLE = "text-gray-900 dark:text-white";
 const TXT_BODY = "text-gray-600 dark:text-gray-300";
@@ -238,7 +238,7 @@ const UserProfileNotifications = () => {
         if (!mounted) return;
         ModalManager.error?.({
           title: "No se pudieron cargar las notificaciones",
-          message: error?.message ?? "Intenta nuevamente en unos minutos.",
+          message: getNotificationErrorMessage(error, "Intenta nuevamente en unos minutos."),
         });
       } finally {
         if (mounted) setIsLoading(false);
@@ -282,7 +282,7 @@ const UserProfileNotifications = () => {
     } catch (error) {
       ModalManager.error?.({
         title: "No se pudieron guardar las preferencias",
-        message: error?.message ?? "Intenta nuevamente.",
+        message: getNotificationErrorMessage(error, "Intenta nuevamente."),
       });
     } finally {
       setIsSaving(false);

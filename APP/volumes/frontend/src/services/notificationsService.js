@@ -24,6 +24,30 @@ const toNotificationError = (error, fallbackMessage) => {
   return new Error(fallbackMessage);
 };
 
+export const getNotificationErrorMessage = (
+  error,
+  fallbackMessage = "No fue posible completar la operación de notificaciones."
+) => {
+  const message = String(error?.message || "").trim();
+  if (
+    message &&
+    !/^request failed with status code/i.test(message) &&
+    !/^network error$/i.test(message)
+  ) {
+    return message;
+  }
+  if (error?.response?.data) {
+    return extractErrorMessage(error.response.data, fallbackMessage);
+  }
+  if (isTimeoutError(error)) {
+    return "El centro de notificaciones tardó demasiado en responder. Intenta nuevamente.";
+  }
+  if (error?.code === "ERR_NETWORK" || error?.request || !error?.response) {
+    return "No fue posible conectar con el centro de notificaciones.";
+  }
+  return fallbackMessage;
+};
+
 const request = async (config, fallbackMessage) => {
   try {
     return await axiosInstance({
