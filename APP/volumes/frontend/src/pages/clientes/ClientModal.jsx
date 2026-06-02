@@ -4,6 +4,7 @@ import { ModalManager } from "@/components/ui/modal";
 import { toastError, toastSuccess } from "@/components/common/toast/toastHelpers";
 import { DEFAULT_PDF_TEMPLATE, PDF_TEMPLATE_OPTIONS, getPdfTemplateLabel } from "@/constants/pdfTemplates";
 import clientService from "@/services/clientService";
+import { extractErrorMessage } from "@/utils/errors";
 
 const MODES = {
   CREATE: "createNewClient",
@@ -362,11 +363,12 @@ const ClientModal = ({ mode, data, onSubmit, onClose, onSaved }) => {
       );
       ModalManager.closeAll?.();
     } catch (err) {
-      const msg =
-        err?.response?.data?.error?.message ||
-        err?.response?.data?.message ||
-        err?.message ||
-        "No fue posible completar la operación.";
+      const msg = err?.response?.status === 413
+        ? extractErrorMessage(
+            err?.response?.data,
+            "El logo supera el tamaño permitido. Usa una imagen JPEG o PNG de hasta 2 MB."
+          )
+        : extractErrorMessage(err?.response?.data, err?.message || "No fue posible completar la operación.");
 
       toastError("Error", msg, { autoClose: 3000 });
     }
