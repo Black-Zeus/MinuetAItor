@@ -50,7 +50,7 @@ const STATUS_META = {
   "ready-for-edit":   { label: "Listo para editar", color: "orange" },
   "pending":          { label: "En edición",        color: "yellow" },
   "preview":          { label: "En revisión",       color: "indigo" },
-  "completed":        { label: "Completado",        color: "green"  },
+  "completed":        { label: "Minuta publicada",  color: "green"  },
   "cancelled":        { label: "Cancelado",         color: "gray"   },
   "llm-failed":       { label: "Fallo IA",          color: "red"    },
   "processing-error": { label: "Error de proceso",  color: "red"    },
@@ -514,6 +514,7 @@ const MinuteEditorHeader = ({
   const showSaveBtn      = isEditable && status === "pending";
   const showPreviewBtns  = status === "preview";
   const showCancelOption = CANCELLABLE.has(status);
+  const isPublished      = status === "completed";
 
   const handleEnterEditMode = async () => {
     setSaving(true);
@@ -708,7 +709,7 @@ const MinuteEditorHeader = ({
               {clientName}
             </h1>
 
-            {status && <StatusBadge status={status} />}
+            {status && !isPublished && <StatusBadge status={status} />}
           </div>
 
           <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400 transition-theme truncate max-w-xl">
@@ -799,17 +800,35 @@ const MinuteEditorHeader = ({
           )}
 
           {/* Ver / Descargar PDF */}
-          <button
-            type="button"
-            onClick={handleDownloadPDF}
-            title="Ver PDF de la minuta"
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border text-sm font-semibold transition-theme
-              bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200
-              hover:bg-gray-50 dark:hover:bg-gray-700 shadow-sm"
-          >
-            <Icon name="fileLines" className="text-xs" />
-            PDF
-          </button>
+          {isPublished ? (
+            <div className="inline-flex items-stretch overflow-hidden rounded-xl border border-green-200/70 bg-green-50 shadow-sm transition-theme dark:border-green-700/50 dark:bg-green-900/20">
+              <span className="inline-flex items-center gap-1.5 border-r border-green-200/70 px-3.5 py-2 text-sm font-bold text-green-800 transition-theme dark:border-green-700/50 dark:text-green-200">
+                <span className="h-2 w-2 rounded-full bg-green-500 shadow-[0_0_0_3px_rgba(34,197,94,0.18)]" />
+                Minuta publicada
+              </span>
+              <button
+                type="button"
+                onClick={handleDownloadPDF}
+                title="Ver PDF de la minuta publicada"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-bold text-green-900 transition-theme hover:bg-green-100 dark:text-green-100 dark:hover:bg-green-800/40"
+              >
+                <Icon name="fileLines" className="text-xs" />
+                PDF
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={handleDownloadPDF}
+              title="Ver PDF de la minuta"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border text-sm font-semibold transition-theme
+                bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200
+                hover:bg-gray-50 dark:hover:bg-gray-700 shadow-sm"
+            >
+              <Icon name="fileLines" className="text-xs" />
+              PDF
+            </button>
+          )}
 
           {/* Menú "..." — acciones críticas (Cancelar minuta) */}
           {showCancelOption && (

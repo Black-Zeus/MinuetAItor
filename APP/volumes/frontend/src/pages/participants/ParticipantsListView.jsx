@@ -62,7 +62,7 @@ const ParticipantsListView = ({ participants = [], hasFilters = false, onUpdated
                 </div>
               </div>
 
-              <div className="w-full lg:w-48">
+              <div className="w-full lg:w-56">
                 <ParticipantsViewActions
                   id={participant.id}
                   summary={participant}

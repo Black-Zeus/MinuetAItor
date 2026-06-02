@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import Icon from "@/components/ui/icon/iconManager";
 import ActionButton from "@/components/ui/button/ActionButton";
@@ -24,6 +25,7 @@ const toApiPayload = (formData) => ({
 });
 
 const ParticipantsViewActions = ({ id, summary, onUpdated, onDeleted, buttonClassName = "w-full" }) => {
+  const navigate = useNavigate();
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
 
   const primaryEmail = useMemo(() => {
@@ -85,14 +87,28 @@ const ParticipantsViewActions = ({ id, summary, onUpdated, onDeleted, buttonClas
     }
   };
 
+  const handleHistory = () => {
+    if (!id) return;
+    navigate(`/history?type=participant&id=${encodeURIComponent(id)}`);
+  };
+
   return (
-    <div className="grid grid-cols-3 gap-2">
+    <div className="grid grid-cols-4 gap-2">
       <ActionButton
         variant="soft"
         size="xs"
         icon={<Icon name="eye" />}
         tooltip={`Ver participante${primaryEmail?.email ? `: ${primaryEmail.email}` : ""}`}
         onClick={() => openModal(PARTICIPANTS_MODAL_MODES.VIEW)}
+        className={buttonClassName}
+        disabled={isLoadingDetail}
+      />
+      <ActionButton
+        variant="soft"
+        size="xs"
+        icon={<Icon name="clipboardList" />}
+        tooltip="Historial de minutas"
+        onClick={handleHistory}
         className={buttonClassName}
         disabled={isLoadingDetail}
       />

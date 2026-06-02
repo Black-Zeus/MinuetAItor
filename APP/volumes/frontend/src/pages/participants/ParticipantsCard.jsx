@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Icon from "@/components/ui/icon/iconManager";
 import ModalManager from "@/components/ui/modal";
 import ActionButton from "@/components/ui/button/ActionButton";
@@ -38,6 +39,7 @@ const ParticipantLogoBadge = ({ logoUrl, displayName, logoFailed, onLogoError })
 );
 
 const ParticipantsCard = ({ id, summary, onUpdated, onDeleted }) => {
+  const navigate = useNavigate();
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [logoFailed, setLogoFailed] = useState(false);
 
@@ -108,6 +110,11 @@ const ParticipantsCard = ({ id, summary, onUpdated, onDeleted }) => {
     }
   };
 
+  const handleHistory = () => {
+    if (!id) return;
+    navigate(`/history?type=participant&id=${encodeURIComponent(id)}`);
+  };
+
   return (
     <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
       <div className="p-5 space-y-4">
@@ -150,12 +157,19 @@ const ParticipantsCard = ({ id, summary, onUpdated, onDeleted }) => {
           </div>
         </div>
 
-        <div className="border-t border-gray-200 dark:border-gray-700 pt-4 grid grid-cols-3 gap-2">
+        <div className="border-t border-gray-200 dark:border-gray-700 pt-4 grid grid-cols-4 gap-2">
           <ActionButton
             variant="soft"
             size="xs"
             icon={<Icon name="eye" />}
             onClick={() => openModal(PARTICIPANTS_MODAL_MODES.VIEW)}
+            disabled={isLoadingDetail}
+          />
+          <ActionButton
+            variant="soft"
+            size="xs"
+            icon={<Icon name="clipboardList" />}
+            onClick={handleHistory}
             disabled={isLoadingDetail}
           />
           <ActionButton

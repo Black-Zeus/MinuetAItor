@@ -8,6 +8,7 @@ import Icon from '@components/ui/icon/iconManager';
 import ModalManager from '@components/ui/modal';
 import useMinuteEditorStore from '@/store/minuteEditorStore';
 import { getMinuteAttachmentBlob } from '@/services/minutesService';
+import { openPdfViewer } from '@/components/ui/pdf/PdfViewerModal';
 
 const fileTypeLabel = (type) => ({
   transcription: 'Transcripción',
@@ -40,6 +41,37 @@ const isTextMime = (mime = '') => mime.startsWith('text/') || [
 const isImageMime = (mime = '') => mime.startsWith('image/');
 const isPdfMime = (mime = '') => mime === 'application/pdf';
 
+const safeFileSegment = (value = '') => String(value || '')
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .replace(/[^a-zA-Z0-9._-]+/g, '_')
+  .replace(/^_+|_+$/g, '')
+  .slice(0, 80);
+
+const buildFinalPdfFilename = (meetingInfo = {}) => {
+  const date = safeFileSegment(meetingInfo.meetingDate || '');
+  const subject = safeFileSegment(meetingInfo.subject || 'minuta');
+  return [date, subject, 'final'].filter(Boolean).join('_') + '.pdf';
+};
+
+const getSizeBytes = (item = {}) => Number(
+  item.sizeBytes
+  ?? item.size_bytes
+  ?? item.size
+  ?? 0
+);
+
+const formatSizeMb = (bytes) => {
+  const value = Number(bytes || 0);
+  if (!Number.isFinite(value) || value <= 0) return '—';
+
+  const mb = value / (1024 * 1024);
+  if (mb < 0.01) return '< 0.01 MB';
+
+  const decimals = mb >= 10 ? 1 : 2;
+  return `${mb.toFixed(decimals)} MB`;
+};
+
 const extractBlobErrorMessage = async (error, fallbackMessage) => {
   const fallback = fallbackMessage || 'No se pudo cargar el adjunto.';
   const data = error?.response?.data;
@@ -69,16 +101,24 @@ const ReadonlyField = ({ label, value, mono = false }) => (
   </div>
 );
 
-const AttachmentReadonlyField = ({ label, value, mono = false, grow = false }) => (
-  <div className={grow ? 'col-span-12' : 'col-span-12 lg:col-span-6'}>
-    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500 transition-theme dark:text-gray-400">
-      {label}
-    </p>
-    <p className={`mt-1 break-all text-sm text-gray-900 transition-theme dark:text-gray-100 ${mono ? 'font-mono' : ''}`}>
-      {value || '—'}
-    </p>
-  </div>
-);
+const AttachmentReadonlyField = ({ label, value, mono = false, grow = false, span = 'half' }) => {
+  const spanClass = grow
+    ? 'col-span-12'
+    : span === 'third'
+      ? 'col-span-12 md:col-span-4'
+      : 'col-span-12 lg:col-span-6';
+
+  return (
+    <div className={spanClass}>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500 transition-theme dark:text-gray-400">
+        {label}
+      </p>
+      <p className={`mt-1 break-all text-sm text-gray-900 transition-theme dark:text-gray-100 ${mono ? 'font-mono' : ''}`}>
+        {value || '—'}
+      </p>
+    </div>
+  );
+};
 
 const SectionBlock = ({ icon, title, description, children }) => (
   <section className="rounded-2xl border border-gray-200/60 bg-white/70 p-5 transition-theme dark:border-gray-700/60 dark:bg-gray-900/20">
@@ -257,8 +297,8 @@ const AttachmentPreviewContent = ({ recordId, attachment }) => {
   );
 };
 
-const MinuteEditorSectionMetadata = ({ recordId }) => {
-  const { metadataLocked } = useMinuteEditorStore();
+const MinuteEditorSectionMetadata = ({ recordId, recordMeta }) => {
+  const { metadataLocked, meetingInfo } = useMinuteEditorStore();
   const attachments = useMemo(
     () => (metadataLocked?.attachments ?? []).map((attachment) => ({
       ...attachment,
@@ -277,6 +317,20 @@ const MinuteEditorSectionMetadata = ({ recordId }) => {
       size: 'pdfViewer',
       showFooter: false,
       content: <AttachmentPreviewContent recordId={recordId} attachment={attachment} />,
+    });
+  };
+
+  const hasFinalPdf = recordMeta?.status === 'completed';
+  const finalPdfSha256 = recordMeta?.publishedPdfSha256 ?? recordMeta?.published_pdf_sha256 ?? '';
+  const finalPdfSizeBytes = recordMeta?.publishedPdfSizeBytes ?? recordMeta?.published_pdf_size_bytes ?? 0;
+  const finalPdfFilename = buildFinalPdfFilename(meetingInfo);
+  const openFinalPdf = () => {
+    if (!hasFinalPdf) return;
+    openPdfViewer({
+      recordId,
+      pdfType: 'published',
+      filename: finalPdfFilename,
+      title: `Minuta final publicada - ${meetingInfo?.subject || 'Minuta'}`,
     });
   };
 
@@ -327,8 +381,9 @@ const MinuteEditorSectionMetadata = ({ recordId }) => {
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="grid min-w-0 flex-1 grid-cols-12 gap-3">
-                    <AttachmentReadonlyField label="Nombre" value={attachment.fileName} />
-                    <AttachmentReadonlyField label="Tipo" value={fileTypeLabel(attachment.normalizedType)} />
+                    <AttachmentReadonlyField label="Nombre" value={attachment.fileName} span="third" />
+                    <AttachmentReadonlyField label="Tipo" value={fileTypeLabel(attachment.normalizedType)} span="third" />
+                    <AttachmentReadonlyField label="Tamaño" value={formatSizeMb(getSizeBytes(attachment))} span="third" />
                     <AttachmentReadonlyField label="SHA-256" value={attachment.sha256} mono grow />
                   </div>
                   <button
@@ -342,6 +397,33 @@ const MinuteEditorSectionMetadata = ({ recordId }) => {
                 </div>
               </div>
             ))}
+          </div>
+        </SectionBlock>
+      )}
+
+      {hasFinalPdf && (
+        <SectionBlock
+          icon="fileLines"
+          title="Minuta final publicada"
+          description="Documento oficial publicado para distribución y consulta."
+        >
+          <div className="rounded-xl bg-gray-50/80 px-4 py-4 transition-theme dark:bg-gray-900/30">
+            <div className="flex items-start justify-between gap-4">
+              <div className="grid min-w-0 flex-1 grid-cols-12 gap-3">
+                <AttachmentReadonlyField label="Nombre" value={finalPdfFilename} span="third" />
+                <AttachmentReadonlyField label="Tipo" value="Minuta final publicada" span="third" />
+                <AttachmentReadonlyField label="Tamaño" value={formatSizeMb(finalPdfSizeBytes)} span="third" />
+                <AttachmentReadonlyField label="SHA-256" value={finalPdfSha256} mono grow />
+              </div>
+              <button
+                type="button"
+                onClick={openFinalPdf}
+                className="mt-1 flex shrink-0 items-center gap-1.5 rounded-lg border border-primary-200/60 bg-white px-3 py-2 text-xs font-semibold text-primary-700 transition-theme hover:bg-primary-50 dark:border-primary-800/60 dark:bg-gray-800 dark:text-primary-300 dark:hover:bg-gray-700"
+              >
+                <Icon name="eye" className="text-xs" />
+                Ver
+              </button>
+            </div>
           </div>
         </SectionBlock>
       )}

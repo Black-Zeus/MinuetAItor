@@ -30,6 +30,21 @@ const normalizeEntity = (type, data = {}) => {
     };
   }
 
+  if (type === "participant") {
+    const emails = Array.isArray(data.emails) ? data.emails : [];
+    const primaryEmail = emails.find((item) => item.isPrimary || item.is_primary) ?? emails[0] ?? null;
+
+    return {
+      id: data.id ?? data.participantId ?? "",
+      name: data.displayName ?? data.display_name ?? "Participante",
+      subtitle: primaryEmail?.email ?? data.organization ?? "Sin correo principal",
+      description: [data.title, data.organization].filter(Boolean).join(" · "),
+      logoUrl: data.logoUrl ?? data.logo_url ?? data.avatarUrl ?? data.avatar_url ?? "",
+      icon: "FaUser",
+      badge: (data.isActive ?? data.is_active ?? true) ? "Activo" : "Inactivo",
+    };
+  }
+
   return {
     id: data.id ?? data.clientId ?? "",
     name: data.companyName ?? data.name ?? "Cliente",
@@ -78,7 +93,7 @@ const Header = ({ entity, type, total, onBack }) => (
           </h3>
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
             <span className="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
-              <Icon name={type === "project" ? "FaBuilding" : "FaIndustry"} className="text-xs" />
+              <Icon name={type === "project" ? "FaBuilding" : type === "participant" ? "FaEnvelope" : "FaIndustry"} className="text-xs" />
               {entity.subtitle}
             </span>
             {entity.description ? (
@@ -128,7 +143,7 @@ const EmptyState = ({ loading, error, type }) => (
     <p className="mt-2 max-w-md text-sm leading-6 text-gray-500 dark:text-gray-400">
       {loading
         ? "Estamos consultando las minutas asociadas."
-        : error || `No hay minutas asociadas a este ${type === "project" ? "proyecto" : "cliente"}.`}
+        : error || `No hay minutas asociadas a este ${type === "project" ? "proyecto" : type === "participant" ? "participante" : "cliente"}.`}
     </p>
   </div>
 );
@@ -163,7 +178,8 @@ const HistoryTable = ({ minutes, type, navigate }) => (
       <table className="min-w-full border-collapse">
         <thead>
           <tr className="border-b border-slate-200 bg-slate-50/90 dark:border-slate-700 dark:bg-slate-900/70">
-            {type === "client" ? <th className={`px-4 py-3 text-left ${TXT_HEAD}`}>Proyecto</th> : null}
+            {type === "participant" ? <th className={`px-4 py-3 text-left ${TXT_HEAD}`}>Cliente</th> : null}
+            {type === "client" || type === "participant" ? <th className={`px-4 py-3 text-left ${TXT_HEAD}`}>Proyecto</th> : null}
             <th className={`px-4 py-3 text-left ${TXT_HEAD}`}>Minuta</th>
             <th className={`px-4 py-3 text-left ${TXT_HEAD}`}>Fecha</th>
             <th className={`px-4 py-3 text-left ${TXT_HEAD}`}>Estado</th>
@@ -199,7 +215,12 @@ const HistoryTable = ({ minutes, type, navigate }) => (
                 key={minute.id}
                 className="border-b border-slate-200/80 align-top last:border-0 hover:bg-slate-50/70 dark:border-slate-700/60 dark:hover:bg-slate-800/30"
               >
-                {type === "client" ? (
+                {type === "participant" ? (
+                  <td className={`px-4 py-4 ${TXT_BODY}`}>
+                    <div className="min-w-[160px]">{minute?.client || "Sin cliente"}</div>
+                  </td>
+                ) : null}
+                {type === "client" || type === "participant" ? (
                   <td className={`px-4 py-4 ${TXT_BODY}`}>
                     <div className="min-w-[160px]">{minute?.project || "Sin proyecto"}</div>
                   </td>
@@ -283,6 +304,7 @@ const EntityMinutesHistoryModal = ({ type = "client", entity, onBack }) => {
             limit: 200,
             client_id: type === "client" ? normalizedEntity.id : null,
             project_id: type === "project" ? normalizedEntity.id : null,
+            participant_id: type === "participant" ? normalizedEntity.id : null,
           },
           { signal: controller.signal }
         );
@@ -306,7 +328,7 @@ const EntityMinutesHistoryModal = ({ type = "client", entity, onBack }) => {
         entity={normalizedEntity}
         type={type}
         total={total}
-        onBack={onBack || (() => navigate(type === "project" ? "/projects" : "/clients"))}
+        onBack={onBack || (() => navigate(type === "project" ? "/projects" : type === "participant" ? "/participants" : "/clients"))}
       />
 
       <main>

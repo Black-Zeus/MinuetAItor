@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from collections import defaultdict
 from typing import Any, Optional
 
@@ -8,6 +9,8 @@ from sqlalchemy import false, or_
 from sqlalchemy.orm import Session, joinedload
 
 from core.datetime_utils import utc_now_db
+from models.buckets import Bucket
+from models.objects import Object
 from models.record_status_transitions import RecordStatusTransition
 from models.record_versions import RecordVersion
 from models.records import Record
@@ -29,8 +32,10 @@ from schemas.minutes import (
 from services.access_control_service import apply_record_scope_filter
 from services.minutes.attachments import list_minute_input_attachments
 from services.minutes.constants import (
+    BUCKET_PUBLISHED,
     BUCKET_DRAFT,
     BUCKET_JSON,
+    BUCKET_CODE_PUBLISHED,
     RECORD_STATUS_COMPLETED,
     RECORD_STATUS_DELETED,
     RECORD_STATUS_IN_PROGRESS,
@@ -40,6 +45,7 @@ from services.minutes.constants import (
     RECORD_STATUS_CANCELLED,
     STATUSES_NO_CONTENT,
 )
+from db.minio_client import get_minio_client
 from services.minutes.reprocess import (
     get_latest_minute_transaction,
     get_reprocess_eligibility,
@@ -97,6 +103,53 @@ def _read_initial_ai_output(record_id: str) -> Optional[dict]:
     )
 
 
+def _get_published_pdf_object(db: Session, record_id: str) -> Object | None:
+    return (
+        db.query(Object)
+        .join(Bucket, Bucket.id == Object.bucket_id)
+        .filter(Bucket.code == BUCKET_CODE_PUBLISHED)
+        .filter(Object.object_key == f"published/{record_id}/final.pdf")
+        .filter(Object.deleted_at.is_(None))
+        .order_by(Object.created_at.desc())
+        .first()
+    )
+
+
+def _calculate_published_pdf_metadata(record_id: str) -> dict[str, Any]:
+    response = None
+    try:
+        minio = get_minio_client()
+        response = minio.get_object(BUCKET_PUBLISHED, f"published/{record_id}/final.pdf")
+        digest = hashlib.sha256()
+        size_bytes = 0
+        for chunk in response.stream(1024 * 1024):
+            if chunk:
+                size_bytes += len(chunk)
+                digest.update(chunk)
+        return {"sha256": digest.hexdigest(), "size_bytes": size_bytes}
+    except Exception:
+        return {"sha256": None, "size_bytes": None}
+    finally:
+        if response is not None:
+            response.close()
+            response.release_conn()
+
+
+def _get_published_pdf_metadata(db: Session, record_id: str) -> dict[str, Any]:
+    obj = _get_published_pdf_object(db, record_id)
+    sha256 = obj.sha256 if obj and obj.sha256 else None
+    size_bytes = int(obj.size_bytes) if obj and obj.size_bytes is not None else None
+
+    if sha256 and size_bytes is not None:
+        return {"sha256": sha256, "size_bytes": size_bytes}
+
+    calculated = _calculate_published_pdf_metadata(record_id)
+    return {
+        "sha256": sha256 or calculated.get("sha256"),
+        "size_bytes": size_bytes if size_bytes is not None else calculated.get("size_bytes"),
+    }
+
+
 def get_minute_detail(db: Session, record_id: str) -> MinuteDetailResponse:
     from models.record_statuses import RecordStatus
 
@@ -129,6 +182,12 @@ def get_minute_detail(db: Session, record_id: str) -> MinuteDetailResponse:
             getattr(prep_user, "full_name", None)
             or getattr(prep_user, "username", None)
         )
+    published_pdf_metadata = (
+        _get_published_pdf_metadata(db, record_id)
+        if status_code == RECORD_STATUS_COMPLETED
+        else {}
+    )
+    latest_transaction = get_latest_minute_transaction(db, record_id)
 
     record_info = MinuteRecordInfo(
         id=record.id,
@@ -140,10 +199,13 @@ def get_minute_detail(db: Session, record_id: str) -> MinuteDetailResponse:
         project_name=project_name,
         active_version_id=str(record.active_version_id) if record.active_version_id else None,
         active_version_num=int(record.latest_version_num) if record.latest_version_num else None,
+        transaction_id=str(latest_transaction.id) if latest_transaction else None,
         document_date=record.document_date.isoformat() if record.document_date else None,
         location=record.location,
         prepared_by=prepared_by_name,
         created_at=record.created_at.isoformat() if getattr(record, "created_at", None) else None,
+        published_pdf_sha256=published_pdf_metadata.get("sha256"),
+        published_pdf_size_bytes=published_pdf_metadata.get("size_bytes"),
     )
     input_attachments = list_minute_input_attachments(db, record_id)
 
@@ -193,6 +255,7 @@ def list_minutes(
     status_filter: Optional[str] = None,
     client_id: Optional[str] = None,
     project_id: Optional[str] = None,
+    participant_id: Optional[str] = None,
     prepared_by_user_id: Optional[str] = None,
     participant_user_id: Optional[str] = None,
     exclude_prepared_by_user_id: Optional[str] = None,
@@ -200,6 +263,8 @@ def list_minutes(
 ) -> MinuteListResponse:
     from models.clients import Client
     from models.minute_transaction import MinuteTransaction
+    from models.participant import Participant
+    from models.participant_email import ParticipantEmail
     from models.projects import Project
     from models.record_statuses import RecordStatus
     from models.record_version_participant import RecordVersionParticipant
@@ -245,6 +310,46 @@ def list_minutes(
         query = query.filter(Record.prepared_by_user_id == prepared_by_user_id)
     if exclude_prepared_by_user_id:
         query = query.filter(Record.prepared_by_user_id != exclude_prepared_by_user_id)
+
+    if participant_id:
+        participant = (
+            db.query(Participant)
+            .filter(Participant.id == participant_id, Participant.deleted_at.is_(None))
+            .first()
+        )
+        participant_name = str(getattr(participant, "display_name", "") or "").strip()
+        participant_emails = [
+            str(row.email or "").strip()
+            for row in (
+                db.query(ParticipantEmail.email)
+                .filter(
+                    ParticipantEmail.participant_id == participant_id,
+                    ParticipantEmail.deleted_at.is_(None),
+                    ParticipantEmail.is_active.is_(True),
+                )
+                .all()
+            )
+            if str(row.email or "").strip()
+        ]
+        participant_identity_filters = [
+            RecordVersionParticipant.participant_id == participant_id,
+        ]
+        if participant_emails:
+            participant_identity_filters.append(RecordVersionParticipant.email.in_(participant_emails))
+        if participant_name:
+            participant_identity_filters.append(RecordVersionParticipant.display_name.ilike(participant_name))
+
+        participant_exists_filters = [
+            RecordVersionParticipant.record_version_id == Record.active_version_id,
+            or_(*participant_identity_filters),
+        ]
+
+        participant_exists = (
+            db.query(RecordVersionParticipant.id)
+            .filter(*participant_exists_filters)
+            .exists()
+        )
+        query = query.filter(participant_exists)
 
     if participant_user_id:
         user = db.query(User).filter(User.id == participant_user_id, User.deleted_at.is_(None)).first()

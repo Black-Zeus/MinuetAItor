@@ -74,7 +74,7 @@ const ParticipantsTableView = ({ participants = [], hasFilters = false, onUpdate
                     {Array.isArray(participant.emails) ? participant.emails.length : 0}
                   </td>
                   <td className="px-4 py-4">
-                    <div className="min-w-[148px]">
+                    <div className="min-w-[184px]">
                       <ParticipantsViewActions
                         id={participant.id}
                         summary={participant}

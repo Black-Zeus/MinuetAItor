@@ -33,43 +33,101 @@ import MinuteEditorSectionMetadata      from "./sections/MinuteEditorSectionMeta
 
 const EDITABLE_STATUSES = new Set(["pending"]);
 
+const getAttachmentKeys = (attachment = {}) => {
+  const fileName = String(attachment.fileName || attachment.name || "").trim().toLowerCase();
+  const sha = String(attachment.sha256 || attachment.sha || "").trim().toLowerCase();
+
+  return [
+    fileName ? `name:${fileName}` : "",
+    sha ? `sha:${sha}` : "",
+  ].filter(Boolean);
+};
+
+const enrichAttachments = (currentAttachments = [], inputAttachments = []) => {
+  if (!Array.isArray(currentAttachments) || currentAttachments.length === 0) {
+    return inputAttachments;
+  }
+
+  const inputByKey = new Map();
+  inputAttachments.forEach((attachment) => {
+    getAttachmentKeys(attachment).forEach((key) => {
+      if (!inputByKey.has(key)) {
+        inputByKey.set(key, attachment);
+      }
+    });
+  });
+
+  return currentAttachments.map((attachment) => {
+    const fileName = String(attachment.fileName || attachment.name || "").trim().toLowerCase();
+    const matchByName = fileName ? inputByKey.get(`name:${fileName}`) : null;
+    const match = matchByName || getAttachmentKeys(attachment)
+      .map((key) => inputByKey.get(key))
+      .find(Boolean);
+    if (!match) return attachment;
+
+    return {
+      ...attachment,
+      fileName: attachment.fileName ?? match.fileName,
+      name: attachment.name ?? match.name,
+      mimeType: attachment.mimeType ?? match.mimeType,
+      fileType: attachment.fileType ?? match.fileType,
+      sha256: matchByName?.sha256 ?? attachment.sha256 ?? match.sha256,
+      sizeBytes: attachment.sizeBytes ?? attachment.size_bytes ?? match.sizeBytes ?? match.size_bytes,
+    };
+  });
+};
+
 const mergeInputAttachments = (content, inputAttachments = []) => {
   if (!content || !Array.isArray(inputAttachments) || inputAttachments.length === 0) {
     return content;
   }
 
   const currentInputAttachments = content?.inputInfo?.attachments;
-  if (
-    content?.inputInfo &&
-    (!Array.isArray(currentInputAttachments) || currentInputAttachments.length === 0)
-  ) {
-    return {
-      ...content,
-      inputInfo: {
-        ...content.inputInfo,
-        attachments: inputAttachments,
-      },
-    };
-  }
-
   const currentLocked = content?.metadataLocked?.attachments;
-  if (content?.metadataLocked && (!Array.isArray(currentLocked) || currentLocked.length === 0)) {
-    return {
-      ...content,
-      metadataLocked: {
-        ...content.metadataLocked,
-        attachments: inputAttachments,
-      },
+  const nextContent = { ...content };
+
+  if (content?.inputInfo) {
+    nextContent.inputInfo = {
+      ...content.inputInfo,
+      attachments: enrichAttachments(currentInputAttachments, inputAttachments),
     };
   }
 
-  return content;
+  if (content?.metadataLocked) {
+    nextContent.metadataLocked = {
+      ...content.metadataLocked,
+      attachments: enrichAttachments(currentLocked, inputAttachments),
+    };
+  }
+
+  return nextContent;
 };
 
 
 const mergeRecordFallbacks = (content, record) => {
-  if (!content || !record?.preparedBy) {
+  if (!content) {
     return content;
+  }
+
+  const transactionId = String(record?.transactionId ?? record?.transaction_id ?? "").trim();
+  const nextContent = { ...content };
+
+  if (transactionId && content?.metadata) {
+    nextContent.metadata = {
+      ...content.metadata,
+      transactionId: content.metadata.transactionId || transactionId,
+    };
+  }
+
+  if (transactionId && content?.metadataLocked) {
+    nextContent.metadataLocked = {
+      ...content.metadataLocked,
+      transactionId: content.metadataLocked.transactionId || transactionId,
+    };
+  }
+
+  if (!record?.preparedBy) {
+    return nextContent;
   }
 
   const currentPreparedBy = String(
@@ -80,12 +138,12 @@ const mergeRecordFallbacks = (content, record) => {
   ).trim();
 
   if (currentPreparedBy) {
-    return content;
+    return nextContent;
   }
 
   if (content?.generalInfo) {
     return {
-      ...content,
+      ...nextContent,
       generalInfo: {
         ...content.generalInfo,
         preparedBy: record.preparedBy,
@@ -95,7 +153,7 @@ const mergeRecordFallbacks = (content, record) => {
 
   if (content?.meetingInfo) {
     return {
-      ...content,
+      ...nextContent,
       meetingInfo: {
         ...content.meetingInfo,
         preparedBy: record.preparedBy,
@@ -103,7 +161,7 @@ const mergeRecordFallbacks = (content, record) => {
     };
   }
 
-  return content;
+  return nextContent;
 };
 
 const countPendingObservations = (items = []) =>
@@ -475,7 +533,7 @@ const MinuteEditor = () => {
             onTransitionSuccess={handleTransitionSuccess}
           />
         )}
-        {activeTab === "metadata"     && <MinuteEditorSectionMetadata     recordId={recordId} isReadOnly={isReadOnly} />}
+        {activeTab === "metadata"     && <MinuteEditorSectionMetadata     recordId={recordId} recordMeta={recordMeta} isReadOnly={isReadOnly} />}
       </main>
     </div>
   );

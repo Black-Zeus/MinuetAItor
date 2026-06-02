@@ -126,10 +126,13 @@ class MinuteRecordInfo(BaseModel):
     project_name:       Optional[str] = Field(None, serialization_alias="projectName")
     active_version_id:  Optional[str] = Field(None, serialization_alias="activeVersionId")
     active_version_num: Optional[int] = Field(None, serialization_alias="activeVersionNum")
+    transaction_id:     Optional[str] = Field(None, serialization_alias="transactionId")
     document_date:      Optional[str] = Field(None, serialization_alias="documentDate")
     location:           Optional[str] = None
     prepared_by:        Optional[str] = Field(None, serialization_alias="preparedBy")
     created_at:         Optional[str] = Field(None, serialization_alias="createdAt")
+    published_pdf_sha256: Optional[str] = Field(None, serialization_alias="publishedPdfSha256")
+    published_pdf_size_bytes: Optional[int] = Field(None, serialization_alias="publishedPdfSizeBytes")
 
     model_config = {"populate_by_name": True}
 
