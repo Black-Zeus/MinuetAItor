@@ -32,6 +32,9 @@ class ActiveAIProviderConfigResponse(BaseModel):
     custom_headers: dict[str, str] | None = Field(None, description="Headers personalizados efectivos")
     timeout_seconds: int = Field(..., ge=1, description="Timeout efectivo para llamadas al proveedor")
     validation_status: str = Field(..., description="Estado de validación de la configuración activa")
+    purpose: str | None = Field(None, description="Propósito operativo que resolvió esta configuración")
+    binding_id: str | None = Field(None, description="ID del binding activo usado para resolver provider/modelo")
+    embedding_dimensions: int | None = Field(None, description="Dimensión de embeddings cuando aplica")
 
     model_config = {"populate_by_name": True}
 

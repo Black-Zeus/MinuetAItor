@@ -161,7 +161,7 @@ export const SummaryPanel = ({ smtpItems, aiItems, maintenanceConfig, backupsCon
       icon: "FaBrain",
       tone: activeAi ? "active" : aiItems.length ? "warning" : "inactive",
       status: activeAi ? "Operativo" : aiItems.length ? "Pendiente de activación" : "Sin configurar",
-      description: "Estado de proveedores, modelos y validaciones para automatizaciones con IA.",
+      description: "Estado de proveedores, credenciales y validaciones para automatizaciones con IA.",
       stats: [
         { label: "Total", value: aiItems.length },
         { label: "Activas", value: aiActiveCount },
@@ -171,7 +171,6 @@ export const SummaryPanel = ({ smtpItems, aiItems, maintenanceConfig, backupsCon
         ? [
             { label: "Nombre", value: activeAi.name || "—" },
             { label: "Proveedor", value: getProviderLabel(activeAi.providerType) || "—" },
-            { label: "Modelo", value: activeAi.modelName || "Sin modelo" },
             { label: "Actualizado", value: formatDateTime(activeAi.updatedAt || activeAi.createdAt) },
           ]
         : [],
@@ -188,9 +187,9 @@ export const SummaryPanel = ({ smtpItems, aiItems, maintenanceConfig, backupsCon
             <h2 className={`mt-1 text-xl font-semibold ${TXT_TITLE}`}>Cobertura operativa del sistema</h2>
             <p className={`mt-2 text-sm ${TXT_BODY}`}>
               {configuredChannels === 2
-                ? "SMTP y AI tienen una configuración activa."
+                ? "SMTP y AI tienen configuraciones operativas."
                 : configuredChannels === 1
-                  ? "Solo uno de los dos canales tiene configuración activa."
+                  ? "Solo uno de los dos canales tiene configuración operativa."
                   : "Todavía no hay canales activos configurados."}
             </p>
           </div>
@@ -443,7 +442,6 @@ export const AIProviderTable = ({ items, isLoading, providerLabelMap, onEdit, on
           <tr className="border-b border-gray-200 dark:border-gray-700">
             <th className={`py-3 pr-4 text-left font-semibold ${TXT_META}`}>Nombre</th>
             <th className={`py-3 pr-4 text-left font-semibold ${TXT_META}`}>Proveedor</th>
-            <th className={`py-3 pr-4 text-left font-semibold ${TXT_META}`}>Modelo</th>
             <th className={`py-3 pr-4 text-left font-semibold ${TXT_META}`}>Estado</th>
             <th className={`py-3 text-right font-semibold ${TXT_META}`}>Acciones</th>
           </tr>
@@ -463,9 +461,6 @@ export const AIProviderTable = ({ items, isLoading, providerLabelMap, onEdit, on
               <td className="py-4 pr-4">
                 <p className={`font-medium ${TXT_TITLE}`}>{getProviderLabel(item.providerType, providerLabelMap)}</p>
                 <p className={`mt-1 text-xs ${TXT_META}`}>{maskTokenHint(item.tokenHint)}</p>
-              </td>
-              <td className="py-4 pr-4">
-                <p className={`font-medium ${TXT_TITLE}`}>{item.modelName || "Sin modelo"}</p>
               </td>
               <td className="py-4 pr-4">
                 <div className="flex flex-wrap gap-2">

@@ -16,6 +16,7 @@ import { coreRoutes }       from "./core.routes";
 import { minutesRoutes }    from "./minutes.routes";
 import { managementRoutes } from "./management.routes";
 import analyticsRoutes      from "./analytics.routes";
+import { knowledgeRoutes }  from "./knowledge.routes";
 import { settingsRoutes }   from "./settings.routes";
 
 export const allRoutes = [
@@ -24,6 +25,7 @@ export const allRoutes = [
   ...minutesRoutes,
   ...managementRoutes,
   ...analyticsRoutes,
+  ...knowledgeRoutes,
   ...settingsRoutes,
 ];
 
@@ -33,6 +35,7 @@ export { coreRoutes }       from "./core.routes";
 export { minutesRoutes }    from "./minutes.routes";
 export { managementRoutes } from "./management.routes";
 export { analyticsRoutes, reportsRoutes } from "./analytics.routes";
+export { knowledgeRoutes }  from "./knowledge.routes";
 export { settingsRoutes }   from "./settings.routes";
 
 export default allRoutes;

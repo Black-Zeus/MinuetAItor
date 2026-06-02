@@ -24,8 +24,16 @@ from models.version_statuses import VersionStatus
 from models.dashboard_widgets import DashboardWidget
 from models.ai_profile_categories import AiProfileCategory
 from models.ai_provider_configs import AiProviderConfig
+from models.ai_provider_bindings import AiProviderBinding
 from models.ai_model_pricing import AiModelPricing
 from models.ai_usage_events import AiUsageEvent
+from models.ai_context_settings import AiContextSetting
+from models.ai_context_sync import (
+    AiContextChunk,
+    AiContextDocument,
+    AiContextIndexJob,
+    AiContextQueryRun,
+)
 from models.notifications import Notification
 from models.notification_recipients import NotificationRecipient
 from models.access_requests import AccessRequest
@@ -93,7 +101,8 @@ __all__ = [
     "TagCategory", "ArtifactType", "ArtifactState",
     "RecordType", "RecordStatus", "VersionStatus",
     "DashboardWidget", "AiProfileCategory",
-    "AiProviderConfig", "AiModelPricing", "AiUsageEvent",
+    "AiProviderConfig", "AiProviderBinding", "AiModelPricing", "AiUsageEvent", "AiContextSetting",
+    "AiContextDocument", "AiContextChunk", "AiContextIndexJob", "AiContextQueryRun",
     "Notification", "NotificationRecipient", "AccessRequest", "EmailDeliveryEvent",
     "OrganizationSetting",
     "SmtpConfig",

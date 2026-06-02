@@ -1,0 +1,8 @@
+# Context worker dependencies
+redis[asyncio]==5.2.1
+sqlalchemy==2.0.36
+pymysql
+python-dotenv>=1.0.0
+qdrant-client>=1.12.0
+watchdog>=4.0.0
+

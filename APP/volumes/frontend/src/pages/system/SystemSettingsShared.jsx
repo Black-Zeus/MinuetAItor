@@ -22,6 +22,12 @@ export const TABS = [
     description: "SMTP e inteligencia artificial",
   },
   {
+    id: "knowledge",
+    label: "Consulta contextual",
+    icon: "FaSearch",
+    description: "Contexto IA y sincronizacion",
+  },
+  {
     id: "maintenance",
     label: "Mantenimiento",
     icon: "FaGears",
@@ -114,6 +120,8 @@ export const INITIAL_MAINTENANCE_DRAFT = {
   emailQueueWarningThreshold: 20,
   monitorPdfQueueEnabled: true,
   pdfQueueWarningThreshold: 10,
+  monitorContextQueueEnabled: true,
+  contextQueueWarningThreshold: 10,
   monitorDlqEnabled: true,
   dlqWarningThreshold: 10,
   accessRequestEnabled: true,
@@ -464,7 +472,7 @@ export const Header = () => (
 
 export const TabNav = ({ activeTab, onTabChange, tabs = TABS }) => (
   <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
-    <div className={tabs.length === 1 ? "grid grid-cols-1" : "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6"}>
+    <div className={tabs.length === 1 ? "grid grid-cols-1" : "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-7"}>
       {tabs.map((tab) => {
         const isActive = activeTab === tab.id;
         return (

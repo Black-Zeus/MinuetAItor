@@ -12,7 +12,7 @@ export const AI_PROVIDER_MODAL_MODES = {
 };
 
 export const AI_VALIDATION_IDLE_MESSAGE =
-  "Valida esta configuración para confirmar conectividad, autenticación y disponibilidad del modelo.";
+  "Valida esta configuración para confirmar conectividad, autenticación y respuesta del proveedor.";
 
 const INPUT_BASE =
   "w-full rounded-xl border px-3.5 py-2.5 text-sm " +
@@ -196,11 +196,6 @@ const toFormData = (config, providerOptions) => {
   };
 };
 
-const toModelOptions = (config) => {
-  if (!config?.modelName) return [];
-  return [{ value: config.modelName, label: config.modelName }];
-};
-
 const parseHeaders = (value) => {
   const raw = String(value || "").trim();
   if (!raw) return { value: null, error: null };
@@ -227,17 +222,15 @@ const parseHeaders = (value) => {
   }
 };
 
-const validate = (formData, { isEdit = false, requireModel = true, commercialProviderTypes = new Set() } = {}) => {
+const validate = (formData, { isEdit = false, commercialProviderTypes = new Set() } = {}) => {
   const errors = {};
   const isCommercialProvider = commercialProviderTypes.has(formData.providerType);
   const tokenValue = String(formData.token || "").trim();
   const passwordValue = String(formData.password || "").trim();
-  const modelValue = String(formData.modelName || "").trim();
 
   if (!String(formData.name || "").trim()) errors.name = "El nombre interno es obligatorio";
   if (!String(formData.providerType || "").trim()) errors.providerType = "El tipo de proveedor es obligatorio";
   if (!String(formData.baseUrl || "").trim()) errors.baseUrl = "La URL base es obligatoria";
-  if (requireModel && !modelValue) errors.modelName = "Debes indicar un modelo antes de validar y guardar";
 
   try {
     if (String(formData.baseUrl || "").trim()) {
@@ -337,23 +330,6 @@ const buildValidationPayload = (formData, { isEdit = false } = {}) => ({
   timeout_seconds: Number(formData.timeoutSeconds),
 });
 
-const mergeModelOptions = (currentOptions, incomingOptions, currentModelName = "") => {
-  const merged = [];
-  const seen = new Set();
-  [...(Array.isArray(currentOptions) ? currentOptions : []), ...(Array.isArray(incomingOptions) ? incomingOptions : [])].forEach((item) => {
-    const value = String(item?.value || "").trim();
-    const label = String(item?.label || value).trim();
-    if (!value || seen.has(value)) return;
-    seen.add(value);
-    merged.push({ value, label });
-  });
-  const fallbackModel = String(currentModelName || "").trim();
-  if (fallbackModel && !seen.has(fallbackModel)) {
-    merged.unshift({ value: fallbackModel, label: fallbackModel });
-  }
-  return merged;
-};
-
 const Field = ({ label, required = false, error, hint, className = "", children }) => (
   <div className={className}>
     <label className={LABEL}>
@@ -404,7 +380,6 @@ const ValidationSummaryGrid = ({ config, providerOptions }) => {
   const items = [
     ["Proveedor", getProviderPreset(config?.providerType || "custom", providerOptions).label],
     ["URL base", config?.baseUrl || "—"],
-    ["Modelo", config?.modelName || "Sin modelo"],
     [
       "Autenticación",
       config?.authType === "api_key"
@@ -505,7 +480,7 @@ export const AiProviderValidationModal = ({ config, providerCatalog = [], onClos
             Validar configuración AI
           </h3>
           <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-            Esta prueba es acotada: revisa conectividad, autenticación y disponibilidad del modelo, sin ejecutar procesamiento de minutas ni prompts productivos.
+            Esta prueba es acotada: revisa conectividad, autenticación y respuesta del proveedor, sin ejecutar procesamiento de minutas ni prompts productivos.
           </p>
         </div>
 
@@ -557,12 +532,6 @@ const AiProviderConfigModal = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
-  const [availableModels, setAvailableModels] = useState(() => toModelOptions(config));
-  const [isLoadingModels, setIsLoadingModels] = useState(false);
-  const [modelsEndpointUsed, setModelsEndpointUsed] = useState(null);
-  const [modelEntryMode, setModelEntryMode] = useState("sync");
-  const [modelSearch, setModelSearch] = useState(() => String(config?.modelName || "").trim());
-  const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
   const [validationSession, setValidationSession] = useState(null);
   const title = useMemo(
     () => (isEdit ? "Editar configuración AI" : "Nueva configuración AI"),
@@ -574,28 +543,6 @@ const AiProviderConfigModal = ({
   const showBasicFields = formData.authType === "basic";
   const showCustomHeaders = formData.authType === "custom_headers" || String(formData.customHeadersText || "").trim();
   const canSave = Boolean(validationSession?.token) && !isSubmitting && !isValidating;
-  const filteredAvailableModels = useMemo(() => {
-    const query = String(modelSearch || "").trim().toLowerCase();
-    if (!query) return availableModels;
-
-    const matching = availableModels.filter((option) =>
-      String(option?.label || option?.value || "")
-        .toLowerCase()
-        .includes(query)
-    );
-
-    const selectedValue = String(formData.modelName || "").trim();
-    if (!selectedValue) return matching;
-
-    const selectedOption = availableModels.find((option) => String(option?.value || "").trim() === selectedValue);
-    if (!selectedOption) return matching;
-    if (matching.some((option) => String(option?.value || "").trim() === selectedValue)) return matching;
-    return [selectedOption, ...matching];
-  }, [availableModels, formData.modelName, modelSearch]);
-  const showModelSuggestions =
-    modelEntryMode !== "manual" &&
-    isModelDropdownOpen &&
-    filteredAvailableModels.length > 0;
 
   const resetValidationApproval = () => {
     setValidationSession(null);
@@ -629,11 +576,6 @@ const AiProviderConfigModal = ({
       tokenHint: "",
       hasPassword: false,
     }));
-    setAvailableModels([]);
-    setModelsEndpointUsed(null);
-    setModelEntryMode("sync");
-    setModelSearch("");
-    setIsModelDropdownOpen(false);
     setValidationSession(null);
     setErrors((prev) => ({
       ...prev,
@@ -647,57 +589,6 @@ const AiProviderConfigModal = ({
     }));
   };
 
-  const handleLoadModels = async () => {
-    const nextErrors = validate(formData, { isEdit, requireModel: false, commercialProviderTypes });
-    if (Object.keys(nextErrors).length > 0) {
-      setErrors(nextErrors);
-      toastError("Completa la configuración primero", "Corrige los campos técnicos antes de sincronizar modelos.");
-      return;
-    }
-
-    setIsLoadingModels(true);
-    try {
-      const result = await aiProviderConfigService.discoverModels({
-        config_id: isEdit ? formData.id : undefined,
-        name: String(formData.name || "").trim() || null,
-        provider_type: String(formData.providerType || "").trim() || null,
-        base_url: String(formData.baseUrl || "").trim() || null,
-        validation_endpoint: String(formData.validationEndpoint || "").trim() || null,
-        models_endpoint: String(formData.modelsEndpoint || "").trim() || null,
-        model_name: String(formData.modelName || "").trim() || null,
-        auth_type: String(formData.authType || "").trim() || null,
-        token: String(formData.token || "").trim() || undefined,
-        username: String(formData.username || "").trim() || undefined,
-        password: String(formData.password || "").trim() || undefined,
-        custom_headers: parseHeaders(formData.customHeadersText).value,
-        allow_model_discovery: true,
-        is_active: false,
-        timeout_seconds: Number(formData.timeoutSeconds),
-      });
-
-      const nextOptions = mergeModelOptions([], result?.items, formData.modelName);
-      setAvailableModels(nextOptions);
-      setModelsEndpointUsed(result?.endpointUsed || null);
-      setModelEntryMode("sync");
-      setModelSearch(String(formData.modelName || "").trim());
-      setIsModelDropdownOpen(true);
-
-      if (!String(formData.modelName || "").trim() && nextOptions.length > 0) {
-        setFormData((prev) => ({
-          ...prev,
-          modelName: nextOptions[0].value,
-        }));
-        setModelSearch(nextOptions[0].label || nextOptions[0].value);
-      }
-
-      toastSuccess("Modelos sincronizados", `Se cargaron ${nextOptions.length} modelo(s) disponibles.`);
-    } catch (error) {
-      toastError("No se pudieron recuperar modelos", error?.message ?? "La consulta al endpoint de modelos no pudo completarse.");
-    } finally {
-      setIsLoadingModels(false);
-    }
-  };
-
   const handleChange = (field, value) => {
     setFormData((prev) => ({
       ...prev,
@@ -708,40 +599,6 @@ const AiProviderConfigModal = ({
     }));
     setValidationSession(null);
     setErrors((prev) => ({ ...prev, [field]: undefined }));
-  };
-
-  const handleModelSearchChange = (value) => {
-    setModelSearch(value);
-    setIsModelDropdownOpen(true);
-
-    const normalizedValue = String(value || "").trim();
-    if (!normalizedValue) {
-      handleChange("modelName", "");
-      return;
-    }
-
-    const exactMatch = availableModels.find((option) => {
-      const optionValue = String(option?.value || "").trim();
-      const optionLabel = String(option?.label || optionValue).trim();
-      return optionValue === normalizedValue || optionLabel.toLowerCase() === normalizedValue.toLowerCase();
-    });
-
-    if (exactMatch) {
-      handleChange("modelName", exactMatch.value);
-      return;
-    }
-
-    if (String(formData.modelName || "").trim()) {
-      handleChange("modelName", "");
-    }
-  };
-
-  const handleSelectModelOption = (option) => {
-    const nextValue = String(option?.value || "").trim();
-    const nextLabel = String(option?.label || nextValue).trim();
-    handleChange("modelName", nextValue);
-    setModelSearch(nextLabel);
-    setIsModelDropdownOpen(false);
   };
 
   const handleValidate = async () => {
@@ -808,7 +665,7 @@ const AiProviderConfigModal = ({
     }
 
     if (!validationSession?.token) {
-      toastError("Debes validar la configuración", "No puedes guardar hasta validar correctamente el proveedor y el modelo.");
+      toastError("Debes validar la configuración", "No puedes guardar hasta validar correctamente el proveedor.");
       return;
     }
 
@@ -841,7 +698,7 @@ const AiProviderConfigModal = ({
                 {title}
               </h3>
               <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                Registra el acceso del sistema a proveedores y modelos AI que podrán usarse más adelante para el análisis y procesamiento de minutas.
+                Registra el acceso del sistema a proveedores, credenciales y endpoints AI que luego podrán asignarse por uso operativo.
               </p>
             </div>
 
@@ -1000,105 +857,6 @@ const AiProviderConfigModal = ({
               </Field>
 
               <Field
-                label="Modelo"
-                required
-                error={errors.modelName}
-                hint={
-                  modelEntryMode === "manual"
-                    ? "Modo manual activo. Cambia al modo sincronizado si quieres recuperar modelos desde la URL de modelos."
-                    : modelsEndpointUsed
-                      ? `Modelos recuperados desde ${modelsEndpointUsed}`
-                      : "Sincroniza modelos desde el proveedor o cambia al modo manual. Luego escribe en el mismo campo para filtrar la lista cargada."
-                }
-              >
-                <div className="flex gap-2">
-                  {modelEntryMode === "manual" ? (
-                    <input
-                      type="text"
-                      value={formData.modelName}
-                      onChange={(e) => handleChange("modelName", e.target.value)}
-                      className={`${INPUT_BASE} ${errors.modelName ? INPUT_ERROR : INPUT_OK}`}
-                      placeholder="Ej: gpt-4o-mini"
-                    />
-                  ) : (
-                    <div className="relative flex-1">
-                      <input
-                        type="text"
-                        value={modelSearch}
-                        onChange={(e) => handleModelSearchChange(e.target.value)}
-                        onFocus={() => {
-                          if (availableModels.length) setIsModelDropdownOpen(true);
-                        }}
-                        onBlur={() => {
-                          window.setTimeout(() => {
-                            setIsModelDropdownOpen(false);
-                          }, 120);
-                        }}
-                        className={`${INPUT_BASE} ${errors.modelName ? INPUT_ERROR : INPUT_OK}`}
-                        placeholder={availableModels.length ? "Escribe para filtrar y seleccionar un modelo" : "Sin modelos cargados"}
-                      />
-                      {showModelSuggestions ? (
-                        <div className="absolute z-20 mt-2 max-h-64 w-full overflow-y-auto rounded-xl border border-gray-200 bg-white py-1 shadow-xl dark:border-gray-700 dark:bg-slate-900">
-                          {filteredAvailableModels.map((option) => {
-                            const isSelected = String(formData.modelName || "").trim() === String(option.value || "").trim();
-                            return (
-                              <button
-                                key={option.value}
-                                type="button"
-                                onMouseDown={(e) => {
-                                  e.preventDefault();
-                                  handleSelectModelOption(option);
-                                }}
-                                className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm transition-colors ${
-                                  isSelected
-                                    ? "bg-primary-50 text-gray-900 dark:bg-primary-900/20 dark:text-white"
-                                    : "text-gray-700 hover:bg-primary-50 dark:text-gray-200 dark:hover:bg-primary-900/20"
-                                }`}
-                              >
-                                <span className="truncate">{option.label}</span>
-                                {isSelected ? (
-                                  <span className="ml-3 text-xs text-primary-600 dark:text-primary-300">Seleccionado</span>
-                                ) : null}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      ) : null}
-                      {isModelDropdownOpen && availableModels.length && !filteredAvailableModels.length ? (
-                        <div className="absolute z-20 mt-2 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-500 shadow-xl dark:border-gray-700 dark:bg-slate-900 dark:text-gray-400">
-                          Sin coincidencias para el filtro.
-                        </div>
-                      ) : null}
-                    </div>
-                  )}
-                  <ActionButton
-                    label=""
-                    tooltip="Sincronizar modelos"
-                    onClick={handleLoadModels}
-                    variant="soft"
-                    size="sm"
-                    disabled={isLoadingModels}
-                    className="px-3"
-                    icon={<Icon name={isLoadingModels ? "spinner" : "arrowsRotate"} className={isLoadingModels ? "animate-spin" : ""} />}
-                  />
-                  <ActionButton
-                    label=""
-                    tooltip={modelEntryMode === "manual" ? "Volver a selección desde lista" : "Ingresar modelo manualmente"}
-                    onClick={() => {
-                      setModelEntryMode((prev) => (prev === "manual" ? "sync" : "manual"));
-                      setModelSearch(String(formData.modelName || "").trim());
-                      setIsModelDropdownOpen(false);
-                      resetValidationApproval();
-                    }}
-                    variant="soft"
-                    size="sm"
-                    className="px-3"
-                    icon={<Icon name={modelEntryMode === "manual" ? "FaList" : "FaPenToSquare"} />}
-                  />
-                </div>
-              </Field>
-
-              <Field
                 label="Timeout (segundos)"
                 required
                 error={errors.timeoutSeconds}
@@ -1119,7 +877,7 @@ const AiProviderConfigModal = ({
                 label="Dejar activa esta configuración"
                 checked={formData.isActive}
                 onChange={(value) => handleChange("isActive", value)}
-                hint="Si la activas, cualquier otra configuración AI activa quedará desactivada."
+                hint="Una configuración activa queda disponible para asignarla en Uso AI."
               />
             </div>
 

@@ -213,7 +213,7 @@ export const SIDEBAR_MODULES = [
     icon: "FaBuilding",
     path: "/clients",
     section: "management",
-    order: 3,
+    order: 4,
   },
   {
     id: "projects",
@@ -221,7 +221,7 @@ export const SIDEBAR_MODULES = [
     icon: "FaLayerGroup",
     path: "/projects",
     section: "management",
-    order: 4,
+    order: 5,
   },
   {
     id: "team",
@@ -229,7 +229,7 @@ export const SIDEBAR_MODULES = [
     icon: "FaUsers",
     path: "/teams",
     section: "management",
-    order: 5,
+    order: 6,
     requiresAdmin: true,
   },
   {
@@ -238,7 +238,7 @@ export const SIDEBAR_MODULES = [
     icon: "FaUser",
     path: "/participants",
     section: "management",
-    order: 6,
+    order: 7,
   },
   {
     id: "metrics",
@@ -246,7 +246,7 @@ export const SIDEBAR_MODULES = [
     icon: "FaChartLine",
     path: "/analytics/metrics",
     section: "intelligence",
-    order: 7,
+    order: 8,
   },
   {
     id: "reports-management",
@@ -254,7 +254,7 @@ export const SIDEBAR_MODULES = [
     icon: "FaRegFile",
     path: "/reports/management",
     section: "intelligence",
-    order: 8,
+    order: 9,
   },
   {
     id: "reports-audit",
@@ -262,7 +262,16 @@ export const SIDEBAR_MODULES = [
     icon: "FaClipboardCheck",
     path: "/reports/audit",
     section: "intelligence",
-    order: 9,
+    order: 10,
+  },
+  {
+    id: "knowledge-search",
+    name: "Consulta contextual",
+    icon: "FaSearch",
+    path: "/knowledge-search",
+    section: "core",
+    order: 3,
+    featureFlag: "knowledgeSearch",
   },
   {
     id: "tags",
@@ -270,7 +279,7 @@ export const SIDEBAR_MODULES = [
     icon: "FaTags",
     path: "/settings/tags",
     section: "config",
-    order: 10,
+    order: 11,
   },
   {
     id: "profiles",
@@ -278,7 +287,7 @@ export const SIDEBAR_MODULES = [
     icon: "FaBrain",
     path: "/settings/profiles",
     section: "config",
-    order: 11,
+    order: 12,
   },
   {
     id: "organization",
@@ -286,7 +295,7 @@ export const SIDEBAR_MODULES = [
     icon: "FaBuilding",
     path: "/settings/organization",
     section: "config",
-    order: 12,
+    order: 13,
     requiresAdmin: true,
   },
   {
@@ -295,7 +304,7 @@ export const SIDEBAR_MODULES = [
     icon: "FaGears",
     path: "/settings/system",
     section: "config",
-    order: 13,
+    order: 14,
     requiresAdmin: true,
   },
 ];
@@ -331,10 +340,13 @@ export const SIDEBAR_SECTIONS = {
  * Filtra módulos según permisos del usuario (soporta children)
  */
 export const filterModulesByPermissions = (modules = SIDEBAR_MODULES, user = {}) => {
+  const enabledFeatures = user.enabledFeatures || {};
+
   const filterRecursively = (items = []) =>
     items
       .filter((module) => {
         if (module.requiresAdmin && !user.isAdmin) return false;
+        if (module.featureFlag && !enabledFeatures[module.featureFlag]) return false;
         return true;
       })
       .map((module) => {

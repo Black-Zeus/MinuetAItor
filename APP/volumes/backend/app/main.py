@@ -615,6 +615,21 @@ app.include_router(system_backups_router, prefix="/v1")
 from routers.v1.system_queues import router as system_queues_router
 app.include_router(system_queues_router, prefix="/v1")
 
+# ── Context AI Settings ───────────────────────────────────────────────────────
+# [ACTIVO] Feature flags administrativos para Knowledge Search / Contexto IA
+from routers.v1.ai_context_settings import router as ai_context_settings_router
+app.include_router(ai_context_settings_router, prefix="/v1")
+
+# ── AI Provider Bindings ──────────────────────────────────────────────────────
+# [ACTIVO] Asignación provider/modelo por propósito operativo
+from routers.v1.ai_provider_bindings import router as ai_provider_bindings_router
+app.include_router(ai_provider_bindings_router, prefix="/v1")
+
+# ── Context Query ─────────────────────────────────────────────────────────────
+# [ACTIVO] Consulta contextual con Knowledge Search
+from routers.v1.context import router as context_router
+app.include_router(context_router, prefix="/v1")
+
 # Añadir en main.py junto a los otros routers:
 from routers.v1.minutes import router as minutes_router
 app.include_router(minutes_router, prefix="/v1")
@@ -634,6 +649,8 @@ from routers.internal.notifications import router as internal_notifications_rout
 app.include_router(internal_notifications_router)
 from routers.internal.backups import router as internal_backups_router
 app.include_router(internal_backups_router)
+from routers.internal.context import router as internal_context_router
+app.include_router(internal_context_router)
 
 
 # ── System endpoints ──────────────────────────────────────────────────────────

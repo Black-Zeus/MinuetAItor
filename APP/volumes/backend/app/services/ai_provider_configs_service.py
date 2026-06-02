@@ -16,13 +16,13 @@ from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 from fastapi import HTTPException
-from sqlalchemy import func, or_, text
+from sqlalchemy import func, or_
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session, joinedload
 
 from core.config import settings
 from core.datetime_utils import utc_now, utc_now_db
-from core.exceptions import BadRequestException, ConflictException
+from core.exceptions import BadRequestException
 from core.network_guard import assert_safe_outbound_url
 from models.ai_provider_configs import AiProviderConfig
 from schemas.ai_provider_configs import (
@@ -42,8 +42,6 @@ from services.ai_provider_catalog_service import (
 )
 from services.ai_provider_secrets import mask_secret, read_secret, store_secret
 
-ACTIVE_LOCK_NAME = "ai_provider_configs_single_active"
-ACTIVE_LOCK_TIMEOUT_SECONDS = 10
 VALIDATION_TOKEN_TTL_SECONDS = 15 * 60
 ANTHROPIC_VERSION = "2023-06-01"
 TECHNICAL_FIELDS = {
@@ -346,8 +344,6 @@ def _verify_validation_token(token: str, values: dict[str, Any]) -> None:
 def _merge_effective_values(
     payload: dict[str, Any],
     existing: AiProviderConfig | None = None,
-    *,
-    require_model: bool = True,
 ) -> dict[str, Any]:
     values = _config_values_from_obj(existing) if existing else {}
 
@@ -396,7 +392,7 @@ def _merge_effective_values(
     if values["auth_type"] != "custom_headers":
         values["custom_headers_json"] = None
 
-    _validate_config_values(values, require_model=require_model)
+    _validate_config_values(values)
     return values
 
 
@@ -416,7 +412,7 @@ def _normalize_endpoint(value: Any) -> str | None:
     return normalized
 
 
-def _validate_config_values(values: dict[str, Any], *, require_model: bool = True) -> None:
+def _validate_config_values(values: dict[str, Any]) -> None:
     if not values["name"]:
         raise BadRequestException("El nombre interno es obligatorio")
     if not get_ai_provider_definition(values["provider_type"]):
@@ -445,12 +441,6 @@ def _validate_config_values(values: dict[str, Any], *, require_model: bool = Tru
 
     if values["auth_type"] == "custom_headers" and not custom_headers:
         raise BadRequestException("Debes ingresar al menos un header personalizado")
-
-    if require_model and not values.get("model_name"):
-        raise BadRequestException("Debes indicar un modelo antes de validar y guardar la configuración")
-
-    if values["is_active"] and not values.get("model_name"):
-        raise BadRequestException("No puedes activar una configuración AI sin modelo configurado")
 
 
 def _default_validation_endpoint(provider_type: str) -> str | None:
@@ -561,36 +551,71 @@ def _effective_models_url(values: dict[str, Any]) -> str | None:
     return _resolve_url(base_url, endpoint)
 
 
-def _extract_model_options(provider_type: str, payload: Any) -> list[dict[str, str]]:
-    options: list[dict[str, str]] = []
+def _model_metadata_from_item(response_format: str, item: dict[str, Any]) -> dict[str, Any] | None:
+    metadata: dict[str, Any] = {}
+
+    if response_format == "ollama":
+        details = item.get("details")
+        if isinstance(details, dict):
+            for key in ("family", "families", "parameter_size", "quantization_level", "format"):
+                if details.get(key) is not None:
+                    metadata[key] = details.get(key)
+        for key in ("size", "modified_at", "digest"):
+            if item.get(key) is not None:
+                metadata[key] = item.get(key)
+    elif response_format == "openai":
+        for key in ("object", "created", "owned_by"):
+            if item.get(key) is not None:
+                metadata[key] = item.get(key)
+    elif response_format == "anthropic":
+        for key in ("type", "created_at", "display_name"):
+            if item.get(key) is not None:
+                metadata[key] = item.get(key)
+    else:
+        for key in ("type", "object", "created", "created_at", "owned_by", "family", "parameter_size"):
+            if item.get(key) is not None:
+                metadata[key] = item.get(key)
+
+    return metadata or None
+
+
+def _extract_model_options(provider_type: str, payload: Any) -> list[dict[str, Any]]:
+    options: list[dict[str, Any]] = []
     response_format = _provider_models_response_format(provider_type)
 
-    def add_option(raw_value: Any, raw_label: Any = None) -> None:
+    def add_option(raw_value: Any, raw_label: Any = None, raw_item: dict[str, Any] | None = None) -> None:
         value = _normalize_optional_text(raw_value)
         if not value:
             return
         label = _normalize_optional_text(raw_label) or value
         option = {"value": value, "label": label}
-        if option not in options:
+        if raw_item is not None:
+            option["metadata"] = _model_metadata_from_item(response_format, raw_item)
+            option["raw"] = raw_item
+        if not any(existing.get("value") == value for existing in options):
             options.append(option)
 
     if response_format == "openai":
         for item in payload.get("data", []) if isinstance(payload, dict) else []:
             if isinstance(item, dict):
-                add_option(item.get("id"))
+                add_option(item.get("id"), raw_item=item)
     elif response_format == "anthropic":
         for item in payload.get("data", []) if isinstance(payload, dict) else []:
             if isinstance(item, dict):
-                add_option(item.get("id"), item.get("display_name"))
+                add_option(item.get("id"), item.get("display_name"), raw_item=item)
     elif response_format == "ollama":
         for item in payload.get("models", []) if isinstance(payload, dict) else []:
             if isinstance(item, dict):
-                add_option(item.get("model") or item.get("name"))
+                add_option(item.get("model") or item.get("name"), raw_item=item)
     else:
         if isinstance(payload, dict):
             for item in payload.get("data", []) or payload.get("models", []) or []:
                 if isinstance(item, dict):
-                    add_option(item.get("id") or item.get("model") or item.get("name"), item.get("display_name") or item.get("name"))
+                    add_option(
+                        item.get("id") or item.get("model") or item.get("name"),
+                        item.get("display_name") or item.get("name"),
+                        raw_item=item,
+                    )
                 else:
                     add_option(item)
 
@@ -672,44 +697,6 @@ def _validation_status_from_discovery_error(message: str) -> str:
     return "error"
 
 
-def _validate_selected_model(
-    values: dict[str, Any],
-    *,
-    discovered: dict[str, Any] | None = None,
-) -> tuple[str, str]:
-    model_name = _normalize_optional_text(values.get("model_name"))
-    if not model_name:
-        return ("error", "Debes indicar un modelo para validar esta configuración.")
-
-    if not _effective_models_url(values):
-        return (
-            "valid",
-            f"Validación correcta. Se confirmó la configuración mínima y se mantuvo el modelo '{model_name}' como valor manual.",
-        )
-
-    if discovered is None:
-        try:
-            discovered = _discover_model_options(values)
-        except BadRequestException as exc:
-            message = str(exc)
-            return (_validation_status_from_discovery_error(message), message)
-
-    discovered_values = {item["value"] for item in discovered.get("items", [])}
-    if model_name not in discovered_values:
-        return (
-            "error",
-            f"El modelo '{model_name}' no fue encontrado en el endpoint de modelos configurado.",
-        )
-
-    endpoint_used = discovered.get("endpoint_used")
-    if endpoint_used:
-        return (
-            "valid",
-            f"Validación correcta. El modelo '{model_name}' está disponible en {endpoint_used}.",
-        )
-    return ("valid", f"Validación correcta. El modelo '{model_name}' está disponible.")
-
-
 def _run_remote_validation(values: dict[str, Any]) -> tuple[str, str, Any | None, str | None]:
     validation_url = _effective_validation_url(values)
     if not validation_url:
@@ -786,12 +773,6 @@ def _run_validation_pipeline(values: dict[str, Any]) -> tuple[str, str]:
             message = str(exc)
             return _validation_status_from_discovery_error(message), message
 
-    model_status, model_message = _validate_selected_model(values, discovered=discovered)
-    if model_status != "valid":
-        return model_status, model_message
-
-    if "modelo" in model_message.lower():
-        return status, f"{message} {model_message}"
     return status, message
 
 
@@ -809,19 +790,7 @@ def _has_technical_changes(existing: AiProviderConfig, values: dict[str, Any]) -
 
 @contextmanager
 def _active_config_lock(db: Session):
-    acquired = False
-    try:
-        result = db.execute(
-            text("SELECT GET_LOCK(:name, :timeout)"),
-            {"name": ACTIVE_LOCK_NAME, "timeout": ACTIVE_LOCK_TIMEOUT_SECONDS},
-        )
-        acquired = bool((result.scalar() or 0) == 1)
-        if not acquired:
-            raise ConflictException("No fue posible reservar la activación exclusiva. Intenta nuevamente.")
-        yield
-    finally:
-        if acquired:
-            db.execute(text("SELECT RELEASE_LOCK(:name)"), {"name": ACTIVE_LOCK_NAME})
+    yield
 
 
 @contextmanager
@@ -831,19 +800,6 @@ def _optional_active_config_lock(db: Session, should_lock: bool):
             yield
         return
     yield
-
-
-def _deactivate_other_configs(db: Session, keep_id: str | None, updated_by_id: str | None) -> None:
-    items = (
-        db.query(AiProviderConfig)
-        .filter(AiProviderConfig.deleted_at.is_(None), AiProviderConfig.is_active.is_(True))
-        .all()
-    )
-    for item in items:
-        if keep_id and item.id == keep_id:
-            continue
-        item.is_active = False
-        item.updated_by = updated_by_id
 
 
 def _reset_validation_state(obj: AiProviderConfig) -> None:
@@ -874,8 +830,6 @@ def get_active_ai_provider_runtime_config(db: Session) -> dict[str, Any]:
         raise BadRequestException(
             "La configuración AI activa no está validada. Valídala antes de procesar minutas."
         )
-    if not str(obj.model_name or "").strip():
-        raise BadRequestException("La configuración AI activa no tiene modelo configurado.")
     return _build_runtime_response_dict(obj)
 
 
@@ -972,9 +926,6 @@ def create_ai_provider_config(db: Session, body: AIProviderConfigCreateRequest, 
     validated_at = utc_now_db()
 
     with _optional_active_config_lock(db, bool(values["is_active"])):
-        if values["is_active"]:
-            _deactivate_other_configs(db, keep_id=None, updated_by_id=created_by_id)
-
         obj = AiProviderConfig(
             id=str(uuid.uuid4()),
             name=values["name"],
@@ -1020,9 +971,6 @@ def update_ai_provider_config(
     should_lock_active_scope = bool(values["is_active"]) or bool(obj.is_active)
 
     with _optional_active_config_lock(db, should_lock_active_scope):
-        if values["is_active"]:
-            _deactivate_other_configs(db, keep_id=obj.id, updated_by_id=updated_by_id)
-
         obj.name = values["name"]
         obj.provider_type = values["provider_type"]
         obj.base_url = values["base_url"]
@@ -1052,13 +1000,10 @@ def update_ai_provider_config(
 def activate_ai_provider_config(db: Session, config_id: str, updated_by_id: str) -> dict[str, Any]:
     _require_ai_schema(db)
     obj = _get_or_404(db, config_id)
-    if not _normalize_optional_text(obj.model_name):
-        raise BadRequestException("No puedes activar una configuración AI sin modelo configurado")
     if obj.validation_status != "valid":
         raise BadRequestException("Solo puedes activar una configuración AI que ya fue validada correctamente")
 
     with _active_config_lock(db):
-        _deactivate_other_configs(db, keep_id=obj.id, updated_by_id=updated_by_id)
         obj.is_active = True
         obj.updated_by = updated_by_id
         db.commit()
@@ -1174,5 +1119,5 @@ def discover_ai_provider_models(db: Session, body: AIProviderConfigDiscoverModel
         _require_ai_schema(db)
     current = _get_or_404(db, body.config_id) if body.config_id else None
     payload = body.model_dump(exclude_unset=True)
-    values = _merge_effective_values(payload, existing=current, require_model=False)
+    values = _merge_effective_values(payload, existing=current)
     return _discover_model_options(values)

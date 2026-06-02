@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import SidebarToggle from './SidebarToggle';
 import SidebarBrand from './SidebarBrand';
@@ -7,6 +7,7 @@ import SidebarFooter from './SidebarFooter';
 import { SIDEBAR_MODULES, filterModulesByPermissions } from '@config/sidebarConfig';
 import useBaseSiteStore from '@store/baseSiteStore';
 import useAuthStore from '@store/authStore';
+import contextSettingsService from '@/services/contextSettingsService';
 
 const Sidebar = ({
   user = {
@@ -25,10 +26,41 @@ const Sidebar = ({
   const toggleSidebar        = useBaseSiteStore((s) => s.toggleSidebar);
   const addToNavigationHistory = useBaseSiteStore((s) => s.addToNavigationHistory);
   const logout = useAuthStore((s) => s.logout);
+  const [isKnowledgeSearchAvailable, setIsKnowledgeSearchAvailable] = useState(false);
 
   const activePath = pathname || '/';
+  const userWithFeatures = useMemo(() => ({
+    ...user,
+    enabledFeatures: {
+      ...(user?.enabledFeatures || {}),
+      knowledgeSearch: isKnowledgeSearchAvailable,
+    },
+  }), [isKnowledgeSearchAvailable, user]);
 
-  const visibleModules = filterModulesByPermissions(SIDEBAR_MODULES, user)
+  useEffect(() => {
+    let alive = true;
+    const handleAvailabilityChange = (event) => {
+      if (!alive) return;
+      setIsKnowledgeSearchAvailable(Boolean(event?.detail?.available));
+    };
+
+    window.addEventListener('knowledge-search-availability-change', handleAvailabilityChange);
+
+    contextSettingsService.getAvailability()
+      .then((result) => {
+        if (!alive) return;
+        setIsKnowledgeSearchAvailable(Boolean(result?.available));
+      })
+      .catch(() => {
+        if (alive) setIsKnowledgeSearchAvailable(false);
+      });
+    return () => {
+      alive = false;
+      window.removeEventListener('knowledge-search-availability-change', handleAvailabilityChange);
+    };
+  }, []);
+
+  const visibleModules = filterModulesByPermissions(SIDEBAR_MODULES, userWithFeatures)
     .filter((module) => !isOperationLocked || module.id === 'system');
 
   const handleModuleClick = (module) => {

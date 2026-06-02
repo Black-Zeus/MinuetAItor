@@ -24,7 +24,10 @@ from schemas.internal_minutes import (
     MinuteOfficializedEmailRequest,
     MinuteOfficializedEmailResponse,
 )
-from services.ai_provider_configs_service import get_active_ai_provider_runtime_config
+from services.ai_provider_bindings_service import (
+    PURPOSE_MINUTE_ANALYSIS,
+    get_ai_provider_runtime_config_for_purpose,
+)
 from services.internal_minutes_service import (
     commit_minute_tx2,
     enqueue_officialized_email_after_pdf_ready,
@@ -100,7 +103,7 @@ async def fail_endpoint(
 def active_provider_endpoint(
     db: Session = Depends(get_db),
 ) -> ActiveAIProviderConfigResponse:
-    return get_active_ai_provider_runtime_config(db)
+    return get_ai_provider_runtime_config_for_purpose(db, PURPOSE_MINUTE_ANALYSIS)
 
 
 @router.post(

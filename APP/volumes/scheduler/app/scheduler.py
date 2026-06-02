@@ -106,6 +106,38 @@ def job_system_backups_tick():
         logger.error("System backups tick failed | err=%s", exc)
 
 
+def job_context_sync_tick():
+    """Delegación de sincronización semántica programada."""
+    try:
+        result = _unwrap_contract(_post_internal("/internal/v1/context/sync/tick"))
+        logger.info(
+            "Context sync tick OK | queued=%s skipped=%s",
+            result.get("queued", 0),
+            result.get("skipped", 0),
+        )
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        logger.error("Context sync tick HTTP error | status=%s body=%s", exc.code, body[:300])
+    except Exception as exc:
+        logger.error("Context sync tick failed | err=%s", exc)
+
+
+def job_context_query_history_purge():
+    """Purga historial de consultas contextuales vencido."""
+    try:
+        result = _unwrap_contract(_post_internal("/internal/v1/context/query-runs/purge"))
+        logger.info(
+            "Context query purge OK | deleted=%s retention_days=%s",
+            result.get("deleted", 0),
+            result.get("retention_days", 90),
+        )
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        logger.error("Context query purge HTTP error | status=%s body=%s", exc.code, body[:300])
+    except Exception as exc:
+        logger.error("Context query purge failed | err=%s", exc)
+
+
 # ── Configuración del scheduler ───────────────────────────────────────────────
 
 def main():
@@ -133,6 +165,20 @@ def main():
         CronTrigger(second=0),
         id="maintenance_tick",
         name="Tick mantenimiento dinámico",
+    )
+
+    scheduler.add_job(
+        job_context_sync_tick,
+        CronTrigger(minute="*/5", second=15),
+        id="context_sync_tick",
+        name="Tick sincronización semántica",
+    )
+
+    scheduler.add_job(
+        job_context_query_history_purge,
+        CronTrigger(hour=3, minute=20, second=0),
+        id="context_query_history_purge",
+        name="Purga historial consulta contextual",
     )
 
     logger.info("Scheduler iniciado | jobs=%d", len(scheduler.get_jobs()))   

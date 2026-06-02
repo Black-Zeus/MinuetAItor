@@ -23,6 +23,10 @@ from services.minutes import queue as minute_queue
 from services.minutes import sanitizers as minute_sanitizers
 from services.minutes.status_transitions import append_record_status_transition
 from services.minutes import storage as minute_storage
+from services.ai_provider_bindings_service import (
+    PURPOSE_MINUTE_ANALYSIS,
+    require_ai_provider_runtime_config_for_purpose,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -294,6 +298,12 @@ async def reprocess_minute(
                 "message": "La minuta no tiene un perfil IA activo disponible para reprocesar.",
             },
         )
+
+    require_ai_provider_runtime_config_for_purpose(
+        db,
+        PURPOSE_MINUTE_ANALYSIS,
+        message="Debes configurar Uso AI para Análisis de minuta antes de reprocesar minutas.",
+    )
 
     input_objects_meta = _load_input_objects_meta(db, record_id)
     ai_input_schema = _build_reprocess_input_schema(db, record, ai_profile, actor_user_id)

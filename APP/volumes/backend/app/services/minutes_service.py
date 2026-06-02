@@ -57,6 +57,11 @@ from services.minutes import reprocess as minute_reprocess
 from services.minutes import sanitizers as minute_sanitizers
 from services.minutes.status_transitions import append_record_status_transition
 from services.minutes import storage as minute_storage
+from services.ai_context_sync_service import (
+    enqueue_prepared_context_index_job,
+    mark_context_index_job_enqueue_failed,
+    prepare_minute_context_index_job,
+)
 from services.notification_center_service import create_in_app_notification
 from services.minutes.attachments import (
     get_minute_attachment_blob as get_minute_attachment_blob_use_case,
@@ -1289,6 +1294,7 @@ async def transition_minute(
     minio         = get_minio_client()
     new_version: Optional[RecordVersion] = None
     draft_content: dict[str, Any] | None = None
+    context_index_job_payload: dict[str, Any] | None = None
 
     # ── ready-for-edit → pending ──────────────────────────────────────────────
     if current_status_code == RECORD_STATUS_READY and target_status == RECORD_STATUS_PENDING:
@@ -1475,8 +1481,18 @@ async def transition_minute(
             )
 
         active_version = db.query(RecordVersion).filter_by(id=record.active_version_id).first()
-        if active_version:
-            active_version.status_id = final_status_id
+        if not active_version:
+            raise HTTPException(
+                status_code=409,
+                detail="La minuta no tiene una version activa para publicar como final.",
+            )
+        active_version.status_id = final_status_id
+        context_index_job_payload = prepare_minute_context_index_job(
+            db,
+            record=record,
+            version=active_version,
+            requested_by=actor_user_id,
+        )
 
         # El listener SQLAlchemy en pdf_dispatch.py detecta el cambio a "completed"
         # y encola el PDF final (sin watermark) con el payload completo correcto.
@@ -1512,6 +1528,21 @@ async def transition_minute(
         metadata={"commitMessage": commit_message} if commit_message else None,
     )
     db.commit()
+
+    if context_index_job_payload:
+        try:
+            await enqueue_prepared_context_index_job(context_index_job_payload)
+        except Exception as context_exc:
+            logger.warning(
+                "[context] No se pudo encolar job de Knowledge Search | record=%s err=%s",
+                record_id,
+                context_exc,
+            )
+            mark_context_index_job_enqueue_failed(
+                db,
+                payload=context_index_job_payload,
+                error=context_exc,
+            )
 
     logger.info(f"[minutes] Transición | record={record_id} {current_status_code} → {target_status}")
     if current_status_code == RECORD_STATUS_PREVIEW and target_status == RECORD_STATUS_COMPLETED:

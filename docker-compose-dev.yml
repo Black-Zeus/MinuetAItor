@@ -120,6 +120,36 @@ services:
     logging: *default-logging
     <<: *resources-medium
 
+  qdrant:
+    image: ${QDRANT_IMAGE:-qdrant/qdrant:latest}
+    container_name: ${PROJECT_NAME}-qdrant
+    labels:
+      stack: ${PROJECT_NAME}
+      env: ${ENV_NAME:-dev}
+      service.group: dependency
+      service.lifecycle: persistent
+    environment:
+      APP_VERSION: ${APP_VERSION}
+      TZ: America/Santiago
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        export QDRANT__SERVICE__API_KEY="$$(cat /run/secrets/qdrant_api_key)"
+        exec /qdrant/qdrant
+    volumes:
+      - qdrant_data:/qdrant/storage
+      - ./APP/logs/qdrant:/qdrant/logs
+    secrets:
+      - qdrant_api_key
+    ports:
+      - "${QDRANT_PORT:-6333}:6333"
+      - "${QDRANT_GRPC_PORT:-6334}:6334"
+    networks:
+      - internal
+    restart: unless-stopped
+    logging: *default-logging
+    <<: *resources-medium
+
   frontend:
     container_name: ${PROJECT_NAME}-frontend
     labels:
@@ -192,6 +222,12 @@ services:
       MINUTES_MAX_FILE_SIZE_MB: ${MINUTES_MAX_FILE_SIZE_MB}
       MINUTES_RATE_LIMIT_PER_DAY: ${MINUTES_RATE_LIMIT_PER_DAY}
       INTERNAL_API_SECRET_FILE: /run/secrets/internal_api_secret
+      QDRANT_URL: ${QDRANT_URL:-http://qdrant:6333}
+      QDRANT_API_KEY_FILE: /run/secrets/qdrant_api_key
+      QDRANT_COLLECTION: ${QDRANT_COLLECTION:-minuet_context_v1}
+      CONTEXT_QUEUE_NAME: ${CONTEXT_QUEUE_NAME:-queue:context}
+      CONTEXT_QUERY_TOP_K: ${CONTEXT_QUERY_TOP_K:-8}
+      CONTEXT_MAX_CHUNKS_FOR_ANSWER: ${CONTEXT_MAX_CHUNKS_FOR_ANSWER:-12}
     env_file:
       - ./APP/volumes/backend/.env
     volumes:
@@ -205,6 +241,7 @@ services:
       - minio_root_password
       - jwt_secret
       - internal_api_secret
+      - qdrant_api_key
       - bootstrap_admin_password
     ports:
       - "${BACKEND_PORT:-8000}:8000"
@@ -216,6 +253,8 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+      qdrant:
+        condition: service_started
     # Si tu backend NO tiene /health, comenta este healthcheck
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8000/health >/dev/null 2>&1 || exit 1"]
@@ -305,6 +344,62 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+    networks:
+      - internal
+    restart: unless-stopped
+    logging: *default-logging
+    <<: *resources-small
+
+  context-worker:
+    container_name: ${PROJECT_NAME}-context-worker
+    labels:
+      stack: ${PROJECT_NAME}
+      env: ${ENV_NAME:-dev}
+      service.group: core
+      service.lifecycle: stateless
+    build:
+      context: .
+      dockerfile: ./Data/dokerFile/dev_qa/Dockerfile.context-worker
+    image: ${PROJECT_NAME}/context-worker:dev
+    environment:
+      APP_VERSION: ${APP_VERSION}
+      ENV_NAME: ${ENV_NAME:-dev}
+      TZ: America/Santiago
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_DB: ${REDIS_DB:-0}
+      CONTEXT_QUEUE_NAME: ${CONTEXT_QUEUE_NAME:-queue:context}
+      CONTEXT_INDEXING_BATCH_SIZE: ${CONTEXT_INDEXING_BATCH_SIZE:-32}
+      QDRANT_URL: ${QDRANT_URL:-http://qdrant:6333}
+      QDRANT_API_KEY_FILE: /run/secrets/qdrant_api_key
+      QDRANT_COLLECTION: ${QDRANT_COLLECTION:-minuet_context_v1}
+      MARIADB_HOST: ${MARIADB_HOST:-mariadb}
+      MARIADB_PORT: ${MARIADB_PORT:-3306}
+      MARIADB_DATABASE: ${MARIADB_DATABASE:-minuetaitor}
+      MARIADB_USER: ${MARIADB_USER:-minuetaitor}
+      MARIADB_PASSWORD_FILE: /run/secrets/mariadb_password
+      BACKEND_INTERNAL_URL: http://${PROJECT_NAME}-backend:8000
+      INTERNAL_API_SECRET_FILE: /run/secrets/internal_api_secret
+      BACKEND_TIMEOUT: ${BACKEND_TIMEOUT:-30}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_DIR: /var/log/app
+    volumes:
+      - ./APP/volumes/context-worker/app:/app
+      - ./APP/logs/context-worker:/var/log/app
+    secrets:
+      - mariadb_password
+      - internal_api_secret
+      - qdrant_api_key
+    command: watchmedo auto-restart --patterns='*.py' --recursive -- python -u /app/main.py
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
     networks:
       - internal
     restart: unless-stopped
@@ -590,6 +685,8 @@ volumes:
     name: ${PROJECT_NAME}_redis_data
   minio_data:
     name: ${PROJECT_NAME}_minio_data
+  qdrant_data:
+    name: ${PROJECT_NAME}_qdrant_data
   frontend_node_modules:
     name: ${PROJECT_NAME}_frontend_node_modules
   frontend_npm_cache:
@@ -610,3 +707,5 @@ secrets:
     file: ./.secrets/internal_api_secret
   bootstrap_admin_password:
     file: ./.secrets/bootstrap_admin_password
+  qdrant_api_key:
+    file: ./.secrets/qdrant_api_key

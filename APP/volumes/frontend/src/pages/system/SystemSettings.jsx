@@ -10,9 +10,11 @@ import AiProviderConfigModal, {
   AI_PROVIDER_MODAL_MODES,
   AiProviderValidationModal,
 } from "@/pages/system/AiProviderConfigModal";
+import AiBindingsPanel from "@/pages/system/SystemSettingsAiBindingsPanel";
 import SmtpConfigModal, { SMTP_MODAL_MODES } from "@/pages/system/SmtpConfigModal";
 import { BackupsPanel } from "@/pages/system/SystemSettingsBackupsPanel";
 import CommissioningPanel from "@/pages/system/SystemSettingsCommissioningPanel";
+import KnowledgePanel from "@/pages/system/SystemSettingsKnowledgePanel";
 import { MaintenancePanel } from "@/pages/system/SystemSettingsMaintenancePanel";
 import { QueuesPanel } from "@/pages/system/SystemSettingsQueuesPanel";
 import {
@@ -28,6 +30,7 @@ import {
   TABS,
 } from "@/pages/system/SystemSettingsShared";
 import aiProviderConfigService from "@/services/aiProviderConfigService";
+import aiProviderBindingService from "@/services/aiProviderBindingService";
 import smtpConfigService from "@/services/smtpConfigService";
 import systemBackupsService from "@/services/systemBackupsService";
 import systemMaintenanceService from "@/services/systemMaintenanceService";
@@ -45,6 +48,7 @@ const SystemSettings = () => {
   );
   const [smtpItems, setSmtpItems] = useState([]);
   const [aiItems, setAiItems] = useState([]);
+  const [aiBindings, setAiBindings] = useState([]);
   const [aiProviderCatalog, setAiProviderCatalog] = useState([]);
   const [isSmtpLoading, setIsSmtpLoading] = useState(false);
   const [isAiLoading, setIsAiLoading] = useState(false);
@@ -163,6 +167,17 @@ const SystemSettings = () => {
     }
   };
 
+  const loadAiBindings = async ({ signal } = {}) => {
+    try {
+      const result = await aiProviderBindingService.list({ signal });
+      if (signal?.aborted) return;
+      setAiBindings(Array.isArray(result) ? result : []);
+    } catch (error) {
+      if (signal?.aborted) return;
+      setAiBindings([]);
+    }
+  };
+
   useEffect(() => {
     if (shouldRestrictTabs) return;
     if (!["summary", "integrations"].includes(effectiveActiveTab)) return;
@@ -175,8 +190,10 @@ const SystemSettings = () => {
     if (!["summary", "integrations"].includes(effectiveActiveTab)) return;
     const catalogRequest = requestScope.createRequestConfig();
     const listRequest = requestScope.createRequestConfig();
+    const bindingsRequest = requestScope.createRequestConfig();
     loadAiProviderCatalog({ signal: catalogRequest.signal });
     loadAiConfigs({ signal: listRequest.signal });
+    loadAiBindings({ signal: bindingsRequest.signal });
   }, [effectiveActiveTab, requestScope, shouldRestrictTabs]);
 
   useEffect(() => {
@@ -441,14 +458,6 @@ const SystemSettings = () => {
       return;
     }
 
-    if (!item?.modelName) {
-      ModalManager.warning({
-        title: "Modelo requerido",
-        message: "No puedes activar una configuración AI sin modelo configurado.",
-      });
-      return;
-    }
-
     if (item?.validationStatus !== "valid") {
       ModalManager.warning({
         title: "Validación requerida",
@@ -533,7 +542,43 @@ const SystemSettings = () => {
       )}
 
       {effectiveActiveTab === "integrations" && (
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <div className="space-y-6">
+          <div className="space-y-6">
+            <SectionCard
+              title="AI"
+              icon="FaBrain"
+              description="Administra los proveedores, credenciales y endpoints de IA que MinuetAItor podrá usar para analizar, resumir y apoyar el procesamiento de minutas."
+              actions={
+                <ActionButton
+                  label="Nueva configuración"
+                  onClick={openCreateAiModal}
+                  variant="primary"
+                  size="sm"
+                  icon={<Icon name="FaPlus" />}
+                />
+              }
+            >
+              <AIProviderTable
+                items={aiItems}
+                isLoading={isAiLoading}
+                providerLabelMap={aiProviderLabelMap}
+                onEdit={openEditAiModal}
+                onValidate={openAiValidationModal}
+                onToggleActive={handleAiToggleActive}
+                onDelete={handleAiDelete}
+              />
+            </SectionCard>
+          </div>
+
+          <div className="space-y-6">
+            <AiBindingsPanel
+              bindings={aiBindings}
+              providers={aiItems}
+              providerLabelMap={aiProviderLabelMap}
+              onSaved={() => loadAiBindings()}
+            />
+          </div>
+
           <div className="space-y-6">
             <SectionCard
               title="SMTP"
@@ -559,37 +604,12 @@ const SystemSettings = () => {
               />
             </SectionCard>
           </div>
-
-          <div className="space-y-6">
-            <SectionCard
-              title="AI"
-              icon="FaBrain"
-              description="Administra los proveedores, credenciales y modelos de IA que MinuetAItor podrá usar para analizar, resumir y apoyar el procesamiento de minutas."
-              actions={
-                <ActionButton
-                  label="Nueva configuración"
-                  onClick={openCreateAiModal}
-                  variant="primary"
-                  size="sm"
-                  icon={<Icon name="FaPlus" />}
-                />
-              }
-            >
-              <AIProviderTable
-                items={aiItems}
-                isLoading={isAiLoading}
-                providerLabelMap={aiProviderLabelMap}
-                onEdit={openEditAiModal}
-                onValidate={openAiValidationModal}
-                onToggleActive={handleAiToggleActive}
-                onDelete={handleAiDelete}
-              />
-            </SectionCard>
-          </div>
         </div>
       )}
 
       {effectiveActiveTab === "maintenance" && <MaintenancePanel />}
+
+      {effectiveActiveTab === "knowledge" && <KnowledgePanel />}
 
       {effectiveActiveTab === "commissioning" && <CommissioningPanel />}
 

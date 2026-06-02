@@ -27,6 +27,8 @@ class SystemMaintenanceSetting(Base):
     email_queue_warning_threshold = Column(Integer, nullable=False, default=20)
     monitor_pdf_queue_enabled = Column(Boolean, nullable=False, default=True)
     pdf_queue_warning_threshold = Column(Integer, nullable=False, default=10)
+    monitor_context_queue_enabled = Column(Boolean, nullable=False, default=True)
+    context_queue_warning_threshold = Column(Integer, nullable=False, default=10)
     monitor_dlq_enabled = Column(Boolean, nullable=False, default=True)
     dlq_warning_threshold = Column(Integer, nullable=False, default=10)
     queue_monitor_state_json = Column(Text, nullable=True)

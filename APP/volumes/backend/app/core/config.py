@@ -91,6 +91,16 @@ class Settings(BaseSettings):
     # Worker coordination
     worker_max_retries: int = 3
 
+    # Knowledge Search / Context AI
+    context_queue_name: str = "queue:context"
+    context_indexing_batch_size: int = 32
+    context_query_top_k: int = 8
+    context_max_chunks_for_answer: int = 12
+    qdrant_url: str = "http://qdrant:6333"
+    qdrant_api_key: str = ""
+    qdrant_api_key_file: str = ""
+    qdrant_collection: str = "minuet_context_v1"
+
     def model_post_init(self, __context) -> None:
         if self.mariadb_password_file:
             self.mariadb_password = _read_secret_file(self.mariadb_password_file) or self.mariadb_password
@@ -100,6 +110,8 @@ class Settings(BaseSettings):
             self.internal_api_secret = _read_secret_file(self.internal_api_secret_file) or self.internal_api_secret
         if self.minio_root_password_file:
             self.minio_root_password = _read_secret_file(self.minio_root_password_file) or self.minio_root_password
+        if self.qdrant_api_key_file:
+            self.qdrant_api_key = _read_secret_file(self.qdrant_api_key_file) or self.qdrant_api_key
 
     @property
     def database_url(self) -> str:

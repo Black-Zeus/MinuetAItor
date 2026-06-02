@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, Field, field_validator
 from services.ai_provider_catalog_service import (
     get_ai_commercial_provider_ids,
@@ -425,6 +427,10 @@ class AIProviderConfigValidationResponse(BaseModel):
 class AIProviderModelOptionResponse(BaseModel):
     value: str
     label: str
+    metadata: dict[str, Any] | None = None
+    raw: dict[str, Any] | None = None
+
+    model_config = {"populate_by_name": True}
 
 
 class AIProviderConfigDiscoverModelsResponse(BaseModel):

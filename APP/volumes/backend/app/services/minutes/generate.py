@@ -22,6 +22,10 @@ from services.minutes import sanitizers as minute_sanitizers
 from services.minutes.status_transitions import append_record_status_transition
 from services.minutes import storage as minute_storage
 from services.notification_center_service import create_in_app_notification
+from services.ai_provider_bindings_service import (
+    PURPOSE_MINUTE_ANALYSIS,
+    require_ai_provider_runtime_config_for_purpose,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +95,11 @@ async def generate_minute(
     from models.record_types import RecordType
 
     request = minute_sanitizers.sanitize_generate_request(request)
+    require_ai_provider_runtime_config_for_purpose(
+        db,
+        PURPOSE_MINUTE_ANALYSIS,
+        message="Debes configurar Uso AI para Análisis de minuta antes de procesar minutas.",
+    )
     minio = get_minio_client()
 
     bucket_inputs_id = minute_catalogs.get_catalog_id(

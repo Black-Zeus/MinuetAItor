@@ -1,0 +1,28 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    TZ=America/Santiago
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    tzdata \
+    && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime \
+    && echo $TZ > /etc/timezone \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN useradd -m appuser
+
+COPY --chown=appuser:appuser APP/volumes/context-worker/requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY --chown=appuser:appuser APP/volumes/context-worker/app/ /app
+
+RUN mkdir -p /var/log/app && chown -R appuser:appuser /var/log/app
+
+USER appuser
+
+CMD ["python", "-u", "main.py"]
+
