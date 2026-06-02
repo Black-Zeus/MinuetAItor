@@ -5,6 +5,9 @@ const RECONNECT_JITTER = 0.2;
 const STABLE_CONNECTION_MS = 30000;
 const MAX_RETRIES_PER_WINDOW = 10;
 const RETRY_WINDOW_MS = 5 * 60 * 1000;
+const SHARED_LEADER_TTL_MS = 9000;
+const SHARED_LEADER_HEARTBEAT_MS = 3000;
+const SHARED_LEADER_CHECK_MS = 1500;
 const TERMINAL_HTTP_EVENTS = new Map([
   [400, "invalid_request"],
   [401, "auth_error"],
@@ -114,6 +117,57 @@ const resetRetryWindow = (streamKey) => {
   retryWindowsByStreamKey.delete(streamKey);
 };
 
+const createClientId = () =>
+  `sse_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+
+const hashTokenHint = (value) => {
+  const raw = String(value || "");
+  let hash = 0;
+  for (let index = 0; index < raw.length; index += 1) {
+    hash = ((hash << 5) - hash + raw.charCodeAt(index)) | 0;
+  }
+  return Math.abs(hash).toString(36);
+};
+
+const safeStorageGet = (key) => {
+  try {
+    return window.localStorage?.getItem(key) ?? null;
+  } catch {
+    return null;
+  }
+};
+
+const safeStorageSet = (key, value) => {
+  try {
+    window.localStorage?.setItem(key, value);
+  } catch {
+    // localStorage can be unavailable in strict privacy modes.
+  }
+};
+
+const safeStorageRemove = (key) => {
+  try {
+    window.localStorage?.removeItem(key);
+  } catch {
+    // localStorage can be unavailable in strict privacy modes.
+  }
+};
+
+const readSharedLeader = (key) => {
+  try {
+    const parsed = JSON.parse(safeStorageGet(key) || "{}");
+    return {
+      ownerId: String(parsed?.ownerId || ""),
+      updatedAt: Number(parsed?.updatedAt || 0),
+    };
+  } catch {
+    return { ownerId: "", updatedAt: 0 };
+  }
+};
+
+const isLeaderFresh = (leader, now = Date.now()) =>
+  Boolean(leader?.ownerId) && now - Number(leader?.updatedAt || 0) <= SHARED_LEADER_TTL_MS;
+
 const createEvent = (eventName, data) => {
   if (typeof MessageEvent === "function") {
     return new MessageEvent(eventName, { data });
@@ -124,17 +178,35 @@ const createEvent = (eventName, data) => {
 export const createAuthorizedEventStream = (url, accessToken, options = {}) => {
   const listeners = new Map();
   const streamInfo = parseStreamKey(url);
+  const sharedStreamKey = options.sharedKey
+    ? `${String(options.sharedKey)}:${hashTokenHint(accessToken)}`
+    : options.shared
+      ? `${streamInfo.streamKey}:${hashTokenHint(accessToken)}`
+      : "";
+  const sharedChannelName = sharedStreamKey ? `minuet:sse:${sharedStreamKey}` : "";
+  const sharedLeaderKey = sharedStreamKey ? `minuet:sse:leader:${sharedStreamKey}` : "";
+  const clientId = createClientId();
   const debugContext = {
     ...streamInfo,
     retryCount: 0,
     startedAt: null,
   };
+  let channel = null;
   let controller = null;
   let closed = false;
   let connecting = false;
   let retryTimer = null;
   let stableTimer = null;
+  let leaderHeartbeatTimer = null;
+  let leaderCheckTimer = null;
+  let isLeader = !sharedStreamKey;
   let api = null;
+
+  if (sharedChannelName && typeof BroadcastChannel === "function") {
+    channel = new BroadcastChannel(sharedChannelName);
+  } else if (sharedStreamKey) {
+    isLeader = true;
+  }
 
   const addEventListener = (eventName, handler) => {
     if (!listeners.has(eventName)) listeners.set(eventName, new Set());
@@ -156,15 +228,82 @@ export const createAuthorizedEventStream = (url, accessToken, options = {}) => {
     }
   };
 
+  const publishSharedEvent = (eventName, data) => {
+    if (!channel || !isLeader) return;
+    try {
+      channel.postMessage({
+        type: "event",
+        ownerId: clientId,
+        eventName,
+        data,
+      });
+    } catch {
+      // BroadcastChannel is best-effort; local dispatch still happened.
+    }
+  };
+
+  const dispatchFromStream = (eventName, data) => {
+    dispatch(eventName, data);
+    publishSharedEvent(eventName, data);
+  };
+
+  const releaseLeadership = () => {
+    if (!sharedLeaderKey || !isLeader) return;
+    const currentLeader = readSharedLeader(sharedLeaderKey);
+    if (currentLeader.ownerId === clientId) {
+      safeStorageRemove(sharedLeaderKey);
+    }
+    isLeader = false;
+  };
+
+  const demoteLeadership = () => {
+    if (!isLeader) return;
+    debugLog("sse_shared_demote", debugContext, { closeReason: "other_leader_detected" });
+    isLeader = false;
+    if (leaderHeartbeatTimer) window.clearInterval(leaderHeartbeatTimer);
+    leaderHeartbeatTimer = null;
+    if (retryTimer) window.clearTimeout(retryTimer);
+    retryTimer = null;
+    controller?.abort();
+    controller = null;
+  };
+
+  const writeLeaderHeartbeat = () => {
+    if (!sharedLeaderKey || !isLeader) return;
+    const currentLeader = readSharedLeader(sharedLeaderKey);
+    if (
+      currentLeader.ownerId &&
+      currentLeader.ownerId !== clientId &&
+      isLeaderFresh(currentLeader)
+    ) {
+      demoteLeadership();
+      return;
+    }
+    safeStorageSet(
+      sharedLeaderKey,
+      JSON.stringify({
+        ownerId: clientId,
+        updatedAt: Date.now(),
+      })
+    );
+  };
+
   const close = (closeReason = "manual_close") => {
     debugLog(closeReason === "unmount" ? "sse_unmount" : "sse_close", debugContext, { closeReason });
     closed = true;
     if (retryTimer) window.clearTimeout(retryTimer);
     if (stableTimer) window.clearTimeout(stableTimer);
+    if (leaderHeartbeatTimer) window.clearInterval(leaderHeartbeatTimer);
+    if (leaderCheckTimer) window.clearInterval(leaderCheckTimer);
     retryTimer = null;
     stableTimer = null;
+    leaderHeartbeatTimer = null;
+    leaderCheckTimer = null;
     controller?.abort();
     controller = null;
+    releaseLeadership();
+    channel?.close?.();
+    channel = null;
   };
 
   const resetBackoff = () => {
@@ -174,7 +313,7 @@ export const createAuthorizedEventStream = (url, accessToken, options = {}) => {
 
   const closeTerminal = (closeReason, eventName, data = {}) => {
     debugLog("sse_terminal", debugContext, { closeReason });
-    dispatch(eventName, JSON.stringify(data));
+    dispatchFromStream(eventName, JSON.stringify(data));
     close(closeReason);
   };
 
@@ -207,6 +346,7 @@ export const createAuthorizedEventStream = (url, accessToken, options = {}) => {
     debugLog("sse_reconnect", debugContext, { closeReason });
     options.onreconnect?.({ ...streamInfo, retryCount, delayMs, closeReason });
     api?.onreconnect?.({ ...streamInfo, retryCount, delayMs, closeReason });
+    if (sharedStreamKey && !isLeader) return;
     retryTimer = window.setTimeout(connect, delayMs);
   };
 
@@ -228,7 +368,7 @@ export const createAuthorizedEventStream = (url, accessToken, options = {}) => {
 
     if (dataLines.length > 0) {
       const data = dataLines.join("\n");
-      dispatch(eventName, data);
+      dispatchFromStream(eventName, data);
       if (eventName === "keepalive") resetBackoff();
       if (eventName === "error") {
         const payload = parseEventData(data);
@@ -246,7 +386,7 @@ export const createAuthorizedEventStream = (url, accessToken, options = {}) => {
   };
 
   async function connect() {
-    if (closed) return;
+    if (closed || !isLeader) return;
     if (connecting || controller) return;
     connecting = true;
     retryTimer = null;
@@ -318,7 +458,56 @@ export const createAuthorizedEventStream = (url, accessToken, options = {}) => {
     }
   }
 
-  connect();
+  const tryBecomeLeader = () => {
+    if (!sharedStreamKey || isLeader || closed) return;
+
+    const now = Date.now();
+    const currentLeader = readSharedLeader(sharedLeaderKey);
+    if (isLeaderFresh(currentLeader, now) && currentLeader.ownerId !== clientId) return;
+
+    isLeader = true;
+    writeLeaderHeartbeat();
+    connect();
+  };
+
+  if (channel) {
+    channel.onmessage = (event) => {
+      const message = event?.data || {};
+      if (message?.type !== "event") return;
+      if (message?.ownerId === clientId) return;
+      if (!message?.eventName) return;
+      dispatch(message.eventName, message.data ?? "");
+    };
+  }
+
+  if (sharedStreamKey) {
+    const currentLeader = readSharedLeader(sharedLeaderKey);
+    if (!isLeaderFresh(currentLeader) || currentLeader.ownerId === clientId) {
+      isLeader = true;
+      writeLeaderHeartbeat();
+      connect();
+    } else {
+      isLeader = false;
+    }
+
+    if (isLeader) {
+      leaderHeartbeatTimer = window.setInterval(writeLeaderHeartbeat, SHARED_LEADER_HEARTBEAT_MS);
+    }
+
+    leaderCheckTimer = window.setInterval(() => {
+      if (closed) return;
+      if (isLeader) {
+        writeLeaderHeartbeat();
+        return;
+      }
+      tryBecomeLeader();
+      if (isLeader && !leaderHeartbeatTimer) {
+        leaderHeartbeatTimer = window.setInterval(writeLeaderHeartbeat, SHARED_LEADER_HEARTBEAT_MS);
+      }
+    }, SHARED_LEADER_CHECK_MS);
+  } else {
+    connect();
+  }
 
   api = {
     onopen: null,

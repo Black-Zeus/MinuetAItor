@@ -92,7 +92,9 @@ export const useNotificationsSSE = () => {
     hydratePreview();
 
     const url = NOTIFICATIONS_EVENTS_URL;
-    const source = createAuthorizedEventStream(url, accessToken);
+    const source = createAuthorizedEventStream(url, accessToken, {
+      sharedKey: "notifications-events",
+    });
     sourceRef.current = source;
 
     const notifyUi = (payload = {}) => {

@@ -96,6 +96,7 @@ export const useSystemMaintenanceSSE = () => {
 
     const url = SYSTEM_MAINTENANCE_EVENTS_URL;
     const source = createAuthorizedEventStream(url, accessToken, {
+      sharedKey: "system-maintenance-events",
       onopen: () => dispatchConnectionState(true),
       onerror: () => dispatchConnectionState(false),
     });

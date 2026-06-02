@@ -37,7 +37,9 @@ export const useAuthSessionSSE = () => {
     if (!currentJti) return;
 
     const url = `/api${API_ENDPOINTS.AUTH.SESSION_EVENTS}`;
-    const source = createAuthorizedEventStream(url, accessToken);
+    const source = createAuthorizedEventStream(url, accessToken, {
+      sharedKey: "auth-session-events",
+    });
     sourceRef.current = source;
 
     const handleSessionRevoked = (event) => {

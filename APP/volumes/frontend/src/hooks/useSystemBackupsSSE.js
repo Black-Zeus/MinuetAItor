@@ -87,7 +87,9 @@ export const useSystemBackupsSSE = () => {
     if (!accessToken || !isAdmin) return;
 
     const url = SYSTEM_BACKUPS_EVENTS_URL;
-    const source = createAuthorizedEventStream(url, accessToken);
+    const source = createAuthorizedEventStream(url, accessToken, {
+      sharedKey: "system-backups-events",
+    });
     sourceRef.current = source;
 
     const handleUpdate = (event) => {

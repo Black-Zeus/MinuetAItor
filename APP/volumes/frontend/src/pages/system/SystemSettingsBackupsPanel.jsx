@@ -11,7 +11,7 @@ import { BackupRecoveryView } from "@/pages/system/backups/BackupRecoveryView";
 import { BackupScheduleView } from "@/pages/system/backups/BackupScheduleView";
 import { BackupTechnicalView } from "@/pages/system/backups/BackupTechnicalView";
 import { BackupsPanelTabs } from "@/pages/system/backups/BackupsPanelTabs";
-import { SYSTEM_BACKUPS_RUNTIME_EVENT } from "@/hooks/useSystemBackupsSSE";
+import { SYSTEM_BACKUPS_RUNTIME_EVENT, useSystemBackupsSSE } from "@/hooks/useSystemBackupsSSE";
 import {
   BACKUP_DESTINATION_LABELS,
   BACKUP_POLICY_DEFINITIONS,
@@ -722,6 +722,8 @@ const CompletedProcessModal = ({ title, description, onClose }) => (
 );
 
 export const BackupsPanel = () => {
+  useSystemBackupsSSE();
+
   const [activeBackupTab, setActiveBackupTab] = useState("dashboard");
   const [expandedScheduleSections, setExpandedScheduleSections] = useState({
     database: true,
