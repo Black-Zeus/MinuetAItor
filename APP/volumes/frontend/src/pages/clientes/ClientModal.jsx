@@ -13,8 +13,10 @@ const MODES = {
 };
 
 const STEPS = [
-  { title: "Empresa", description: "Información principal del cliente." },
-  { title: "Contacto", description: "Responsable principal y canal de contacto." },
+  { title: "Identidad", description: "Datos corporativos principales." },
+  { title: "Marca", description: "Logo y representación visual." },
+  { title: "Contacto empresa", description: "Canales institucionales." },
+  { title: "Responsable", description: "Contacto principal de la cuenta." },
   { title: "Notas", description: "Contexto interno y etiquetas." },
   { title: "Confirmación", description: "Revisión final antes de confirmar." },
 ];
@@ -172,11 +174,11 @@ const StepItem = ({ index, currentStep, title, onClick }) => {
     <button
       type="button"
       onClick={onClick}
-      className="flex items-center gap-3 rounded-xl px-2 py-1 text-left transition-colors hover:bg-slate-100/70 dark:hover:bg-slate-800/70"
+      className="inline-flex min-w-0 items-center gap-3 rounded-xl px-2 py-1 text-left transition-colors hover:bg-slate-100/70 dark:hover:bg-slate-800/70"
     >
       <div
         className={cn(
-          "flex h-8 w-8 items-center justify-center rounded-full border text-xs font-semibold",
+          "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-xs font-semibold leading-none",
           isDone
             ? "border-sky-700 bg-sky-700 text-white dark:border-sky-300 dark:bg-sky-300 dark:text-slate-900"
             : isActive
@@ -188,7 +190,7 @@ const StepItem = ({ index, currentStep, title, onClick }) => {
       </div>
       <span
         className={cn(
-          "text-sm",
+          "min-w-0 text-sm leading-tight",
           isActive ? "font-semibold text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400"
         )}
       >
@@ -265,7 +267,7 @@ const ClientModal = ({ mode, data, onSubmit, onClose, onSaved }) => {
       if (!formData.industry.trim()) nextErrors.industry = "Industria es requerido";
     }
 
-    if (step === 1) {
+    if (step === 3) {
       if (!formData.contactName.trim()) nextErrors.contactName = "Nombre del contacto es requerido";
       if (!formData.contactEmail.trim()) nextErrors.contactEmail = "Email del contacto es requerido";
     }
@@ -287,7 +289,7 @@ const ClientModal = ({ mode, data, onSubmit, onClose, onSaved }) => {
   const validateBeforeSubmit = () => {
     if (isView) return true;
 
-    for (const step of [0, 1]) {
+    for (const step of [0, 3]) {
       const nextErrors = getStepErrors(step);
       if (Object.keys(nextErrors).length) {
         setErrors(nextErrors);
@@ -418,7 +420,7 @@ const ClientModal = ({ mode, data, onSubmit, onClose, onSaved }) => {
           </div>
         </div>
 
-        <div className="mt-6 flex flex-wrap gap-x-8 gap-y-3">
+        <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
           {STEPS.map((step, index) => (
             <StepItem
               key={step.title}
@@ -469,7 +471,7 @@ const ClientModal = ({ mode, data, onSubmit, onClose, onSaved }) => {
               )}
             </Section>
 
-            <Section title="Información corporativa" description="Datos principales del cliente dentro del sistema.">
+            <Section title="Datos corporativos" description="Identifica al cliente dentro del sistema y define su comportamiento documental por defecto.">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <Field label="Nombre comercial" hint="Obligatorio" error={errors.companyName}>
                   {isView ? (
@@ -558,7 +560,65 @@ const ClientModal = ({ mode, data, onSubmit, onClose, onSaved }) => {
               </div>
             </Section>
 
-            <Section title="Datos de contacto corporativo" description="Canales institucionales del cliente.">
+          </div>
+        ) : null}
+
+        {currentStep === 1 ? (
+          <div className="space-y-6">
+            <Section title="Logo / Avatar" description="Imagen representativa del cliente usada en listados, fichas y documentos.">
+              <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex items-center gap-4">
+                  <ClientLogoBadge
+                    logoUrl={currentLogoUrl}
+                    companyName={formData.companyName}
+                    logoFailed={logoFailed}
+                    onLogoError={() => setLogoFailed(true)}
+                  />
+                  <div>
+                    <div className="text-sm font-medium text-gray-900 dark:text-white">
+                      {currentLogoUrl ? "Logo cargado" : "Sin logo cargado"}
+                    </div>
+                    <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                      {isCreate
+                        ? "El logo se puede cargar después de crear el cliente."
+                        : "Formatos permitidos: JPEG o PNG. Máximo 2 MB. Los cambios se aplican solo al guardar."}
+                    </div>
+                  </div>
+                </div>
+
+                {isEdit ? (
+                  <div className="flex flex-wrap gap-3">
+                    <label className="cursor-pointer rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-300 dark:hover:bg-slate-700">
+                      {currentLogoUrl ? "Cambiar logo" : "Cargar logo"}
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png"
+                        className="hidden"
+                        onChange={(e) => {
+                          handleSelectLogo(e.target.files?.[0]);
+                          e.target.value = "";
+                        }}
+                      />
+                    </label>
+                    {(currentLogoUrl || formData.logoUrl) ? (
+                      <button
+                        type="button"
+                        onClick={handleRemoveLogo}
+                        className="rounded-xl border border-red-300 bg-white px-4 py-2.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 dark:border-red-800 dark:bg-slate-800 dark:text-red-300 dark:hover:bg-red-950/30"
+                      >
+                        Quitar logo
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            </Section>
+          </div>
+        ) : null}
+
+        {currentStep === 2 ? (
+          <div className="space-y-6">
+            <Section title="Canales institucionales" description="Datos de contacto generales de la empresa, separados del responsable de la cuenta.">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <Field label="Email corporativo" hint="Opcional">
                   {isView ? (
@@ -573,7 +633,7 @@ const ClientModal = ({ mode, data, onSubmit, onClose, onSaved }) => {
                   )}
                 </Field>
 
-                <Field label="Teléfono" hint="Opcional">
+                <Field label="Teléfono empresa" hint="Opcional">
                   {isView ? (
                     <ReadValue value={formData.companyPhone} />
                   ) : (
@@ -616,58 +676,9 @@ const ClientModal = ({ mode, data, onSubmit, onClose, onSaved }) => {
           </div>
         ) : null}
 
-        {currentStep === 1 ? (
+        {currentStep === 3 ? (
           <div className="space-y-6">
-            {!isView ? (
-              <Section title="Logo / Avatar" description="Imagen representativa del cliente usada en listados y fichas.">
-                <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-                  <div className="flex items-center gap-4">
-                    <ClientLogoBadge
-                      logoUrl={currentLogoUrl}
-                      companyName={formData.companyName}
-                      logoFailed={logoFailed}
-                      onLogoError={() => setLogoFailed(true)}
-                    />
-                    <div>
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">
-                        {currentLogoUrl ? "Logo cargado" : "Sin logo cargado"}
-                      </div>
-                      <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                        Formatos permitidos: JPEG o PNG. Máximo 2 MB. Los cambios se aplican solo al guardar.
-                      </div>
-                    </div>
-                  </div>
-
-                  {isEdit ? (
-                    <div className="flex flex-wrap gap-3">
-                      <label className="cursor-pointer rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-300 dark:hover:bg-slate-700">
-                        {currentLogoUrl ? "Cambiar logo" : "Cargar logo"}
-                        <input
-                          type="file"
-                          accept="image/jpeg,image/png"
-                          className="hidden"
-                          onChange={(e) => {
-                            handleSelectLogo(e.target.files?.[0]);
-                            e.target.value = "";
-                          }}
-                        />
-                      </label>
-                      {(currentLogoUrl || formData.logoUrl) ? (
-                        <button
-                          type="button"
-                          onClick={handleRemoveLogo}
-                          className="rounded-xl border border-red-300 bg-white px-4 py-2.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 dark:border-red-800 dark:bg-slate-800 dark:text-red-300 dark:hover:bg-red-950/30"
-                        >
-                          Quitar logo
-                        </button>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </div>
-              </Section>
-            ) : null}
-
-            <Section title="Contacto principal" description="Responsable de referencia para la cuenta.">
+            <Section title="Contacto principal" description="Persona responsable o contraparte habitual para la cuenta.">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <Field label="Nombre completo" hint="Obligatorio" error={errors.contactName}>
                   {isView ? (
@@ -740,7 +751,7 @@ const ClientModal = ({ mode, data, onSubmit, onClose, onSaved }) => {
           </div>
         ) : null}
 
-        {currentStep === 2 ? (
+        {currentStep === 4 ? (
           <div className="space-y-6">
             <Section title="Notas internas" description="Contexto útil para el equipo.">
               <Field label="Notas" hint="Opcional">
@@ -799,7 +810,7 @@ const ClientModal = ({ mode, data, onSubmit, onClose, onSaved }) => {
           </div>
         ) : null}
 
-        {currentStep === 3 ? (
+        {currentStep === 5 ? (
           <div className="space-y-6">
             <Section title="Resumen" description="Verifique los datos antes de confirmar.">
               <div className="grid grid-cols-1 gap-x-8 gap-y-5 lg:grid-cols-2">

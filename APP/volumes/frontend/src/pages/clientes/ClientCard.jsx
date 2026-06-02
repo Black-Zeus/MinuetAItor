@@ -5,6 +5,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Icon from '@/components/ui/icon/iconManager';
 import { ModalManager } from '@/components/ui/modal';
 import ClientModal, { CLIENT_MODAL_MODES } from './ClientModal';
@@ -23,6 +24,7 @@ const TXT_BODY = "text-gray-600 dark:text-gray-300";
 const TXT_META = "text-gray-500 dark:text-gray-400";
 
 const ClientCard = ({ id, summary = null, onUpdated, onDeleted }) => {
+  const navigate = useNavigate();
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [logoFailed, setLogoFailed] = useState(false);
   const authz = useSessionStore((s) => s.authz);
@@ -88,7 +90,7 @@ const ClientCard = ({ id, summary = null, onUpdated, onDeleted }) => {
     ModalManager.show({
       type: 'custom',
       title: 'Detalle Cliente',
-      size: 'clientWide',
+      size: 'entityWide',
       showHeader: false,
       showFooter: false,
       content: (
@@ -110,7 +112,7 @@ const ClientCard = ({ id, summary = null, onUpdated, onDeleted }) => {
     ModalManager.show({
       type: 'custom',
       title: 'Editar Cliente',
-      size: 'clientWide',
+      size: 'entityWide',
       showHeader: false,
       showFooter: false,
       content: (
@@ -128,6 +130,11 @@ const ClientCard = ({ id, summary = null, onUpdated, onDeleted }) => {
         />
       ),
     });
+  };
+
+  const handleHistoryClient = async () => {
+    if (!id) return;
+    navigate(`/history?type=client&id=${encodeURIComponent(id)}`);
   };
 
   // ─── Eliminar ─────────────────────────────────────────────────────────────
@@ -243,13 +250,22 @@ const ClientCard = ({ id, summary = null, onUpdated, onDeleted }) => {
 
         {/* Actions */}
         <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-          <div className={`grid gap-2 place-items-center ${canManageClients ? "grid-cols-3" : "grid-cols-1"}`}>
+          <div className={`grid gap-2 place-items-center ${canManageClients ? "grid-cols-4" : "grid-cols-2"}`}>
             <ActionButton
               variant="soft"
               size="xs"
               icon={<Icon name="eye" />}
               tooltip="Ver cliente"
               onClick={handleViewClient}
+              className="w-full"
+              disabled={loadingDetail}
+            />
+            <ActionButton
+              variant="soft"
+              size="xs"
+              icon={<Icon name="clipboardList" />}
+              tooltip="Historial de minutas"
+              onClick={handleHistoryClient}
               className="w-full"
               disabled={loadingDetail}
             />

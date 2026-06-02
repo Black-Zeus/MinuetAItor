@@ -8,6 +8,7 @@ import { Navigate } from "react-router-dom";
 const Dashboard    = lazy(() => import("@/pages/dashboard/Dashboard"));
 const GlobalSearch = lazy(() => import("@/pages/globalSearch/GlobalSearch"));
 const NotificationsInbox = lazy(() => import("@/pages/notifications/NotificationsInbox"));
+const HistoryPage = lazy(() => import("@/pages/history/HistoryPage"));
 
 export const coreRoutes = [
   {
@@ -28,6 +29,13 @@ export const coreRoutes = [
     path: "/notifications",
     component: NotificationsInbox,
     title: "Notificaciones",
+    requiresAuth: true,
+    roles: [],
+  },
+  {
+    path: "/history",
+    component: HistoryPage,
+    title: "Historial",
     requiresAuth: true,
     roles: [],
   },

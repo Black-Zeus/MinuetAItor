@@ -5,6 +5,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Icon from '@/components/ui/icon/iconManager';
 import { ModalManager } from '@/components/ui/modal';
 import ProjectModal, { PROJECT_MODAL_MODES } from './ProjectModal';
@@ -63,6 +64,7 @@ const getStatusColor = (isActive) => {
 const getStatusText = (isActive) => (isActive ? "Activo" : "Inactivo");
 
 const ProjectCard = ({ id, summary = null, clientCatalog = [], onUpdated, onDeleted }) => {
+  const navigate = useNavigate();
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [logoFailed, setLogoFailed] = useState(false);
   const authz = useSessionStore((s) => s.authz);
@@ -100,7 +102,7 @@ const ProjectCard = ({ id, summary = null, clientCatalog = [], onUpdated, onDele
     ModalManager.show({
       type: 'custom',
       title: 'Detalle Proyecto',
-      size: 'clientWide',
+      size: 'entityWide',
       showHeader: false,
       showFooter: false,
       content: (
@@ -124,7 +126,7 @@ const ProjectCard = ({ id, summary = null, clientCatalog = [], onUpdated, onDele
     ModalManager.show({
       type: 'custom',
       title: 'Editar Proyecto',
-      size: 'clientWide',
+      size: 'entityWide',
       showHeader: false,
       showFooter: false,
       content: (
@@ -143,6 +145,11 @@ const ProjectCard = ({ id, summary = null, clientCatalog = [], onUpdated, onDele
         />
       ),
     });
+  };
+
+  const handleHistoryProject = async () => {
+    if (!id) return;
+    navigate(`/history?type=project&id=${encodeURIComponent(id)}`);
   };
 
   // ─── Eliminar ─────────────────────────────────────────────────────────────
@@ -285,13 +292,22 @@ const ProjectCard = ({ id, summary = null, clientCatalog = [], onUpdated, onDele
 
       {/* FOOTER */}
       <div className="p-4 border-t border-secondary-200 dark:border-secondary-700/60 transition-theme">
-        <div className={`grid gap-2 place-items-center ${canManageProjects ? "grid-cols-3" : "grid-cols-1"}`}>
+        <div className={`grid gap-2 place-items-center ${canManageProjects ? "grid-cols-4" : "grid-cols-2"}`}>
           <ActionButton
             variant="soft"
             size="xs"
             icon={<Icon name="eye" />}
             tooltip="Ver detalle del proyecto"
             onClick={handleViewProject}
+            disabled={loadingDetail}
+            className="w-full"
+          />
+          <ActionButton
+            variant="soft"
+            size="xs"
+            icon={<Icon name="clipboardList" />}
+            tooltip="Historial de minutas"
+            onClick={handleHistoryProject}
             disabled={loadingDetail}
             className="w-full"
           />

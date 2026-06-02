@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import Icon from "@/components/ui/icon/iconManager";
 import ActionButton from "@/components/ui/button/ActionButton";
@@ -34,6 +35,7 @@ const toApiPayload = (formData) => ({
 });
 
 const ClientViewActions = ({ id, summary = null, onUpdated, onDeleted, buttonClassName = "w-full" }) => {
+  const navigate = useNavigate();
   const [loadingDetail, setLoadingDetail] = useState(false);
   const authz = useSessionStore((state) => state.authz);
   const canManageClients = canManageClientsAuthz(authz);
@@ -61,7 +63,7 @@ const ClientViewActions = ({ id, summary = null, onUpdated, onDeleted, buttonCla
     ModalManager.show({
       type: "custom",
       title: "Detalle Cliente",
-      size: "clientWide",
+      size: "entityWide",
       showHeader: false,
       showFooter: false,
       content: (
@@ -81,7 +83,7 @@ const ClientViewActions = ({ id, summary = null, onUpdated, onDeleted, buttonCla
     ModalManager.show({
       type: "custom",
       title: "Editar Cliente",
-      size: "clientWide",
+      size: "entityWide",
       showHeader: false,
       showFooter: false,
       content: (
@@ -96,6 +98,11 @@ const ClientViewActions = ({ id, summary = null, onUpdated, onDeleted, buttonCla
         />
       ),
     });
+  };
+
+  const handleHistory = () => {
+    if (!id) return;
+    navigate(`/history?type=client&id=${encodeURIComponent(id)}`);
   };
 
   const handleDelete = async () => {
@@ -122,13 +129,22 @@ const ClientViewActions = ({ id, summary = null, onUpdated, onDeleted, buttonCla
   };
 
   return (
-    <div className={`grid gap-2 ${canManageClients ? "grid-cols-3" : "grid-cols-1"}`}>
+    <div className={`grid gap-2 ${canManageClients ? "grid-cols-4" : "grid-cols-2"}`}>
       <ActionButton
         variant="soft"
         size="xs"
         icon={<Icon name="eye" />}
         tooltip="Ver cliente"
         onClick={handleView}
+        className={buttonClassName}
+        disabled={loadingDetail}
+      />
+      <ActionButton
+        variant="soft"
+        size="xs"
+        icon={<Icon name="clipboardList" />}
+        tooltip="Historial de minutas"
+        onClick={handleHistory}
         className={buttonClassName}
         disabled={loadingDetail}
       />

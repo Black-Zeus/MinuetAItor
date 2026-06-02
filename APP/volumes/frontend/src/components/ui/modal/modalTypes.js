@@ -116,6 +116,10 @@ export const MODAL_SIZES = {
     width: '!w-[50vw] !max-w-[50vw]',
     padding: 'p-6'
   },
+  entityWide: {
+    width: '!w-[calc(100vw-2rem)] !max-w-[calc(100vw-2rem)] lg:!w-[60vw] lg:!max-w-[60vw]',
+    padding: 'p-6'
+  },
   minuteWide: {
     width: '!w-[50vw] !max-w-[50vw]',
     padding: 'p-6'

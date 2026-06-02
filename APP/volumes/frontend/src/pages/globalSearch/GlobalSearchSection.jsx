@@ -115,7 +115,7 @@ const openClientModal = async (item) => {
     ModalManager.show({
       type: 'custom',
       title: 'Detalle Cliente',
-      size: 'clientWide',
+      size: 'entityWide',
       showHeader: false,
       showFooter: false,
       content: <ClientModal mode={CLIENT_MODAL_MODES.VIEW} data={detail} onClose={closeSearchDetailModal} />,
@@ -133,7 +133,7 @@ const openProjectModal = async (item) => {
     ModalManager.show({
       type: 'custom',
       title: 'Detalle Proyecto',
-      size: 'clientWide',
+      size: 'entityWide',
       showHeader: false,
       showFooter: false,
       content: (

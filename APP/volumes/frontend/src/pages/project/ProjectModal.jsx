@@ -14,7 +14,8 @@ const MODES = {
 };
 
 const STEPS = [
-  { title: "Proyecto" },
+  { title: "Identidad" },
+  { title: "Marca" },
   { title: "Cliente" },
   { title: "Notas" },
   { title: "Automatización" },
@@ -178,11 +179,11 @@ const StepItem = ({ index, currentStep, title, onClick }) => {
     <button
       type="button"
       onClick={onClick}
-      className="flex items-center gap-3 rounded-xl px-2 py-1 text-left transition-colors hover:bg-slate-100/70 dark:hover:bg-slate-800/70"
+      className="inline-flex min-w-0 items-center gap-3 rounded-xl px-2 py-1 text-left transition-colors hover:bg-slate-100/70 dark:hover:bg-slate-800/70"
     >
       <div
         className={cn(
-          "flex h-8 w-8 items-center justify-center rounded-full border text-xs font-semibold",
+          "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-xs font-semibold leading-none",
           isDone
             ? "border-sky-700 bg-sky-700 text-white dark:border-sky-300 dark:bg-sky-300 dark:text-slate-900"
             : isActive
@@ -194,7 +195,7 @@ const StepItem = ({ index, currentStep, title, onClick }) => {
       </div>
       <span
         className={cn(
-          "text-sm",
+          "min-w-0 text-sm leading-tight",
           isActive ? "font-semibold text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400"
         )}
       >
@@ -391,7 +392,7 @@ const ProjectModal = ({
       }
     }
 
-    if (step === 1) {
+    if (step === 2) {
       if (!String(formData.clientId || "").trim()) {
         nextErrors.clientId = "Debe seleccionar un cliente";
       }
@@ -414,7 +415,7 @@ const ProjectModal = ({
   const validateBeforeSubmit = () => {
     if (isView) return true;
 
-    for (const step of [0, 1]) {
+    for (const step of [0, 2]) {
       const nextErrors = getStepErrors(step);
       if (Object.keys(nextErrors).length) {
         setErrors(nextErrors);
@@ -564,7 +565,7 @@ const ProjectModal = ({
             </div>
           </div>
 
-          <div className="mt-6 flex flex-wrap gap-x-8 gap-y-3">
+          <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
             {STEPS.map((step, index) => (
               <StepItem
                 key={step.title}
@@ -696,29 +697,31 @@ const ProjectModal = ({
 
           {currentStep === 1 ? (
             <div className="space-y-6">
-              {!isView ? (
-                <Section
-                  title="Logo / Avatar"
-                  description="Imagen representativa del proyecto usada en listados y fichas."
-                >
-                  <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-                    <div className="flex items-center gap-4">
-                      <ProjectLogoBadge
-                        logoUrl={currentLogoUrl}
-                        projectName={formData.projectName}
-                        logoFailed={logoFailed}
-                        onLogoError={() => setLogoFailed(true)}
-                      />
-                      <div>
-                        <div className="text-sm font-medium text-gray-900 dark:text-white">
-                          {currentLogoUrl ? "Logo cargado" : "Sin logo cargado"}
-                        </div>
-                        <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                          Formatos permitidos: JPEG o PNG. Máximo 2 MB. Los cambios se aplican solo al guardar.
-                        </div>
+              <Section
+                title="Logo / Avatar"
+                description="Imagen representativa del proyecto usada en listados, fichas y documentos."
+              >
+                <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex items-center gap-4">
+                    <ProjectLogoBadge
+                      logoUrl={currentLogoUrl}
+                      projectName={formData.projectName}
+                      logoFailed={logoFailed}
+                      onLogoError={() => setLogoFailed(true)}
+                    />
+                    <div>
+                      <div className="text-sm font-medium text-gray-900 dark:text-white">
+                        {currentLogoUrl ? "Logo cargado" : "Sin logo cargado"}
+                      </div>
+                      <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                        {isView
+                          ? "Imagen actualmente asociada al proyecto."
+                          : "Formatos permitidos: JPEG o PNG. Máximo 2 MB. Los cambios se aplican solo al guardar."}
                       </div>
                     </div>
+                  </div>
 
+                  {!isView ? (
                     <div className="flex flex-wrap gap-3">
                       <label className="cursor-pointer rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-300 dark:hover:bg-slate-700">
                         {currentLogoUrl ? "Cambiar logo" : "Cargar logo"}
@@ -742,10 +745,14 @@ const ProjectModal = ({
                         </button>
                       ) : null}
                     </div>
-                  </div>
-                </Section>
-              ) : null}
+                  ) : null}
+                </div>
+              </Section>
+            </div>
+          ) : null}
 
+          {currentStep === 2 ? (
+            <div className="space-y-6">
               <Section
                 title="Cliente asociado"
                 description="Define la organización dueña del proyecto."
@@ -882,7 +889,7 @@ const ProjectModal = ({
             </div>
           ) : null}
 
-          {currentStep === 2 ? (
+          {currentStep === 3 ? (
             <div className="space-y-6">
               <Section title="Notas internas" description="Contexto adicional útil para el equipo del proyecto.">
                 <Field label="Notas" hint="Opcional">
@@ -941,7 +948,7 @@ const ProjectModal = ({
             </div>
           ) : null}
 
-          {currentStep === 3 ? (
+          {currentStep === 4 ? (
             <div className="space-y-6">
               <Section
                 title="Automatización"
@@ -972,7 +979,7 @@ const ProjectModal = ({
             </div>
           ) : null}
 
-          {currentStep === 4 ? (
+          {currentStep === 5 ? (
             <div className="space-y-6">
               <Section title="Resumen" description="Verifique los datos antes de confirmar.">
                 <div className="grid grid-cols-1 gap-x-8 gap-y-5 lg:grid-cols-2">

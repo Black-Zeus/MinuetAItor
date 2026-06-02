@@ -43,7 +43,7 @@ const NewClient = ({ onCreated }) => {
     ModalManager.show({
       type: 'custom',
       title: 'Crear Nuevo Cliente',
-      size: 'clientWide',
+      size: 'entityWide',
       showHeader: false,
       showFooter: false,
       content: (

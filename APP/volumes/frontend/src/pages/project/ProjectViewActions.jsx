@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import Icon from "@/components/ui/icon/iconManager";
 import ActionButton from "@/components/ui/button/ActionButton";
@@ -36,6 +37,7 @@ const ProjectViewActions = ({
   onDeleted,
   buttonClassName = "w-full",
 }) => {
+  const navigate = useNavigate();
   const [loadingDetail, setLoadingDetail] = useState(false);
   const authz = useSessionStore((state) => state.authz);
   const canManageProjects = canManageProjectsAuthz(authz);
@@ -65,7 +67,7 @@ const ProjectViewActions = ({
     ModalManager.show({
       type: "custom",
       title: "Detalle Proyecto",
-      size: "clientWide",
+      size: "entityWide",
       showHeader: false,
       showFooter: false,
       content: (
@@ -87,7 +89,7 @@ const ProjectViewActions = ({
     ModalManager.show({
       type: "custom",
       title: "Editar Proyecto",
-      size: "clientWide",
+      size: "entityWide",
       showHeader: false,
       showFooter: false,
       content: (
@@ -103,6 +105,11 @@ const ProjectViewActions = ({
         />
       ),
     });
+  };
+
+  const handleHistory = () => {
+    if (!id) return;
+    navigate(`/history?type=project&id=${encodeURIComponent(id)}`);
   };
 
   const handleDelete = async () => {
@@ -129,13 +136,22 @@ const ProjectViewActions = ({
   };
 
   return (
-    <div className={`grid gap-2 ${canManageProjects ? "grid-cols-3" : "grid-cols-1"}`}>
+    <div className={`grid gap-2 ${canManageProjects ? "grid-cols-4" : "grid-cols-2"}`}>
       <ActionButton
         variant="soft"
         size="xs"
         icon={<Icon name="eye" />}
         tooltip="Ver proyecto"
         onClick={handleView}
+        className={buttonClassName}
+        disabled={loadingDetail}
+      />
+      <ActionButton
+        variant="soft"
+        size="xs"
+        icon={<Icon name="clipboardList" />}
+        tooltip="Historial de minutas"
+        onClick={handleHistory}
         className={buttonClassName}
         disabled={loadingDetail}
       />
