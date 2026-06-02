@@ -190,6 +190,7 @@ class MaintenanceRunNowResponse(BaseModel):
 class SystemOperationModeRequest(BaseModel):
     mode: str
     reason: str | None = Field(None, max_length=500)
+    browser_context: dict | None = Field(None, alias="browserContext", serialization_alias="browserContext")
 
     @field_validator("mode")
     @classmethod

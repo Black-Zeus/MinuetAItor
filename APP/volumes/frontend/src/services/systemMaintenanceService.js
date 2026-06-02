@@ -48,6 +48,34 @@ const unwrap = (res) => {
   return data?.result ?? data;
 };
 
+const buildBrowserContext = () => {
+  if (typeof window === "undefined" || typeof navigator === "undefined") {
+    return {};
+  }
+  const screenInfo = window.screen || {};
+  const timezone = (() => {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+    } catch {
+      return "";
+    }
+  })();
+  return {
+    userAgent: navigator.userAgent || "",
+    language: navigator.language || "",
+    languages: Array.isArray(navigator.languages) ? navigator.languages.slice(0, 6) : [],
+    platform: navigator.platform || "",
+    timezone,
+    screen: {
+      width: Number(screenInfo.width || 0),
+      height: Number(screenInfo.height || 0),
+      colorDepth: Number(screenInfo.colorDepth || 0),
+      pixelRatio: Number(window.devicePixelRatio || 0),
+    },
+    locationPath: `${window.location?.pathname || ""}${window.location?.search || ""}`,
+  };
+};
+
 const getCachedPublicState = () => {
   const now = Date.now();
   if (publicStateCache.value && publicStateCache.expiresAt > now) {
@@ -129,7 +157,7 @@ const systemMaintenanceService = {
       {
         method: "post",
         url: `${BASE}/operation-state`,
-        data: { mode, reason },
+        data: { mode, reason, browserContext: buildBrowserContext() },
       },
       "No fue posible cambiar el modo operativo del sistema."
     );

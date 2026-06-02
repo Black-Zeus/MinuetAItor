@@ -441,6 +441,9 @@ async def set_system_operation_mode(
     mode: str,
     reason: str | None,
     actor_user_id: str,
+    actor_ip_context: dict | None = None,
+    actor_browser_context: dict | None = None,
+    actor_request_headers: dict | None = None,
 ) -> dict:
     normalized_mode = str(mode or "").strip()
     if normalized_mode not in {"normal", "read_only", "maintenance", "commissioning"}:
@@ -494,6 +497,11 @@ async def set_system_operation_mode(
             "reason": normalized_reason or "Modo normal restaurado administrativamente.",
             "previousState": previous_state,
             "actor": actor,
+            "actorIp": actor_ip_context or {},
+            "actorBrowser": _build_actor_browser_context(
+                browser_context=actor_browser_context,
+                request_headers=actor_request_headers,
+            ),
             "changedAt": now.replace(tzinfo=timezone.utc).isoformat(),
         }
     else:
@@ -551,6 +559,11 @@ async def set_system_operation_mode(
             "reason": marker["reason"],
             "previousState": previous_state,
             "actor": actor,
+            "actorIp": actor_ip_context or {},
+            "actorBrowser": _build_actor_browser_context(
+                browser_context=actor_browser_context,
+                request_headers=actor_request_headers,
+            ),
             "startedAt": marker["startedAt"],
         }
 
@@ -608,6 +621,9 @@ async def set_system_operation_mode(
         operation_state=operation_state,
         audit_details=audit_details,
         actor=actor,
+        actor_ip_context=actor_ip_context,
+        actor_browser_context=actor_browser_context,
+        actor_request_headers=actor_request_headers,
         changed_at=now,
     )
     return operation_state
@@ -809,12 +825,107 @@ def _actor_label(actor: dict | None) -> str:
     )
 
 
+def _clean_context_value(value: object, *, max_length: int = 180) -> str:
+    text = " ".join(str(value or "").strip().split())
+    if not text:
+        return ""
+    return text[:max_length]
+
+
+def _browser_label(user_agent: str) -> str:
+    ua = user_agent.lower()
+    if "edg/" in ua:
+        return "Microsoft Edge"
+    if "opr/" in ua or "opera" in ua:
+        return "Opera"
+    if "firefox/" in ua:
+        return "Firefox"
+    if "chrome/" in ua and "chromium" not in ua:
+        return "Chrome"
+    if "safari/" in ua and "chrome/" not in ua:
+        return "Safari"
+    return "No disponible"
+
+
+def _platform_label(user_agent: str, platform: object = "") -> str:
+    ua = user_agent.lower()
+    platform_text = str(platform or "").strip()
+    if "windows" in ua:
+        return "Windows"
+    if "mac os x" in ua or "macintosh" in ua:
+        return "macOS"
+    if "android" in ua:
+        return "Android"
+    if "iphone" in ua or "ipad" in ua or "ios" in ua:
+        return "iOS/iPadOS"
+    if "linux" in ua:
+        return "Linux"
+    return platform_text or "No disponible"
+
+
+def _device_label(user_agent: str) -> str:
+    ua = user_agent.lower()
+    if "ipad" in ua or "tablet" in ua:
+        return "Tablet"
+    if "mobi" in ua or "iphone" in ua or "android" in ua:
+        return "Móvil"
+    if user_agent:
+        return "Escritorio"
+    return "No disponible"
+
+
+def _build_actor_browser_context(
+    *,
+    browser_context: dict | None = None,
+    request_headers: dict | None = None,
+) -> dict:
+    browser_context = browser_context if isinstance(browser_context, dict) else {}
+    request_headers = request_headers if isinstance(request_headers, dict) else {}
+    user_agent = _clean_context_value(
+        browser_context.get("userAgent") or request_headers.get("user_agent"),
+        max_length=300,
+    )
+    language = _clean_context_value(
+        browser_context.get("language") or request_headers.get("accept_language"),
+        max_length=120,
+    )
+    timezone_name = _clean_context_value(browser_context.get("timezone"), max_length=80)
+    origin = _clean_context_value(request_headers.get("origin"), max_length=180)
+    referer = _clean_context_value(request_headers.get("referer"), max_length=220)
+    location_path = _clean_context_value(browser_context.get("locationPath"), max_length=180)
+    screen = browser_context.get("screen") if isinstance(browser_context.get("screen"), dict) else {}
+    screen_label = ""
+    if screen:
+        width = int(screen.get("width") or 0)
+        height = int(screen.get("height") or 0)
+        pixel_ratio = screen.get("pixelRatio") or 0
+        screen_label = f"{width}x{height}"
+        if pixel_ratio:
+            screen_label = f"{screen_label} @ {pixel_ratio}x"
+
+    return {
+        "user_agent": user_agent,
+        "browser": _browser_label(user_agent),
+        "platform": _platform_label(user_agent, browser_context.get("platform")),
+        "device": _device_label(user_agent),
+        "language": language or "No disponible",
+        "timezone": timezone_name or "No disponible",
+        "origin": origin or "No disponible",
+        "referer": referer or "No disponible",
+        "location_path": location_path or "No disponible",
+        "screen": screen_label or "No disponible",
+    }
+
+
 def _build_operation_mode_mail_context(
     *,
     previous_state: dict,
     operation_state: dict,
     audit_details: dict,
     actor: dict | None,
+    actor_ip_context: dict | None = None,
+    actor_browser_context: dict | None = None,
+    actor_request_headers: dict | None = None,
     changed_at: datetime,
     db: Session | None = None,
 ) -> dict:
@@ -826,6 +937,14 @@ def _build_operation_mode_mail_context(
         or audit_details.get("reason")
         or "Modo normal restaurado administrativamente."
     )
+    ip_context = actor_ip_context if isinstance(actor_ip_context, dict) else {}
+    public_ip = str(ip_context.get("public_ip") or "").strip()
+    private_ip = str(ip_context.get("private_ip") or "").strip()
+    direct_ip = str(ip_context.get("direct_ip") or "").strip()
+    browser = _build_actor_browser_context(
+        browser_context=actor_browser_context,
+        request_headers=actor_request_headers,
+    )
     return {
         **branding.context,
         "PREVIOUS_MODE": previous_mode,
@@ -834,6 +953,17 @@ def _build_operation_mode_mail_context(
         "CURRENT_MODE_LABEL": _operation_mode_label(current_mode),
         "OPERATION_ACTION_LABEL": _operation_action_label(previous_mode, current_mode),
         "ACTOR_LABEL": _actor_label(actor),
+        "ACTOR_PUBLIC_IP": public_ip or "No disponible",
+        "ACTOR_PRIVATE_IP": private_ip or "No disponible",
+        "ACTOR_DIRECT_IP": direct_ip or "No disponible",
+        "ACTOR_BROWSER": browser["browser"],
+        "ACTOR_DEVICE": browser["device"],
+        "ACTOR_PLATFORM": browser["platform"],
+        "ACTOR_LANGUAGE": browser["language"],
+        "ACTOR_TIMEZONE": browser["timezone"],
+        "ACTOR_ORIGIN": browser["origin"],
+        "ACTOR_LOCATION_PATH": browser["location_path"],
+        "ACTOR_SCREEN": browser["screen"],
         "REASON": reason,
         "CHANGED_AT": changed_at.replace(tzinfo=timezone.utc).astimezone(ZoneInfo(SCHEDULER_TIMEZONE)).strftime("%d/%m/%Y %H:%M"),
         "SYSTEM_MODULE_URL": build_public_url(db, "/settings/system?tab=maintenance"),
@@ -868,6 +998,9 @@ async def _notify_operation_mode_changed(
     operation_state: dict,
     audit_details: dict,
     actor: dict | None,
+    actor_ip_context: dict | None = None,
+    actor_browser_context: dict | None = None,
+    actor_request_headers: dict | None = None,
     changed_at: datetime,
 ) -> bool:
     admin_emails = _get_admin_email_recipients(db)
@@ -880,6 +1013,9 @@ async def _notify_operation_mode_changed(
             operation_state=operation_state,
             audit_details=audit_details,
             actor=actor,
+            actor_ip_context=actor_ip_context,
+            actor_browser_context=actor_browser_context,
+            actor_request_headers=actor_request_headers,
             changed_at=changed_at,
             db=db,
         )

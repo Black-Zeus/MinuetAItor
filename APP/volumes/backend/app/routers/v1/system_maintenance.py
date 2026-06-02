@@ -29,6 +29,7 @@ from services.system_maintenance_service import (
     update_system_maintenance_settings,
 )
 from services.system_readiness_service import get_system_readiness
+from utils.network import get_request_ip_context
 
 router = APIRouter(prefix="/system/maintenance", tags=["System Maintenance"])
 sse_bearer = HTTPBearer(auto_error=False)
@@ -112,6 +113,7 @@ def get_public_operation_state_endpoint(
     status_code=status.HTTP_200_OK,
 )
 async def set_operation_state_endpoint(
+    request: Request,
     body: SystemOperationModeRequest,
     session: UserSession = Depends(require_roles("ADMIN")),
     db: Session = Depends(get_db),
@@ -121,6 +123,14 @@ async def set_operation_state_endpoint(
         mode=body.mode,
         reason=body.reason,
         actor_user_id=session.user_id,
+        actor_ip_context=get_request_ip_context(request),
+        actor_browser_context=body.browser_context,
+        actor_request_headers={
+            "user_agent": request.headers.get("User-Agent"),
+            "accept_language": request.headers.get("Accept-Language"),
+            "origin": request.headers.get("Origin"),
+            "referer": request.headers.get("Referer"),
+        },
     )
 
 

@@ -107,3 +107,41 @@ def get_client_ip(request: Request) -> tuple[str | None, str | None]:
         return str(parsed), None
     except ValueError:
         return ip, None
+
+
+def _is_private_or_local(ip: str | None) -> bool:
+    if not ip:
+        return False
+    try:
+        parsed = ipaddress.ip_address(ip)
+        return parsed.is_private or parsed.is_loopback or parsed.is_link_local
+    except ValueError:
+        return False
+
+
+def get_request_ip_context(request: Request) -> dict[str, str | None]:
+    """
+    Entrega IP publica/privada cuando la cadena de proxy permite distinguirlas.
+    - public_ip: primera IP cliente no privada detectada desde headers confiables.
+    - private_ip: IP privada/local detectada como cliente o hop directo.
+    - direct_ip: IP del peer que conecto al backend.
+    """
+    ip_v4, ip_v6 = get_client_ip(request)
+    detected_ip = ip_v4 or ip_v6
+    direct_ip = sanitize_client_ip(request.client.host if request.client else None)
+
+    public_ip = detected_ip if detected_ip and not _is_private_or_local(detected_ip) else None
+    private_ip = None
+
+    if detected_ip and _is_private_or_local(detected_ip):
+        private_ip = detected_ip
+    elif direct_ip and _is_private_or_local(direct_ip):
+        private_ip = direct_ip
+
+    return {
+        "public_ip": public_ip,
+        "private_ip": private_ip,
+        "direct_ip": direct_ip,
+        "ip_v4": ip_v4,
+        "ip_v6": ip_v6,
+    }
