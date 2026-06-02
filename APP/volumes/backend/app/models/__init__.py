@@ -42,6 +42,7 @@ from models.organization_settings import OrganizationSetting
 from models.smtp_configs import SmtpConfig
 from models.system_maintenance_setting import SystemMaintenanceSetting
 from models.system_maintenance_runs import SystemMaintenanceRun
+from models.system_events import SystemEvent
 from models.system_backups import (
     SystemBackupArtifact,
     SystemBackupAuditEvent,
@@ -106,7 +107,7 @@ __all__ = [
     "Notification", "NotificationRecipient", "AccessRequest", "EmailDeliveryEvent",
     "OrganizationSetting",
     "SmtpConfig",
-    "SystemMaintenanceSetting", "SystemMaintenanceRun",
+    "SystemMaintenanceSetting", "SystemMaintenanceRun", "SystemEvent",
     # Negocio
     "Client", "Project", "Object", "AiProfile", "AuditLog",
     "Participant", "ParticipantEmail",

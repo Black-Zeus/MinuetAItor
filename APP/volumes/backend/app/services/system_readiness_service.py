@@ -424,7 +424,11 @@ async def get_system_readiness(db: Session) -> dict[str, Any]:
             title="Prueba SMTP registrada",
             status="ok" if smtp_tested > 0 else "warning",
             blocking=False,
-            message="La configuración SMTP activa tiene una prueba registrada." if smtp_tested > 0 else "Ejecuta una prueba de envío SMTP desde Integraciones antes de abrir operación.",
+            message=(
+                "La configuración SMTP activa tiene una prueba registrada."
+                if smtp_tested > 0
+                else "Ejecuta una prueba de envío para la configuración SMTP activa. Solo se requiere nuevamente si cambias esa configuración."
+            ),
             details={"testedActiveConfigs": smtp_tested},
         )
     except Exception as exc:
@@ -588,27 +592,25 @@ async def get_system_readiness(db: Session) -> dict[str, Any]:
     )
     commissioning_started_at = _last_commissioning_started_at(db, operation_state)
     if commissioning_started_at is not None:
-        manual_backup_count = _count(
+        available_backup_count = _count(
             db,
             """
             SELECT COUNT(*)
             FROM system_backup_artifacts
             WHERE deleted_at IS NULL
               AND status = 'available'
-              AND origin_type = 'manual'
               AND created_at >= :commissioning_started_at
             """,
             {"commissioning_started_at": commissioning_started_at},
         )
     else:
-        manual_backup_count = _count(
+        available_backup_count = _count(
             db,
             """
             SELECT COUNT(*)
             FROM system_backup_artifacts
             WHERE deleted_at IS NULL
               AND status = 'available'
-              AND origin_type = 'manual'
             """,
         )
     _check(
@@ -616,19 +618,19 @@ async def get_system_readiness(db: Session) -> dict[str, Any]:
         check_id="backups.dry_run",
         category="Respaldos",
         title="Prueba de backup",
-        status="ok" if manual_backup_count > 0 else "warning",
+        status="ok" if available_backup_count > 0 else "warning",
         blocking=False,
         message=(
-            "Existe al menos un respaldo manual disponible desde la última entrada a puesta en marcha."
-            if manual_backup_count > 0
+            "Existe al menos un respaldo disponible dentro de la ventana requerida."
+            if available_backup_count > 0
             else (
-                "Ejecuta un backup manual de prueba posterior a la última entrada a puesta en marcha y valida su resultado antes de salir."
+                "Genera un respaldo posterior a la última entrada a puesta en marcha y valida que quede disponible antes de salir."
                 if commissioning_started_at is not None
-                else "Ejecuta un backup manual de prueba y valida su resultado antes de salir de puesta en marcha."
+                else "Genera un respaldo de prueba y valida que quede disponible antes de salir de puesta en marcha."
             )
         ),
         details={
-            "manualAvailableBackups": manual_backup_count,
+            "availableBackups": available_backup_count,
             "requiredSince": str(commissioning_started_at) if commissioning_started_at is not None else None,
         },
     )

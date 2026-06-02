@@ -19,6 +19,13 @@ AuditReportType = Literal[
     "guest-sessions",
     "external-observations-evidence",
     "external-access-by-minute",
+    "device-location-access",
+    "session-anomalies",
+    "sensitive-account-events",
+    "sensitive-user-events",
+    "system-events",
+    "control-alerts",
+    "provider-traceability",
 ]
 
 
@@ -28,6 +35,7 @@ class AuditReportRequest(BaseModel):
     date_to: dt_date | None = Field(None, serialization_alias="dateTo")
     actor: str | None = None
     entity_type: str | None = Field(None, serialization_alias="entityType")
+    event_type: str | None = Field(None, serialization_alias="eventType")
     status: str | None = None
     client: str | None = None
     project: str | None = None

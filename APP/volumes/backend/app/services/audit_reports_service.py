@@ -5,6 +5,7 @@ from datetime import datetime, time
 from typing import Any
 
 from sqlalchemy import and_, func, or_
+from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session
 
 from core.datetime_utils import utc_now_db
@@ -14,6 +15,7 @@ from models.email_delivery_events import EmailDeliveryEvent
 from models.projects import Project
 from models.record_version_observation import RecordVersionObservation
 from models.records import Record
+from models.system_events import SystemEvent
 from models.user import User
 from models.user_sessions import UserSession as UserSessionModel
 from models.visitor_access_request import VisitorAccessRequest
@@ -36,6 +38,19 @@ ACTION_LABELS = {
     "GUEST_SESSION": "Sesión de invitado",
     "EXTERNAL_OBSERVATION": "Observación externa",
     "EXTERNAL_ACCESS_SUMMARY": "Actividad externa por minuta",
+    "DEVICE_LOCATION_ACCESS": "Acceso por dispositivo y ubicación",
+    "SESSION_ANOMALY": "Revisión de sesión",
+    "SENSITIVE_USER_EVENT": "Actividad sensible por usuario",
+    "SYSTEM_EVENT": "Evento de sistema",
+    "operation_mode_changed": "Cambio de modo operativo",
+    "queue_threshold_exceeded": "Alerta operativa activada",
+    "queue_threshold_recovered": "Alerta operativa normalizada",
+    "ai_provider_created": "Provider IA creado",
+    "ai_provider_updated": "Provider IA actualizado",
+    "ai_provider_activated": "Provider IA activado",
+    "ai_provider_deactivated": "Provider IA desactivado",
+    "ai_provider_deleted": "Provider IA eliminado",
+    "ai_provider_validated": "Provider IA validado",
 }
 
 ENTITY_LABELS = {
@@ -47,6 +62,41 @@ ENTITY_LABELS = {
     "visitor_session": "Sesión de invitado",
     "record_version_observation": "Observación externa",
     "record": "Minuta",
+    "system_event": "Evento de sistema",
+    "system_operation_state": "Modo operativo",
+    "system_control_alert": "Alerta de control",
+    "ai_provider_config": "Provider IA",
+}
+
+CONTROL_ALERT_EVENT_TYPES = {
+    "queue_threshold_exceeded",
+    "queue_threshold_recovered",
+}
+
+PROVIDER_TRACE_EVENT_TYPES = {
+    "ai_provider_created",
+    "ai_provider_updated",
+    "ai_provider_activated",
+    "ai_provider_deactivated",
+    "ai_provider_deleted",
+    "ai_provider_validated",
+}
+
+SENSITIVE_ACCOUNT_ACTIONS = {
+    "CHANGE_PASSWORD",
+    "CHANGE_PASSWORD_BY_ADMIN",
+    "CREATE_USER",
+    "DELETE_USER",
+    "DISABLE_USER",
+    "ENABLE_USER",
+    "LOCK_USER",
+    "LOGOUT_ALL_OTHER_SESSIONS",
+    "LOGOUT_SESSION",
+    "RESET_PASSWORD",
+    "UNLOCK_USER",
+    "UPDATE_USER",
+    "UPDATE_USER_ROLES",
+    "UPDATE_USER_STATUS",
 }
 
 
@@ -76,6 +126,20 @@ def list_audit_report(db: Session, session: UserSession, payload: AuditReportReq
         items = _external_observations(db, session, payload)
     elif report_type == "external-access-by-minute":
         items = _external_access_by_minute(db, session, payload)
+    elif report_type == "device-location-access":
+        items = _device_location_access(db, session, payload)
+    elif report_type == "session-anomalies":
+        items = _session_anomalies(db, session, payload)
+    elif report_type == "sensitive-account-events":
+        items = _audit_logs(db, session, payload, actions=SENSITIVE_ACCOUNT_ACTIONS)
+    elif report_type == "sensitive-user-events":
+        items = _sensitive_user_events(db, session, payload)
+    elif report_type == "system-events":
+        items = _system_events(db, session, payload)
+    elif report_type == "control-alerts":
+        items = _control_alerts(db, session, payload)
+    elif report_type == "provider-traceability":
+        items = _provider_traceability(db, session, payload)
     else:
         items = []
 
@@ -130,6 +194,14 @@ def _details(value: str | None) -> dict[str, Any]:
         return parsed if isinstance(parsed, dict) else {}
     except (json.JSONDecodeError, TypeError):
         return {}
+
+
+def _is_missing_system_events_table(exc: Exception) -> bool:
+    text = str(exc).lower()
+    return (
+        "system_events" in text
+        and ("doesn't exist" in text or "does not exist" in text or "no such table" in text)
+    )
 
 
 def _json_list(value: str | None) -> list[str]:
@@ -222,6 +294,93 @@ def _user_sessions(db: Session, session: UserSession, payload: AuditReportReques
     return items
 
 
+def _session_query(db: Session, session: UserSession, payload: AuditReportRequest):
+    query = (
+        db.query(UserSessionModel, User)
+        .join(User, User.id == UserSessionModel.user_id)
+        .filter(*_range(UserSessionModel.created_at, payload))
+    )
+    if not is_admin(session):
+        query = query.filter(UserSessionModel.user_id == session.user_id)
+    actor = _like(payload.actor)
+    if actor:
+        query = query.filter(or_(User.username.ilike(actor), User.full_name.ilike(actor), User.email.ilike(actor)))
+    if payload.status == "active":
+        query = query.filter(UserSessionModel.logged_out_at.is_(None))
+    elif payload.status == "closed":
+        query = query.filter(UserSessionModel.logged_out_at.is_not(None))
+    return query
+
+
+def _device_location_access(db: Session, session: UserSession, payload: AuditReportRequest) -> list[AuditReportRow]:
+    rows = (
+        _session_query(db, session, payload)
+        .order_by(UserSessionModel.created_at.desc())
+        .limit(payload.limit)
+        .all()
+    )
+    items = []
+    for user_session, user in rows:
+        status = "active" if user_session.logged_out_at is None else "closed"
+        ip = user_session.ip_v4 or user_session.ip_v6
+        device = _clean(user_session.device, "Dispositivo no informado")
+        location = _clean(user_session.location or user_session.city or user_session.country_name, "Ubicación no informada")
+        items.append(AuditReportRow(
+            id=user_session.id,
+            date=user_session.created_at,
+            actor=_user_label(user),
+            action=_label_action("DEVICE_LOCATION_ACCESS"),
+            entity_type=_label_entity("user_session"),
+            entity_id=user_session.jti,
+            status=status,
+            subject=user.username or user.email or user.id,
+            detail=f"{device} · {location}",
+            ip=ip,
+            device=user_session.device,
+            location=user_session.location,
+            user_agent=user_session.user_agent,
+        ))
+    return items
+
+
+def _session_anomalies(db: Session, session: UserSession, payload: AuditReportRequest) -> list[AuditReportRow]:
+    if payload.status and payload.status != "pending":
+        return []
+    rows = (
+        _session_query(db, session, payload)
+        .order_by(UserSessionModel.created_at.desc())
+        .limit(payload.limit)
+        .all()
+    )
+    items = []
+    for user_session, user in rows:
+        issues = []
+        if not (user_session.ip_v4 or user_session.ip_v6):
+            issues.append("sin IP registrada")
+        if not _clean(user_session.device, "") and not _clean(user_session.user_agent, ""):
+            issues.append("sin información de dispositivo")
+        if not _clean(user_session.location or user_session.city or user_session.country_name, ""):
+            issues.append("sin ubicación registrada")
+        if not issues:
+            continue
+        items.append(AuditReportRow(
+            id=f"session-anomaly:{user_session.id}",
+            date=user_session.created_at,
+            actor=_user_label(user),
+            action=_label_action("SESSION_ANOMALY"),
+            entity_type=_label_entity("user_session"),
+            entity_id=user_session.jti,
+            status="pending",
+            subject=user.username or user.email or user.id,
+            detail="Revisar sesión: " + " · ".join(issues),
+            ip=user_session.ip_v4 or user_session.ip_v6,
+            device=user_session.device,
+            location=user_session.location,
+            user_agent=user_session.user_agent,
+        ))
+    return items[:payload.limit]
+
+
 def _audit_logs(db: Session, session: UserSession, payload: AuditReportRequest, actions: set[str] | None = None) -> list[AuditReportRow]:
     query = (
         db.query(AuditLog, User)
@@ -254,6 +413,168 @@ def _audit_logs(db: Session, session: UserSession, payload: AuditReportRequest, 
             detail=_audit_detail(audit.action, details, audit.entity_id),
         ))
     return items
+
+
+def _sensitive_user_events(db: Session, session: UserSession, payload: AuditReportRequest) -> list[AuditReportRow]:
+    if payload.status and payload.status != "grouped":
+        return []
+    filters = _range(AuditLog.event_at, payload)
+    filters.append(AuditLog.action.in_(SENSITIVE_ACCOUNT_ACTIONS))
+    if payload.entity_type:
+        filters.append(AuditLog.entity_type == payload.entity_type)
+    if not is_admin(session):
+        filters.append(AuditLog.actor_user_id == session.user_id)
+
+    actor = _like(payload.actor)
+    query = (
+        db.query(User.id, User.username, User.full_name, User.email, func.count(AuditLog.id), func.max(AuditLog.event_at))
+        .join(User, User.id == AuditLog.actor_user_id)
+        .filter(*filters)
+    )
+    if actor:
+        query = query.filter(or_(User.username.ilike(actor), User.full_name.ilike(actor), User.email.ilike(actor)))
+
+    rows = (
+        query.group_by(User.id, User.username, User.full_name, User.email)
+        .order_by(func.count(AuditLog.id).desc())
+        .limit(payload.limit)
+        .all()
+    )
+    return [
+        AuditReportRow(
+            id=f"sensitive-user:{user_id}",
+            date=last_at,
+            actor=full_name or username or email or user_id,
+            action=_label_action("SENSITIVE_USER_EVENT"),
+            entity_type=_label_entity("audit_log"),
+            entity_id=user_id,
+            status="grouped",
+            subject=full_name or username or email or user_id,
+            detail=f"{total} evento(s) sensible(s) para revisión",
+            count=int(total or 0),
+        )
+        for user_id, username, full_name, email, total, last_at in rows
+    ]
+
+
+def _system_events(db: Session, session: UserSession, payload: AuditReportRequest) -> list[AuditReportRow]:
+    query = (
+        db.query(SystemEvent, User)
+        .outerjoin(User, User.id == SystemEvent.actor_user_id)
+        .filter(*_range(SystemEvent.event_at, payload))
+    )
+    if payload.entity_type:
+        query = query.filter(SystemEvent.entity_type == payload.entity_type)
+    if payload.event_type:
+        query = query.filter(SystemEvent.event_type == payload.event_type)
+    if payload.status:
+        query = query.filter(SystemEvent.status == payload.status)
+    if payload.event_type:
+        query = query.filter(SystemEvent.event_type == payload.event_type)
+    actor = _like(payload.actor)
+    if actor:
+        query = query.filter(or_(User.username.ilike(actor), User.full_name.ilike(actor), User.email.ilike(actor)))
+
+    try:
+        rows = query.order_by(SystemEvent.event_at.desc()).limit(payload.limit).all()
+    except (OperationalError, ProgrammingError) as exc:
+        if _is_missing_system_events_table(exc):
+            db.rollback()
+            return []
+        raise
+    return [
+        AuditReportRow(
+            id=str(event.id),
+            date=event.event_at,
+            actor=_user_label(user) if user else "Sistema",
+            action=_label_action(event.event_type) if event.event_type else _label_action("SYSTEM_EVENT"),
+            entity_type=_label_entity(event.entity_type or "system_event"),
+            entity_id=event.entity_id,
+            status=event.status,
+            subject=event.subject,
+            detail=_clean(event.detail),
+            count=1,
+        )
+        for event, user in rows
+    ]
+
+
+def _control_alerts(db: Session, session: UserSession, payload: AuditReportRequest) -> list[AuditReportRow]:
+    query = (
+        db.query(SystemEvent, User)
+        .outerjoin(User, User.id == SystemEvent.actor_user_id)
+        .filter(*_range(SystemEvent.event_at, payload))
+        .filter(SystemEvent.event_type.in_(CONTROL_ALERT_EVENT_TYPES))
+    )
+    if payload.status:
+        query = query.filter(SystemEvent.status == payload.status)
+    actor = _like(payload.actor)
+    if actor:
+        query = query.filter(or_(User.username.ilike(actor), User.full_name.ilike(actor), User.email.ilike(actor)))
+
+    try:
+        rows = query.order_by(SystemEvent.event_at.desc()).limit(payload.limit).all()
+    except (OperationalError, ProgrammingError) as exc:
+        if _is_missing_system_events_table(exc):
+            db.rollback()
+            return []
+        raise
+
+    return [
+        AuditReportRow(
+            id=str(event.id),
+            date=event.event_at,
+            actor=_user_label(user) if user else "Sistema",
+            action=_label_action(event.event_type),
+            entity_type=_label_entity(event.entity_type or "system_control_alert"),
+            entity_id=event.entity_id,
+            status=event.status,
+            subject=event.subject,
+            detail=_clean(event.detail),
+            count=1,
+        )
+        for event, user in rows
+    ]
+
+
+def _provider_traceability(db: Session, session: UserSession, payload: AuditReportRequest) -> list[AuditReportRow]:
+    query = (
+        db.query(SystemEvent, User)
+        .outerjoin(User, User.id == SystemEvent.actor_user_id)
+        .filter(*_range(SystemEvent.event_at, payload))
+        .filter(SystemEvent.event_type.in_(PROVIDER_TRACE_EVENT_TYPES))
+    )
+    if payload.status:
+        query = query.filter(SystemEvent.status == payload.status)
+    if payload.event_type:
+        query = query.filter(SystemEvent.event_type == payload.event_type)
+    actor = _like(payload.actor)
+    if actor:
+        query = query.filter(or_(User.username.ilike(actor), User.full_name.ilike(actor), User.email.ilike(actor)))
+
+    try:
+        rows = query.order_by(SystemEvent.event_at.desc()).limit(payload.limit).all()
+    except (OperationalError, ProgrammingError) as exc:
+        if _is_missing_system_events_table(exc):
+            db.rollback()
+            return []
+        raise
+
+    return [
+        AuditReportRow(
+            id=str(event.id),
+            date=event.event_at,
+            actor=_user_label(user) if user else "Sistema",
+            action=_label_action(event.event_type),
+            entity_type=_label_entity(event.entity_type or "ai_provider_config"),
+            entity_id=event.entity_id,
+            status=event.status,
+            subject=event.subject,
+            detail=_clean(event.detail),
+            count=1,
+        )
+        for event, user in rows
+    ]
 
 
 def _audit_grouped(db: Session, session: UserSession, payload: AuditReportRequest, group_by: str) -> list[AuditReportRow]:

@@ -41,6 +41,7 @@ from services.ai_provider_catalog_service import (
     get_ai_provider_definition,
 )
 from services.ai_provider_secrets import mask_secret, read_secret, store_secret
+from services.system_events_service import write_system_event
 
 VALIDATION_TOKEN_TTL_SECONDS = 15 * 60
 ANTHROPIC_VERSION = "2023-06-01"
@@ -57,6 +58,19 @@ TECHNICAL_FIELDS = {
     "custom_headers_json",
     "allow_model_discovery",
     "timeout_seconds",
+}
+
+PROVIDER_TRACEABLE_FIELDS = {
+    "name": "Nombre",
+    "provider_type": "Tipo de proveedor",
+    "base_url": "URL base",
+    "validation_endpoint": "URL validación",
+    "models_endpoint": "URL modelos",
+    "model_name": "Modelo",
+    "auth_type": "Autenticación",
+    "allow_model_discovery": "Descubrimiento de modelos",
+    "is_active": "Estado activo",
+    "timeout_seconds": "Timeout",
 }
 
 def _utcnow() -> datetime:
@@ -94,6 +108,68 @@ def _user_ref(user_obj) -> dict[str, Any] | None:
         "username": getattr(user_obj, "username", None),
         "full_name": getattr(user_obj, "full_name", None),
     }
+
+
+def _provider_subject(obj: AiProviderConfig | None, values: dict[str, Any] | None = None) -> str:
+    if obj is not None:
+        return str(obj.name or obj.provider_type or obj.id or "Provider IA").strip() or "Provider IA"
+    values = values or {}
+    return str(values.get("name") or values.get("provider_type") or "Provider IA").strip() or "Provider IA"
+
+
+def _provider_metadata(obj: AiProviderConfig | None = None, values: dict[str, Any] | None = None) -> dict[str, Any]:
+    source = values or (_config_values_from_obj(obj) if obj is not None else {})
+    return {
+        "providerConfigId": str(getattr(obj, "id", "") or source.get("id") or "") or None,
+        "providerName": _provider_subject(obj, source),
+        "providerType": source.get("provider_type"),
+        "providerFamily": _provider_family(source.get("provider_type")),
+        "modelName": source.get("model_name"),
+        "isActive": bool(source.get("is_active")),
+        "validationStatus": source.get("validation_status"),
+    }
+
+
+def _provider_changed_labels(previous: dict[str, Any], current: dict[str, Any]) -> list[str]:
+    labels: list[str] = []
+    for field, label in PROVIDER_TRACEABLE_FIELDS.items():
+        if previous.get(field) != current.get(field):
+            labels.append(label)
+    return labels
+
+
+def _write_provider_trace_event(
+    db: Session,
+    *,
+    event_type: str,
+    obj: AiProviderConfig | None = None,
+    values: dict[str, Any] | None = None,
+    actor_user_id: str | None = None,
+    status: str = "success",
+    severity: str = "info",
+    detail: str | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> None:
+    subject = _provider_subject(obj, values)
+    event_metadata = _provider_metadata(obj, values)
+    if metadata:
+        event_metadata.update(metadata)
+    try:
+        write_system_event(
+            db,
+            domain="ai_provider",
+            event_type=event_type,
+            severity=severity,
+            status=status,
+            subject=subject,
+            detail=detail,
+            entity_type="ai_provider_config",
+            entity_id=str(getattr(obj, "id", "") or event_metadata.get("providerConfigId") or "") or None,
+            actor_user_id=actor_user_id,
+            metadata=event_metadata,
+        )
+    except Exception:
+        db.rollback()
 
 
 def _parse_custom_headers(raw_value: str | None) -> dict[str, str] | None:
@@ -952,6 +1028,13 @@ def create_ai_provider_config(db: Session, body: AIProviderConfigCreateRequest, 
         db.add(obj)
         db.commit()
         db.refresh(obj)
+    _write_provider_trace_event(
+        db,
+        event_type="ai_provider_created",
+        obj=obj,
+        actor_user_id=created_by_id,
+        detail="Provider IA creado y validado.",
+    )
     return _build_response_dict(_get_or_404(db, obj.id))
 
 
@@ -969,6 +1052,7 @@ def update_ai_provider_config(
     _check_unique_name(db, values["name"], exclude_id=obj.id)
     validated_at = utc_now_db()
     should_lock_active_scope = bool(values["is_active"]) or bool(obj.is_active)
+    previous_values = _config_values_from_obj(obj)
 
     with _optional_active_config_lock(db, should_lock_active_scope):
         obj.name = values["name"]
@@ -994,6 +1078,19 @@ def update_ai_provider_config(
 
         db.commit()
         db.refresh(obj)
+    changed_labels = _provider_changed_labels(previous_values, values)
+    _write_provider_trace_event(
+        db,
+        event_type="ai_provider_updated",
+        obj=obj,
+        actor_user_id=updated_by_id,
+        detail=(
+            "Provider IA actualizado. Cambios: " + ", ".join(changed_labels)
+            if changed_labels
+            else "Provider IA validado sin cambios técnicos relevantes."
+        ),
+        metadata={"changedFields": changed_labels},
+    )
     return _build_response_dict(_get_or_404(db, obj.id))
 
 
@@ -1008,6 +1105,13 @@ def activate_ai_provider_config(db: Session, config_id: str, updated_by_id: str)
         obj.updated_by = updated_by_id
         db.commit()
         db.refresh(obj)
+    _write_provider_trace_event(
+        db,
+        event_type="ai_provider_activated",
+        obj=obj,
+        actor_user_id=updated_by_id,
+        detail="Provider IA activado para uso operativo.",
+    )
     return _build_response_dict(_get_or_404(db, obj.id))
 
 
@@ -1019,6 +1123,13 @@ def deactivate_ai_provider_config(db: Session, config_id: str, updated_by_id: st
         obj.updated_by = updated_by_id
         db.commit()
         db.refresh(obj)
+    _write_provider_trace_event(
+        db,
+        event_type="ai_provider_deactivated",
+        obj=obj,
+        actor_user_id=updated_by_id,
+        detail="Provider IA desactivado para uso operativo.",
+    )
     return _build_response_dict(_get_or_404(db, obj.id))
 
 
@@ -1080,6 +1191,16 @@ def validate_ai_provider_config(
         else:
             result["validation_token"] = None
             result["expires_at"] = None
+        _write_provider_trace_event(
+            db,
+            event_type="ai_provider_validated",
+            obj=current,
+            actor_user_id=validated_by_id,
+            status=status,
+            severity="info" if status == "valid" else "warning",
+            detail=message,
+            metadata={"validationStatus": status},
+        )
         return result
 
     validation_token = None
@@ -1110,6 +1231,15 @@ def delete_ai_provider_config(db: Session, config_id: str, deleted_by_id: str) -
         obj.updated_by = deleted_by_id
         obj.is_active = False
         db.commit()
+
+    _write_provider_trace_event(
+        db,
+        event_type="ai_provider_deleted",
+        obj=obj,
+        actor_user_id=deleted_by_id,
+        detail="Provider IA eliminado de la administración operativa.",
+        metadata={"deletedAt": obj.deleted_at.isoformat() if obj.deleted_at else None},
+    )
 
     return {"ok": True}
 

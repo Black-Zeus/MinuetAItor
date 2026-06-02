@@ -32,6 +32,7 @@ from services.email_queue import queue_templated_email
 from services.email_branding_service import build_email_branding_bundle
 from services.notification_center_service import create_in_app_notification
 from services.public_url_service import build_public_url
+from services.system_events_service import write_system_event
 from services.system_maintenance_events_service import publish_maintenance_event
 from services.system_queue_catalog import QUEUE_DEFINITIONS
 from repositories.audit_repository import write_audit
@@ -602,6 +603,28 @@ async def set_system_operation_mode(
         entity_id=audit_entity_id,
         details=audit_details,
     )
+    try:
+        write_system_event(
+            db,
+            domain="system",
+            event_type="operation_mode_changed",
+            severity="info",
+            status="success",
+            subject="Cambio de modo operativo",
+            detail=f"Modo operativo actualizado a {OPERATION_MODE_LABELS.get(normalized_mode, normalized_mode)}.",
+            entity_type="system_operation_state",
+            entity_id=audit_entity_id,
+            actor_user_id=actor_user_id,
+            metadata={
+                "mode": normalized_mode,
+                "previousMode": previous_state.get("mode") or "normal",
+                "reason": normalized_reason,
+                "operationType": audit_details.get("operationType"),
+            },
+        )
+    except Exception:
+        db.rollback()
+        logger.exception("No se pudo registrar el evento operativo del sistema.")
     operation_state = get_system_operation_state(db)
     await publish_maintenance_event(
         status="updated",
@@ -748,6 +771,56 @@ def _build_queue_alert_copy(definition: dict, *, size: int, warning_threshold: i
         f"Alerta en cola {definition['label']}",
         f"La cola {definition['queue']} alcanzó {size} job(s) y superó el umbral configurado de {warning_threshold}.",
     )
+
+
+def _write_queue_control_alert_event(
+    db: Session,
+    definition: dict,
+    *,
+    event_type: str,
+    size: int,
+    warning_threshold: int,
+) -> None:
+    is_recovered = event_type == "queue_threshold_recovered"
+    severity = "success" if is_recovered else _alert_level_for_queue(definition["key"])
+    status = "success" if is_recovered else severity
+    subject = (
+        f"{definition['label']} normalizada"
+        if is_recovered
+        else f"{definition['label']} requiere revisión"
+    )
+    detail = (
+        f"La señal operativa volvió a nivel normal con {size} elemento(s) frente al umbral {warning_threshold}."
+        if is_recovered
+        else f"La señal operativa alcanzó {size} elemento(s) frente al umbral {warning_threshold}."
+    )
+    try:
+        write_system_event(
+            db,
+            domain="system",
+            event_type=event_type,
+            severity=severity,
+            status=status,
+            subject=subject,
+            detail=detail,
+            entity_type="system_control_alert",
+            entity_id=definition["key"],
+            metadata={
+                "queue": definition["queue"],
+                "queueKey": definition["key"],
+                "queueLabel": definition["label"],
+                "size": int(size),
+                "warningThreshold": int(warning_threshold),
+            },
+        )
+    except Exception:
+        db.rollback()
+        logger.warning(
+            "No se pudo registrar evento de alerta de control | queue=%s event=%s",
+            definition.get("key"),
+            event_type,
+            exc_info=True,
+        )
 
 
 def _build_queue_alert_mail_context(
@@ -1205,6 +1278,13 @@ async def _process_queue_observability(db: Session, obj: SystemMaintenanceSettin
                 warning_threshold=warning_threshold,
                 detected_at=current_utc_dt,
             )
+            _write_queue_control_alert_event(
+                db,
+                definition,
+                event_type="queue_threshold_exceeded",
+                size=size,
+                warning_threshold=warning_threshold,
+            )
             triggered.append({
                 "queue": queue_name,
                 "size": size,
@@ -1230,6 +1310,13 @@ async def _process_queue_observability(db: Session, obj: SystemMaintenanceSettin
                 )
                 if recovery_mail_sent:
                     queue_state["last_recovery_mail_sent_at"] = current_utc_dt.isoformat()
+            _write_queue_control_alert_event(
+                db,
+                definition,
+                event_type="queue_threshold_recovered",
+                size=size,
+                warning_threshold=warning_threshold,
+            )
         state[queue_key] = queue_state
 
     _save_queue_monitor_state(obj, state)
