@@ -346,6 +346,22 @@ const coalesceName = (primary, fallback) => {
   return fallbackText || "Sin dato";
 };
 
+const getClientId = (client) => client?.id ?? client?.clientId ?? client?.client_id ?? null;
+
+const getClientLabel = (client) =>
+  coalesceName(
+    client?.companyName ?? client?.company_name ?? client?.company ?? client?.name ?? client?.clientName ?? client?.client_name,
+    client?.client ?? "Sin cliente"
+  );
+
+const getProjectId = (project) => project?.id ?? project?.projectId ?? project?.project_id ?? null;
+
+const getProjectLabel = (project) =>
+  coalesceName(
+    project?.name ?? project?.projectName ?? project?.project_name,
+    project?.project ?? "Sin proyecto"
+  );
+
 const buildSummaryCard = (label, value, helper, icon, tone) => ({
   label,
   value,
@@ -1534,14 +1550,10 @@ const ManagementAiUsageReportPage = () => {
     if (!reportConfig) return undefined;
 
     let isMounted = true;
+    const catalogController = new AbortController();
+    const catalogRequestConfig = { signal: catalogController.signal };
     const run = async () => {
       try {
-        const clientReq = requestScope.createRequestConfig();
-        const projectReq = requestScope.createRequestConfig();
-        const profileReq = requestScope.createRequestConfig();
-        const providerCatalogReq = requestScope.createRequestConfig();
-        const providerListReq = requestScope.createRequestConfig();
-
         const [
           clientResult,
           projectResult,
@@ -1551,32 +1563,51 @@ const ManagementAiUsageReportPage = () => {
         ] = await Promise.allSettled([
           clientService.list(
             { skip: 0, limit: 300, isActive: true },
-            clientReq
+            catalogRequestConfig
           ),
           projectService.list(
             { skip: 0, limit: 300, isActive: true },
-            projectReq
+            catalogRequestConfig
           ),
           profileService.list(
             { skip: 0, limit: 200, isActive: null },
-            profileReq
+            catalogRequestConfig
           ),
-          aiProviderConfigService.getCatalog(providerCatalogReq),
+          aiProviderConfigService.getCatalog(catalogRequestConfig),
           aiProviderConfigService.list(
             { skip: 0, limit: 100, isActive: true },
-            providerListReq
+            catalogRequestConfig
           ),
         ]);
 
-        if (!isMounted) return;
+        if (!isMounted || catalogController.signal.aborted) return;
 
         if (profileResult.status === "rejected") {
           reportLog.warn("No fue posible precargar el catalogo de perfiles IA.", profileResult.reason);
         }
 
+        const clientItems = clientResult.status === "fulfilled" && Array.isArray(clientResult.value?.items)
+          ? clientResult.value.items
+          : [];
+        const projectItems = projectResult.status === "fulfilled" && Array.isArray(projectResult.value?.items)
+          ? projectResult.value.items
+          : [];
+
         setCatalogs({
-          clients: clientResult.status === "fulfilled" ? clientResult.value.items ?? [] : [],
-          projects: projectResult.status === "fulfilled" ? projectResult.value.items ?? [] : [],
+          clients: clientItems
+            .map((item) => ({
+              ...item,
+              value: getClientId(item),
+              label: getClientLabel(item),
+            }))
+            .filter((item) => item.value && item.label),
+          projects: projectItems
+            .map((item) => ({
+              ...item,
+              value: getProjectId(item),
+              label: getProjectLabel(item),
+            }))
+            .filter((item) => item.value && item.label),
           profiles: profileResult.status === "fulfilled" ? profileResult.value.items ?? [] : [],
           providerCatalog:
             providerCatalog.status === "fulfilled" && Array.isArray(providerCatalog.value)
@@ -1586,7 +1617,9 @@ const ManagementAiUsageReportPage = () => {
             providerConfigs.status === "fulfilled" ? providerConfigs.value.items ?? [] : [],
         });
       } catch (error) {
-        reportLog.warn("No fue posible precargar catalogos para reportes IA.", error);
+        if (!catalogController.signal.aborted) {
+          reportLog.warn("No fue posible precargar catalogos para reportes IA.", error);
+        }
       }
     };
 
@@ -1594,8 +1627,9 @@ const ManagementAiUsageReportPage = () => {
 
     return () => {
       isMounted = false;
+      catalogController.abort();
     };
-  }, [reportConfig, requestScope]);
+  }, [reportConfig]);
 
   const loadReportData = useCallback(
     async (filtersToApply) => {
@@ -1651,8 +1685,8 @@ const ManagementAiUsageReportPage = () => {
     () =>
       new Map(
         (catalogs.clients ?? []).map((item) => [
-          String(item.id),
-          coalesceName(item.company, item.name),
+          String(item.value ?? item.id),
+          coalesceName(item.label, getClientLabel(item)),
         ])
       ),
     [catalogs.clients]
@@ -1662,8 +1696,8 @@ const ManagementAiUsageReportPage = () => {
     () =>
       new Map(
         (catalogs.projects ?? []).map((item) => [
-          String(item.id),
-          coalesceName(item.name, item.projectName),
+          String(item.value ?? item.id),
+          coalesceName(item.label, getProjectLabel(item)),
         ])
       ),
     [catalogs.projects]
@@ -1712,8 +1746,8 @@ const ManagementAiUsageReportPage = () => {
         icon: "FaBuilding",
         placeholder: "Todos los clientes",
         options: catalogs.clients,
-        getOptionValue: (option) => option.id,
-        getOptionLabel: (option) => coalesceName(option.company, option.name),
+        getOptionValue: (option) => option.value ?? option.id,
+        getOptionLabel: (option) => coalesceName(option.label, getClientLabel(option)),
       },
       {
         name: "projectId",
@@ -1722,8 +1756,8 @@ const ManagementAiUsageReportPage = () => {
         icon: "FaDiagramProject",
         placeholder: "Todos los proyectos",
         options: catalogs.projects,
-        getOptionValue: (option) => option.id,
-        getOptionLabel: (option) => coalesceName(option.name, option.projectName),
+        getOptionValue: (option) => option.value ?? option.id,
+        getOptionLabel: (option) => coalesceName(option.label, getProjectLabel(option)),
       },
       {
         name: "aiProfileId",
@@ -2055,7 +2089,7 @@ const ManagementAiUsageReportPage = () => {
     >
       {hasExecutedSearch && hasLegacyEventsWithoutProfile ? (
         <div className="mb-5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900 dark:border-rose-700/40 dark:bg-rose-900/20 dark:text-rose-100">
-          Se detectaron eventos IA historicos sin perfil asociado. Desde esta pasada los nuevos eventos `minute_processing` sin `ai_profile_id` ya no se persisten como metricas validas y deben revisarse como deuda de integridad previa.
+          Hay uso historico de IA sin clasificacion operativa. Los nuevos registros se validan antes de incorporarse a las metricas; revisa los antiguos para completar su trazabilidad.
         </div>
       ) : null}
 

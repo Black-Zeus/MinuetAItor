@@ -337,6 +337,7 @@ const AuditReportPage = () => {
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [appliedFilters, setAppliedFilters] = useState(DEFAULT_FILTERS);
   const [rows, setRows] = useState([]);
+  const [actorCatalog, setActorCatalog] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasExecuted, setHasExecuted] = useState(false);
   const [page, setPage] = useState(1);
@@ -399,8 +400,11 @@ const AuditReportPage = () => {
   ], [evidenceCount, reportId, rows.length, uniqueActors, uniqueEntities]);
 
   const actorOptions = useMemo(
-    () => buildSelectOptions(rows.map((row) => row.actor), filters.actor),
-    [filters.actor, rows]
+    () => buildSelectOptions([
+      ...actorCatalog,
+      ...rows.map((row) => row.actor),
+    ], filters.actor),
+    [actorCatalog, filters.actor, rows]
   );
 
   const filterFields = useMemo(() => {
@@ -487,9 +491,41 @@ const AuditReportPage = () => {
     setFilters(DEFAULT_FILTERS);
     setAppliedFilters(DEFAULT_FILTERS);
     setRows([]);
+    setActorCatalog([]);
     setHasExecuted(false);
     setPage(1);
   }, [reportId]);
+
+  useEffect(() => {
+    if (!reportType) return undefined;
+    let cancelled = false;
+
+    const loadActorCatalog = async () => {
+      try {
+        const response = await listAuditEvents({
+          reportType,
+          limit: 500,
+        });
+        if (cancelled) return;
+        const nextActors = (response?.items ?? [])
+          .map((row) => normalizeRow(row).actor)
+          .map((actor) => String(actor ?? "").trim())
+          .filter(Boolean);
+        setActorCatalog(Array.from(new Set(nextActors)));
+      } catch (error) {
+        if (!cancelled) {
+          reportLog.warn(`No se pudo precargar el catalogo de actores para auditoría ${reportId}.`, error);
+          setActorCatalog([]);
+        }
+      }
+    };
+
+    loadActorCatalog();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [reportId, reportType]);
 
   const handleFilterChange = (name, value) => {
     setFilters((current) => ({ ...current, [name]: value }));

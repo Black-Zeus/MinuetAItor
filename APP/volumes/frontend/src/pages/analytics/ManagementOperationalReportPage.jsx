@@ -6815,17 +6815,10 @@ const ManagementOperationalReportPage = () => {
 
     const loadFilterCatalogs = async () => {
       try {
-        const visibleFilters = reportConfig.defaultVisibleFilters ?? DEFAULT_VISIBLE_FILTERS;
         const [clientsResult, projectsResult, teamsResult] = await Promise.all([
-          visibleFilters.client
-            ? clientService.list({ isActive: true, limit: 200 }, requestConfig)
-            : Promise.resolve({ items: [] }),
-          visibleFilters.project
-            ? projectService.list({ isActive: true, limit: 200 }, requestConfig)
-            : Promise.resolve({ items: [] }),
-          visibleFilters.responsible
-            ? teamsService.list({ skip: 0, limit: 200, filters: { status: "active" } })
-            : Promise.resolve({ teams: [] }),
+          clientService.list({ isActive: true, limit: 500 }, requestConfig),
+          projectService.list({ isActive: true, limit: 500 }, requestConfig),
+          teamsService.list({ skip: 0, limit: 200, filters: { status: "active" } }),
         ]);
 
         if (!isMounted || requestScope.wasAborted(requestConfig.signal)) return;

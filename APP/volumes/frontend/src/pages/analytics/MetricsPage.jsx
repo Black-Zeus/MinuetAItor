@@ -80,6 +80,22 @@ const buildDefaultFilters = () => {
   };
 };
 
+const getClientId = (client) => client?.id ?? client?.clientId ?? client?.client_id ?? "";
+const getClientLabel = (client) =>
+  client?.companyName ??
+  client?.company_name ??
+  client?.company ??
+  client?.name ??
+  client?.clientName ??
+  client?.client_name ??
+  client?.client ??
+  "Sin cliente";
+const getProjectId = (project) => project?.id ?? project?.projectId ?? project?.project_id ?? "";
+const getProjectClientId = (project) =>
+  project?.clientId ?? project?.client_id ?? project?.client?.id ?? "";
+const getProjectLabel = (project) =>
+  project?.name ?? project?.projectName ?? project?.project_name ?? project?.project ?? "Sin proyecto";
+
 const numberFmt = new Intl.NumberFormat("es-CL");
 const compactFmt = new Intl.NumberFormat("es-CL", { notation: "compact", maximumFractionDigits: 1 });
 const currencyFmt = new Intl.NumberFormat("es-CL", {
@@ -1054,7 +1070,7 @@ const MetricsPage = () => {
 
   const visibleProjects = useMemo(() => {
     if (!draftFilters.clientId) return projects;
-    return projects.filter((project) => String(project.clientId ?? project.client_id ?? "") === String(draftFilters.clientId));
+    return projects.filter((project) => String(getProjectClientId(project)) === String(draftFilters.clientId));
   }, [projects, draftFilters.clientId]);
 
   const loadCatalogs = async () => {
@@ -1237,8 +1253,8 @@ const MetricsPage = () => {
               <select className={inputClassName} value={draftFilters.clientId} onChange={(event) => handleChange("clientId", event.target.value)}>
                 <option value="">Todos</option>
                 {clients.map((client) => (
-                  <option key={client.id} value={client.id}>
-                    {client.name}
+                  <option key={getClientId(client)} value={getClientId(client)}>
+                    {getClientLabel(client)}
                   </option>
                 ))}
               </select>
@@ -1247,8 +1263,8 @@ const MetricsPage = () => {
               <select className={inputClassName} value={draftFilters.projectId} onChange={(event) => handleChange("projectId", event.target.value)}>
                 <option value="">Todos</option>
                 {visibleProjects.map((project) => (
-                  <option key={project.id} value={project.id}>
-                    {project.name}
+                  <option key={getProjectId(project)} value={getProjectId(project)}>
+                    {getProjectLabel(project)}
                   </option>
                 ))}
               </select>
