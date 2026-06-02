@@ -7,10 +7,11 @@
  * e impedía la redirección real).
  */
 
-import React, { Suspense } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import React, { Suspense, useMemo } from "react";
+import { BrowserRouter, Routes, Route, Navigate, matchPath, useLocation } from "react-router-dom";
 
 import Layout from "@/components/layout/Layout";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import ProtectedRoute from "./guards/ProtectedRoute";
 import PublicRoute from "./guards/PublicRoute";
 import { allRoutes } from "./modules";
@@ -36,11 +37,26 @@ const InnerLoader = () => (
   </div>
 );
 
+const RouteDocumentTitle = () => {
+  const { pathname } = useLocation();
+  const routeTitle = useMemo(() => {
+    if (pathname === "/") return "Dashboard";
+    const matchedRoute = allRoutes.find((route) =>
+      matchPath({ path: route.path, end: true }, pathname)
+    );
+    return matchedRoute?.title || null;
+  }, [pathname]);
+
+  useDocumentTitle(routeTitle);
+  return null;
+};
+
 // ─── AppRouter ────────────────────────────────────────────────────────────────
 
 const AppRouter = () => {
   return (
     <BrowserRouter>
+      <RouteDocumentTitle />
       <Routes>
 
         {/* ── Redirect raíz: / → /dashboard ─────────────────────────────────

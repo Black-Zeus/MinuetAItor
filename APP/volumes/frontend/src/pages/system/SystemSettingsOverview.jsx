@@ -34,7 +34,40 @@ const normalizeBackupsSummaryConfig = (config) => ({
   },
 });
 
+const normalizeContextSummarySettings = (config) => ({
+  contextAiEnabled: Boolean(config?.contextAiEnabled ?? config?.context_ai_enabled ?? false),
+  queryEnabled: Boolean(config?.queryEnabled ?? config?.query_enabled ?? false),
+  indexingEnabled: Boolean(config?.indexingEnabled ?? config?.indexing_enabled ?? false),
+  syncEnabled: Boolean(config?.syncEnabled ?? config?.sync_enabled ?? false),
+});
+
 const scheduleBadgeTone = (enabled) => (enabled ? "active" : "inactive");
+
+const OPERATION_MODE_LABELS = {
+  normal: "Normal",
+  maintenance: "Mantenimiento",
+  read_only: "Solo lectura",
+  commissioning: "Puesta en marcha",
+  production: "Producción",
+};
+
+const AI_AGENT_PURPOSES = [
+  {
+    id: "minute_analysis",
+    label: "Análisis de minuta",
+    requiresDimensions: false,
+  },
+  {
+    id: "context_embeddings",
+    label: "Vectorización",
+    requiresDimensions: true,
+  },
+  {
+    id: "context_answering",
+    label: "Respuesta contextual",
+    requiresDimensions: false,
+  },
+];
 
 const ScheduleItem = ({ icon, title, enabled, cron, description }) => {
   const cronDescription = describeCronExpression(cron || "");
@@ -115,23 +148,166 @@ export const SendSmtpTestModal = ({ config, onClose, onSent }) => {
   );
 };
 
-export const SummaryPanel = ({ smtpItems, aiItems, maintenanceConfig, backupsConfig }) => {
+export const SummaryPanel = ({
+  smtpItems,
+  aiItems,
+  aiBindings = [],
+  providerLabelMap = {},
+  maintenanceConfig,
+  backupsConfig,
+  contextSettings,
+  readiness,
+  operationMode,
+  onNavigateTab = () => {},
+}) => {
   const activeCount = smtpItems.filter((item) => item.isActive).length;
   const inactiveCount = smtpItems.length - activeCount;
   const aiActiveCount = aiItems.filter((item) => item.isActive).length;
-  const aiInactiveCount = aiItems.length - aiActiveCount;
   const activeSmtp = smtpItems.find((item) => item.isActive) ?? null;
-  const activeAi = aiItems.find((item) => item.isActive) ?? null;
   const aiPendingValidationCount = aiItems.filter((item) => item.validationStatus && item.validationStatus !== "valid").length;
-  const configuredChannels = Number(Boolean(activeSmtp)) + Number(Boolean(activeAi));
+  const activeAiProviders = aiItems.filter((item) => item.isActive);
+  const aiBindingDetails = AI_AGENT_PURPOSES.map((purpose) => {
+    const binding = aiBindings.find((item) => item.purpose === purpose.id && item.isActive !== false);
+    const provider = binding?.provider ?? aiItems.find((item) => String(item.id) === String(binding?.providerConfigId));
+    const providerIsUsable = Boolean(provider?.isActive && provider?.validationStatus === "valid");
+    const modelName = String(binding?.modelName || "").trim();
+    const dimensions = Number(binding?.embeddingDimensions || 0);
+    const isReady = Boolean(binding && providerIsUsable && modelName && (!purpose.requiresDimensions || dimensions));
+    const providerName = provider?.name || "Sin provider";
+    const providerTypeLabel = getProviderLabel(provider?.providerType, providerLabelMap);
+    return {
+      ...purpose,
+      binding,
+      provider,
+      providerName,
+      providerTypeLabel,
+      modelName,
+      dimensions,
+      isReady,
+      status: isReady ? "Configurado" : "Pendiente",
+      tone: isReady ? "active" : "warning",
+    };
+  });
+  const aiReadyAgentCount = aiBindingDetails.filter((item) => item.isReady).length;
+  const aiChannelReady = Boolean(aiActiveCount && aiReadyAgentCount === AI_AGENT_PURPOSES.length);
+  const configuredChannels = Number(Boolean(activeSmtp)) + Number(aiChannelReady);
   const maintenanceSummary = normalizeMaintenanceSummaryConfig(maintenanceConfig);
   const backupsSummary = normalizeBackupsSummaryConfig(backupsConfig);
+  const contextSummary = normalizeContextSummarySettings(contextSettings);
+  const readinessSummary = readiness?.summary || {};
+  const hasReadinessSummary = Boolean(readiness?.summary);
   const enabledBackupPolicies = BACKUP_POLICY_DEFINITIONS.filter(
     (policyDefinition) => backupsSummary.policies?.[policyDefinition.id]?.enabled
   ).length;
   const scheduledTasksCount = Number(Boolean(maintenanceSummary.sessionCleanupEnabled))
     + Number(Boolean(maintenanceSummary.tempCleanupEnabled))
     + enabledBackupPolicies;
+  const monitoredQueuesCount = [
+    maintenanceSummary.monitorMaintenanceQueueEnabled,
+    maintenanceSummary.monitorMinutesQueueEnabled,
+    maintenanceSummary.monitorEmailQueueEnabled,
+    maintenanceSummary.monitorPdfQueueEnabled,
+    maintenanceSummary.monitorContextQueueEnabled,
+    maintenanceSummary.monitorDlqEnabled,
+  ].filter(Boolean).length;
+  const contextEnabledFlagsCount = [
+    contextSummary.contextAiEnabled,
+    contextSummary.queryEnabled,
+    contextSummary.indexingEnabled,
+    contextSummary.syncEnabled,
+  ].filter(Boolean).length;
+  const blockingFailed = Number(readinessSummary.blockingFailed ?? 0);
+  const warningCount = Number(readinessSummary.warning ?? 0);
+  const manualCount = Number(readinessSummary.manual ?? 0);
+  const reviewPendingCount = warningCount + manualCount;
+  const commissioningTone = !hasReadinessSummary
+    ? "inactive"
+    : blockingFailed
+      ? "danger"
+      : reviewPendingCount
+        ? "warning"
+        : "active";
+  const commissioningStatus = !hasReadinessSummary
+    ? "Sin validar"
+    : blockingFailed
+      ? `${blockingFailed} bloqueantes`
+      : reviewPendingCount
+        ? `${reviewPendingCount} revisiones`
+        : "Listo";
+  const summaryCards = [
+    {
+      id: "integrations",
+      title: "Integraciones",
+      icon: "FaCloud",
+      tone: activeSmtp || aiChannelReady ? "active" : smtpItems.length || aiItems.length ? "warning" : "inactive",
+      status: `${configuredChannels}/2 canales completos`,
+      description: "SMTP y modelos IA disponibles para operación.",
+      metrics: [
+        { label: "SMTP", value: activeSmtp ? "Listo" : "Pendiente" },
+        { label: "IA", value: `${aiReadyAgentCount}/${AI_AGENT_PURPOSES.length}` },
+      ],
+    },
+    {
+      id: "knowledge",
+      title: "Consulta contextual",
+      icon: "FaSearch",
+      tone: contextSummary.contextAiEnabled && contextSummary.queryEnabled ? "active" : contextEnabledFlagsCount ? "warning" : "inactive",
+      status: contextSummary.contextAiEnabled && contextSummary.queryEnabled ? "Consultas habilitadas" : "Consulta no disponible",
+      description: "Flags principales del módulo semántico.",
+      metrics: [
+        { label: "Flags", value: `${contextEnabledFlagsCount}/4` },
+        { label: "Sync", value: contextSummary.syncEnabled ? "Habilitada" : "Inactiva" },
+      ],
+    },
+    {
+      id: "maintenance",
+      title: "Mantenimiento",
+      icon: "FaGears",
+      tone: maintenanceSummary.sessionCleanupEnabled || maintenanceSummary.tempCleanupEnabled ? "active" : "inactive",
+      status: `${Number(Boolean(maintenanceSummary.sessionCleanupEnabled)) + Number(Boolean(maintenanceSummary.tempCleanupEnabled))}/2 rutinas`,
+      description: "Limpieza de sesiones y temporales.",
+      metrics: [
+        { label: "Sesiones", value: maintenanceSummary.sessionCleanupEnabled ? "Activa" : "Inactiva" },
+        { label: "Temporales", value: maintenanceSummary.tempCleanupEnabled ? "Activa" : "Inactiva" },
+      ],
+    },
+    {
+      id: "commissioning",
+      title: "Puesta en marcha",
+      icon: "FaRocket",
+      tone: commissioningTone,
+      status: commissioningStatus,
+      description: `Modo operativo: ${OPERATION_MODE_LABELS[operationMode] || operationMode || "No determinado"}.`,
+      metrics: [
+        { label: "Advertencias", value: warningCount },
+        { label: "Manuales", value: manualCount },
+      ],
+    },
+    {
+      id: "backups",
+      title: "Respaldos",
+      icon: "FaDatabase",
+      tone: enabledBackupPolicies ? "active" : "inactive",
+      status: `${enabledBackupPolicies}/${BACKUP_POLICY_DEFINITIONS.length} políticas activas`,
+      description: `Retención configurada: ${backupsSummary.backupRetentionDays} días.`,
+      metrics: [
+        { label: "Historial", value: backupsSummary.backupHistoryVisible ? "Visible" : "Oculto" },
+        { label: "Notificación", value: BACKUP_POLICY_DEFINITIONS.filter((policy) => backupsSummary.policies?.[policy.id]?.notifyByEmail).length },
+      ],
+    },
+    {
+      id: "queues",
+      title: "Colas",
+      icon: "FaServer",
+      tone: monitoredQueuesCount ? "active" : "inactive",
+      status: `${monitoredQueuesCount}/6 monitoreadas`,
+      description: "Umbrales operativos para colas y DLQ.",
+      metrics: [
+        { label: "Contexto", value: maintenanceSummary.monitorContextQueueEnabled ? "Activa" : "Inactiva" },
+        { label: "DLQ", value: maintenanceSummary.monitorDlqEnabled ? "Activa" : "Inactiva" },
+      ],
+    },
+  ];
   const summaryPanels = [
     {
       key: "smtp",
@@ -157,24 +333,34 @@ export const SummaryPanel = ({ smtpItems, aiItems, maintenanceConfig, backupsCon
     },
     {
       key: "ai",
-      title: "AI",
+      title: "IA",
       icon: "FaBrain",
-      tone: activeAi ? "active" : aiItems.length ? "warning" : "inactive",
-      status: activeAi ? "Operativo" : aiItems.length ? "Pendiente de activación" : "Sin configurar",
-      description: "Estado de proveedores, credenciales y validaciones para automatizaciones con IA.",
+      tone: aiChannelReady ? "active" : aiItems.length ? "warning" : "inactive",
+      status: aiChannelReady
+        ? `${aiActiveCount} ${aiActiveCount === 1 ? "provider activo" : "providers activos"} · ${aiReadyAgentCount}/${AI_AGENT_PURPOSES.length} agentes`
+        : aiItems.length
+          ? `${aiActiveCount} ${aiActiveCount === 1 ? "provider activo" : "providers activos"} · ${aiReadyAgentCount}/${AI_AGENT_PURPOSES.length} agentes`
+          : "Sin configurar",
+      description: "Cobertura de providers activos y modelos asignados por agente operativo.",
       stats: [
-        { label: "Total", value: aiItems.length },
-        { label: "Activas", value: aiActiveCount },
-        { label: "Inactivas", value: aiInactiveCount },
+        { label: "Providers", value: aiItems.length },
+        { label: "Activos", value: aiActiveCount },
+        { label: "Agentes", value: `${aiReadyAgentCount}/${AI_AGENT_PURPOSES.length}` },
       ],
-      details: activeAi
+      details: activeAiProviders.length
         ? [
-            { label: "Nombre", value: activeAi.name || "—" },
-            { label: "Proveedor", value: getProviderLabel(activeAi.providerType) || "—" },
-            { label: "Actualizado", value: formatDateTime(activeAi.updatedAt || activeAi.createdAt) },
+            {
+              label: "Providers activos",
+              value: activeAiProviders.map((item) => item.name).join(", "),
+            },
+            {
+              label: "Validaciones pendientes",
+              value: aiPendingValidationCount,
+            },
           ]
         : [],
-      emptyMessage: "Activa una configuración AI validada desde la pestaña Integraciones para usar automatizaciones.",
+      agentDetails: aiBindingDetails,
+      emptyMessage: "Activa al menos un provider validado y configura los modelos por agente desde Uso IA.",
     },
   ];
 
@@ -187,9 +373,9 @@ export const SummaryPanel = ({ smtpItems, aiItems, maintenanceConfig, backupsCon
             <h2 className={`mt-1 text-xl font-semibold ${TXT_TITLE}`}>Cobertura operativa del sistema</h2>
             <p className={`mt-2 text-sm ${TXT_BODY}`}>
               {configuredChannels === 2
-                ? "SMTP y AI tienen configuraciones operativas."
+                ? "SMTP e IA tienen configuraciones operativas completas."
                 : configuredChannels === 1
-                  ? "Solo uno de los dos canales tiene configuración operativa."
+                  ? "Solo uno de los dos canales tiene configuración operativa completa."
                   : "Todavía no hay canales activos configurados."}
             </p>
           </div>
@@ -200,11 +386,68 @@ export const SummaryPanel = ({ smtpItems, aiItems, maintenanceConfig, backupsCon
               <p className={`mt-2 text-2xl font-bold ${TXT_TITLE}`}>{configuredChannels}/2</p>
             </div>
             <div className="rounded-2xl border border-gray-200 bg-slate-50 px-4 py-3 text-center dark:border-gray-700 dark:bg-slate-900/40">
-              <p className={`text-xs font-semibold uppercase tracking-wide ${TXT_META}`}>Validaciones AI</p>
-              <p className={`mt-2 text-2xl font-bold ${TXT_TITLE}`}>{aiPendingValidationCount}</p>
-              <p className={`mt-1 text-xs ${TXT_META}`}>pendientes</p>
+              <p className={`text-xs font-semibold uppercase tracking-wide ${TXT_META}`}>Uso IA</p>
+              <p className={`mt-2 text-2xl font-bold ${TXT_TITLE}`}>{aiReadyAgentCount}/{AI_AGENT_PURPOSES.length}</p>
+              <p className={`mt-1 text-xs ${TXT_META}`}>{aiPendingValidationCount} providers por revisar</p>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div className="rounded-[26px] border border-gray-200/80 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+        <div className="border-b border-gray-100 px-6 py-5 dark:border-gray-700">
+          <div className="flex items-start gap-3">
+            <div className="rounded-2xl bg-primary-50 p-3 text-primary-600 dark:bg-primary-950/40 dark:text-primary-300">
+              <Icon name="FaGaugeHigh" className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className={`text-lg font-semibold ${TXT_TITLE}`}>Resumen por pestaña</h3>
+              <p className={`mt-1 text-sm ${TXT_BODY}`}>
+                Lectura ejecutiva de configuración, operación y controles principales del módulo Sistema.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 p-6 lg:grid-cols-2 2xl:grid-cols-3">
+          {summaryCards.map((card) => (
+            <article
+              key={card.id}
+              className="flex h-full flex-col justify-between rounded-2xl border border-gray-100 bg-slate-50/80 p-4 dark:border-gray-700/80 dark:bg-slate-900/40"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-start gap-3">
+                  <div className={`rounded-2xl p-3 ${statusClasses[card.tone]}`}>
+                    <Icon name={card.icon} className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <h4 className={`text-sm font-semibold ${TXT_TITLE}`}>{card.title}</h4>
+                    <p className={`mt-1 text-xs leading-5 ${TXT_BODY}`}>{card.description}</p>
+                  </div>
+                </div>
+                <StatusBadge tone={card.tone}>{card.status}</StatusBadge>
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                {card.metrics.map((metric) => (
+                  <div key={`${card.id}-${metric.label}`} className="rounded-xl border border-gray-200 bg-white px-3 py-3 dark:border-gray-700 dark:bg-slate-950/30">
+                    <p className={`text-[11px] font-semibold uppercase tracking-wide ${TXT_META}`}>{metric.label}</p>
+                    <p className={`mt-1 text-sm font-semibold ${TXT_TITLE}`}>{metric.value}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-4 flex justify-end">
+                <ActionButton
+                  variant="soft"
+                  size="xs"
+                  label="Abrir"
+                  icon={<Icon name="arrowRight" />}
+                  onClick={() => onNavigateTab(card.id)}
+                />
+              </div>
+            </article>
+          ))}
         </div>
       </div>
 
@@ -241,15 +484,49 @@ export const SummaryPanel = ({ smtpItems, aiItems, maintenanceConfig, backupsCon
                 ))}
               </div>
 
-              {panel.details.length ? (
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  {panel.details.map((detail) => (
-                    <div key={`${panel.key}-${detail.label}`} className="rounded-2xl border border-gray-100 bg-slate-50/80 px-4 py-4 dark:border-gray-700/80 dark:bg-slate-900/40">
-                      <p className={`text-xs font-semibold uppercase tracking-wide ${TXT_META}`}>{detail.label}</p>
-                      <p className={`mt-2 text-sm font-medium ${TXT_TITLE}`}>{detail.value}</p>
+              {panel.details.length || panel.agentDetails?.length ? (
+                <>
+                  {panel.details.length ? (
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      {panel.details.map((detail) => (
+                        <div key={`${panel.key}-${detail.label}`} className="rounded-2xl border border-gray-100 bg-slate-50/80 px-4 py-4 dark:border-gray-700/80 dark:bg-slate-900/40">
+                          <p className={`text-xs font-semibold uppercase tracking-wide ${TXT_META}`}>{detail.label}</p>
+                          <p className={`mt-2 text-sm font-medium ${TXT_TITLE}`}>{detail.value}</p>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  ) : null}
+
+                  {panel.agentDetails?.length ? (
+                    <div className="space-y-3">
+                      <p className={`text-xs font-semibold uppercase tracking-wide ${TXT_META}`}>Uso IA por agente</p>
+                      <div className="divide-y divide-gray-100 overflow-hidden rounded-2xl border border-gray-100 bg-slate-50/80 dark:divide-gray-700/80 dark:border-gray-700/80 dark:bg-slate-900/40">
+                        {panel.agentDetails.map((agent) => (
+                          <div key={agent.id} className="grid gap-3 px-4 py-3 sm:grid-cols-[minmax(140px,0.8fr)_minmax(180px,1fr)_minmax(180px,1fr)_auto] sm:items-center">
+                            <div>
+                              <p className={`text-sm font-semibold ${TXT_TITLE}`}>{agent.label}</p>
+                              {agent.requiresDimensions ? (
+                                <p className={`mt-1 text-xs ${TXT_META}`}>
+                                  {agent.dimensions ? `${agent.dimensions} dimensiones` : "Dimensión pendiente"}
+                                </p>
+                              ) : null}
+                            </div>
+                            <div>
+                              <p className={`text-xs font-semibold uppercase tracking-wide ${TXT_META}`}>Provider</p>
+                              <p className={`mt-1 text-sm font-medium ${TXT_TITLE}`}>{agent.providerName}</p>
+                              <p className={`mt-0.5 text-xs ${TXT_META}`}>{agent.providerTypeLabel}</p>
+                            </div>
+                            <div>
+                              <p className={`text-xs font-semibold uppercase tracking-wide ${TXT_META}`}>Modelo</p>
+                              <p className={`mt-1 break-all text-sm font-medium ${TXT_TITLE}`}>{agent.modelName || "Sin modelo"}</p>
+                            </div>
+                            <StatusBadge tone={agent.tone}>{agent.status}</StatusBadge>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </>
               ) : (
                 <div className="rounded-2xl border border-dashed border-gray-300 bg-slate-50/70 px-5 py-8 text-center dark:border-gray-700 dark:bg-slate-900/30">
                   <p className={`text-sm ${TXT_BODY}`}>{panel.emptyMessage}</p>

@@ -34,6 +34,7 @@ import aiProviderBindingService from "@/services/aiProviderBindingService";
 import smtpConfigService from "@/services/smtpConfigService";
 import systemBackupsService from "@/services/systemBackupsService";
 import systemMaintenanceService from "@/services/systemMaintenanceService";
+import contextSettingsService from "@/services/contextSettingsService";
 import useAbortableRequestScope from "@/hooks/useAbortableRequestScope";
 import { ensureWriteOperationAllowed } from "@/utils/operationModeGuard";
 
@@ -55,6 +56,8 @@ const SystemSettings = () => {
   const [operationMode, setOperationMode] = useState(null);
   const [summaryMaintenanceConfig, setSummaryMaintenanceConfig] = useState(null);
   const [summaryBackupsConfig, setSummaryBackupsConfig] = useState(null);
+  const [summaryContextSettings, setSummaryContextSettings] = useState(null);
+  const [summaryReadiness, setSummaryReadiness] = useState(null);
 
   useDocumentTitle("Configuración del Sistema");
 
@@ -202,10 +205,14 @@ const SystemSettings = () => {
     Promise.allSettled([
       systemMaintenanceService.getConfig(),
       systemBackupsService.getConfig(),
-    ]).then(([maintenanceResult, backupsResult]) => {
+      contextSettingsService.getConfig(),
+      systemMaintenanceService.getReadiness(),
+    ]).then(([maintenanceResult, backupsResult, contextResult, readinessResult]) => {
       if (!alive) return;
       setSummaryMaintenanceConfig(maintenanceResult.status === "fulfilled" ? maintenanceResult.value : null);
       setSummaryBackupsConfig(backupsResult.status === "fulfilled" ? backupsResult.value : null);
+      setSummaryContextSettings(contextResult.status === "fulfilled" ? contextResult.value : null);
+      setSummaryReadiness(readinessResult.status === "fulfilled" ? readinessResult.value : null);
     });
     return () => {
       alive = false;
@@ -536,8 +543,14 @@ const SystemSettings = () => {
         <SummaryPanel
           smtpItems={smtpItems}
           aiItems={aiItems}
+          aiBindings={aiBindings}
+          providerLabelMap={aiProviderLabelMap}
           maintenanceConfig={summaryMaintenanceConfig}
           backupsConfig={summaryBackupsConfig}
+          contextSettings={summaryContextSettings}
+          readiness={summaryReadiness}
+          operationMode={operationMode}
+          onNavigateTab={handleTabChange}
         />
       )}
 
