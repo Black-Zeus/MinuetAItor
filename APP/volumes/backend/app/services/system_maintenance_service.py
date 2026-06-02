@@ -49,6 +49,12 @@ INITIAL_COMMISSIONING_REASON = (
     "La puesta en marcha inicial fue activada automáticamente. "
     "El administrador debe completar las validaciones base y confirmar que los componentes críticos funcionan correctamente antes de cambiar el sistema a modo operativo."
 )
+OPERATION_MODE_LABELS = {
+    "normal": "Normal",
+    "read_only": "Solo lectura",
+    "maintenance": "Mantenimiento",
+    "commissioning": "Puesta en marcha",
+}
 
 DEFAULT_SETTINGS = {
     "session_cleanup_enabled": True,
@@ -65,6 +71,8 @@ DEFAULT_SETTINGS = {
     "email_queue_warning_threshold": 20,
     "monitor_pdf_queue_enabled": True,
     "pdf_queue_warning_threshold": 10,
+    "monitor_context_queue_enabled": True,
+    "context_queue_warning_threshold": 10,
     "monitor_dlq_enabled": True,
     "dlq_warning_threshold": 10,
     "queue_monitor_state_json": "{}",
@@ -86,6 +94,8 @@ EXPECTED_SYSTEM_MAINTENANCE_COLUMNS = {
     "email_queue_warning_threshold",
     "monitor_pdf_queue_enabled",
     "pdf_queue_warning_threshold",
+    "monitor_context_queue_enabled",
+    "context_queue_warning_threshold",
     "monitor_dlq_enabled",
     "dlq_warning_threshold",
     "queue_monitor_state_json",
@@ -592,6 +602,14 @@ async def set_system_operation_mode(
             "previousState": previous_state,
         },
     )
+    await _notify_operation_mode_changed(
+        db,
+        previous_state=previous_state,
+        operation_state=operation_state,
+        audit_details=audit_details,
+        actor=actor,
+        changed_at=now,
+    )
     return operation_state
 
 
@@ -647,6 +665,8 @@ def _build_config_response(obj: SystemMaintenanceSetting) -> dict:
         "email_queue_warning_threshold": int(obj.email_queue_warning_threshold),
         "monitor_pdf_queue_enabled": bool(obj.monitor_pdf_queue_enabled),
         "pdf_queue_warning_threshold": int(obj.pdf_queue_warning_threshold),
+        "monitor_context_queue_enabled": bool(getattr(obj, "monitor_context_queue_enabled", True)),
+        "context_queue_warning_threshold": int(getattr(obj, "context_queue_warning_threshold", 10)),
         "monitor_dlq_enabled": bool(obj.monitor_dlq_enabled),
         "dlq_warning_threshold": int(obj.dlq_warning_threshold),
         "access_request_enabled": bool(getattr(obj, "access_request_enabled", True)),
@@ -760,6 +780,67 @@ def _build_queue_recovery_mail_context(
     }
 
 
+def _operation_mode_label(mode: str | None) -> str:
+    clean = str(mode or "normal").strip() or "normal"
+    return OPERATION_MODE_LABELS.get(clean, clean)
+
+
+def _operation_action_label(previous_mode: str | None, current_mode: str | None) -> str:
+    previous = str(previous_mode or "normal").strip() or "normal"
+    current = str(current_mode or "normal").strip() or "normal"
+    if previous == current:
+        return f"Modo {_operation_mode_label(current)} actualizado"
+    if current == "normal":
+        return f"Salida de modo {_operation_mode_label(previous)}"
+    if previous == "normal":
+        return f"Entrada a modo {_operation_mode_label(current)}"
+    return f"Cambio de modo {_operation_mode_label(previous)} a {_operation_mode_label(current)}"
+
+
+def _actor_label(actor: dict | None) -> str:
+    if not actor:
+        return "Sistema"
+    return (
+        str(actor.get("full_name") or "").strip()
+        or str(actor.get("username") or "").strip()
+        or str(actor.get("email") or "").strip()
+        or str(actor.get("id") or "").strip()
+        or "Sistema"
+    )
+
+
+def _build_operation_mode_mail_context(
+    *,
+    previous_state: dict,
+    operation_state: dict,
+    audit_details: dict,
+    actor: dict | None,
+    changed_at: datetime,
+    db: Session | None = None,
+) -> dict:
+    previous_mode = previous_state.get("mode") or "normal"
+    current_mode = operation_state.get("mode") or "normal"
+    branding = build_email_branding_bundle(db, include_organization_logo=True, include_client_logo=False)
+    reason = (
+        operation_state.get("reason")
+        or audit_details.get("reason")
+        or "Modo normal restaurado administrativamente."
+    )
+    return {
+        **branding.context,
+        "PREVIOUS_MODE": previous_mode,
+        "PREVIOUS_MODE_LABEL": _operation_mode_label(previous_mode),
+        "CURRENT_MODE": current_mode,
+        "CURRENT_MODE_LABEL": _operation_mode_label(current_mode),
+        "OPERATION_ACTION_LABEL": _operation_action_label(previous_mode, current_mode),
+        "ACTOR_LABEL": _actor_label(actor),
+        "REASON": reason,
+        "CHANGED_AT": changed_at.replace(tzinfo=timezone.utc).astimezone(ZoneInfo(SCHEDULER_TIMEZONE)).strftime("%d/%m/%Y %H:%M"),
+        "SYSTEM_MODULE_URL": build_public_url(db, "/settings/system?tab=maintenance"),
+        "_inline_assets": branding.inline_assets,
+    }
+
+
 def _get_admin_email_recipients(db: Session) -> list[str]:
     rows = (
         db.query(User.email)
@@ -778,6 +859,47 @@ def _get_admin_email_recipients(db: Session) -> list[str]:
         .all()
     )
     return [str(row.email).strip() for row in rows if str(getattr(row, "email", "") or "").strip()]
+
+
+async def _notify_operation_mode_changed(
+    db: Session,
+    *,
+    previous_state: dict,
+    operation_state: dict,
+    audit_details: dict,
+    actor: dict | None,
+    changed_at: datetime,
+) -> bool:
+    admin_emails = _get_admin_email_recipients(db)
+    if not admin_emails:
+        return False
+
+    try:
+        template_context = _build_operation_mode_mail_context(
+            previous_state=previous_state,
+            operation_state=operation_state,
+            audit_details=audit_details,
+            actor=actor,
+            changed_at=changed_at,
+            db=db,
+        )
+        inline_assets = template_context.pop("_inline_assets", None)
+        await queue_templated_email(
+            to=admin_emails,
+            template_id="system_operation_mode_changed",
+            template_context=template_context,
+            subject=f"Modo operativo · {template_context['OPERATION_ACTION_LABEL']}",
+            inline_assets=inline_assets,
+        )
+        return True
+    except Exception:
+        logger.warning(
+            "No se pudo encolar email de cambio de modo operativo | previous=%s current=%s",
+            previous_state.get("mode"),
+            operation_state.get("mode"),
+            exc_info=True,
+        )
+        return False
 
 
 async def _notify_queue_threshold_exceeded(
@@ -1367,6 +1489,8 @@ def update_system_maintenance_settings(
     obj.email_queue_warning_threshold = body.email_queue_warning_threshold
     obj.monitor_pdf_queue_enabled = body.monitor_pdf_queue_enabled
     obj.pdf_queue_warning_threshold = body.pdf_queue_warning_threshold
+    obj.monitor_context_queue_enabled = body.monitor_context_queue_enabled
+    obj.context_queue_warning_threshold = body.context_queue_warning_threshold
     obj.monitor_dlq_enabled = body.monitor_dlq_enabled
     obj.dlq_warning_threshold = body.dlq_warning_threshold
     obj.access_request_enabled = body.access_request_enabled
@@ -1388,6 +1512,7 @@ async def get_system_maintenance_status(db: Session) -> dict:
     email_queue_size = int(await redis.llen("queue:email"))
     maintenance_queue_size = int(await redis.llen(MAINTENANCE_QUEUE))
     pdf_queue_size = int(await redis.llen("queue:pdf"))
+    context_queue_size = int(await redis.llen("queue:context"))
     dlq_size = int(await redis.llen(DLQ_QUEUE))
 
     return {
@@ -1414,6 +1539,12 @@ async def get_system_maintenance_status(db: Session) -> dict:
             pdf_queue_size,
             bool(obj.monitor_pdf_queue_enabled),
             int(obj.pdf_queue_warning_threshold),
+        ),
+        "context_queue": _queue_status_dict(
+            "queue:context",
+            context_queue_size,
+            bool(getattr(obj, "monitor_context_queue_enabled", True)),
+            int(getattr(obj, "context_queue_warning_threshold", 10)),
         ),
         "dlq": _queue_status_dict(
             DLQ_QUEUE,

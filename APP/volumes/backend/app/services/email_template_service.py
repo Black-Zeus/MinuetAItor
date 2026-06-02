@@ -37,6 +37,8 @@ TEMPLATE_AUDIT_EVENT_LABELS = {
     "sendOwerConfidential": "Solicitud confidencial",
     "smtp_config_test": "Prueba de envío SMTP",
     "system_backup_result": "Resultado de respaldo",
+    "context_indexing_failed": "Error de indexacion contextual",
+    "system_operation_mode_changed": "Cambio de modo operativo",
     "system_queue_alert": "Alerta de colas",
     "system_queue_recovered": "Cola normalizada",
 }
@@ -195,6 +197,20 @@ TEMPLATE_DEFINITIONS: dict[str, EmailTemplateDefinition] = {
         description="Informa el resultado final de una tarea de respaldo, restauración o limpieza.",
         default_subject="{{ BACKUP_SUBJECT }}",
     ),
+    "system_operation_mode_changed": EmailTemplateDefinition(
+        template_id="system_operation_mode_changed",
+        filename="system_operation_mode_changed.html",
+        title="Cambio de modo operativo",
+        description="Notifica a administradores cada entrada o salida de modo normal, solo lectura, mantenimiento o puesta en marcha.",
+        default_subject="Cambio de modo operativo · {{ CURRENT_MODE_LABEL }}",
+    ),
+    "context_indexing_failed": EmailTemplateDefinition(
+        template_id="context_indexing_failed",
+        filename="context_indexing_failed.html",
+        title="Error de indexacion contextual",
+        description="Notifica un error terminal al indexar una minuta final para consulta contextual.",
+        default_subject="Error de indexacion contextual · {{ MINUTE_TITLE }}",
+    ),
     "system_queue_alert": EmailTemplateDefinition(
         template_id="system_queue_alert",
         filename="system_queue_alert.html",
@@ -333,6 +349,13 @@ EMAIL_TEMPLATE_PRESENTATION: dict[str, dict[str, str]] = {
         "badge_bg": "#f8fafc",
         "badge_color": "#6b7280",
         "badge_border": "#e5e7eb",
+    },
+    "context_indexing_failed": {
+        "subtitle": "Consulta contextual · Sincronización semántica",
+        "badge_text": "Revisión",
+        "badge_bg": "#fef2f2",
+        "badge_color": "#b91c1c",
+        "badge_border": "#fecaca",
     },
     "system_queue_alert": {
         "subtitle": "Observabilidad técnica · Alerta de colas",

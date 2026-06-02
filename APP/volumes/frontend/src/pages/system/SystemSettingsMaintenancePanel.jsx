@@ -306,6 +306,8 @@ const toDraftShape = (payload) => ({
   emailQueueWarningThreshold: Number(payload?.emailQueueWarningThreshold ?? INITIAL_MAINTENANCE_DRAFT.emailQueueWarningThreshold),
   monitorPdfQueueEnabled: Boolean(payload?.monitorPdfQueueEnabled ?? INITIAL_MAINTENANCE_DRAFT.monitorPdfQueueEnabled),
   pdfQueueWarningThreshold: Number(payload?.pdfQueueWarningThreshold ?? INITIAL_MAINTENANCE_DRAFT.pdfQueueWarningThreshold),
+  monitorContextQueueEnabled: Boolean(payload?.monitorContextQueueEnabled ?? INITIAL_MAINTENANCE_DRAFT.monitorContextQueueEnabled),
+  contextQueueWarningThreshold: Number(payload?.contextQueueWarningThreshold ?? INITIAL_MAINTENANCE_DRAFT.contextQueueWarningThreshold),
   monitorDlqEnabled: Boolean(payload?.monitorDlqEnabled),
   dlqWarningThreshold: Number(payload?.dlqWarningThreshold ?? INITIAL_MAINTENANCE_DRAFT.dlqWarningThreshold),
   accessRequestEnabled: Boolean(payload?.accessRequestEnabled ?? INITIAL_MAINTENANCE_DRAFT.accessRequestEnabled),
@@ -1190,6 +1192,41 @@ export const MaintenancePanel = () => {
                 </MaintenanceField>
                 <MaintenanceField label="Identificador técnico" hint="Origen observado por Redis">
                   <MaintenanceInput value="Redis list: queue:pdf" disabled />
+                </MaintenanceField>
+              </div>
+            </div>
+
+            <div className="py-6">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <div className="flex items-center gap-3">
+                    <h3 className={`text-base font-semibold ${TXT_TITLE}`}>Consulta contextual</h3>
+                    <StatusBadge tone={draft.monitorContextQueueEnabled ? "info" : "inactive"}>
+                      {draft.monitorContextQueueEnabled ? "Activa" : "Inactiva"}
+                    </StatusBadge>
+                  </div>
+                  <p className={`mt-2 text-sm ${TXT_BODY}`}>
+                    Supervisa indexación, reindexación y sincronización semántica para consultas contextuales.
+                  </p>
+                </div>
+                <MaintenanceToggle
+                  checked={draft.monitorContextQueueEnabled}
+                  onChange={(value) => updateDraft("monitorContextQueueEnabled", value)}
+                />
+              </div>
+
+              <div className="mt-5 grid grid-cols-1 gap-6 md:grid-cols-2">
+                <MaintenanceField label="Umbral de advertencia" hint="Cantidad de jobs acumulados antes de mostrar alerta">
+                  <MaintenanceInput
+                    type="number"
+                    min="1"
+                    max="500"
+                    value={draft.contextQueueWarningThreshold}
+                    onChange={(event) => updateDraft("contextQueueWarningThreshold", Number(event.target.value || 0))}
+                  />
+                </MaintenanceField>
+                <MaintenanceField label="Identificador técnico" hint="Origen observado por Redis">
+                  <MaintenanceInput value="Redis list: queue:context" disabled />
                 </MaintenanceField>
               </div>
             </div>

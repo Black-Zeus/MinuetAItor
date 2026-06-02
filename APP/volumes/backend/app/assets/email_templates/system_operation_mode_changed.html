@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="x-apple-disable-message-reformatting" />
+    <meta name="format-detection" content="telephone=no,address=no,email=no,date=no,url=no" />
+    <title>Cambio de modo operativo</title>
+</head>
+
+<body style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#1f2937;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"
+        style="background:#f4f6f8;margin:0;padding:0;">
+        <tr>
+            <td align="center" style="padding:28px 12px;">
+                <table role="presentation" width="640" cellspacing="0" cellpadding="0" border="0"
+                    style="width:640px;max-width:640px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb;border-collapse:separate;border-spacing:0;">
+                    {% include "_email_header.html" %}
+
+                    <tr>
+                        <td
+                            style="background:#ffffff;border:1px solid #e5e7eb;border-top:none;border-bottom:none;padding:24px 20px 10px 20px;">
+                            <div style="font-size:22px;line-height:28px;font-weight:800;color:#111827;">
+                                El sistema cambió a modo {{ CURRENT_MODE_LABEL }}.
+                            </div>
+
+                            <div style="font-size:14px;line-height:22px;color:#374151;margin-top:12px;">
+                                Se registró un cambio administrativo en el modo operativo. Este aviso se envía a todos
+                                los administradores para mantener trazabilidad de entradas y salidas de modos restringidos.
+                            </div>
+
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"
+                                style="margin-top:16px;">
+                                <tr>
+                                    <td
+                                        style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:16px;padding:18px 16px;">
+                                        <div style="font-size:12px;line-height:16px;color:#6b7280;margin-bottom:10px;">
+                                            DETALLE DEL CAMBIO
+                                        </div>
+                                        <table role="presentation" width="100%" cellspacing="0" cellpadding="0"
+                                            border="0">
+                                            <tr>
+                                                <td
+                                                    style="font-size:12px;line-height:18px;color:#6b7280;width:180px;padding:6px 0;border-bottom:1px solid #e5e7eb;">
+                                                    Modo anterior</td>
+                                                <td
+                                                    style="font-size:12px;line-height:18px;color:#374151;padding:6px 0;border-bottom:1px solid #e5e7eb;">
+                                                    {{ PREVIOUS_MODE_LABEL }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td
+                                                    style="font-size:12px;line-height:18px;color:#6b7280;padding:6px 0;border-bottom:1px solid #e5e7eb;">
+                                                    Modo actual</td>
+                                                <td
+                                                    style="font-size:12px;line-height:18px;color:#111827;padding:6px 0;border-bottom:1px solid #e5e7eb;font-weight:700;">
+                                                    {{ CURRENT_MODE_LABEL }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td
+                                                    style="font-size:12px;line-height:18px;color:#6b7280;padding:6px 0;border-bottom:1px solid #e5e7eb;">
+                                                    Acción</td>
+                                                <td
+                                                    style="font-size:12px;line-height:18px;color:#374151;padding:6px 0;border-bottom:1px solid #e5e7eb;">
+                                                    {{ OPERATION_ACTION_LABEL }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td
+                                                    style="font-size:12px;line-height:18px;color:#6b7280;padding:6px 0;border-bottom:1px solid #e5e7eb;">
+                                                    Ejecutado por</td>
+                                                <td
+                                                    style="font-size:12px;line-height:18px;color:#374151;padding:6px 0;border-bottom:1px solid #e5e7eb;">
+                                                    {{ ACTOR_LABEL }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td
+                                                    style="font-size:12px;line-height:18px;color:#6b7280;padding:6px 0;border-bottom:1px solid #e5e7eb;">
+                                                    Fecha</td>
+                                                <td
+                                                    style="font-size:12px;line-height:18px;color:#374151;padding:6px 0;border-bottom:1px solid #e5e7eb;">
+                                                    {{ CHANGED_AT }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td
+                                                    style="font-size:12px;line-height:18px;color:#6b7280;padding:6px 0;">
+                                                    Motivo</td>
+                                                <td
+                                                    style="font-size:12px;line-height:18px;color:#374151;padding:6px 0;">
+                                                    {{ REASON }}</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <div style="margin-top:20px;">
+                                <a href="{{ SYSTEM_MODULE_URL }}"
+                                    style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;font-weight:700;padding:12px 18px;border-radius:14px;">
+                                    Abrir módulo de Sistema
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+
+                    {% include "_email_footer.html" %}
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+
+</html>

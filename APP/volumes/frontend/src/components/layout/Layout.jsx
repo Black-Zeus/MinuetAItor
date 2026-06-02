@@ -98,6 +98,12 @@ const Layout = ({ children }) => {
     return "El sistema se encuentra temporalmente fuera de operación general. Durante este estado, solo administradores pueden acceder a las herramientas necesarias para administrar o recuperar el servicio.";
   }, [isOperationLocked, operationMode]);
   const operationReason = String(operationState?.reason || "").trim();
+  const operationSettingsTarget =
+    operationMode === "commissioning"
+      ? `${SYSTEM_SETTINGS_PATH}?tab=commissioning`
+      : `${SYSTEM_SETTINGS_PATH}?tab=maintenance`;
+  const operationSettingsLabel =
+    operationMode === "commissioning" ? "Ir a validaciones" : "Administrar modo";
 
   const sidebarUser = buildSidebarUser(userDisplay, authz);
 
@@ -113,19 +119,28 @@ const Layout = ({ children }) => {
 
         <main className="flex-1 overflow-y-auto bg-white dark:bg-gray-800 p-6">
           {isOperationLocked && (
-            <div className="mb-5 flex items-start gap-3 rounded-lg border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-amber-900 dark:text-amber-100">
-              <FaTriangleExclamation className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-500 dark:text-amber-300" />
-              <div>
-                <p className="text-sm font-semibold">
-                  {operationMode === "commissioning" ? "Sistema en puesta en marcha" : `Sistema en modo ${operationLabel}`}
-                </p>
-                <p className="mt-0.5 text-sm text-amber-800/90 dark:text-amber-100/80">{operationMessage}</p>
-                {operationReason ? (
-                  <p className="mt-1 text-sm text-amber-900 dark:text-amber-50">
-                    <span className="font-semibold">Motivo:</span> {operationReason}
+            <div className="mb-5 flex flex-col gap-3 rounded-lg border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-amber-900 dark:text-amber-100 lg:flex-row lg:items-start lg:justify-between">
+              <div className="flex items-start gap-3">
+                <FaTriangleExclamation className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-500 dark:text-amber-300" />
+                <div>
+                  <p className="text-sm font-semibold">
+                    {operationMode === "commissioning" ? "Sistema en puesta en marcha" : `Sistema en modo ${operationLabel}`}
                   </p>
-                ) : null}
+                  <p className="mt-0.5 text-sm text-amber-800/90 dark:text-amber-100/80">{operationMessage}</p>
+                  {operationReason ? (
+                    <p className="mt-1 text-sm text-amber-900 dark:text-amber-50">
+                      <span className="font-semibold">Motivo:</span> {operationReason}
+                    </p>
+                  ) : null}
+                </div>
               </div>
+              <button
+                type="button"
+                onClick={() => navigate(operationSettingsTarget)}
+                className="inline-flex shrink-0 items-center justify-center rounded-lg border border-amber-400/40 bg-amber-400/15 px-3 py-2 text-sm font-semibold text-amber-950 transition-colors hover:bg-amber-400/25 dark:text-amber-50"
+              >
+                {operationSettingsLabel}
+              </button>
             </div>
           )}
           {isMaintenanceMode && !isSystemSettingsRoute ? (

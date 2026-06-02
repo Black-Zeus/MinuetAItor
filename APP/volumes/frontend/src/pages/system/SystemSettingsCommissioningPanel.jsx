@@ -21,6 +21,11 @@ const STATUS_META = {
     className: "border-sky-400/40 bg-sky-500/10 text-sky-100",
     icon: "FaCircleInfo",
   },
+  manual: {
+    label: "Manual",
+    className: "border-violet-400/40 bg-violet-500/10 text-violet-100",
+    icon: "FaClipboardCheck",
+  },
   warning: {
     label: "Revisar",
     className: "border-amber-400/40 bg-amber-500/10 text-amber-100",
@@ -47,6 +52,7 @@ const SummaryTile = ({ label, value, tone = "neutral", active = false, onClick }
   const toneClass = {
     ok: "text-emerald-300",
     info: "text-sky-200",
+    manual: "text-violet-200",
     warning: "text-amber-200",
     failed: "text-rose-200",
     neutral: "text-primary-200",
@@ -83,8 +89,10 @@ const CHECK_DESTINATIONS = {
   "organization.configured": { path: "/settings/organization", label: "Ir a organización" },
   "smtp.configured": { tab: "integrations", label: "Ir a SMTP" },
   "smtp.tested": { tab: "integrations", label: "Ir a probar SMTP" },
-  "ai.configured": { tab: "integrations", label: "Ir a IA" },
-  "ai.validated": { tab: "integrations", label: "Ir a IA" },
+  "ai.providers.active": { tab: "integrations", label: "Ir a IA" },
+  "ai.binding.minute_analysis": { tab: "integrations", label: "Ir a Uso AI" },
+  "ai.binding.context_embeddings": { tab: "integrations", label: "Ir a Uso AI" },
+  "ai.binding.context_answering": { tab: "integrations", label: "Ir a Uso AI" },
   "redis.connection": { tab: "queues", label: "Ir a colas" },
   "queues.health": { tab: "queues", label: "Ir a colas" },
   "backups.configured": { tab: "backups", label: "Ir a respaldos" },
@@ -99,22 +107,24 @@ const CHECK_REFERENCE_LABELS = {
   "db.schema": "Estructura base",
   "db.catalogs": "Catálogos mínimos",
   "security.admin": "Administrador",
-  "security.rbac": "Roles y permisos",
+  "security.rbac": "Permisos base",
   "organization.configured": "Organización",
   "smtp.configured": "Correo SMTP",
   "smtp.tested": "Prueba de correo",
-  "ai.configured": "Proveedor de IA",
-  "ai.validated": "Prueba de IA",
+  "ai.providers.active": "Provider AI activo",
+  "ai.binding.minute_analysis": "Análisis de minuta",
+  "ai.binding.context_embeddings": "Vectorización",
+  "ai.binding.context_answering": "Respuesta contextual",
   "ai.prompts": "Prompts",
-  "pdf.gotenberg": "Motor PDF",
+  "pdf.gotenberg": "Documentos",
   "storage.minio": "Almacenamiento",
-  "redis.connection": "Redis",
-  "queues.health": "Colas",
+  "redis.connection": "Mensajería",
+  "queues.health": "Trabajos en segundo plano",
   "backups.configured": "Configuración de respaldos",
   "backups.dry_run": "Prueba de respaldo",
   "restore.sanity": "Validación de restore",
   "email.templates": "Plantillas de correo",
-  "sse.notifications": "Notificaciones en vivo",
+  "sse.notifications": "Actualizaciones en vivo",
   "operation.modes": "Modos operativos",
   "security.headers": "Headers de seguridad",
   "infra.manual": "Checklist de despliegue",
@@ -122,7 +132,7 @@ const CHECK_REFERENCE_LABELS = {
   "audit.logs": "Auditoría",
   "timezone.utc": "Zona horaria",
   "healthchecks": "Monitoreo",
-  "scheduler.worker": "Procesos internos",
+  "scheduler.worker": "Procesos operativos",
 };
 
 const CommissioningPanel = () => {
@@ -167,6 +177,7 @@ const CommissioningPanel = () => {
     const checks = readiness?.checks || [];
     if (statusFilter === "ok") return checks.filter((check) => check.status === "ok");
     if (statusFilter === "info") return checks.filter((check) => check.status === "info");
+    if (statusFilter === "manual") return checks.filter((check) => check.status === "manual");
     if (statusFilter === "warning") return checks.filter((check) => check.status === "warning");
     if (statusFilter === "failed") return checks.filter((check) => check.status === "failed");
     if (statusFilter === "blocking") return checks.filter((check) => check.status === "failed" && check.blocking);
@@ -267,16 +278,17 @@ const CommissioningPanel = () => {
                     ? "El sistema está restringido: solo administradores pueden iniciar sesión y escribir mientras se completan las validaciones base."
                     : hasBlockingPending
                       ? "El sistema está en modo normal. Las validaciones bloqueantes siguen pendientes, pero no están restringiendo el uso hasta activar puesta en marcha."
-                      : "No hay validaciones bloqueantes pendientes. Las advertencias e informativas quedan para revisión operativa antes del go-live."}
+                      : "No hay validaciones bloqueantes pendientes. Las advertencias y revisiones manuales quedan para revisión operativa antes del go-live."}
                 </p>
                 <p className={`mt-3 text-xs ${TXT_META}`}>Última validación: {formatDateTime(readiness?.generatedAt)}</p>
               </div>
               <StatusBadge status={canActivateProduction ? "ok" : "failed"} />
             </div>
 
-            <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+            <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
               <SummaryTile label="Listas" value={summary.ok ?? 0} tone="ok" active={statusFilter === "ok"} onClick={() => setStatusFilter("ok")} />
               <SummaryTile label="Informativas" value={summary.info ?? 0} tone="info" active={statusFilter === "info"} onClick={() => setStatusFilter("info")} />
+              <SummaryTile label="Manuales" value={summary.manual ?? 0} tone="manual" active={statusFilter === "manual"} onClick={() => setStatusFilter("manual")} />
               <SummaryTile label="Advertencias" value={summary.warning ?? 0} tone="warning" active={statusFilter === "warning"} onClick={() => setStatusFilter("warning")} />
               <SummaryTile label="Fallidas" value={summary.failed ?? 0} tone="failed" active={statusFilter === "failed"} onClick={() => setStatusFilter("failed")} />
               <SummaryTile label="Bloqueantes" value={summary.blockingFailed ?? 0} tone="failed" active={statusFilter === "blocking"} onClick={() => setStatusFilter("blocking")} />
@@ -342,21 +354,23 @@ const CommissioningPanel = () => {
               const destination = CHECK_DESTINATIONS[check.id];
               const referenceLabel = CHECK_REFERENCE_LABELS[check.id] || check.category || "Validación";
               return (
-                <div key={check.id} className="grid grid-cols-1 gap-3 px-4 py-4 lg:grid-cols-[220px_1fr_auto] lg:items-center">
-                  <div className="flex items-center gap-2">
-                    <StatusBadge status={check.status} />
-                    {check.blocking ? (
-                      <span className="rounded-full border border-slate-600 px-2 py-0.5 text-[11px] font-semibold text-slate-300">bloqueante</span>
-                    ) : null}
+                <div key={check.id} className="grid grid-cols-1 gap-3 px-4 py-4 lg:grid-cols-[220px_minmax(0,1fr)_250px] lg:items-center">
+                  <div className="flex flex-col items-start gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <StatusBadge status={check.status} />
+                      {check.blocking ? (
+                        <span className="rounded-full border border-slate-600 px-2 py-0.5 text-[11px] font-semibold text-slate-300">bloqueante</span>
+                      ) : null}
+                    </div>
+                    <span className={`max-w-full rounded-full border border-slate-700 px-2.5 py-1 text-xs font-semibold ${TXT_META}`}>
+                      <span className="block truncate">{referenceLabel}</span>
+                    </span>
                   </div>
                   <div>
                     <p className={`text-sm font-semibold ${TXT_TITLE}`}>{check.title}</p>
                     <p className={`mt-1 text-sm ${TXT_BODY}`}>{check.message}</p>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-                    <span className={`rounded-full border border-slate-700 px-2.5 py-1 text-xs font-semibold ${TXT_META}`}>
-                      {referenceLabel}
-                    </span>
+                  <div className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[96px_150px] sm:justify-end">
                     <ActionButton
                       label="Validar"
                       variant="soft"
@@ -364,6 +378,7 @@ const CommissioningPanel = () => {
                       icon={<Icon name="FaRotate" />}
                       disabled={isRunning}
                       onClick={() => validateCheck(check)}
+                      className="w-full hover:scale-100 active:scale-100"
                     />
                     {destination ? (
                       <ActionButton
@@ -372,8 +387,11 @@ const CommissioningPanel = () => {
                         size="sm"
                         icon={<Icon name="FaArrowRight" />}
                         onClick={() => goToCheckDestination(destination)}
+                        className="w-full justify-start text-left hover:scale-100 active:scale-100"
                       />
-                    ) : null}
+                    ) : (
+                      <span className="hidden sm:block" aria-hidden="true" />
+                    )}
                   </div>
                 </div>
               );

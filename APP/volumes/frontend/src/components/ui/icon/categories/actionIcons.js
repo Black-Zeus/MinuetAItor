@@ -65,6 +65,7 @@ export const actionIcons = {
   FaPhone,
   FaEnvelope,
   FaToggleOn,
+  FaRotate,
   userCheck: FaUserCheck,
   FaUserCheck,
   calendarPlus: FaCalendarPlus,
