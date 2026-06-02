@@ -21,7 +21,7 @@ import clientService from "@/services/clientService";
 import profileService from "@/services/profileService";
 import projectService from "@/services/projectService";
 import { previewReportPdfBlob } from "@/services/reportsService";
-import { formatDateInputValue, formatDateTime, formatNumber, parseAppDate } from "@/utils/formats";
+import { buildDefaultDateInputRange, formatDateTime, formatNumber, parseAppDate } from "@/utils/formats";
 import logger from "@/utils/logger";
 
 const reportLog = logger.scope("ai-reports");
@@ -300,16 +300,11 @@ const buildPricingCoverageHelper = (overview = {}) => {
   return `${formatNumber(estimatedCostEvents)} eventos con pricing resuelto.`;
 };
 
-const formatDateForInput = (date) => formatDateInputValue(date);
-
 const buildDefaultFilters = () => {
-  const today = new Date();
-  const dateTo = formatDateForInput(today);
-  const fromDate = new Date(today);
-  fromDate.setDate(fromDate.getDate() - 7);
+  const { dateFrom, dateTo } = buildDefaultDateInputRange({ daysBack: 7 });
 
   return {
-    dateFrom: formatDateForInput(fromDate),
+    dateFrom,
     dateTo,
     clientId: "",
     projectId: "",
@@ -361,6 +356,27 @@ const getProjectLabel = (project) =>
     project?.name ?? project?.projectName ?? project?.project_name,
     project?.project ?? "Sin proyecto"
   );
+
+const getEntityStatusLabel = (entity) => {
+  const rawStatus =
+    entity?.status ??
+    entity?.state ??
+    entity?.isActive ??
+    entity?.is_active ??
+    entity?.active ??
+    null;
+
+  if (typeof rawStatus === "boolean") return rawStatus ? "Activo" : "Inactivo";
+  const normalized = String(rawStatus ?? "").trim().toLowerCase();
+  if (!normalized) return "";
+  if (["active", "activo", "enabled", "habilitado", "true", "1"].includes(normalized)) {
+    return "Activo";
+  }
+  if (["inactive", "inactivo", "disabled", "deshabilitado", "false", "0"].includes(normalized)) {
+    return "Inactivo";
+  }
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+};
 
 const buildSummaryCard = (label, value, helper, icon, tone) => ({
   label,
@@ -1439,7 +1455,14 @@ const buildProviderOptions = (providerCatalog = [], summary = null) => {
   providerCatalog.forEach((item) => {
     const key = String(item?.id ?? "").trim();
     if (!key) return;
-    entries.set(key, item?.name ? `${item.name}` : key);
+    const label = coalesceName(item?.name, key);
+    const type = String(item?.providerType ?? item?.provider_type ?? item?.type ?? "").trim();
+    const family = String(item?.providerFamily ?? item?.provider_family ?? item?.family ?? "").trim();
+    entries.set(key, {
+      value: key,
+      label,
+      subLabel: [type, family].filter(Boolean).join(" · "),
+    });
   });
 
   const summaryOptions = summary?.filtersMeta?.providerTypes ?? [];
@@ -1447,12 +1470,15 @@ const buildProviderOptions = (providerCatalog = [], summary = null) => {
     const key = String(value ?? "").trim();
     if (!key) return;
     if (!entries.has(key)) {
-      entries.set(key, key);
+      entries.set(key, {
+        value: key,
+        label: key,
+        subLabel: "",
+      });
     }
   });
 
-  return [...entries.entries()]
-    .map(([value, label]) => ({ value, label }))
+  return [...entries.values()]
     .sort((left, right) => compareByLabel(left.label, right.label));
 };
 
@@ -1562,11 +1588,11 @@ const ManagementAiUsageReportPage = () => {
           providerConfigs,
         ] = await Promise.allSettled([
           clientService.list(
-            { skip: 0, limit: 300, isActive: true },
+            { skip: 0, limit: 300, isActive: null },
             catalogRequestConfig
           ),
           projectService.list(
-            { skip: 0, limit: 300, isActive: true },
+            { skip: 0, limit: 300, isActive: null },
             catalogRequestConfig
           ),
           profileService.list(
@@ -1599,6 +1625,7 @@ const ManagementAiUsageReportPage = () => {
               ...item,
               value: getClientId(item),
               label: getClientLabel(item),
+              subLabel: getEntityStatusLabel(item),
             }))
             .filter((item) => item.value && item.label),
           projects: projectItems
@@ -1606,6 +1633,7 @@ const ManagementAiUsageReportPage = () => {
               ...item,
               value: getProjectId(item),
               label: getProjectLabel(item),
+              subLabel: getEntityStatusLabel(item),
             }))
             .filter((item) => item.value && item.label),
           profiles: profileResult.status === "fulfilled" ? profileResult.value.items ?? [] : [],

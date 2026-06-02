@@ -9,8 +9,6 @@ import ActionButton from "@/components/ui/button/ActionButton";
 import Icon from "@/components/ui/icon/iconManager";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import useModuleViewMode from "@/hooks/useModuleViewMode";
-import { isActiveAuditReport } from "@/pages/analytics/reports/activeAuditReports";
-import { isActiveGestionReport } from "@/pages/analytics/reports/activeGestionReports";
 import {
   AUDIT_REPORT_SECTIONS,
   GESTION_REPORT_SECTIONS,
@@ -31,46 +29,6 @@ const buildDefaultOpenSections = (sections = []) =>
     sections.map((section, index) => [section.id, index === 0])
   );
 
-const buildStatusMeta = (item, isAudit = false) => {
-  if (isAudit) {
-    if (isActiveAuditReport(item?.id)) {
-      return {
-        label: "Activo",
-        className:
-          "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
-      };
-    }
-
-    return {
-      label: "En validación",
-      className:
-        "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
-    };
-  }
-
-  if (isActiveGestionReport(item?.id)) {
-    return {
-      label: "Activo",
-      className:
-        "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
-    };
-  }
-
-  return {
-    label: "En evaluación",
-    className:
-      "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
-  };
-};
-
-const StatusBadge = ({ statusMeta }) => (
-  <span
-    className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusMeta?.className}`.trim()}
-  >
-    {statusMeta?.label ?? "En evaluación"}
-  </span>
-);
-
 const ReportOpenAction = ({
   item,
   tooltip = "Abrir reporte",
@@ -90,48 +48,38 @@ const ReportOpenAction = ({
   );
 };
 
-const ReportCard = ({ item, isAudit = false }) => {
-  const statusMeta = buildStatusMeta(item, isAudit);
-
-  return (
-    <article className="group relative flex h-full flex-col justify-between rounded-2xl border border-gray-200/80 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-md dark:border-gray-700 dark:bg-gray-800 dark:hover:border-sky-500/60">
-      <div className="absolute right-4 top-4">
-        <StatusBadge statusMeta={statusMeta} />
+const ReportCard = ({ item }) => (
+  <article className="group relative flex h-full flex-col justify-between rounded-2xl border border-gray-200/80 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-md dark:border-gray-700 dark:bg-gray-800 dark:hover:border-sky-500/60">
+    <Link to={item.path} className="flex items-start gap-3">
+      <div className="mt-0.5 rounded-2xl bg-sky-50 p-3 text-sky-600 dark:bg-sky-500/10 dark:text-sky-300">
+        <Icon name={item.icon} className="h-5 w-5" />
       </div>
-
-      <Link to={item.path} className="flex items-start gap-3 pr-24">
-        <div className="mt-0.5 rounded-2xl bg-sky-50 p-3 text-sky-600 dark:bg-sky-500/10 dark:text-sky-300">
-          <Icon name={item.icon} className="h-5 w-5" />
-        </div>
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-gray-900 transition group-hover:text-sky-700 dark:text-white dark:group-hover:text-sky-300">
-            {item.name}
-          </p>
-          <p className="mt-1 line-clamp-2 text-xs text-gray-600 dark:text-gray-300">
-            {item.description || "Reporte planificado dentro del catálogo."}
-          </p>
-        </div>
-      </Link>
-
-      <div className="mt-5 border-t border-gray-200 pt-4 dark:border-gray-700">
-        <div className="mb-2 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
-          Acciones
-        </div>
-        <div className="grid grid-cols-1 place-items-center">
-          <ReportOpenAction
-            item={item}
-            tooltip="Ver reporte"
-            buttonClassName="w-full max-w-[72px]"
-          />
-        </div>
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-gray-900 transition group-hover:text-sky-700 dark:text-white dark:group-hover:text-sky-300">
+          {item.name}
+        </p>
+        <p className="mt-1 line-clamp-2 text-xs text-gray-600 dark:text-gray-300">
+          {item.description || "Reporte del catálogo."}
+        </p>
       </div>
-    </article>
-  );
-};
+    </Link>
 
-const ReportListItem = ({ item, isAudit = false }) => {
-  const statusMeta = buildStatusMeta(item, isAudit);
+    <div className="mt-5 border-t border-gray-200 pt-4 dark:border-gray-700">
+      <div className="mb-2 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
+        Acciones
+      </div>
+      <div className="grid grid-cols-1 place-items-center">
+        <ReportOpenAction
+          item={item}
+          tooltip="Ver reporte"
+          buttonClassName="w-full max-w-[72px]"
+        />
+      </div>
+    </div>
+  </article>
+);
 
+const ReportListItem = ({ item }) => {
   return (
     <article className="group flex flex-col gap-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition hover:border-sky-300 hover:shadow-md dark:border-gray-700 dark:bg-gray-800 dark:hover:border-sky-500/60 lg:flex-row lg:items-start lg:justify-between">
       <Link to={item.path} className="flex min-w-0 flex-1 items-start gap-4">
@@ -140,15 +88,12 @@ const ReportListItem = ({ item, isAudit = false }) => {
         </div>
 
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-base font-semibold text-gray-900 transition group-hover:text-sky-700 dark:text-white dark:group-hover:text-sky-300">
-              {item.name}
-            </h3>
-            <StatusBadge statusMeta={statusMeta} />
-          </div>
+          <h3 className="text-base font-semibold text-gray-900 transition group-hover:text-sky-700 dark:text-white dark:group-hover:text-sky-300">
+            {item.name}
+          </h3>
 
           <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
-            {item.description || "Reporte planificado dentro del catálogo."}
+            {item.description || "Reporte del catálogo."}
           </p>
         </div>
       </Link>
@@ -164,7 +109,7 @@ const ReportListItem = ({ item, isAudit = false }) => {
   );
 };
 
-const ReportsTable = ({ items = [], isAudit = false }) => (
+const ReportsTable = ({ items = [] }) => (
   <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
     <div className="overflow-x-auto">
       <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
@@ -173,7 +118,6 @@ const ReportsTable = ({ items = [], isAudit = false }) => (
             <th className="px-4 py-3">Reporte</th>
             <th className="px-4 py-3">Categoría</th>
             <th className="px-4 py-3">Finalidad</th>
-            <th className="px-4 py-3">Estado</th>
             <th className="px-4 py-3">Acceso</th>
           </tr>
         </thead>
@@ -199,10 +143,7 @@ const ReportsTable = ({ items = [], isAudit = false }) => (
                 {item.sectionName || "Sin categoría"}
               </td>
               <td className="px-4 py-4 text-sm text-gray-600 dark:text-gray-300">
-                {item.description || "Reporte planificado en desarrollo."}
-              </td>
-              <td className="px-4 py-4">
-                <StatusBadge statusMeta={buildStatusMeta(item, isAudit)} />
+                {item.description || "Reporte del catálogo."}
               </td>
               <td className="px-4 py-4">
                 <div className="min-w-[148px]">
@@ -286,20 +227,20 @@ const FlatReportsContent = ({ items, viewMode, isAudit }) => {
     return (
       <div className="space-y-4">
         {items.map((item) => (
-          <ReportListItem key={item.id} item={item} isAudit={isAudit} />
+          <ReportListItem key={item.id} item={item} />
         ))}
       </div>
     );
   }
 
   if (viewMode === "table") {
-    return <ReportsTable items={items} isAudit={isAudit} />;
+    return <ReportsTable items={items} />;
   }
 
   return (
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-2 2xl:grid-cols-3">
       {items.map((item) => (
-        <ReportCard key={item.id} item={item} isAudit={isAudit} />
+        <ReportCard key={item.id} item={item} />
       ))}
     </div>
   );
@@ -344,7 +285,7 @@ const ReportsGroupedByCategory = ({ sections = [], isAudit = false }) => {
         >
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2 2xl:grid-cols-3">
             {section.items.map((item) => (
-              <ReportCard key={item.id} item={item} isAudit={isAudit} />
+              <ReportCard key={item.id} item={item} />
             ))}
           </div>
         </CollapsibleSection>
@@ -363,7 +304,7 @@ const ReportsCatalogPage = () => {
 
   const pageTitle = isAudit ? "Reportería de Auditoría" : "Reportería de Gestión";
   const pageDescription = isAudit
-    ? "Accede a los reportes de control, trazabilidad y auditoría disponibles o planificados para la plataforma."
+    ? "Accede a los reportes de control, trazabilidad y auditoría de la plataforma."
     : "Explora el catálogo de reportes administrativos, operacionales y ejecutivos del sistema para navegar al reporte que necesites.";
 
   useDocumentTitle(pageTitle);
@@ -371,18 +312,6 @@ const ReportsCatalogPage = () => {
   const totalReports = useMemo(
     () => sections.reduce((acc, section) => acc + section.items.length, 0),
     [sections]
-  );
-  const activeReports = useMemo(
-    () =>
-      sections.reduce(
-        (acc, section) =>
-          acc +
-          section.items.filter((item) =>
-            isAudit ? isActiveAuditReport(item.id) : isActiveGestionReport(item.id)
-          ).length,
-        0
-      ),
-    [isAudit, sections]
   );
   const flatItems = useMemo(
     () => sections.flatMap((section) => section.items),
@@ -428,16 +357,15 @@ const ReportsCatalogPage = () => {
               Reportes disponibles para navegación
             </h2>
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-              Cada bloque puede expandirse o contraerse para revisar la cobertura planificada y entrar al reporte en desarrollo.
+              Cada bloque puede expandirse o contraerse para revisar la cobertura del catálogo y entrar al reporte que necesites.
             </p>
           </div>
 
           <div className="grid grid-cols-2 gap-3 sm:min-w-[320px] sm:grid-cols-2">
             <HeaderSummaryTile label="Secciones" value={sections.length} />
             <HeaderSummaryTile
-              label="Operativos"
-              value={activeReports}
-              helper={`${totalReports - activeReports} en validación`}
+              label="Reportes"
+              value={totalReports}
             />
           </div>
         </div>

@@ -1,14 +1,17 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  FaCheck,
   FaChartLine,
   FaClock,
   FaCoins,
   FaDatabase,
   FaFilter,
+  FaInfoCircle,
   FaMicrochip,
   FaProjectDiagram,
   FaRedoAlt,
   FaRobot,
+  FaSearch,
 } from "react-icons/fa";
 
 import AsyncEChart from "@/components/charts/AsyncEChart";
@@ -20,7 +23,7 @@ import aiUsageMetricsService from "@/services/aiUsageMetricsService";
 import clientService from "@/services/clientService";
 import projectService from "@/services/projectService";
 import {
-  formatDateInputValue,
+  buildDefaultDateInputRange,
   formatNullableDateTime,
 } from "@/utils/formats";
 import logger from "@/utils/logger";
@@ -59,16 +62,12 @@ const SECTION_DEFAULTS = {
   events: true,
 };
 
-const toInputDate = (date) => formatDateInputValue(date);
-
 const buildDefaultFilters = () => {
-  const end = new Date();
-  const start = new Date();
-  start.setDate(end.getDate() - 29);
+  const { dateFrom, dateTo } = buildDefaultDateInputRange();
 
   return {
-    startDate: toInputDate(start),
-    endDate: toInputDate(end),
+    startDate: dateFrom,
+    endDate: dateTo,
     clientId: "",
     projectId: "",
     providerType: "",
@@ -95,6 +94,56 @@ const getProjectClientId = (project) =>
   project?.clientId ?? project?.client_id ?? project?.client?.id ?? "";
 const getProjectLabel = (project) =>
   project?.name ?? project?.projectName ?? project?.project_name ?? project?.project ?? "Sin proyecto";
+
+const getEntityStatusLabel = (entity) => {
+  const rawStatus =
+    entity?.status ??
+    entity?.state ??
+    entity?.isActive ??
+    entity?.is_active ??
+    entity?.active ??
+    null;
+
+  if (typeof rawStatus === "boolean") return rawStatus ? "Activo" : "Inactivo";
+  const normalized = String(rawStatus ?? "").trim().toLowerCase();
+  if (!normalized) return "";
+  if (["active", "activo", "enabled", "habilitado", "true", "1"].includes(normalized)) {
+    return "Activo";
+  }
+  if (["inactive", "inactivo", "disabled", "deshabilitado", "false", "0"].includes(normalized)) {
+    return "Inactivo";
+  }
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+};
+
+const buildProviderFilterOptions = (providerTypes = [], providerItems = []) => {
+  const options = new Map();
+
+  providerItems.forEach((item) => {
+    const value = String(item?.key ?? item?.providerType ?? item?.provider_type ?? "").trim();
+    if (!value) return;
+    const label = String(item?.label ?? item?.providerNameSnapshot ?? item?.provider_name_snapshot ?? value).trim() || value;
+    const family = String(item?.providerFamily ?? item?.provider_family ?? "").trim();
+    const subLabel = [family, label !== value ? value : ""].filter(Boolean).join(" · ");
+    options.set(value, { value, label, subLabel });
+  });
+
+  providerTypes.forEach((item) => {
+    const value = String(typeof item === "object" && item !== null ? item.value ?? item.key : item).trim();
+    if (!value || options.has(value)) return;
+    const label = String(typeof item === "object" && item !== null ? item.label ?? value : value).trim() || value;
+    const family = String(
+      typeof item === "object" && item !== null
+        ? item.providerFamily ?? item.provider_family ?? item.family ?? ""
+        : ""
+    ).trim();
+    options.set(value, { value, label, subLabel: family });
+  });
+
+  return Array.from(options.values()).sort((left, right) =>
+    left.label.localeCompare(right.label, "es", { sensitivity: "base" })
+  );
+};
 
 const numberFmt = new Intl.NumberFormat("es-CL");
 const compactFmt = new Intl.NumberFormat("es-CL", { notation: "compact", maximumFractionDigits: 1 });
@@ -238,6 +287,138 @@ const FilterField = ({ label, children }) => (
     {children}
   </label>
 );
+
+const MetricsAutocomplete = ({
+  value,
+  onChange,
+  options = [],
+  placeholder = "Todos",
+}) => {
+  const wrapperRef = useRef(null);
+  const [query, setQuery] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+
+  const normalizedOptions = useMemo(
+    () =>
+      options
+        .map((option) => {
+          const rawValue = typeof option === "object" && option !== null ? option.value : option;
+          const rawLabel = typeof option === "object" && option !== null ? option.label : option;
+          const cleanValue = String(rawValue ?? "").trim();
+          if (!cleanValue) return null;
+          return {
+            value: cleanValue,
+            label: String(rawLabel ?? cleanValue).trim() || cleanValue,
+            subLabel: String(
+              option?.subLabel ??
+                option?.sub_label ??
+                option?.description ??
+                option?.meta ??
+                ""
+            ).trim(),
+          };
+        })
+        .filter(Boolean),
+    [options]
+  );
+
+  const selectedOption = useMemo(
+    () => normalizedOptions.find((option) => String(option.value) === String(value)),
+    [normalizedOptions, value]
+  );
+  const normalizedQuery = query.trim().toLowerCase();
+  const visibleOptions = useMemo(() => {
+    if (!normalizedQuery) return normalizedOptions.slice(0, 60);
+    return normalizedOptions
+      .filter((option) => `${option.label} ${option.subLabel}`.toLowerCase().includes(normalizedQuery))
+      .slice(0, 60);
+  }, [normalizedOptions, normalizedQuery]);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+
+    const handlePointerDown = (event) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
+        setIsOpen(false);
+        setQuery("");
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [isOpen]);
+
+  const handleSelect = (option) => {
+    onChange?.(option?.value ?? "");
+    setIsOpen(false);
+    setQuery("");
+  };
+
+  return (
+    <div ref={wrapperRef} className="relative">
+      <FaSearch className="pointer-events-none absolute left-3 top-1/2 z-10 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+      <input
+        type="text"
+        value={isOpen ? query : selectedOption?.label ?? value ?? ""}
+        onChange={(event) => {
+          setQuery(event.target.value);
+          setIsOpen(true);
+        }}
+        onFocus={() => {
+          setQuery("");
+          setIsOpen(true);
+        }}
+        placeholder={placeholder}
+        className={`${inputClassName} pl-10`}
+      />
+
+      {isOpen ? (
+        <div
+          className="absolute z-50 mt-1 max-h-72 min-w-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-800"
+          style={{ width: "min(34rem, calc(100vw - 2rem))" }}
+        >
+          {value ? (
+            <button
+              type="button"
+              onClick={() => handleSelect({ value: "", label: "" })}
+              className="flex w-full items-center gap-2 border-b border-gray-100 px-3 py-2 text-left text-xs font-bold text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700/75"
+            >
+              <FaInfoCircle className="h-3 w-3 shrink-0" />
+              Limpiar selección
+            </button>
+          ) : null}
+
+          <div className="max-h-60 overflow-y-auto py-1">
+            {visibleOptions.length === 0 ? (
+              <p className="px-3 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">Sin resultados.</p>
+            ) : (
+              visibleOptions.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => handleSelect(option)}
+                  className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-xs hover:bg-gray-50 dark:hover:bg-gray-700/75"
+                >
+                  <span className="min-w-0">
+                    <span className="block break-words font-bold text-gray-800 dark:text-gray-100">{option.label}</span>
+                    {option.subLabel ? (
+                      <span className="block break-words text-[11px] font-medium text-gray-500 dark:text-gray-400">
+                        {option.subLabel}
+                      </span>
+                    ) : null}
+                  </span>
+                  {String(value) === String(option.value) ? (
+                    <FaCheck className="h-3.5 w-3.5 shrink-0 text-sky-500" />
+                  ) : null}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+};
 
 const InsightStrip = ({ insights = [] }) => (
   <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -1075,8 +1256,8 @@ const MetricsPage = () => {
 
   const loadCatalogs = async () => {
     const [clientsResult, projectsResult] = await Promise.all([
-      clientService.list({ isActive: true, limit: 200 }),
-      projectService.list({ isActive: true, limit: 200 }),
+      clientService.list({ isActive: null, limit: 200 }),
+      projectService.list({ isActive: null, limit: 200 }),
     ]);
     setClients(Array.isArray(clientsResult?.items) ? clientsResult.items : []);
     setProjects(Array.isArray(projectsResult?.items) ? projectsResult.items : []);
@@ -1179,6 +1360,7 @@ const MetricsPage = () => {
 
   const topProvider = providerItems[0];
   const topModel = modelItems[0];
+  const providerFilterOptions = buildProviderFilterOptions(meta.providerTypes, providerItems);
   const businessMetricMode = hasPricing ? "cost" : "tokens";
   const businessMetricLabel = hasPricing ? "costo" : "tokens";
 
@@ -1250,87 +1432,79 @@ const MetricsPage = () => {
               <input type="date" className={inputClassName} value={draftFilters.endDate} onChange={(event) => handleChange("endDate", event.target.value)} />
             </FilterField>
             <FilterField label="Cliente">
-              <select className={inputClassName} value={draftFilters.clientId} onChange={(event) => handleChange("clientId", event.target.value)}>
-                <option value="">Todos</option>
-                {clients.map((client) => (
-                  <option key={getClientId(client)} value={getClientId(client)}>
-                    {getClientLabel(client)}
-                  </option>
-                ))}
-              </select>
+              <MetricsAutocomplete
+                value={draftFilters.clientId}
+                onChange={(value) => handleChange("clientId", value)}
+                placeholder="Todos los clientes"
+                options={clients.map((client) => ({
+                  value: getClientId(client),
+                  label: getClientLabel(client),
+                  subLabel: getEntityStatusLabel(client),
+                }))}
+              />
             </FilterField>
             <FilterField label="Proyecto">
-              <select className={inputClassName} value={draftFilters.projectId} onChange={(event) => handleChange("projectId", event.target.value)}>
-                <option value="">Todos</option>
-                {visibleProjects.map((project) => (
-                  <option key={getProjectId(project)} value={getProjectId(project)}>
-                    {getProjectLabel(project)}
-                  </option>
-                ))}
-              </select>
+              <MetricsAutocomplete
+                value={draftFilters.projectId}
+                onChange={(value) => handleChange("projectId", value)}
+                placeholder="Todos los proyectos"
+                options={visibleProjects.map((project) => ({
+                  value: getProjectId(project),
+                  label: getProjectLabel(project),
+                  subLabel: getEntityStatusLabel(project),
+                }))}
+              />
             </FilterField>
             <FilterField label="Provider">
-              <select className={inputClassName} value={draftFilters.providerType} onChange={(event) => handleChange("providerType", event.target.value)}>
-                <option value="">Todos</option>
-                {meta.providerTypes.map((providerType) => (
-                  <option key={providerType} value={providerType}>
-                    {providerType}
-                  </option>
-                ))}
-              </select>
+              <MetricsAutocomplete
+                value={draftFilters.providerType}
+                onChange={(value) => handleChange("providerType", value)}
+                placeholder="Todos los providers"
+                options={providerFilterOptions}
+              />
             </FilterField>
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
             <FilterField label="Familia provider">
-              <select className={inputClassName} value={draftFilters.providerFamily} onChange={(event) => handleChange("providerFamily", event.target.value)}>
-                <option value="">Todas</option>
-                {meta.providerFamilies.map((providerFamily) => (
-                  <option key={providerFamily} value={providerFamily}>
-                    {providerFamily}
-                  </option>
-                ))}
-              </select>
+              <MetricsAutocomplete
+                value={draftFilters.providerFamily}
+                onChange={(value) => handleChange("providerFamily", value)}
+                placeholder="Todas las familias"
+                options={meta.providerFamilies}
+              />
             </FilterField>
             <FilterField label="Adaptador">
-              <select className={inputClassName} value={draftFilters.executionAdapter} onChange={(event) => handleChange("executionAdapter", event.target.value)}>
-                <option value="">Todos</option>
-                {meta.executionAdapters.map((executionAdapter) => (
-                  <option key={executionAdapter} value={executionAdapter}>
-                    {executionAdapter}
-                  </option>
-                ))}
-              </select>
+              <MetricsAutocomplete
+                value={draftFilters.executionAdapter}
+                onChange={(value) => handleChange("executionAdapter", value)}
+                placeholder="Todos los adaptadores"
+                options={meta.executionAdapters}
+              />
             </FilterField>
             <FilterField label="Modelo">
-              <select className={inputClassName} value={draftFilters.modelName} onChange={(event) => handleChange("modelName", event.target.value)}>
-                <option value="">Todos</option>
-                {meta.modelNames.map((modelName) => (
-                  <option key={modelName} value={modelName}>
-                    {modelName}
-                  </option>
-                ))}
-              </select>
+              <MetricsAutocomplete
+                value={draftFilters.modelName}
+                onChange={(value) => handleChange("modelName", value)}
+                placeholder="Todos los modelos"
+                options={meta.modelNames}
+              />
             </FilterField>
             <FilterField label="Estado">
-              <select className={inputClassName} value={draftFilters.status} onChange={(event) => handleChange("status", event.target.value)}>
-                <option value="">Todos</option>
-                {meta.statuses.map((status) => (
-                  <option key={status} value={status}>
-                    {status}
-                  </option>
-                ))}
-              </select>
+              <MetricsAutocomplete
+                value={draftFilters.status}
+                onChange={(value) => handleChange("status", value)}
+                placeholder="Todos los estados"
+                options={meta.statuses}
+              />
             </FilterField>
             <FilterField label="Tipo de evento">
-              <select className={inputClassName} value={draftFilters.eventType} onChange={(event) => handleChange("eventType", event.target.value)}>
-                <option value="">Todos</option>
-                {meta.eventTypes.map((eventType) => (
-                  <option key={eventType} value={eventType}>
-                    {eventType}
-                  </option>
-                ))}
-              </select>
+              <MetricsAutocomplete
+                value={draftFilters.eventType}
+                onChange={(value) => handleChange("eventType", value)}
+                placeholder="Todos los eventos"
+                options={meta.eventTypes}
+              />
             </FilterField>
           </div>
 

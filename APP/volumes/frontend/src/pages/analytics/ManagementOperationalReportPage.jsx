@@ -34,7 +34,7 @@ import aiProviderConfigService from "@/services/aiProviderConfigService";
 import systemMaintenanceService from "@/services/systemMaintenanceService";
 import systemQueueService from "@/services/systemQueueService";
 import teamsService from "@/services/teamsService";
-import { formatDate, formatDateInputValue, formatDateTime, formatNumber, parseAppDate } from "@/utils/formats";
+import { buildDefaultDateInputRange, formatDate, formatDateInputValue, formatDateTime, formatNumber, parseAppDate } from "@/utils/formats";
 import logger from "@/utils/logger";
 
 const reportLog = logger.scope("reports");
@@ -387,16 +387,11 @@ const formatDurationMs = (value) => {
 const getReprocessReasonLabel = (reason, fallback = "Señal operativa") =>
   REPROCESS_REASON_LABELS[String(reason ?? "").trim()] ?? fallback;
 
-const formatDateForInput = (date) => formatDateInputValue(date);
-
 const buildDefaultFilters = () => {
-  const today = new Date();
-  const dateTo = formatDateForInput(today);
-  const dateFromRef = new Date(today);
-  dateFromRef.setDate(dateFromRef.getDate() - 7);
+  const { dateFrom, dateTo } = buildDefaultDateInputRange({ daysBack: 7 });
 
   return {
-    dateFrom: formatDateForInput(dateFromRef),
+    dateFrom,
     dateTo,
     client: "",
     project: "",
@@ -605,6 +600,13 @@ const formatCatalogLabel = (value, fallback = "Sin dato") => {
 
 const formatStatusLabel = (value, isActive = true) => {
   const text = String(value ?? "").trim();
+  const normalized = text.toLowerCase();
+  if (["active", "activo", "enabled", "habilitado", "true", "1"].includes(normalized)) {
+    return "Activo";
+  }
+  if (["inactive", "inactivo", "disabled", "deshabilitado", "false", "0"].includes(normalized)) {
+    return "Inactivo";
+  }
   if (text) return text;
   return isActive ? "Activo" : "Inactivo";
 };
@@ -6816,50 +6818,72 @@ const ManagementOperationalReportPage = () => {
     const loadFilterCatalogs = async () => {
       try {
         const [clientsResult, projectsResult, teamsResult] = await Promise.all([
-          clientService.list({ isActive: true, limit: 500 }, requestConfig),
-          projectService.list({ isActive: true, limit: 500 }, requestConfig),
-          teamsService.list({ skip: 0, limit: 200, filters: { status: "active" } }),
+          clientService.list({ isActive: null, limit: 500 }, requestConfig),
+          projectService.list({ isActive: null, limit: 500 }, requestConfig),
+          teamsService.list({ skip: 0, limit: 200 }),
         ]);
 
         if (!isMounted || requestScope.wasAborted(requestConfig.signal)) return;
 
         const clientOptions = Array.from(
-          new Set(
-            (Array.isArray(clientsResult?.items) ? clientsResult.items : [])
-              .map((item) => getClientLabel(item))
-              .filter(Boolean)
-          )
-        )
-          .sort(compareByLabel)
-          .map((label) => ({ value: label, label }));
+          (Array.isArray(clientsResult?.items) ? clientsResult.items : [])
+            .reduce((map, item) => {
+              const label = getClientLabel(item);
+              if (!label) return map;
+              const isActive = Boolean(item?.isActive ?? item?.is_active ?? true);
+              map.set(label, {
+                value: label,
+                label,
+                subLabel: formatStatusLabel(item?.status, isActive),
+              });
+              return map;
+            }, new Map())
+            .values()
+        ).sort((left, right) => compareByLabel(left.label, right.label));
 
         const nextClientRows = (Array.isArray(clientsResult?.items) ? clientsResult.items : [])
           .map(normalizeClientCatalogRecord)
           .sort((left, right) => compareByLabel(left.client, right.client));
 
         const projectOptions = Array.from(
-          new Set(
-            (Array.isArray(projectsResult?.items) ? projectsResult.items : [])
-              .map((item) => getProjectLabel(item))
-              .filter(Boolean)
-          )
-        )
-          .sort(compareByLabel)
-          .map((label) => ({ value: label, label }));
+          (Array.isArray(projectsResult?.items) ? projectsResult.items : [])
+            .reduce((map, item) => {
+              const label = getProjectLabel(item);
+              if (!label) return map;
+              const isActive = Boolean(item?.isActive ?? item?.is_active ?? true);
+              map.set(label, {
+                value: label,
+                label,
+                subLabel: formatStatusLabel(item?.status, isActive),
+              });
+              return map;
+            }, new Map())
+            .values()
+        ).sort((left, right) => compareByLabel(left.label, right.label));
 
         const nextProjectRows = (Array.isArray(projectsResult?.items) ? projectsResult.items : [])
           .map(normalizeProjectCatalogRecord)
           .sort((left, right) => compareByLabel(left.project, right.project));
 
         const responsibleOptions = Array.from(
-          new Set(
-            (Array.isArray(teamsResult?.teams) ? teamsResult.teams : [])
-              .map((team) => team?.name || team?.username || "")
-              .filter(Boolean)
-          )
-        )
-          .sort(compareByLabel)
-          .map((label) => ({ value: label, label }));
+          (Array.isArray(teamsResult?.teams) ? teamsResult.teams : [])
+            .reduce((map, team) => {
+              const label = team?.name || team?.username || "";
+              if (!label) return map;
+              const isActive = Boolean(
+                team?.isActive ??
+                  team?.is_active ??
+                  (team?.status ? String(team.status).toLowerCase() === "active" : true)
+              );
+              map.set(label, {
+                value: label,
+                label,
+                subLabel: formatStatusLabel(team?.status, isActive),
+              });
+              return map;
+            }, new Map())
+            .values()
+        ).sort((left, right) => compareByLabel(left.label, right.label));
 
         setFilterCatalogs({
           clients: clientOptions,

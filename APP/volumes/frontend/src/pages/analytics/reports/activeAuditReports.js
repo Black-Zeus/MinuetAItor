@@ -7,10 +7,17 @@ export const ACTIVE_AUDIT_REPORT_IDS = [
   "audit-guest-sessions",
   "audit-external-observations-evidence",
   "audit-external-access-by-minute",
+  "audit-device-location-access",
+  "audit-session-anomalies",
+  "audit-sensitive-account-events",
+  "audit-sensitive-user-events",
   "audit-available-change-log",
   "audit-changes-by-entity",
   "audit-changes-by-actor",
   "audit-changes-by-period",
+  "audit-system-events",
+  "audit-control-alerts",
+  "audit-provider-traceability",
   "audit-system-sendmail",
 ];
 

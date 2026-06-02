@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import ModuleHeader from "@/components/common/page/ModuleHeader";
 import ActionButton from "@/components/ui/button/ActionButton";
@@ -42,6 +42,150 @@ const ReportFilterDropdown = ({
   </>
 );
 
+const AutocompleteFilterField = ({
+  value,
+  onChange,
+  placeholder,
+  options = [],
+  getOptionValue,
+  getOptionLabel,
+}) => {
+  const wrapperRef = useRef(null);
+  const [query, setQuery] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+
+  const normalizedOptions = useMemo(
+    () =>
+      options
+        .map((option) => {
+          const optionValue = getOptionValue ? getOptionValue(option) : option?.value;
+          const optionLabel = getOptionLabel ? getOptionLabel(option) : option?.label;
+          const cleanValue = String(optionValue ?? "").trim();
+          if (!cleanValue) return null;
+          return {
+            value: cleanValue,
+            label: String(optionLabel ?? cleanValue).trim() || cleanValue,
+            subLabel: String(
+              option?.subLabel ??
+                option?.sub_label ??
+                option?.description ??
+                option?.meta ??
+                ""
+            ).trim(),
+          };
+        })
+        .filter(Boolean),
+    [getOptionLabel, getOptionValue, options]
+  );
+
+  const selectedOption = useMemo(
+    () => normalizedOptions.find((option) => String(option.value) === String(value)),
+    [normalizedOptions, value]
+  );
+
+  const normalizedQuery = query.trim().toLowerCase();
+  const visibleOptions = useMemo(() => {
+    if (!normalizedQuery) return normalizedOptions.slice(0, 60);
+    return normalizedOptions
+      .filter((option) => `${option.label} ${option.subLabel}`.toLowerCase().includes(normalizedQuery))
+      .slice(0, 60);
+  }, [normalizedOptions, normalizedQuery]);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+
+    const handlePointerDown = (event) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
+        setIsOpen(false);
+        setQuery("");
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [isOpen]);
+
+  const handleSelect = (option) => {
+    onChange?.(option?.value ?? "");
+    setIsOpen(false);
+    setQuery("");
+  };
+
+  const displayValue = isOpen ? query : selectedOption?.label ?? value ?? "";
+
+  return (
+    <div ref={wrapperRef} className="relative">
+      <Icon
+        name="FaSearch"
+        className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-gray-400 text-sm"
+      />
+      <input
+        type="text"
+        value={displayValue}
+        onChange={(event) => {
+          setQuery(event.target.value);
+          setIsOpen(true);
+        }}
+        onFocus={() => {
+          setQuery("");
+          setIsOpen(true);
+        }}
+        placeholder={placeholder ?? "Seleccionar"}
+        className={`w-full pl-10 pr-4 py-2.5 border border-secondary-200 dark:border-secondary-700 rounded-xl bg-white dark:bg-gray-800 ${TXT_TITLE} text-sm placeholder-gray-400 dark:placeholder:text-secondary-500 focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-theme hover:border-secondary-300 dark:hover:border-secondary-600`}
+      />
+
+      {isOpen ? (
+        <div
+          className="absolute z-50 mt-1 max-h-72 min-w-full overflow-hidden rounded-xl border border-secondary-200 bg-white shadow-xl transition-theme dark:border-secondary-700 dark:bg-gray-800"
+          style={{ width: "min(34rem, calc(100vw - 2rem))" }}
+        >
+          {value ? (
+            <button
+              type="button"
+              onClick={() => handleSelect({ value: "", label: "" })}
+              className="flex w-full items-center gap-2 border-b border-secondary-100 px-3 py-2 text-left text-xs font-bold text-gray-500 hover:bg-secondary-50 dark:border-secondary-700 dark:text-gray-400 dark:hover:bg-gray-700/75"
+            >
+              <Icon name="circleInfo" className="shrink-0 text-xs" />
+              Limpiar selección
+            </button>
+          ) : null}
+
+          <div className="max-h-60 overflow-y-auto py-1">
+            {visibleOptions.length === 0 ? (
+              <p className="px-3 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">
+                Sin resultados.
+              </p>
+            ) : (
+              visibleOptions.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => handleSelect(option)}
+                  className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-xs hover:bg-secondary-50 dark:hover:bg-gray-700/75"
+                >
+                  <span className="min-w-0">
+                    <span className="block break-words font-bold text-gray-800 dark:text-gray-100">
+                      {option.label}
+                    </span>
+                    {option.subLabel ? (
+                      <span className="block break-words text-[11px] font-medium text-gray-500 dark:text-gray-400">
+                        {option.subLabel}
+                      </span>
+                    ) : null}
+                  </span>
+                  {String(value) === String(option.value) ? (
+                    <Icon name="check" className="h-3.5 w-3.5 shrink-0 text-primary-500" />
+                  ) : null}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+};
+
 const FilterField = ({
   type,
   label,
@@ -72,23 +216,14 @@ const FilterField = ({
         className={`w-full px-4 py-2.5 border border-secondary-200 dark:border-secondary-700 rounded-xl bg-white dark:bg-gray-800 ${TXT_TITLE} text-sm focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-theme hover:border-secondary-300 dark:hover:border-secondary-600`}
       />
     ) : type === "select" ? (
-      <select
+      <AutocompleteFilterField
         value={value ?? ""}
-        onChange={(event) => onChange?.(event.target.value)}
-        className={`w-full px-4 py-2.5 border border-secondary-200 dark:border-secondary-700 rounded-xl bg-white dark:bg-gray-800 ${TXT_TITLE} text-sm focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-theme hover:border-secondary-300 dark:hover:border-secondary-600`}
-      >
-        <option value="">{placeholder ?? "Seleccionar"}</option>
-        {options.map((option, index) => {
-          const optionValue = getOptionValue ? getOptionValue(option) : option?.value;
-          const optionLabel = getOptionLabel ? getOptionLabel(option) : option?.label;
-
-          return (
-            <option key={String(optionValue ?? index)} value={String(optionValue ?? "")}>
-              {String(optionLabel ?? "—")}
-            </option>
-          );
-        })}
-      </select>
+        onChange={onChange}
+        placeholder={placeholder}
+        options={options}
+        getOptionValue={getOptionValue}
+        getOptionLabel={getOptionLabel}
+      />
     ) : (
       <div className="relative">
         <Icon

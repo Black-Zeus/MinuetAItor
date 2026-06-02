@@ -208,6 +208,32 @@ export const formatDateInputValue = (dateString) => {
     }
 };
 
+export const buildDefaultDateInputRange = ({ daysBack = null, monthsBack = 1 } = {}) => {
+    const dateToRef = new Date();
+    const dateFromRef = new Date(dateToRef);
+    const days = Number(daysBack);
+
+    if (Number.isFinite(days) && days > 0) {
+        dateFromRef.setDate(dateFromRef.getDate() - days);
+        return {
+            dateFrom: formatDateInputValue(dateFromRef),
+            dateTo: formatDateInputValue(dateToRef),
+        };
+    }
+
+    const originalDay = dateFromRef.getDate();
+    const months = Number.isFinite(Number(monthsBack)) ? Number(monthsBack) : 1;
+    dateFromRef.setMonth(dateFromRef.getMonth() - Math.max(1, months));
+    if (dateFromRef.getDate() !== originalDay) {
+        dateFromRef.setDate(0);
+    }
+
+    return {
+        dateFrom: formatDateInputValue(dateFromRef),
+        dateTo: formatDateInputValue(dateToRef),
+    };
+};
+
 /**
  * Formatea solo la hora en formato HH:mm
  * @param {string|Date} dateString - Fecha a formatear

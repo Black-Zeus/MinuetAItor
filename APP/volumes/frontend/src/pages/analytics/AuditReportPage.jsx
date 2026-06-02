@@ -8,7 +8,8 @@ import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import useTableSorting from "@/hooks/useTableSorting";
 import ReportModulePage from "@/pages/analytics/reports/components/ReportModulePage";
 import { listAuditEvents, previewReportPdfBlob } from "@/services/reportsService";
-import { formatNullableDateTime, formatNumber } from "@/utils/formats";
+import teamsService from "@/services/teamsService";
+import { buildDefaultDateInputRange, formatNullableDateTime, formatNumber } from "@/utils/formats";
 import logger from "@/utils/logger";
 
 const reportLog = logger.scope("audit-reports");
@@ -23,6 +24,13 @@ const REPORT_TYPE_BY_ID = {
   "audit-guest-sessions": "guest-sessions",
   "audit-external-observations-evidence": "external-observations-evidence",
   "audit-external-access-by-minute": "external-access-by-minute",
+  "audit-device-location-access": "device-location-access",
+  "audit-session-anomalies": "session-anomalies",
+  "audit-sensitive-account-events": "sensitive-account-events",
+  "audit-sensitive-user-events": "sensitive-user-events",
+  "audit-system-events": "system-events",
+  "audit-control-alerts": "control-alerts",
+  "audit-provider-traceability": "provider-traceability",
   "audit-available-change-log": "available-audit-activity",
   "audit-changes-by-entity": "changes-by-entity",
   "audit-changes-by-actor": "changes-by-actor",
@@ -63,6 +71,34 @@ const REPORT_COPY = {
     icon: "FaRegFileLines",
     tableDescription: "Resumen de actividad externa agrupada por minuta.",
   },
+  "audit-device-location-access": {
+    icon: "FaDesktop",
+    tableDescription: "Sesiones registradas con origen, dispositivo y ubicación disponible.",
+  },
+  "audit-session-anomalies": {
+    icon: "FaTriangleExclamation",
+    tableDescription: "Sesiones que requieren revisión por información incompleta o inconsistente.",
+  },
+  "audit-sensitive-account-events": {
+    icon: "FaShield",
+    tableDescription: "Eventos sensibles asociados a cuentas, credenciales y control de acceso.",
+  },
+  "audit-sensitive-user-events": {
+    icon: "FaUserShield",
+    tableDescription: "Actividad sensible agrupada por usuario para revisión de control.",
+  },
+  "audit-system-events": {
+    icon: "FaGears",
+    tableDescription: "Eventos operativos relevantes para control y revisión administrativa.",
+  },
+  "audit-control-alerts": {
+    icon: "FaTriangleExclamation",
+    tableDescription: "Alertas operativas con impacto de control, activación o normalización registrada.",
+  },
+  "audit-provider-traceability": {
+    icon: "FaDatabase",
+    tableDescription: "Eventos auditables de creación, actualización, validación y cambio operativo de providers IA.",
+  },
   "audit-available-change-log": {
     icon: "FaCodeBranch",
     tableDescription: "Cambios que cuentan con cobertura real en la bitácora de auditoría.",
@@ -95,6 +131,28 @@ const STATUS_OPTIONS = [
   { value: "queued", label: "En cola" },
   { value: "pending", label: "Pendiente" },
   { value: "consumed", label: "Consumido" },
+  { value: "grouped", label: "Agrupado" },
+  { value: "success", label: "Correcto" },
+  { value: "warning", label: "Revisar" },
+  { value: "error", label: "Error" },
+];
+
+const SYSTEM_EVENT_TYPE_OPTIONS = [
+  { value: "operation_mode_changed", label: "Cambio de modo operativo" },
+];
+
+const CONTROL_ALERT_EVENT_TYPE_OPTIONS = [
+  { value: "queue_threshold_exceeded", label: "Alerta activada" },
+  { value: "queue_threshold_recovered", label: "Alerta normalizada" },
+];
+
+const PROVIDER_TRACE_EVENT_TYPE_OPTIONS = [
+  { value: "ai_provider_created", label: "Creación" },
+  { value: "ai_provider_updated", label: "Actualización" },
+  { value: "ai_provider_activated", label: "Activación" },
+  { value: "ai_provider_deactivated", label: "Desactivación" },
+  { value: "ai_provider_deleted", label: "Eliminación" },
+  { value: "ai_provider_validated", label: "Validación" },
 ];
 
 const ENTITY_TYPE_OPTIONS = [
@@ -114,16 +172,24 @@ const ENTITY_TYPE_OPTIONS = [
   { value: "Observación externa", label: "Observación externa" },
   { value: "record", label: "Minuta" },
   { value: "Minuta", label: "Minuta" },
+  { value: "system_event", label: "Evento de sistema" },
+  { value: "Evento de sistema", label: "Evento de sistema" },
+  { value: "system_operation_state", label: "Modo operativo" },
+  { value: "Modo operativo", label: "Modo operativo" },
 ];
 
-const DEFAULT_FILTERS = {
-  dateFrom: "",
-  dateTo: "",
-  actor: "",
-  entityType: "",
-  status: "",
-  client: "",
-  project: "",
+const buildDefaultFilters = () => {
+  const { dateFrom, dateTo } = buildDefaultDateInputRange();
+  return {
+    dateFrom,
+    dateTo,
+    actor: "",
+    entityType: "",
+    eventType: "",
+    status: "",
+    client: "",
+    project: "",
+  };
 };
 
 const DEFAULT_VISIBLE_FILTERS = {
@@ -131,6 +197,7 @@ const DEFAULT_VISIBLE_FILTERS = {
   dateTo: true,
   actor: true,
   entityType: true,
+  eventType: true,
   status: true,
   client: false,
   project: false,
@@ -147,26 +214,50 @@ const GROUPED_REPORTS = new Set([
   "audit-changes-by-entity",
   "audit-changes-by-actor",
   "audit-changes-by-period",
+  "audit-sensitive-user-events",
 ]);
 
 const SESSION_REPORTS = new Set([
   "audit-user-sessions",
   "audit-remote-session-close",
+  "audit-device-location-access",
+  "audit-session-anomalies",
 ]);
 
 const SENDMAIL_REPORTS = new Set(["audit-system-sendmail"]);
 
+const SYSTEM_REPORTS = new Set(["audit-system-events"]);
+const CONTROL_ALERT_REPORTS = new Set(["audit-control-alerts"]);
+const PROVIDER_TRACE_REPORTS = new Set(["audit-provider-traceability"]);
+
 const buildSelectOptions = (values, selectedValue = "") => {
-  const cleanValues = new Set(
-    values
-      .map((value) => String(value ?? "").trim())
-      .filter(Boolean)
-  );
+  const optionMap = new Map();
+  values.forEach((item) => {
+    const rawValue = typeof item === "object" && item !== null ? item.value : item;
+    const rawLabel = typeof item === "object" && item !== null ? item.label : item;
+    const value = String(rawValue ?? "").trim();
+    if (!value) return;
+    const subLabel = String(
+      item?.subLabel ??
+        item?.sub_label ??
+        item?.description ??
+        item?.meta ??
+        ""
+    ).trim();
+    const currentOption = optionMap.get(value);
+    if (currentOption?.subLabel && !subLabel) return;
+    optionMap.set(value, {
+      value,
+      label: String(rawLabel ?? value).trim() || value,
+      subLabel,
+    });
+  });
   const selected = String(selectedValue ?? "").trim();
-  if (selected) cleanValues.add(selected);
-  return Array.from(cleanValues)
-    .sort((left, right) => left.localeCompare(right, "es", { sensitivity: "base" }))
-    .map((value) => ({ value, label: value }));
+  if (selected && !optionMap.has(selected)) {
+    optionMap.set(selected, { value: selected, label: selected });
+  }
+  return Array.from(optionMap.values())
+    .sort((left, right) => left.label.localeCompare(right.label, "es", { sensitivity: "base" }));
 };
 
 const formatDateTime = (value) => {
@@ -176,6 +267,27 @@ const formatDateTime = (value) => {
 const safeText = (value, fallback = "-") => {
   const clean = String(value ?? "").trim();
   return clean || fallback;
+};
+
+const userActorLabel = (user) =>
+  safeText(
+    user?.name
+      ?? user?.fullName
+      ?? user?.displayName
+      ?? user?.username
+      ?? user?.email,
+    ""
+  );
+
+const userActorOption = (user) => {
+  const value = userActorLabel(user);
+  if (!value) return null;
+  const status = String(user?.status || "").toLowerCase() === "active" ? "Activo" : "Inactivo";
+  return {
+    value,
+    label: value,
+    subLabel: status,
+  };
 };
 
 const STATUS_META = {
@@ -218,6 +330,18 @@ const STATUS_META = {
   grouped: {
     label: "Agrupado",
     className: "bg-slate-100 text-slate-700 dark:bg-slate-700/70 dark:text-slate-200",
+  },
+  success: {
+    label: "Correcto",
+    className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/35 dark:text-emerald-300",
+  },
+  warning: {
+    label: "Revisar",
+    className: "bg-amber-100 text-amber-700 dark:bg-amber-900/35 dark:text-amber-300",
+  },
+  error: {
+    label: "Error",
+    className: "bg-red-100 text-red-700 dark:bg-red-900/35 dark:text-red-300",
   },
   with_activity: {
     label: "Con actividad",
@@ -334,8 +458,8 @@ const AuditReportPage = () => {
   const reportType = REPORT_TYPE_BY_ID[reportId];
   const copy = REPORT_COPY[reportId] ?? {};
 
-  const [filters, setFilters] = useState(DEFAULT_FILTERS);
-  const [appliedFilters, setAppliedFilters] = useState(DEFAULT_FILTERS);
+  const [filters, setFilters] = useState(() => buildDefaultFilters());
+  const [appliedFilters, setAppliedFilters] = useState(() => buildDefaultFilters());
   const [rows, setRows] = useState([]);
   const [actorCatalog, setActorCatalog] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -345,7 +469,12 @@ const AuditReportPage = () => {
   useDocumentTitle(reportItem?.name ?? "Reporte de Auditoría");
 
   const usesClientProject = EXTERNAL_REPORTS.has(reportId);
-  const usesEntityType = !EXTERNAL_REPORTS.has(reportId) && !SESSION_REPORTS.has(reportId) && !SENDMAIL_REPORTS.has(reportId);
+  const usesEntityType = !EXTERNAL_REPORTS.has(reportId)
+    && !SESSION_REPORTS.has(reportId)
+    && !SENDMAIL_REPORTS.has(reportId)
+    && !SYSTEM_REPORTS.has(reportId)
+    && !CONTROL_ALERT_REPORTS.has(reportId)
+    && !PROVIDER_TRACE_REPORTS.has(reportId);
 
   const columns = useMemo(() => [
     { key: "date", label: "Fecha", sortable: true, render: (row) => formatDateTime(row.date), exportValue: (row) => formatDateTime(row.date) },
@@ -432,6 +561,39 @@ const AuditReportPage = () => {
       });
     }
 
+    if (SYSTEM_REPORTS.has(reportId)) {
+      fields.push({
+        name: "eventType",
+        label: "Evento",
+        type: "select",
+        icon: "FaGears",
+        placeholder: "Todos los eventos",
+        options: SYSTEM_EVENT_TYPE_OPTIONS,
+      });
+    }
+
+    if (CONTROL_ALERT_REPORTS.has(reportId)) {
+      fields.push({
+        name: "eventType",
+        label: "Evento",
+        type: "select",
+        icon: "FaTriangleExclamation",
+        placeholder: "Todas las alertas",
+        options: CONTROL_ALERT_EVENT_TYPE_OPTIONS,
+      });
+    }
+
+    if (PROVIDER_TRACE_REPORTS.has(reportId)) {
+      fields.push({
+        name: "eventType",
+        label: "Evento",
+        type: "select",
+        icon: "FaDatabase",
+        placeholder: "Todos los eventos",
+        options: PROVIDER_TRACE_EVENT_TYPE_OPTIONS,
+      });
+    }
+
     fields.push({
       name: "status",
       label: "Estado",
@@ -449,7 +611,7 @@ const AuditReportPage = () => {
     }
 
     return fields;
-  }, [actorOptions, usesClientProject, usesEntityType]);
+  }, [actorOptions, reportId, usesClientProject, usesEntityType]);
 
   const defaultVisibleFilters = useMemo(() => ({
     ...DEFAULT_VISIBLE_FILTERS,
@@ -458,7 +620,8 @@ const AuditReportPage = () => {
     client: false,
     project: false,
     entityType: false,
-  }), [usesClientProject, usesEntityType]);
+    eventType: SYSTEM_REPORTS.has(reportId) || CONTROL_ALERT_REPORTS.has(reportId) || PROVIDER_TRACE_REPORTS.has(reportId),
+  }), [reportId, usesClientProject, usesEntityType]);
 
   const loadReport = useCallback(async (nextFilters) => {
     if (!reportType) return;
@@ -470,6 +633,7 @@ const AuditReportPage = () => {
         dateTo: nextFilters.dateTo,
         actor: nextFilters.actor,
         entityType: usesEntityType ? nextFilters.entityType : null,
+        eventType: SYSTEM_REPORTS.has(reportId) || CONTROL_ALERT_REPORTS.has(reportId) || PROVIDER_TRACE_REPORTS.has(reportId) ? nextFilters.eventType : null,
         status: nextFilters.status,
         client: usesClientProject ? nextFilters.client : null,
         project: usesClientProject ? nextFilters.project : null,
@@ -488,8 +652,9 @@ const AuditReportPage = () => {
   }, [reportId, reportType, usesClientProject, usesEntityType]);
 
   useEffect(() => {
-    setFilters(DEFAULT_FILTERS);
-    setAppliedFilters(DEFAULT_FILTERS);
+    const defaults = buildDefaultFilters();
+    setFilters(defaults);
+    setAppliedFilters(defaults);
     setRows([]);
     setActorCatalog([]);
     setHasExecuted(false);
@@ -501,22 +666,50 @@ const AuditReportPage = () => {
     let cancelled = false;
 
     const loadActorCatalog = async () => {
+      const nextActors = new Set();
+      try {
+        const pageSize = 200;
+        let skip = 0;
+        let total = pageSize;
+        while (!cancelled && skip < total) {
+          const response = await teamsService.list({
+            skip,
+            limit: pageSize,
+          });
+          total = Number(response?.total ?? 0) || 0;
+          (response?.teams ?? [])
+            .map(userActorOption)
+            .filter(Boolean)
+            .forEach((actor) => nextActors.add(actor));
+          skip += pageSize;
+          if (!response?.teams?.length) break;
+        }
+        if (cancelled) return;
+      } catch (error) {
+        if (!cancelled) {
+          reportLog.warn(`No se pudo precargar usuarios para el catalogo de actores de auditoría ${reportId}.`, error);
+        }
+      }
+
       try {
         const response = await listAuditEvents({
           reportType,
           limit: 500,
         });
         if (cancelled) return;
-        const nextActors = (response?.items ?? [])
+        (response?.items ?? [])
           .map((row) => normalizeRow(row).actor)
           .map((actor) => String(actor ?? "").trim())
-          .filter(Boolean);
-        setActorCatalog(Array.from(new Set(nextActors)));
+          .filter(Boolean)
+          .forEach((actor) => nextActors.add(actor));
       } catch (error) {
         if (!cancelled) {
-          reportLog.warn(`No se pudo precargar el catalogo de actores para auditoría ${reportId}.`, error);
-          setActorCatalog([]);
+          reportLog.warn(`No se pudo precargar evidencia para el catalogo de actores de auditoría ${reportId}.`, error);
         }
+      }
+
+      if (!cancelled) {
+        setActorCatalog(Array.from(nextActors));
       }
     };
 
