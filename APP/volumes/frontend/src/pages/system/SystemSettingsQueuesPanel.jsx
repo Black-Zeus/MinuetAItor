@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import ModalManager from "@/components/ui/modal";
 import ActionButton from "@/components/ui/button/ActionButton";
 import Icon from "@/components/ui/icon/iconManager";
-import { toastError } from "@/components/common/toast/toastHelpers";
+import { toastError, toastSuccess } from "@/components/common/toast/toastHelpers";
 import {
   MaintenanceField,
   MaintenanceInput,
@@ -93,6 +93,14 @@ const getLoadSignal = (percent, monitoringEnabled) => {
 };
 
 const formatPercent = (value) => `${Math.round(Number(value || 0))}%`;
+
+const formatJson = (value) => {
+  try {
+    return JSON.stringify(value ?? {}, null, 2);
+  } catch {
+    return String(value ?? "");
+  }
+};
 
 const buildAlertTooltip = (item) => {
   const alertState = item?.alertState || {};
@@ -337,6 +345,181 @@ const QueueRow = ({ item }) => {
   );
 };
 
+const DlqDetailsModal = ({ item }) => (
+  <div className="w-full max-w-5xl">
+    <div className="border-b border-gray-200/70 pb-4 dark:border-gray-700/70">
+      <p className={`text-xs font-semibold uppercase tracking-wide ${TXT_META}`}>Detalle DLQ</p>
+      <h2 className={`mt-2 text-xl font-semibold ${TXT_TITLE}`}>{item?.type || "Tarea sin tipo"}</h2>
+      <p className={`mt-2 font-mono text-xs ${TXT_META}`}>{item?.jobId || item?.job_id || item?.id}</p>
+    </div>
+
+    <div className="grid grid-cols-1 gap-6 py-6 lg:grid-cols-[0.9fr_1.1fr]">
+      <div className="space-y-5">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <p className={`text-xs font-semibold uppercase tracking-wide ${TXT_META}`}>Cola origen</p>
+            <p className={`mt-1 font-mono text-sm ${TXT_TITLE}`}>{item?.queue || "Sin cola"}</p>
+          </div>
+          <div>
+            <p className={`text-xs font-semibold uppercase tracking-wide ${TXT_META}`}>Intento</p>
+            <p className={`mt-1 text-sm ${TXT_TITLE}`}>{item?.attempt ?? "Sin dato"}</p>
+          </div>
+          <div>
+            <p className={`text-xs font-semibold uppercase tracking-wide ${TXT_META}`}>Fecha fallo</p>
+            <p className={`mt-1 text-sm ${TXT_TITLE}`}>{formatDateTime(item?.failedAt || item?.failed_at)}</p>
+          </div>
+          <div>
+            <p className={`text-xs font-semibold uppercase tracking-wide ${TXT_META}`}>Identificador interno</p>
+            <p className={`mt-1 font-mono text-xs ${TXT_TITLE}`}>{item?.id}</p>
+          </div>
+        </div>
+
+        <div>
+          <p className={`text-xs font-semibold uppercase tracking-wide ${TXT_META}`}>Error reportado</p>
+          <pre className="mt-3 max-h-[260px] overflow-auto rounded-xl border border-gray-200/70 bg-slate-950/95 p-4 text-xs leading-relaxed text-slate-100 dark:border-gray-700/70">
+            {item?.error || "Sin detalle de error."}
+          </pre>
+        </div>
+      </div>
+
+      <div>
+        <p className={`text-xs font-semibold uppercase tracking-wide ${TXT_META}`}>Payload original</p>
+        <pre className="mt-3 max-h-[420px] overflow-auto rounded-xl border border-gray-200/70 bg-slate-950/95 p-4 text-xs leading-relaxed text-slate-100 dark:border-gray-700/70">
+          {formatJson(item?.payload)}
+        </pre>
+      </div>
+    </div>
+  </div>
+);
+
+const openDlqDetailsModal = (item) => {
+  ModalManager.custom({
+    title: "Detalle de tarea DLQ",
+    size: "large",
+    content: <DlqDetailsModal item={item} />,
+    showFooter: false,
+  });
+};
+
+const DlqRow = ({ item, busyAction, onRequeue, onDiscard }) => {
+  const jobId = item?.jobId || item?.job_id;
+  const failedAt = item?.failedAt || item?.failed_at;
+  const isBusy = Boolean(busyAction);
+
+  return (
+    <div className="grid grid-cols-1 gap-4 border-b border-gray-200/70 px-4 py-4 last:border-b-0 dark:border-gray-700/70 lg:grid-cols-[1fr_0.85fr_0.7fr_0.65fr]">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <StatusBadge tone="danger">Pendiente</StatusBadge>
+          <span className={`font-mono text-xs ${TXT_META}`}>{item?.type || "sin_tipo"}</span>
+        </div>
+        <p className={`mt-2 truncate text-sm font-semibold ${TXT_TITLE}`}>{jobId || item?.id}</p>
+        <p className={`mt-1 line-clamp-2 text-xs ${TXT_META}`}>{item?.error || "Sin detalle de error."}</p>
+      </div>
+
+      <div>
+        <p className={`text-xs font-semibold uppercase tracking-wide ${TXT_META}`}>Cola origen</p>
+        <p className={`mt-1 font-mono text-xs ${TXT_TITLE}`}>{item?.queue || "Sin cola"}</p>
+        <p className={`mt-2 text-xs ${TXT_META}`}>Intento: {item?.attempt ?? "Sin dato"}</p>
+      </div>
+
+      <div>
+        <p className={`text-xs font-semibold uppercase tracking-wide ${TXT_META}`}>Fallo</p>
+        <p className={`mt-1 text-sm ${TXT_TITLE}`}>{formatDateTime(failedAt)}</p>
+      </div>
+
+      <div className="flex items-center justify-start gap-2 lg:justify-end">
+        <ActionButton
+          variant="soft"
+          size="sm"
+          icon={<Icon name="eye" />}
+          tooltip="Analizar detalle"
+          onClick={() => openDlqDetailsModal(item)}
+          disabled={isBusy}
+        />
+        <ActionButton
+          variant="soft"
+          size="sm"
+          icon={<Icon name="rotate" />}
+          tooltip="Reprocesar tarea"
+          onClick={() => onRequeue(item)}
+          disabled={isBusy}
+        />
+        <ActionButton
+          variant="danger"
+          size="sm"
+          icon={<Icon name="trash" />}
+          tooltip="Descartar tarea"
+          onClick={() => onDiscard(item)}
+          disabled={isBusy}
+        />
+      </div>
+    </div>
+  );
+};
+
+const DlqOperationsPanel = ({ snapshot, isLoading, busyItemId, onReload, onRequeue, onDiscard }) => {
+  const items = Array.isArray(snapshot?.items) ? snapshot.items : [];
+  const size = Number(snapshot?.size ?? 0);
+
+  return (
+    <SectionCard
+      title="Bandeja DLQ"
+      icon="FaTriangleExclamation"
+      description="Revisa tareas fallidas antes de reprocesarlas o cerrarlas administrativamente. Las acciones quedan fuera de la bandeja pendiente y pasan al historial interno."
+      actions={
+        <ActionButton
+          label="Actualizar DLQ"
+          variant="soft"
+          size="sm"
+          icon={<Icon name="rotate" />}
+          onClick={onReload}
+          disabled={isLoading}
+        />
+      }
+    >
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[0.8fr_1.2fr]">
+        <div className="rounded-[24px] border border-gray-200/80 bg-slate-50/80 p-5 shadow-sm dark:border-gray-700/80 dark:bg-slate-900/40">
+          <p className={`text-xs font-semibold uppercase tracking-wide ${TXT_META}`}>Pendientes de revisión</p>
+          <p className={`mt-2 text-3xl font-semibold ${size > 0 ? "text-rose-600 dark:text-rose-300" : TXT_TITLE}`}>
+            {size}
+          </p>
+          <p className={`mt-3 text-sm ${TXT_BODY}`}>
+            {size > 0
+              ? "Analiza el error y el payload antes de decidir reproceso o descarte."
+              : "No hay tareas fallidas pendientes en DLQ."}
+          </p>
+          <p className={`mt-3 text-xs ${TXT_META}`}>Última lectura: {formatDateTime(snapshot?.refreshedAt)}</p>
+        </div>
+
+        <div className="overflow-hidden rounded-[24px] border border-gray-200/80 bg-slate-50/80 shadow-sm dark:border-gray-700/80 dark:bg-slate-900/40">
+          {isLoading ? (
+            <div className="px-4 py-8 text-center">
+              <p className={`text-sm ${TXT_BODY}`}>Cargando bandeja DLQ...</p>
+            </div>
+          ) : items.length ? (
+            items.map((item) => (
+              <DlqRow
+                key={item.id}
+                item={item}
+                busyAction={busyItemId === item.id}
+                onRequeue={onRequeue}
+                onDiscard={onDiscard}
+              />
+            ))
+          ) : (
+            <div className="px-4 py-8 text-center">
+              <Icon name="checkCircle" className="mx-auto h-8 w-8 text-emerald-500" />
+              <p className={`mt-3 text-sm font-semibold ${TXT_TITLE}`}>DLQ sin pendientes</p>
+              <p className={`mt-1 text-sm ${TXT_BODY}`}>No existen tareas fallidas esperando revisión manual.</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </SectionCard>
+  );
+};
+
 const QueueLegend = () => (
   <div className="rounded-[24px] border border-gray-200/80 bg-slate-50/80 p-5 shadow-sm dark:border-gray-700/80 dark:bg-slate-900/40">
     <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.2fr_1fr]">
@@ -395,8 +578,11 @@ const QueueLegend = () => (
 
 export const QueuesPanel = () => {
   const [queueSnapshot, setQueueSnapshot] = useState(null);
+  const [dlqSnapshot, setDlqSnapshot] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isDlqLoading, setIsDlqLoading] = useState(false);
+  const [busyDlqItemId, setBusyDlqItemId] = useState(null);
   const [isAutoRefreshPaused, setIsAutoRefreshPaused] = useState(false);
   const [refreshAmount, setRefreshAmount] = useState(15);
   const [refreshUnit, setRefreshUnit] = useState("seconds");
@@ -417,8 +603,17 @@ export const QueuesPanel = () => {
 
     const requestPromise = (async () => {
       try {
-        const result = await systemQueueService.getStatus();
-        setQueueSnapshot(result);
+        const [statusResult, dlqResult] = await Promise.allSettled([
+          systemQueueService.getStatus(),
+          systemQueueService.listDlq({ limit: 50 }),
+        ]);
+        if (statusResult.status === "rejected") {
+          throw statusResult.reason;
+        }
+        setQueueSnapshot(statusResult.value);
+        if (dlqResult.status === "fulfilled") {
+          setDlqSnapshot(dlqResult.value);
+        }
       } catch (error) {
         if (pauseAutoRefreshOnError) {
           setIsAutoRefreshPaused(true);
@@ -443,6 +638,63 @@ export const QueuesPanel = () => {
   useEffect(() => {
     loadQueues();
   }, []);
+
+  const loadDlq = async ({ silent = false } = {}) => {
+    if (!silent) setIsDlqLoading(true);
+    try {
+      const result = await systemQueueService.listDlq({ limit: 50 });
+      setDlqSnapshot(result);
+    } catch (error) {
+      toastError("No se pudo cargar DLQ", error?.message ?? "No fue posible obtener la bandeja DLQ.");
+    } finally {
+      setIsDlqLoading(false);
+    }
+  };
+
+  const handleRequeueDlqItem = async (item) => {
+    if (!item?.id || busyDlqItemId) return;
+    const confirmed = await ModalManager.confirm({
+      title: "Reprocesar tarea DLQ",
+      message: `La tarea volverá a la cola ${item?.queue || "de origen"} con sus datos originales y contador de intentos reiniciado. Revisa el detalle antes de confirmar.`,
+      confirmText: "Reprocesar",
+      cancelText: "Cancelar",
+    });
+    if (!confirmed) return;
+
+    setBusyDlqItemId(item.id);
+    try {
+      const result = await systemQueueService.requeueDlqItem(item.id);
+      toastSuccess("Tarea reencolada", result?.message || "La tarea fue enviada nuevamente a proceso.");
+      await loadQueues({ silent: true, notifyOnError: false, pauseAutoRefreshOnError: false });
+    } catch (error) {
+      toastError("No se pudo reprocesar", error?.message ?? "La tarea no pudo volver a la cola de origen.");
+    } finally {
+      setBusyDlqItemId(null);
+    }
+  };
+
+  const handleDiscardDlqItem = async (item) => {
+    if (!item?.id || busyDlqItemId) return;
+    const confirmed = await ModalManager.confirm({
+      title: "Descartar tarea DLQ",
+      message: "La tarea saldrá de la bandeja pendiente y quedará registrada como descartada en el historial interno. Esta acción no ejecuta reproceso.",
+      confirmText: "Descartar",
+      cancelText: "Cancelar",
+      variant: "danger",
+    });
+    if (!confirmed) return;
+
+    setBusyDlqItemId(item.id);
+    try {
+      const result = await systemQueueService.discardDlqItem(item.id);
+      toastSuccess("Tarea descartada", result?.message || "La tarea fue cerrada administrativamente.");
+      await loadQueues({ silent: true, notifyOnError: false, pauseAutoRefreshOnError: false });
+    } catch (error) {
+      toastError("No se pudo descartar", error?.message ?? "La tarea DLQ no pudo cerrarse.");
+    } finally {
+      setBusyDlqItemId(null);
+    }
+  };
 
   useEffect(() => {
     if (isLoading) return undefined;
@@ -615,6 +867,15 @@ export const QueuesPanel = () => {
           <QueueLegend />
         </div>
       </SectionCard>
+
+      <DlqOperationsPanel
+        snapshot={dlqSnapshot}
+        isLoading={isDlqLoading}
+        busyItemId={busyDlqItemId}
+        onReload={() => loadDlq()}
+        onRequeue={handleRequeueDlqItem}
+        onDiscard={handleDiscardDlqItem}
+      />
     </div>
   );
 };

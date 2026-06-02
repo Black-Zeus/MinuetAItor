@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -39,5 +41,42 @@ class SystemQueueItemResponse(BaseModel):
 class SystemQueuesStatusResponse(BaseModel):
     refreshed_at: str = Field(..., serialization_alias="refreshedAt")
     queues: list[SystemQueueItemResponse]
+
+    model_config = {"populate_by_name": True}
+
+
+class SystemDlqItemResponse(BaseModel):
+    id: str
+    job_id: str | None = Field(None, serialization_alias="jobId")
+    type: str | None = None
+    queue: str | None = None
+    attempt: int | None = None
+    failed_at: str | None = Field(None, serialization_alias="failedAt")
+    error: str | None = None
+    payload: dict[str, Any] = Field(default_factory=dict)
+    raw: dict[str, Any] = Field(default_factory=dict)
+
+    model_config = {"populate_by_name": True}
+
+
+class SystemDlqListResponse(BaseModel):
+    refreshed_at: str = Field(..., serialization_alias="refreshedAt")
+    size: int
+    items: list[SystemDlqItemResponse]
+
+    model_config = {"populate_by_name": True}
+
+
+class SystemDlqActionRequest(BaseModel):
+    comment: str | None = None
+
+
+class SystemDlqActionResponse(BaseModel):
+    ok: bool = True
+    action: str
+    item_id: str = Field(..., serialization_alias="itemId")
+    job_id: str | None = Field(None, serialization_alias="jobId")
+    queue: str | None = None
+    message: str
 
     model_config = {"populate_by_name": True}

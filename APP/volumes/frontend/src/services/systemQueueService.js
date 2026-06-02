@@ -51,6 +51,42 @@ const systemQueueService = {
     );
     return unwrap(res);
   },
+
+  async listDlq({ limit = 50 } = {}) {
+    const res = await request(
+      {
+        method: "get",
+        url: `${BASE}/dlq`,
+        params: { limit },
+      },
+      "No fue posible obtener la bandeja DLQ."
+    );
+    return unwrap(res);
+  },
+
+  async requeueDlqItem(itemId, { comment = "" } = {}) {
+    const res = await request(
+      {
+        method: "post",
+        url: `${BASE}/dlq/${encodeURIComponent(itemId)}/requeue`,
+        data: { comment },
+      },
+      "No fue posible reencolar la tarea DLQ."
+    );
+    return unwrap(res);
+  },
+
+  async discardDlqItem(itemId, { comment = "" } = {}) {
+    const res = await request(
+      {
+        method: "post",
+        url: `${BASE}/dlq/${encodeURIComponent(itemId)}/discard`,
+        data: { comment },
+      },
+      "No fue posible descartar la tarea DLQ."
+    );
+    return unwrap(res);
+  },
 };
 
 export default systemQueueService;
