@@ -56,9 +56,13 @@ def build_minute_canonical_context(db: Session, record_id: str) -> dict[str, Any
         "items": _build_items(
             record=record,
             version=version,
+            client=client,
+            project=project,
+            participants=participants,
             agreements=agreements,
             requirements=requirements,
             observations=observations,
+            record_status=record_status,
         ),
     }
     canonical["sourceHash"] = _source_hash(canonical)
@@ -285,16 +289,34 @@ def _build_items(
     *,
     record: Record,
     version: RecordVersion,
+    client: Client,
+    project: Project | None,
+    participants: list[RecordVersionParticipant],
     agreements: list[RecordVersionAgreement],
     requirements: list[RecordVersionRequirement],
     observations: list[RecordVersionObservation],
+    record_status: str | None,
 ) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
+    items.append(
+        _minute_overview_item(
+            record=record,
+            version=version,
+            client=client,
+            project=project,
+            participants=participants,
+            agreements=agreements,
+            requirements=requirements,
+            observations=observations,
+            record_status=record_status,
+        )
+    )
     items.extend(_text_item(record, version, "summary", "Resumen", version.summary_text))
     items.extend(_structured_text_items(record, version, "decision", "Decisiones", version.decisions_text))
     items.extend(_structured_text_items(record, version, "risk", "Riesgos", version.risks_text))
     items.extend(_text_item(record, version, "next_steps", "Proximos pasos", version.next_steps_text))
     items.extend(_text_item(record, version, "agreements_text", "Acuerdos", version.agreements_text))
+    items.extend(_participant_items(record, version, participants))
 
     for agreement in agreements:
         item = _clean(
@@ -388,6 +410,111 @@ def _build_items(
         items.append(item)
 
     return items
+
+
+def _participant_items(
+    record: Record,
+    version: RecordVersion,
+    participants: list[RecordVersionParticipant],
+) -> list[dict[str, Any]]:
+    items: list[dict[str, Any]] = []
+    role_labels = {
+        "required": "Participante requerido",
+        "optional": "Participante opcional",
+        "observer": "Observador",
+        "unknown": "Participante",
+    }
+
+    for index, participant in enumerate(participants, start=1):
+        role = str(getattr(participant.role, "value", participant.role) or "unknown")
+        role_label = role_labels.get(role, "Participante")
+        display_name = _normalize_text(participant.display_name)
+        if not display_name:
+            continue
+
+        canonical_text = _join_text(
+            [
+                f"{role_label}: {display_name}",
+                f"Nombre: {display_name}",
+                f"Rol en la minuta: {role_label}",
+                f"Organizacion: {participant.organization}" if participant.organization else None,
+                f"Cargo: {participant.title}" if participant.title else None,
+                f"Email: {participant.email}" if participant.email else None,
+            ]
+        )
+        items.append(
+            _clean(
+                {
+                    "id": f"participant:{participant.id}",
+                    "type": "participant",
+                    "title": display_name,
+                    "text": canonical_text,
+                    "canonicalText": canonical_text,
+                    "metadata": {
+                        "recordId": record.id,
+                        "versionId": version.id,
+                        "participantId": participant.participant_id,
+                        "role": role,
+                        "roleLabel": role_label,
+                        "sourceIndex": index,
+                    },
+                }
+            )
+        )
+
+    return items
+
+
+def _minute_overview_item(
+    *,
+    record: Record,
+    version: RecordVersion,
+    client: Client,
+    project: Project | None,
+    participants: list[RecordVersionParticipant],
+    agreements: list[RecordVersionAgreement],
+    requirements: list[RecordVersionRequirement],
+    observations: list[RecordVersionObservation],
+    record_status: str | None,
+) -> dict[str, Any]:
+    participant_names = [
+        _normalize_text(item.display_name)
+        for item in participants
+        if _normalize_text(item.display_name)
+    ]
+    title = record.title or "Minuta final"
+    canonical_text = _join_text(
+        [
+            f"Minuta: {title}",
+            f"Estado de la minuta: {record_status}" if record_status else None,
+            f"Cliente: {client.name}" if client and client.name else None,
+            f"Proyecto: {project.name}" if project and project.name else None,
+            f"Fecha documento: {_iso(record.document_date)}" if record.document_date else None,
+            f"Lugar: {record.location}" if record.location else None,
+            f"Version final: {version.version_num}",
+            f"Participantes: {', '.join(participant_names)}" if participant_names else "Participantes: sin participantes registrados",
+            f"Cantidad de acuerdos: {len(agreements)}",
+            f"Cantidad de requerimientos: {len(requirements)}",
+            f"Cantidad de observaciones aplicadas: {len(observations)}",
+            "Esta minuta esta publicada y disponible para consulta contextual.",
+        ]
+    )
+    return {
+        "id": f"minute:{record.id}:version:{version.id}:overview",
+        "type": "minute_overview",
+        "title": "Ficha de minuta",
+        "text": canonical_text,
+        "canonicalText": canonical_text,
+        "metadata": {
+            "recordId": record.id,
+            "versionId": version.id,
+            "sourceField": "overview",
+            "participantsCount": len(participants),
+            "agreementsCount": len(agreements),
+            "requirementsCount": len(requirements),
+            "appliedObservationsCount": len(observations),
+        },
+    }
 
 
 def _text_item(

@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+import json
+import socket
+import ssl
+import urllib.error
+import urllib.request
 import uuid
 from datetime import datetime, timezone
 from typing import Any
@@ -108,6 +113,99 @@ def _get_provider_or_error(db: Session, provider_config_id: str) -> AiProviderCo
     return provider
 
 
+def _embedding_validation_headers(provider: dict[str, Any]) -> dict[str, str]:
+    headers = {"Accept": "application/json", "Content-Type": "application/json"}
+    custom_headers = provider.get("custom_headers") or {}
+    if isinstance(custom_headers, dict):
+        headers.update({str(key): str(value) for key, value in custom_headers.items() if key and value})
+
+    token = str(provider.get("token") or "").strip()
+    if str(provider.get("auth_type") or "") == "api_key" and token:
+        if str(provider.get("provider_family") or "") == "anthropic":
+            headers["x-api-key"] = token
+            headers.setdefault("anthropic-version", "2023-06-01")
+        else:
+            headers["Authorization"] = f"Bearer {token}"
+
+    return headers
+
+
+def _embedding_validation_request(
+    url: str,
+    *,
+    body: dict[str, Any],
+    headers: dict[str, str],
+    timeout: int,
+) -> dict[str, Any]:
+    payload = json.dumps(body, ensure_ascii=False).encode("utf-8")
+    request = urllib.request.Request(url, data=payload, headers=headers, method="POST")
+    context = ssl.create_default_context() if url.startswith("https://") else None
+    try:
+        with urllib.request.urlopen(request, timeout=timeout, context=context) as response:
+            raw = response.read().decode("utf-8")
+            return json.loads(raw) if raw else {}
+    except urllib.error.HTTPError as exc:
+        raw = exc.read().decode("utf-8", errors="replace")
+        detail = raw[:300].strip()
+        suffix = f": {detail}" if detail else ""
+        raise BadRequestException(
+            f"No se pudo validar el modelo de embeddings. El provider respondió HTTP {exc.code}{suffix}"
+        ) from exc
+    except (urllib.error.URLError, TimeoutError, socket.timeout) as exc:
+        raise BadRequestException(
+            f"No se pudo conectar al provider para validar las dimensiones del modelo de embeddings: {exc}"
+        ) from exc
+
+
+def _probe_embedding_dimensions(provider: AiProviderConfig, model_name: str) -> int:
+    runtime = _build_runtime_response_dict(provider)
+    family = str(runtime.get("provider_family") or runtime.get("execution_adapter") or "openai_compatible")
+    base_url = str(runtime.get("base_url") or "").rstrip("/")
+    timeout = int(runtime.get("timeout_seconds") or 60)
+    headers = _embedding_validation_headers(runtime)
+    probe_text = "dimension check"
+
+    if not base_url:
+        raise BadRequestException("El provider AI seleccionado no tiene URL base configurada.")
+
+    if family == "ollama":
+        response = _embedding_validation_request(
+            f"{base_url}/api/embeddings",
+            body={"model": model_name, "prompt": probe_text},
+            headers=headers,
+            timeout=timeout,
+        )
+        vector = response.get("embedding")
+    else:
+        response = _embedding_validation_request(
+            f"{base_url}/embeddings",
+            body={"model": model_name, "input": [probe_text]},
+            headers=headers,
+            timeout=timeout,
+        )
+        data = response.get("data") or []
+        first_item = data[0] if data else {}
+        vector = first_item.get("embedding") if isinstance(first_item, dict) else None
+
+    if not isinstance(vector, list) or not vector:
+        raise BadRequestException(
+            "El provider no devolvió un vector de embeddings válido para el modelo seleccionado."
+        )
+
+    return len(vector)
+
+
+def _validate_embedding_dimensions(provider: AiProviderConfig, model_name: str, expected_dimensions: int) -> None:
+    actual_dimensions = _probe_embedding_dimensions(provider, model_name)
+    if actual_dimensions != int(expected_dimensions or 0):
+        raise BadRequestException(
+            "Las dimensiones configuradas no coinciden con el modelo seleccionado. "
+            f"El provider devolvió {actual_dimensions} dimensiones y la configuración indica "
+            f"{int(expected_dimensions or 0)}. Ajusta las dimensiones a {actual_dimensions} "
+            "o selecciona otro modelo de embeddings."
+        )
+
+
 def list_ai_provider_bindings(db: Session) -> dict:
     items = (
         _base_query(db)
@@ -135,6 +233,8 @@ def upsert_ai_provider_binding(
         raise BadRequestException("Debes indicar las dimensiones del modelo de embeddings.")
     if purpose != PURPOSE_CONTEXT_EMBEDDINGS:
         embedding_dimensions = None
+    else:
+        _validate_embedding_dimensions(provider, model_name, int(embedding_dimensions or 0))
 
     now = utc_now_db()
     active_items = (

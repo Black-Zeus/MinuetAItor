@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Icon from "@components/ui/icon/iconManager";
 import contextService from "@/services/contextService";
 import contextSettingsService from "@/services/contextSettingsService";
 import clientService from "@/services/clientService";
 import projectService from "@/services/projectService";
 import { listMinutes } from "@/services/minutesService";
+import { openPdfViewer } from "@/components/ui/pdf/PdfViewerModal";
 
 const SCOPE_OPTIONS = [
   { id: "global", label: "Global", icon: "globe", hint: "Todo lo autorizado" },
@@ -13,43 +15,153 @@ const SCOPE_OPTIONS = [
   { id: "minute", label: "Minuta", icon: "fileLines", hint: "Una minuta final" },
 ];
 
-const STATUS_BADGES = {
-  available: "border-green-200/70 bg-green-50 text-green-700 dark:border-green-700/40 dark:bg-green-900/20 dark:text-green-300",
-  disabled: "border-amber-200/70 bg-amber-50 text-amber-800 dark:border-amber-700/40 dark:bg-amber-900/20 dark:text-amber-200",
-  error: "border-red-200/70 bg-red-50 text-red-700 dark:border-red-700/40 dark:bg-red-900/20 dark:text-red-300",
-};
+const SEARCH_STATE_KEY = "knowledge-search:last-query";
 
 const getErrorMessage = (error) => error?.message || "Ocurrió un error al consultar el contexto.";
 
+const readSavedSearchState = () => {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.sessionStorage.getItem(SEARCH_STATE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
+const writeSavedSearchState = (payload) => {
+  if (typeof window === "undefined") return;
+  try {
+    if (!payload?.question?.trim() && !payload?.result) {
+      window.sessionStorage.removeItem(SEARCH_STATE_KEY);
+      return;
+    }
+    window.sessionStorage.setItem(SEARCH_STATE_KEY, JSON.stringify(payload));
+  } catch {
+    // La persistencia de navegación es auxiliar; la consulta no debe fallar por storage.
+  }
+};
+
+const getCitationValue = (citation, camelKey, snakeKey) => citation?.[camelKey] ?? citation?.[snakeKey] ?? "";
+
+const extractCitationPrefixValue = (text, label) => {
+  const firstLine = String(text || "").split("\n")[0] || "";
+  const pattern = new RegExp(`(?:^|\\|\\s*)${label}:\\s*([^|\\n]+)`, "i");
+  return firstLine.match(pattern)?.[1]?.trim() ?? "";
+};
+
+const getCitationSource = (citation, index) => {
+  const text = citation?.text ?? "";
+  const minuteId = getCitationValue(citation, "minuteId", "minute_id");
+  const minuteTitle =
+    getCitationValue(citation, "minuteTitle", "minute_title") ||
+    extractCitationPrefixValue(text, "Minuta") ||
+    "Minuta sin título";
+  const clientName =
+    getCitationValue(citation, "clientName", "client_name") ||
+    extractCitationPrefixValue(text, "Cliente");
+  const projectName =
+    getCitationValue(citation, "projectName", "project_name") ||
+    extractCitationPrefixValue(text, "Proyecto");
+  const location =
+    getCitationValue(citation, "minuteLocation", "minute_location") ||
+    extractCitationPrefixValue(text, "Sala") ||
+    extractCitationPrefixValue(text, "Lugar");
+  const status = getCitationValue(citation, "minuteStatus", "minute_status");
+  const fallbackKey = [minuteTitle, clientName, projectName, location].filter(Boolean).join("::") || `source-${index}`;
+
+  return {
+    key: minuteId || fallbackKey,
+    minuteId,
+    minuteTitle,
+    clientName,
+    projectName,
+    location,
+    status,
+  };
+};
+
+const groupCitationsByMinute = (citations = []) => {
+  const groups = [];
+  const groupIndex = new Map();
+
+  citations.forEach((citation, index) => {
+    const source = getCitationSource(citation, index);
+    const existingIndex = groupIndex.get(source.key);
+    const normalizedCitation = { ...citation, citationIndex: index };
+
+    if (existingIndex == null) {
+      groupIndex.set(source.key, groups.length);
+      groups.push({ ...source, citations: [normalizedCitation] });
+      return;
+    }
+
+    groups[existingIndex].citations.push(normalizedCitation);
+  });
+
+  return groups;
+};
+
+const buildCitationBody = (citation) => {
+  if (isOverviewCitation(citation)) return "";
+
+  const rawText = String(citation?.text ?? "");
+  const lines = rawText.split("\n").map((line) => line.trim()).filter(Boolean);
+  const title = String(citation?.title || citation?.itemType || citation?.item_type || "").trim();
+  const contentLines = [...lines];
+
+  if (contentLines[0]?.startsWith("Cliente:") && contentLines[0]?.includes("|")) {
+    contentLines.shift();
+  }
+  if (title && contentLines[0] === title) {
+    contentLines.shift();
+  }
+
+  return contentLines.join("\n").trim() || rawText.trim();
+};
+
+const isOverviewCitation = (citation) => {
+  const title = String(citation?.title || "").trim().toLowerCase();
+  const itemType = String(citation?.itemType || citation?.item_type || "").trim().toLowerCase();
+  return title === "ficha de minuta" || itemType === "minute_overview";
+};
+
+const getVisibleCitations = (citations = []) => citations.filter((citation) => !isOverviewCitation(citation));
+
 const KnowledgeSearchPage = () => {
+  const navigate = useNavigate();
+  const savedSearchRef = useRef(readSavedSearchState());
+  const savedSearch = savedSearchRef.current;
   const [availability, setAvailability] = useState(null);
   const [availabilityError, setAvailabilityError] = useState("");
-  const [question, setQuestion] = useState("");
-  const [scopeType, setScopeType] = useState("global");
-  const [clientId, setClientId] = useState("");
-  const [projectId, setProjectId] = useState("");
-  const [minuteId, setMinuteId] = useState("");
+  const [question, setQuestion] = useState(savedSearch?.question ?? "");
+  const [scopeType, setScopeType] = useState(savedSearch?.scopeType ?? "global");
+  const [clientId, setClientId] = useState(savedSearch?.clientId ?? "");
+  const [projectId, setProjectId] = useState(savedSearch?.projectId ?? "");
+  const [minuteId, setMinuteId] = useState(savedSearch?.minuteId ?? "");
   const [clients, setClients] = useState([]);
   const [projects, setProjects] = useState([]);
   const [minutes, setMinutes] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isPolling, setIsPolling] = useState(false);
+  const [isPolling, setIsPolling] = useState(["queued", "running"].includes(savedSearch?.result?.status));
   const [isCatalogLoading, setIsCatalogLoading] = useState(false);
   const [error, setError] = useState("");
-  const [result, setResult] = useState(null);
+  const [result, setResult] = useState(savedSearch?.result ?? null);
 
   const isAvailable = Boolean(availability?.available);
-  const needsClient = scopeType === "client" || scopeType === "project" || scopeType === "minute";
+  const showsClientFilter = scopeType === "client" || scopeType === "project" || scopeType === "minute";
   const needsProject = scopeType === "project";
   const needsMinute = scopeType === "minute";
 
   const canSubmit = useMemo(() => {
     if (!isAvailable || isLoading || isPolling || question.trim().length < 3) return false;
-    if (needsClient && !clientId) return false;
+    if (scopeType === "client" && !clientId) return false;
     if (needsProject && !projectId) return false;
     if (needsMinute && !minuteId) return false;
     return true;
-  }, [clientId, isAvailable, isLoading, isPolling, needsClient, needsMinute, needsProject, projectId, question]);
+  }, [clientId, isAvailable, isLoading, isPolling, minuteId, needsMinute, needsProject, projectId, question, scopeType]);
 
   useEffect(() => {
     let mounted = true;
@@ -84,6 +196,18 @@ const KnowledgeSearchPage = () => {
   }, [isAvailable, loadCatalogs]);
 
   useEffect(() => {
+    writeSavedSearchState({
+      question,
+      scopeType,
+      clientId,
+      projectId,
+      minuteId,
+      result,
+      savedAt: Date.now(),
+    });
+  }, [clientId, minuteId, projectId, question, result, scopeType]);
+
+  useEffect(() => {
     if (scopeType === "global") {
       setClientId("");
       setProjectId("");
@@ -110,9 +234,10 @@ const KnowledgeSearchPage = () => {
       return true;
     });
   }, [clientId, minutes, projectId]);
-
-  const statusTone = availabilityError ? "error" : isAvailable ? "available" : "disabled";
-  const statusLabel = availabilityError ? "Error" : isAvailable ? "Disponible" : "Desactivado";
+  const citationGroups = useMemo(
+    () => groupCitationsByMinute(getVisibleCitations(result?.citations ?? [])),
+    [result?.citations]
+  );
 
   const handleClientChange = useCallback((nextClientId) => {
     setClientId(nextClientId);
@@ -136,6 +261,18 @@ const KnowledgeSearchPage = () => {
     if (ownerClientId) setClientId(String(ownerClientId));
   }, [projects]);
 
+  const handleMinuteChange = useCallback((nextMinuteId) => {
+    setMinuteId(nextMinuteId);
+
+    if (!nextMinuteId) return;
+
+    const selectedMinute = minutes.find((minute) => String(minute.id) === String(nextMinuteId));
+    const ownerClientId = selectedMinute?.client_id ?? selectedMinute?.clientId ?? "";
+    const ownerProjectId = selectedMinute?.project_id ?? selectedMinute?.projectId ?? "";
+    if (ownerClientId) setClientId(String(ownerClientId));
+    if (ownerProjectId) setProjectId(String(ownerProjectId));
+  }, [minutes]);
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     if (!canSubmit) return;
@@ -146,7 +283,7 @@ const KnowledgeSearchPage = () => {
       const payload = {
         question: question.trim(),
         scopeType,
-        clientId: needsClient ? clientId : null,
+        clientId: scopeType === "client" ? clientId : null,
         projectId: needsProject ? projectId : null,
         minuteId: needsMinute ? minuteId : null,
       };
@@ -201,10 +338,6 @@ const KnowledgeSearchPage = () => {
                 <h1 className="truncate text-xl font-bold text-gray-900 transition-theme dark:text-gray-100">
                   Consulta contextual
                 </h1>
-                <span className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-bold transition-theme ${STATUS_BADGES[statusTone]}`}>
-                  <span className={`h-1.5 w-1.5 rounded-full ${statusTone === "available" ? "bg-green-500" : statusTone === "error" ? "bg-red-500" : "bg-amber-500"}`} />
-                  {statusLabel}
-                </span>
               </div>
               <p className="mt-1 text-sm text-gray-500 transition-theme dark:text-gray-400">
                 Consulta semántica sobre minutas finales indexadas y autorizadas.
@@ -219,6 +352,15 @@ const KnowledgeSearchPage = () => {
             tone={availabilityError ? "error" : "warning"}
             title={availabilityError ? "No se pudo validar disponibilidad" : "Consulta contextual no está disponible"}
             text={availabilityError || "El módulo está desactivado o las consultas no están habilitadas."}
+          />
+        )}
+
+        {isAvailable && !isCatalogLoading && minutes.length === 0 && (
+          <InlineNotice
+            icon="circleInfo"
+            tone="warning"
+            title="Sin minutas finales disponibles"
+            text="Aún no hay minutas finales disponibles para consultar. Publica al menos una minuta y sincroniza el contexto para habilitar respuestas con evidencia."
           />
         )}
 
@@ -270,7 +412,7 @@ const KnowledgeSearchPage = () => {
                 ))}
 
                 <div className="col-span-2 grid min-h-0 grid-cols-2 gap-1.5">
-                  {needsClient && (
+                  {showsClientFilter && (
                     <AutocompleteField
                       icon="business"
                       label="Cliente"
@@ -303,7 +445,7 @@ const KnowledgeSearchPage = () => {
                       icon="fileLines"
                       label="Minuta"
                       value={minuteId}
-                      onChange={setMinuteId}
+                      onChange={handleMinuteChange}
                       disabled={isCatalogLoading || isLoading || isPolling || !visibleMinutes.length}
                       options={visibleMinutes.map((minute) => ({
                         value: minute.id,
@@ -312,7 +454,7 @@ const KnowledgeSearchPage = () => {
                     />
                   )}
 
-                  {!needsClient && (
+                  {!showsClientFilter && (
                     <div className="col-span-2 flex min-h-0 min-w-0 items-center gap-2 rounded-md border border-gray-200 bg-white px-2 text-xs font-bold text-gray-500 transition-theme dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
                       <Icon name="shield" className="shrink-0 text-sm" />
                       <span className="truncate">Global autorizado</span>
@@ -348,7 +490,9 @@ const KnowledgeSearchPage = () => {
 
             {!error && result && !["queued", "running"].includes(result.status) && (
               <div className="space-y-4">
-                {result.status === "insufficient_context" ? (
+                {result.status === "failed" ? (
+                  <StateBlock icon="warning" title="La consulta falló" text={result.message || "La consulta no pudo completarse. Revisa la configuración de Contexto IA y el estado del worker."} tone="error" />
+                ) : result.status === "insufficient_context" ? (
                   <StateBlock icon="circleInfo" title="Sin evidencia suficiente" text={result.message || "No hay información suficiente para responder con seguridad."} />
                 ) : (
                   <>
@@ -363,18 +507,19 @@ const KnowledgeSearchPage = () => {
                     </section>
 
                     <section>
-                      <div className="mb-3 flex items-center justify-between gap-3">
+                      <div className="mb-3 flex items-center gap-2">
                         <div className="flex items-center gap-2">
                           <Icon name="clipboardList" className="text-gray-500 dark:text-gray-400" />
                           <h2 className="text-sm font-bold uppercase tracking-wide text-gray-600 dark:text-gray-300">Citas</h2>
                         </div>
-                        <span className="rounded-lg bg-gray-100 px-2.5 py-1 text-xs font-bold text-gray-600 dark:bg-gray-900 dark:text-gray-300">
-                          {(result.citations ?? []).length}
-                        </span>
                       </div>
-                      <div className="space-y-3">
-                        {(result.citations ?? []).map((citation, index) => (
-                          <CitationItem key={`${citation.chunkId}-${index}`} citation={citation} index={index} />
+                      <div className="space-y-5">
+                        {citationGroups.map((group) => (
+                          <CitationSourceGroup
+                            key={group.key}
+                            group={group}
+                            onOpenMinute={(recordId) => navigate(`/minutes/process/${encodeURIComponent(recordId)}`)}
+                          />
                         ))}
                       </div>
                     </section>
@@ -516,25 +661,142 @@ const StateBlock = ({ icon, title, text, spinning = false, tone = "default" }) =
   </div>
 );
 
-const CitationItem = ({ citation, index }) => (
-  <article className="rounded-lg border border-gray-200/60 bg-white p-3 transition-theme dark:border-gray-700/60 dark:bg-gray-900/50">
-    <div className="mb-2 flex items-start justify-between gap-3">
-      <div className="flex min-w-0 items-center gap-2">
-        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary-50 text-xs font-bold text-primary-700 dark:bg-primary-900/25 dark:text-primary-300">
-          {index + 1}
-        </span>
-        <p className="min-w-0 truncate text-sm font-bold text-gray-900 dark:text-gray-100">
-          {citation.title || citation.itemType}
-        </p>
+const CitationSourceGroup = ({ group, onOpenMinute }) => {
+  const minuteId = group.minuteId ?? "";
+  const fragmentCount = group.citations.length;
+  const [isOpen, setIsOpen] = useState(true);
+
+  const handleOpenPdf = () => {
+    if (!minuteId) return;
+    openPdfViewer({
+      recordId: minuteId,
+      pdfType: "published",
+      filename: `${String(group.minuteTitle || "minuta").trim() || "minuta"}.pdf`,
+      title: `PDF - ${group.minuteTitle || "Minuta"}`,
+    });
+  };
+
+  return (
+    <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-theme dark:border-gray-700/70 dark:bg-gray-800/70">
+      <div className="px-4 py-4">
+        <div className="flex items-start justify-between gap-4">
+          <button
+            type="button"
+            onClick={() => setIsOpen((current) => !current)}
+            aria-expanded={isOpen}
+            className="group flex min-w-0 flex-1 items-start gap-3 rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+          >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-500 transition-theme dark:bg-gray-700 dark:text-gray-300">
+              <Icon name="fileLines" className="text-sm" />
+            </span>
+
+            <span className="min-w-0">
+              <span className="flex min-w-0 flex-wrap items-center gap-2">
+                <span className="truncate text-base font-bold text-gray-900 transition-colors group-hover:text-primary-700 dark:text-gray-100 dark:group-hover:text-primary-200">
+                  {group.minuteTitle}
+                </span>
+                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-bold text-gray-600 transition-theme dark:bg-gray-700 dark:text-gray-200">
+                  {fragmentCount}
+                </span>
+                {group.status && (
+                  <span className="rounded-lg border border-gray-200 bg-gray-50 px-2 py-0.5 text-[11px] font-bold uppercase text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400">
+                    {group.status}
+                  </span>
+                )}
+              </span>
+
+              <span className="mt-1 block truncate text-sm font-medium text-gray-500 dark:text-gray-400">
+                {[group.clientName, group.projectName, group.location ? `Sala: ${group.location}` : null].filter(Boolean).join(" | ") || "Fuente de contexto"}
+              </span>
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsOpen((current) => !current)}
+            aria-expanded={isOpen}
+            className="inline-flex shrink-0 items-center gap-2 rounded-lg px-2 py-1 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 dark:text-gray-400 dark:hover:bg-gray-700/50 dark:hover:text-gray-200"
+          >
+            <span>{isOpen ? "Ocultar" : "Mostrar"}</span>
+            <Icon
+              name={isOpen ? "FaChevronUp" : "FaChevronDown"}
+              className="h-3.5 w-3.5"
+            />
+          </button>
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 pl-[52px]">
+          <span className="rounded-lg border border-primary-200/70 bg-primary-50 px-2 py-1 text-[11px] font-bold text-primary-700 dark:border-primary-700/50 dark:bg-primary-900/20 dark:text-primary-200">
+            {fragmentCount} {fragmentCount === 1 ? "fragmento" : "fragmentos"}
+          </span>
+
+          {minuteId && (
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => onOpenMinute(minuteId)}
+                className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-2.5 text-xs font-bold text-gray-700 transition-colors hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:border-primary-700/60 dark:hover:bg-primary-900/20 dark:hover:text-primary-200"
+              >
+                <Icon name="eye" className="text-xs" />
+                <span>Minuta</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleOpenPdf}
+                className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-2.5 text-xs font-bold text-gray-700 transition-colors hover:border-green-300 hover:bg-green-50 hover:text-green-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:border-green-700/60 dark:hover:bg-green-900/20 dark:hover:text-green-200"
+              >
+                <Icon name="fileLines" className="text-xs" />
+                <span>PDF</span>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
-      {citation.score != null && (
-        <span className="rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-xs font-bold text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
-          {Number(citation.score).toFixed(3)}
-        </span>
-      )}
-    </div>
-    <p className="text-sm leading-6 text-gray-600 dark:text-gray-300">{citation.text}</p>
-  </article>
-);
+
+      {isOpen ? (
+        <div className="border-t border-gray-100 px-4 py-2 transition-theme dark:border-gray-700/70">
+          <div className="divide-y divide-gray-100 transition-theme dark:divide-gray-800">
+            {group.citations.map((citation) => (
+              <CitationItem
+                key={`${citation.chunkId ?? citation.chunk_id ?? citation.citationIndex}-${citation.citationIndex}`}
+                citation={citation}
+              />
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
+};
+
+const CitationItem = ({ citation }) => {
+  const title = citation.title || citation.itemType || citation.item_type || "Evidencia";
+  const body = buildCitationBody(citation);
+  const isOverview = isOverviewCitation(citation);
+
+  return (
+    <article className="py-3 transition-theme">
+      <div className="mb-2 flex items-start gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary-50 text-xs font-bold text-primary-700 dark:bg-primary-900/25 dark:text-primary-300">
+            {Number(citation.citationIndex ?? 0) + 1}
+          </span>
+          <p className="min-w-0 truncate text-sm font-bold text-gray-900 dark:text-gray-100">
+            {title}
+          </p>
+        </div>
+      </div>
+
+      {body ? (
+        <p className="whitespace-pre-wrap text-sm leading-6 text-gray-600 dark:text-gray-300">{body}</p>
+      ) : isOverview ? (
+        <p className="text-sm leading-6 text-gray-500 dark:text-gray-400">
+          Contexto general de la minuta usado como referencia.
+        </p>
+      ) : null}
+    </article>
+  );
+};
 
 export default KnowledgeSearchPage;

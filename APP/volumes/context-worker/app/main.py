@@ -108,12 +108,16 @@ def _json_request(
 
 
 def _backend_request(path: str, *, method: str = "GET", body: dict[str, Any] | None = None) -> dict[str, Any]:
-    return _json_request(
+    payload = _json_request(
         f"{BACKEND_INTERNAL_URL}{path}",
         method=method,
         body=body,
         headers={"x-internal-secret": _internal_secret()},
     )
+    if isinstance(payload, dict) and "success" in payload and "result" in payload:
+        result = payload.get("result")
+        return result if isinstance(result, dict) else {}
+    return payload
 
 
 def _provider_headers(provider: dict[str, Any]) -> dict[str, str]:
@@ -300,6 +304,7 @@ def _canonical_chunks(canonical: dict[str, Any]) -> list[dict[str, Any]]:
         part for part in [
             f"Cliente: {client.get('name')}" if client.get("name") else None,
             f"Proyecto: {project.get('name')}" if project and project.get("name") else None,
+            f"Sala: {minute.get('location')}" if minute.get("location") else None,
             f"Minuta: {minute.get('title')}" if minute.get("title") else None,
         ] if part
     )
@@ -328,8 +333,13 @@ def _canonical_chunks(canonical: dict[str, Any]) -> list[dict[str, Any]]:
                         "source_system": canonical.get("sourceSystem") or "minuetaitor",
                         "source_hash": source_hash,
                         "client_id": minute.get("clientId"),
+                        "client_name": client.get("name"),
                         "project_id": minute.get("projectId"),
+                        "project_name": project.get("name") if project else None,
                         "minute_id": minute.get("id"),
+                        "minute_title": minute.get("title"),
+                        "minute_status": minute.get("status"),
+                        "minute_location": minute.get("location"),
                         "version_id": version.get("id"),
                         "version_num": version.get("versionNum"),
                         "source_item_id": item_id,

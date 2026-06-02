@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 
 import ActionButton from "@/components/ui/button/ActionButton";
 import Icon from "@/components/ui/icon/iconManager";
+import ModalManager from "@/components/ui/modal";
 import { toastError, toastSuccess } from "@/components/common/toast/toastHelpers";
 import {
   formatDateTime,
@@ -245,7 +246,18 @@ export const KnowledgePanel = () => {
   const runSyncAction = async (actionKey, actionLabel, handler, confirmMessage = "") => {
     const allowed = await ensureWriteOperationAllowed({ actionLabel });
     if (!allowed) return;
-    if (confirmMessage && !window.confirm(confirmMessage)) return;
+    if (confirmMessage) {
+      const confirmed = await ModalManager.confirm({
+        title: actionLabel,
+        message: confirmMessage,
+        variant: "warning",
+        buttons: {
+          confirm: "Continuar",
+          cancel: "Cancelar",
+        },
+      });
+      if (!confirmed) return;
+    }
 
     setRunningAction(actionKey);
     try {

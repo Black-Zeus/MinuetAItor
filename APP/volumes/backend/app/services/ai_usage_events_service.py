@@ -732,18 +732,26 @@ def get_ai_usage_summary(db: Session, session: UserSession, filters) -> dict[str
     )
 
     client_query = q.outerjoin(Client, Client.id == AiUsageEvent.client_id)
+    context_without_client = (
+        AiUsageEvent.client_id.is_(None)
+        & AiUsageEvent.event_type.in_(["context_query_embedding", "context_answering"])
+    )
     by_client = _build_breakdown(
         client_query,
-        key_expr=func.coalesce(AiUsageEvent.client_id, "sin-cliente"),
-        label_expr=func.coalesce(Client.name, "Sin cliente"),
+        key_expr=case((context_without_client, "consulta-global"), else_=func.coalesce(AiUsageEvent.client_id, "sin-cliente")),
+        label_expr=case((context_without_client, "Consulta global"), else_=func.coalesce(Client.name, "Sin cliente")),
         limit=breakdown_limit,
     )
 
     project_query = q.outerjoin(Project, Project.id == AiUsageEvent.project_id)
+    context_without_project = (
+        AiUsageEvent.project_id.is_(None)
+        & AiUsageEvent.event_type.in_(["context_query_embedding", "context_answering"])
+    )
     by_project = _build_breakdown(
         project_query,
-        key_expr=func.coalesce(AiUsageEvent.project_id, "sin-proyecto"),
-        label_expr=func.coalesce(Project.name, "Sin proyecto"),
+        key_expr=case((context_without_project, "consulta-global"), else_=func.coalesce(AiUsageEvent.project_id, "sin-proyecto")),
+        label_expr=case((context_without_project, "Consulta global"), else_=func.coalesce(Project.name, "Sin proyecto")),
         limit=breakdown_limit,
     )
 
