@@ -165,6 +165,8 @@ def sanitize_editor_content(content: dict[str, Any]) -> dict[str, Any]:
             for field, limit in (
                 ("displayName", 220),
                 ("fullName", 220),
+                ("abbreviation", 24),
+                ("initials", 24),
                 ("organization", 220),
                 ("title", 160),
                 ("email", 200),

@@ -40,6 +40,7 @@ class RecordVersionParticipant(Base):
     )
 
     display_name = Column(String(220), nullable=False)
+    abbreviation = Column(String(24), nullable=True)
     organization = Column(String(220), nullable=True)
     title        = Column(String(160), nullable=True)
     email        = Column(String(200), nullable=True)

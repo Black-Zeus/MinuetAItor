@@ -19,6 +19,11 @@ def _clean_text(value: object) -> str | None:
     return text or None
 
 
+def _clean_abbreviation(value: object) -> str | None:
+    text = str(value or "").strip()
+    return text[:24].upper() or None
+
+
 def _normalize_role(value: object) -> str:
     role = str(value or "").strip().lower()
     return role if role in {"required", "optional", "observer", "unknown"} else "unknown"
@@ -33,6 +38,7 @@ def _append_named_participants(items: list[dict], names: Iterable[object], role:
             "participant_id": None,
             "role": role,
             "display_name": display_name,
+            "abbreviation": None,
             "organization": None,
             "title": None,
             "email": None,
@@ -52,6 +58,7 @@ def _dedupe_participants(participants: list[dict]) -> list[dict]:
             "participant_id": _clean_text(item.get("participant_id")),
             "role": _normalize_role(item.get("role")),
             "display_name": display_name,
+            "abbreviation": _clean_abbreviation(item.get("abbreviation") or item.get("initials")),
             "organization": _clean_text(item.get("organization")),
             "title": _clean_text(item.get("title")),
             "email": _clean_text(item.get("email")),
@@ -97,6 +104,7 @@ def build_version_participants_from_content(content: dict | None) -> list[dict]:
                 "participant_id": _clean_text(raw.get("participantId")),
                 "role": _normalize_role(ROLE_BY_TYPE.get(raw.get("type"), raw.get("role"))),
                 "display_name": display_name,
+                "abbreviation": _clean_abbreviation(raw.get("abbreviation") or raw.get("initials")),
                 "organization": _clean_text(raw.get("organization")),
                 "title": _clean_text(raw.get("title") or raw.get("roleTitle")),
                 "email": _clean_text(raw.get("email")),
@@ -128,6 +136,7 @@ def persist_record_version_participants(
             participant_id=item["participant_id"],
             role=item["role"],
             display_name=item["display_name"],
+            abbreviation=item["abbreviation"],
             organization=item["organization"],
             title=item["title"],
             email=item["email"],

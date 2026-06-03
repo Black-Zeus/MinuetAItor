@@ -9,6 +9,11 @@ from fastapi import HTTPException
 from models.record_version_participant import RecordVersionParticipant
 
 
+def _clean_abbreviation(value) -> str | None:
+    text = str(value or "").strip()
+    return text[:24].upper() or None
+
+
 def _get_or_404(db: Session, participant_id: int) -> RecordVersionParticipant:
     obj = (
         db.query(RecordVersionParticipant)
@@ -28,6 +33,7 @@ def _build_response_dict(obj: RecordVersionParticipant) -> dict:
         "role": obj.role.value if hasattr(obj.role, "value") else str(obj.role),
 
         "display_name": obj.display_name,
+        "abbreviation": obj.abbreviation,
         "organization": obj.organization,
         "title": obj.title,
         "email": obj.email,
@@ -82,6 +88,7 @@ def create_record_version_participant(db: Session, body, created_by_id: str) -> 
         record_version_id=body.record_version_id,
         role=getattr(body.role, "value", body.role),
         display_name=body.display_name,
+        abbreviation=_clean_abbreviation(getattr(body, "abbreviation", None)),
         organization=body.organization,
         title=body.title,
         email=body.email,
@@ -104,6 +111,8 @@ def update_record_version_participant(db: Session, participant_id: int, body, up
         obj.role = getattr(body.role, "value", body.role)
     if body.display_name is not None:
         obj.display_name = body.display_name
+    if getattr(body, "abbreviation", None) is not None:
+        obj.abbreviation = _clean_abbreviation(body.abbreviation)
     if body.organization is not None:
         obj.organization = body.organization
     if body.title is not None:

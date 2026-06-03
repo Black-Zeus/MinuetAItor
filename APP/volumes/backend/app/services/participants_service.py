@@ -48,6 +48,11 @@ def _clean_text(value: str | None) -> str | None:
     return text or None
 
 
+def _clean_abbreviation(value: str | None) -> str | None:
+    text = " ".join((value or "").strip().split())
+    return text[:24].upper() or None
+
+
 def _user_ref(u: User | None) -> dict | None:
     if not u:
         return None
@@ -74,6 +79,7 @@ def _participant_to_dict(obj: Participant) -> dict:
         "id": str(obj.id),
         "display_name": obj.display_name,
         "normalized_name": obj.normalized_name,
+        "abbreviation": obj.abbreviation,
         "logo_url": get_participant_logo_url_if_exists(obj),
         "organization": obj.organization,
         "title": obj.title,
@@ -310,6 +316,7 @@ def list_participants(db: Session, filters: ParticipantFilterRequest) -> dict:
                 or_(
                     Participant.display_name.ilike(term),
                     Participant.normalized_name.ilike(normalized_term),
+                    Participant.abbreviation.ilike(term),
                     Participant.organization.ilike(term),
                     ParticipantEmail.email.ilike(term),
                 )
@@ -390,6 +397,7 @@ def lookup_participant_emails(db: Session, payload: ParticipantEmailLookupReques
         items.append({
             "display_name": original_name,
             "normalized_name": normalized_name,
+            "abbreviation": only_match.abbreviation if only_match else None,
             "participant_id": str(only_match.id) if only_match else None,
             "organization": only_match.organization if only_match else None,
             "title": only_match.title if only_match else None,
@@ -419,6 +427,7 @@ def resolve_participant(db: Session, payload: ParticipantResolveRequest, actor_i
                 id=str(uuid.uuid4()),
                 display_name=clean_name,
                 normalized_name=normalized_name,
+                abbreviation=_clean_abbreviation(payload.abbreviation),
                 organization=(payload.organization or "").strip() or None,
                 title=(payload.title or "").strip() or None,
                 is_active=True,
@@ -432,6 +441,8 @@ def resolve_participant(db: Session, payload: ParticipantResolveRequest, actor_i
     participant.is_active = True
     participant.updated_by = actor_id
 
+    if payload.abbreviation is not None:
+        participant.abbreviation = _clean_abbreviation(payload.abbreviation)
     if payload.organization is not None:
         participant.organization = (payload.organization or "").strip() or None
     if payload.title is not None:
@@ -454,6 +465,7 @@ def create_participant(db: Session, payload: ParticipantCreateRequest, actor_id:
         id=str(uuid.uuid4()),
         display_name=clean_name,
         normalized_name=normalized_name,
+        abbreviation=_clean_abbreviation(payload.abbreviation),
         organization=_clean_text(payload.organization),
         title=_clean_text(payload.title),
         notes=(payload.notes or "").strip() or None,
@@ -484,6 +496,8 @@ def update_participant(db: Session, participant_id: str, payload: ParticipantUpd
 
     if payload.organization is not None:
         participant.organization = _clean_text(payload.organization)
+    if payload.abbreviation is not None:
+        participant.abbreviation = _clean_abbreviation(payload.abbreviation)
     if payload.title is not None:
         participant.title = _clean_text(payload.title)
     if payload.notes is not None:

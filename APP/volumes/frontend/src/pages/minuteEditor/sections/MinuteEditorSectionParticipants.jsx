@@ -12,6 +12,7 @@ import Icon from '@components/ui/icon/iconManager';
 import ModalManager from '@components/ui/modal';
 import useMinuteEditorStore from '@/store/minuteEditorStore';
 import participantsService from '@/services/participantsService';
+import { deriveParticipantAbbreviation } from '@/utils/participantAbbreviation';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -21,12 +22,19 @@ const TYPE_LABELS = {
   copy:     { label: 'CC',         color: 'bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border-purple-200/50 dark:border-purple-700/50' },
 };
 
+const firstNonBlank = (...values) =>
+  values.find((value) => String(value ?? '').trim()) ?? '';
+
 const normalizeInitialData = (data = {}) => {
   const source = data ?? {};
+  const suggestedAbbreviation = deriveParticipantAbbreviation(source.fullName ?? source.name ?? '');
+  const abbreviation = firstNonBlank(source.abbreviation, source.initials, suggestedAbbreviation);
   return {
     fullName: source.fullName ?? source.name ?? '',
     email: source.email ?? '',
     type: source.type ?? 'invited',
+    abbreviation,
+    initials: abbreviation,
     participantId: source.participantId ?? null,
     participantEmailId: source.participantEmailId ?? null,
     participantEmails: Array.isArray(source.participantEmails) ? source.participantEmails : [],
@@ -74,6 +82,11 @@ const getParticipantEmailOptions = (participant) => {
 
 const ParticipantFormModal = ({ initialData, onSubmit, registerSubmit }) => {
   const [form, setForm] = useState(() => normalizeInitialData(initialData));
+  const lastSuggestedAbbreviationRef = useRef(
+    firstNonBlank(initialData?.abbreviation, initialData?.initials)
+      ? ''
+      : deriveParticipantAbbreviation(initialData?.fullName ?? initialData?.name ?? '')
+  );
   const [matches, setMatches] = useState([]);
   const [isLoadingMatches, setIsLoadingMatches] = useState(false);
   const [isLoadingCurrent, setIsLoadingCurrent] = useState(false);
@@ -83,7 +96,11 @@ const ParticipantFormModal = ({ initialData, onSubmit, registerSubmit }) => {
     let cancelled = false;
     const shouldFetchCurrent =
       form.participantId &&
-      (!Array.isArray(form.participantEmails) || form.participantEmails.length === 0);
+      (
+        !Array.isArray(form.participantEmails) ||
+        form.participantEmails.length === 0 ||
+        !String(form.abbreviation ?? form.initials ?? '').trim()
+      );
 
     if (!shouldFetchCurrent) return undefined;
 
@@ -92,14 +109,24 @@ const ParticipantFormModal = ({ initialData, onSubmit, registerSubmit }) => {
       .then((participant) => {
         if (cancelled || !participant) return;
         const primaryEmail = pickPrimaryEmail(participant.emails);
-        setForm((prev) => ({
-          ...prev,
-          organization: participant.organization ?? prev.organization,
-          title: participant.title ?? prev.title,
-          participantEmails: participant.emails ?? [],
-          participantEmailId: prev.participantEmailId ?? primaryEmail?.id ?? null,
-          email: prev.email || primaryEmail?.email || '',
-        }));
+        setForm((prev) => {
+          const suggestedAbbreviation = deriveParticipantAbbreviation(participant.displayName ?? prev.fullName ?? '');
+          const abbreviation = firstNonBlank(participant.abbreviation, prev.abbreviation, prev.initials, suggestedAbbreviation);
+          if (!firstNonBlank(participant.abbreviation, prev.abbreviation, prev.initials) && abbreviation) {
+            lastSuggestedAbbreviationRef.current = abbreviation;
+          }
+
+          return {
+            ...prev,
+            abbreviation,
+            initials: abbreviation,
+            organization: participant.organization ?? prev.organization,
+            title: participant.title ?? prev.title,
+            participantEmails: participant.emails ?? [],
+            participantEmailId: prev.participantEmailId ?? primaryEmail?.id ?? null,
+            email: prev.email || primaryEmail?.email || '',
+          };
+        });
       })
       .finally(() => {
         if (!cancelled) setIsLoadingCurrent(false);
@@ -151,27 +178,50 @@ const ParticipantFormModal = ({ initialData, onSubmit, registerSubmit }) => {
 
   const applyMatchedParticipant = (participant) => {
     const primaryEmail = pickPrimaryEmail(participant.emails);
-    setForm((prev) => ({
-      ...prev,
-      fullName: participant.displayName ?? prev.fullName,
-      participantId: participant.id,
-      participantEmails: participant.emails ?? [],
-      participantEmailId: primaryEmail?.id ?? null,
-      email: primaryEmail?.email ?? '',
-      organization: participant.organization ?? '',
-      title: participant.title ?? '',
-    }));
+    setForm((prev) => {
+      const fullName = participant.displayName ?? prev.fullName;
+      const suggestedAbbreviation = deriveParticipantAbbreviation(fullName);
+      const abbreviation = firstNonBlank(participant.abbreviation, prev.abbreviation, prev.initials, suggestedAbbreviation);
+      if (!firstNonBlank(participant.abbreviation, prev.abbreviation, prev.initials) && abbreviation) {
+        lastSuggestedAbbreviationRef.current = abbreviation;
+      }
+
+      return {
+        ...prev,
+        fullName,
+        participantId: participant.id,
+        participantEmails: participant.emails ?? [],
+        participantEmailId: primaryEmail?.id ?? null,
+        email: primaryEmail?.email ?? '',
+        abbreviation,
+        initials: abbreviation,
+        organization: participant.organization ?? '',
+        title: participant.title ?? '',
+      };
+    });
   };
 
   const handleNameChange = (value) => {
     setForm((prev) => {
+      const currentAbbreviation = String(prev.abbreviation ?? prev.initials ?? '').trim();
+      const nextSuggestion = deriveParticipantAbbreviation(value);
+      const shouldApplySuggestion =
+        !prev.participantId &&
+        nextSuggestion &&
+        (!currentAbbreviation || currentAbbreviation === lastSuggestedAbbreviationRef.current);
       const sameSelectedName =
         prev.participantId &&
         String(prev.fullName ?? '').trim().toLowerCase() === String(value ?? '').trim().toLowerCase();
 
+      if (shouldApplySuggestion) {
+        lastSuggestedAbbreviationRef.current = nextSuggestion;
+      }
+
       if (sameSelectedName) {
         return { ...prev, fullName: value };
       }
+
+      const nextAbbreviation = shouldApplySuggestion ? nextSuggestion : prev.abbreviation;
 
       return {
         ...prev,
@@ -179,6 +229,8 @@ const ParticipantFormModal = ({ initialData, onSubmit, registerSubmit }) => {
         participantId: null,
         participantEmailId: null,
         participantEmails: [],
+        abbreviation: nextAbbreviation,
+        initials: shouldApplySuggestion ? nextSuggestion : prev.initials,
       };
     });
   };
@@ -202,6 +254,7 @@ const ParticipantFormModal = ({ initialData, onSubmit, registerSubmit }) => {
   const submit = async () => {
     const fullName = String(form.fullName ?? '').trim();
     const email = String(form.email ?? '').trim().toLowerCase();
+    const abbreviation = String(form.abbreviation ?? form.initials ?? '').trim();
 
     if (!fullName) {
       ModalManager.warning({
@@ -211,11 +264,20 @@ const ParticipantFormModal = ({ initialData, onSubmit, registerSubmit }) => {
       return false;
     }
 
+    if (!abbreviation) {
+      ModalManager.warning({
+        title: 'Campo requerido',
+        message: 'La abreviatura es obligatoria para completar la tabla del PDF.',
+      });
+      return false;
+    }
+
     setIsSaving(true);
     try {
       const resolved = await participantsService.resolve({
         participantId: form.participantId,
         displayName: fullName,
+        abbreviation,
         organization: form.organization || null,
         title: form.title || null,
         email: email || null,
@@ -226,6 +288,8 @@ const ParticipantFormModal = ({ initialData, onSubmit, registerSubmit }) => {
       await onSubmit({
         ...form,
         fullName: resolved.displayName ?? fullName,
+        abbreviation: firstNonBlank(resolved.abbreviation, abbreviation),
+        initials: firstNonBlank(resolved.abbreviation, abbreviation),
         email,
         participantId: resolved.id,
         participantEmailId: matchedEmail?.id ?? null,
@@ -276,6 +340,7 @@ const ParticipantFormModal = ({ initialData, onSubmit, registerSubmit }) => {
                   className="px-2.5 py-1 rounded-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-xs text-gray-700 dark:text-gray-200 hover:border-primary-400 hover:text-primary-600 transition-theme"
                 >
                   {item.displayName}
+                  {item.abbreviation ? ` · ${item.abbreviation}` : ''}
                   {Array.isArray(item.emails) && item.emails.length > 0 ? ` · ${item.emails.length} mail${item.emails.length > 1 ? 's' : ''}` : ' · sin mail'}
                 </button>
               ))}
@@ -286,6 +351,27 @@ const ParticipantFormModal = ({ initialData, onSubmit, registerSubmit }) => {
             </p>
           )}
         </div>
+      </div>
+
+      <div>
+        <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5 uppercase tracking-wider transition-theme">
+          Abreviatura <span className="text-red-500">*</span>
+        </label>
+        <input
+          type="text"
+          value={form.abbreviation ?? form.initials ?? ''}
+          onChange={(e) => {
+            const value = e.target.value.toUpperCase();
+            lastSuggestedAbbreviationRef.current = '';
+            setForm((prev) => ({ ...prev, abbreviation: value, initials: value }));
+          }}
+          maxLength={24}
+          placeholder="Ej: DV"
+          className="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm text-gray-900 dark:text-gray-100 transition-theme focus:outline-none focus:ring-2 focus:ring-primary-500/40"
+        />
+        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 transition-theme">
+          Se mostrará en la columna Abr. del PDF.
+        </p>
       </div>
 
       <div>
@@ -361,7 +447,8 @@ export const useParticipantEmailHydration = () => {
     const targets = participants.filter((participant) => {
       const participantId = String(participant?.participantId ?? '').trim();
       const hasRegisteredEmails = Array.isArray(participant?.participantEmails) && participant.participantEmails.length > 0;
-      return participantId && !hasRegisteredEmails;
+      const hasAbbreviation = Boolean(String(participant?.abbreviation ?? participant?.initials ?? '').trim());
+      return participantId && (!hasRegisteredEmails || !hasAbbreviation);
     });
 
     const pendingTargets = targets.filter((participant) => {
@@ -385,12 +472,23 @@ export const useParticipantEmailHydration = () => {
           const currentEmail = String(participant.email ?? '').trim();
           const matchingCurrentEmail = resolvedEmails.find((item) => emailsEqual(item.email, participant.email));
           const defaultEmail = matchingCurrentEmail ?? (!currentEmail ? pickPrimaryEmail(resolvedEmails) : null);
+          const suggestedAbbreviation = deriveParticipantAbbreviation(
+            resolved.displayName ?? participant.fullName ?? participant.name ?? '',
+          );
+          const abbreviation = firstNonBlank(
+            resolved.abbreviation,
+            participant.abbreviation,
+            participant.initials,
+            suggestedAbbreviation,
+          );
 
           updateParticipant(participant.id, {
             participantId: resolved.id ?? participant.participantId,
             participantEmails: resolvedEmails,
             participantEmailId: matchingCurrentEmail?.id ?? defaultEmail?.id ?? null,
             email: matchingCurrentEmail?.email ?? (currentEmail || defaultEmail?.email || ''),
+            abbreviation,
+            initials: abbreviation,
             organization: resolved.organization ?? participant.organization ?? '',
             title: resolved.title ?? participant.title ?? '',
           });
@@ -458,12 +556,23 @@ export const useParticipantEmailHydration = () => {
           const currentEmail = String(participant.email ?? '').trim();
           const matchingCurrentEmail = resolvedEmails.find((item) => emailsEqual(item.email, participant.email));
           const defaultEmail = matchingCurrentEmail ?? (!currentEmail ? pickPrimaryEmail(resolvedEmails) : null);
+          const suggestedAbbreviation = deriveParticipantAbbreviation(
+            lookup.displayName ?? participant.fullName ?? participant.name ?? '',
+          );
+          const abbreviation = firstNonBlank(
+            lookup.matchedParticipants === 1 ? lookup.abbreviation : '',
+            participant.abbreviation,
+            participant.initials,
+            suggestedAbbreviation,
+          );
 
           updateParticipant(id, {
             participantId: lookup.matchedParticipants === 1 ? (lookup.participantId ?? null) : null,
             participantEmails: resolvedEmails,
             participantEmailId: matchingCurrentEmail?.id ?? defaultEmail?.id ?? null,
             email: matchingCurrentEmail?.email ?? (currentEmail || defaultEmail?.email || ''),
+            abbreviation,
+            initials: abbreviation,
             organization: lookup.matchedParticipants === 1 ? (lookup.organization ?? participant.organization ?? '') : participant.organization ?? '',
             title: lookup.matchedParticipants === 1 ? (lookup.title ?? participant.title ?? '') : participant.title ?? '',
           });
@@ -595,6 +704,7 @@ const MinuteEditorSectionParticipants = ({ isReadOnly = false }) => {
             <tr className="text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700 transition-theme">
               <th className="pb-3 pr-4">Nombre</th>
               <th className="pb-3 pr-4">Email</th>
+              <th className="pb-3 pr-4">Abrev.</th>
               <th className="pb-3 pr-4">Tipo</th>
               {!isReadOnly && <th className="pb-3">Acciones</th>}
             </tr>
@@ -603,7 +713,7 @@ const MinuteEditorSectionParticipants = ({ isReadOnly = false }) => {
           <tbody className="text-gray-900 dark:text-gray-100 transition-theme">
             {participants.length === 0 ? (
               <tr>
-                <td colSpan={4} className="py-8 text-center text-gray-400 dark:text-gray-600 text-sm italic">
+                <td colSpan={isReadOnly ? 4 : 5} className="py-8 text-center text-gray-400 dark:text-gray-600 text-sm italic">
                   No hay participantes registrados.
                 </td>
               </tr>
@@ -700,7 +810,10 @@ const MinuteEditorSectionParticipants = ({ isReadOnly = false }) => {
                                     key={option.id}
                                     type="button"
                                     onClick={() => {
-                                      updateParticipant(p.id, { email: option.email });
+                                      updateParticipant(p.id, {
+                                        email: option.email,
+                                        participantEmailId: option.id === 'current-email' ? null : option.id,
+                                      });
                                       setOpenEmailSelectorId(null);
                                       setEmailSelectorPosition(null);
                                     }}
@@ -730,6 +843,17 @@ const MinuteEditorSectionParticipants = ({ isReadOnly = false }) => {
                         <span className="text-xs font-mono text-gray-600 dark:text-gray-400 transition-theme">{p.email}</span>
                       ) : (
                         <span className="text-xs text-gray-400 dark:text-gray-600 transition-theme">&nbsp;</span>
+                      )}
+                    </td>
+
+                    {/* Abreviatura */}
+                    <td className="py-3 pr-4">
+                      {p.abbreviation || p.initials ? (
+                        <span className="inline-flex min-w-10 justify-center rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-xs font-semibold uppercase text-gray-700 transition-theme dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200">
+                          {p.abbreviation || p.initials}
+                        </span>
+                      ) : (
+                        <span className="text-xs font-medium text-red-500 transition-theme">Falta</span>
                       )}
                     </td>
 

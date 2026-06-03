@@ -29,7 +29,7 @@ const SEARCH_FIELDS_NOTE = {
   minutes:   'Busca en: título, resumen, cliente, proyecto, participantes y estado.',
   tags:      'Busca en: nombre de etiqueta, categoría y descripción.',
   teams:     'Busca en: nombre, cargo, email, departamento, rol de sistema y estado.',
-  participants: 'Busca en: nombre, organización, cargo, correos y estado.',
+  participants: 'Busca en: nombre, abreviatura, organización, cargo, correos y estado.',
   profiles:  'Busca en: nombre del perfil, categoría y descripción.',
 };
 

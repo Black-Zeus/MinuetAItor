@@ -45,6 +45,7 @@ class ParticipantEmailLookupRequest(BaseModel):
 class ParticipantResolveRequest(BaseModel):
     participant_id: str | None = Field(None, alias="participantId")
     display_name: str = Field(..., min_length=1, max_length=220, alias="displayName")
+    abbreviation: str | None = Field(None, max_length=24)
     organization: str | None = Field(None, max_length=220)
     title: str | None = Field(None, max_length=160)
     email: str | None = Field(None, max_length=254)
@@ -54,6 +55,7 @@ class ParticipantResolveRequest(BaseModel):
 
 class ParticipantCreateRequest(BaseModel):
     display_name: str = Field(..., min_length=1, max_length=220, alias="displayName")
+    abbreviation: str | None = Field(None, max_length=24)
     organization: str | None = Field(None, max_length=220)
     title: str | None = Field(None, max_length=160)
     notes: str | None = None
@@ -65,6 +67,7 @@ class ParticipantCreateRequest(BaseModel):
 
 class ParticipantUpdateRequest(BaseModel):
     display_name: str | None = Field(None, min_length=1, max_length=220, alias="displayName")
+    abbreviation: str | None = Field(None, max_length=24)
     organization: str | None = Field(None, max_length=220)
     title: str | None = Field(None, max_length=160)
     notes: str | None = None
@@ -83,6 +86,7 @@ class ParticipantStatusRequest(BaseModel):
 class ParticipantEmailLookupItem(BaseModel):
     display_name: str = Field(..., serialization_alias="displayName")
     normalized_name: str = Field(..., serialization_alias="normalizedName")
+    abbreviation: str | None = None
     participant_id: str | None = Field(None, serialization_alias="participantId")
     organization: str | None = None
     title: str | None = None
@@ -96,6 +100,7 @@ class ParticipantResponse(BaseModel):
     id: str
     display_name: str = Field(..., serialization_alias="displayName")
     normalized_name: str = Field(..., serialization_alias="normalizedName")
+    abbreviation: str | None = None
     logo_url: str | None = Field(None, serialization_alias="logoUrl")
     organization: str | None = None
     title: str | None = None

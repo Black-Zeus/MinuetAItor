@@ -8,6 +8,7 @@ import ParticipantsViewActions from "./ParticipantsViewActions";
 const ParticipantsTableView = ({ participants = [], hasFilters = false, onUpdated, onDeleted }) => {
   const { sortedItems, sortConfig, toggleSort } = useTableSorting(participants, {
     participant: (participant) => participant?.displayName,
+    abbreviation: (participant) => participant?.abbreviation,
     organization: (participant) => participant?.organization,
     email: (participant) => {
       const emails = Array.isArray(participant?.emails) ? participant.emails : [];
@@ -36,6 +37,7 @@ const ParticipantsTableView = ({ participants = [], hasFilters = false, onUpdate
           <thead className="bg-gray-50 dark:bg-gray-900/60">
             <tr className="text-left text-xs font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400">
               <th className="px-4 py-3"><SortableTableHeader label="Participante" sortKey="participant" activeSortKey={sortConfig?.key} direction={sortConfig?.direction} onSort={toggleSort} /></th>
+              <th className="px-4 py-3"><SortableTableHeader label="Abrev." sortKey="abbreviation" activeSortKey={sortConfig?.key} direction={sortConfig?.direction} onSort={toggleSort} /></th>
               <th className="px-4 py-3"><SortableTableHeader label="Organización" sortKey="organization" activeSortKey={sortConfig?.key} direction={sortConfig?.direction} onSort={toggleSort} /></th>
               <th className="px-4 py-3"><SortableTableHeader label="Correo principal" sortKey="email" activeSortKey={sortConfig?.key} direction={sortConfig?.direction} onSort={toggleSort} /></th>
               <th className="px-4 py-3"><SortableTableHeader label="Estado" sortKey="status" activeSortKey={sortConfig?.key} direction={sortConfig?.direction} onSort={toggleSort} /></th>
@@ -57,6 +59,7 @@ const ParticipantsTableView = ({ participants = [], hasFilters = false, onUpdate
                       <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{participant.title || "Sin cargo"}</p>
                     </div>
                   </td>
+                  <td className="px-4 py-4 text-sm font-semibold uppercase text-gray-700 dark:text-gray-200">{participant.abbreviation || "—"}</td>
                   <td className="px-4 py-4 text-sm text-gray-600 dark:text-gray-300">{participant.organization || "—"}</td>
                   <td className="px-4 py-4 text-sm text-gray-600 dark:text-gray-300">{primaryEmail?.email || "—"}</td>
                   <td className="px-4 py-4">

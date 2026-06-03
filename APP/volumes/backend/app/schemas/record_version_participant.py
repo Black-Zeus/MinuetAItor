@@ -19,6 +19,7 @@ class RecordVersionParticipantCreateRequest(BaseModel):
     record_version_id: str
     role: RecordVersionParticipantRole = RecordVersionParticipantRole.unknown
     display_name: str
+    abbreviation: str | None = Field(None, max_length=24)
     organization: str | None = None
     title: str | None = None
     email: str | None = None
@@ -30,6 +31,7 @@ class RecordVersionParticipantUpdateRequest(BaseModel):
     record_version_id: str | None = None
     role: RecordVersionParticipantRole | None = None
     display_name: str | None = None
+    abbreviation: str | None = Field(None, max_length=24)
     organization: str | None = None
     title: str | None = None
     email: str | None = None
@@ -56,6 +58,7 @@ class RecordVersionParticipantResponse(BaseModel):
     role: RecordVersionParticipantRole
 
     display_name: str = Field(..., serialization_alias="displayName")
+    abbreviation: str | None = None
     organization: str | None = None
     title: str | None = None
     email: str | None = None

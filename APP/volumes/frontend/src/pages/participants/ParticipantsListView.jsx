@@ -33,6 +33,11 @@ const ParticipantsListView = ({ participants = [], hasFilters = false, onUpdated
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="text-base font-semibold text-gray-900 dark:text-white">{participant.displayName ?? "—"}</h3>
+                  {participant.abbreviation ? (
+                    <span className="rounded-lg border border-gray-200 bg-gray-50 px-2 py-0.5 text-xs font-semibold uppercase text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200">
+                      {participant.abbreviation}
+                    </span>
+                  ) : null}
                   <span
                     className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                       participant.isActive

@@ -35,6 +35,7 @@ const applyLocalFilters = (participants, filters) => {
       const emails = Array.isArray(item.emails) ? item.emails.map((email) => email.email).join(" ") : "";
       return [
         item.displayName,
+        item.abbreviation,
         item.organization,
         item.title,
         emails,

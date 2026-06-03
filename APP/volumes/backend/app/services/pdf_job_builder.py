@@ -209,6 +209,9 @@ def _map_participants(p: Dict[str, Any]) -> Dict[str, Any]:
       attendees[].initials    → attendees[].initials
       copyRecipients[]        → copy_recipients[]
     """
+    def clean_abbreviation(value: Any) -> str:
+        return str(value or "").strip()[:24].upper()
+
     def normalize_person(person: Any) -> Dict[str, Any]:
         if isinstance(person, str):
             return {
@@ -224,7 +227,7 @@ def _map_participants(p: Dict[str, Any]) -> Dict[str, Any]:
             }
         return {
             "full_name": person.get("fullName", person.get("full_name", "")),
-            "initials":  person.get("initials", ""),
+            "initials":  clean_abbreviation(person.get("abbreviation", person.get("initials", ""))),
             "role":      person.get("role", ""),
         }
 
@@ -869,10 +872,13 @@ def _map_participants_from_draft(draft: Dict[str, Any]) -> Dict[str, Any]:
     """
     all_p = draft.get("participants", [])
 
+    def clean_abbreviation(value: Any) -> str:
+        return str(value or "").strip()[:24].upper()
+
     def norm(p: Dict[str, Any]) -> Dict[str, Any]:
         return {
             "full_name": p.get("fullName", ""),
-            "initials":  p.get("initials", ""),
+            "initials":  clean_abbreviation(p.get("abbreviation", p.get("initials", ""))),
             "role":      p.get("role", ""),
         }
 

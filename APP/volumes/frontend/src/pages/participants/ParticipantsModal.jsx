@@ -1,10 +1,11 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Icon from "@/components/ui/icon/iconManager";
 import { ModalManager } from "@/components/ui/modal";
 import { toastError, toastSuccess } from "@/components/common/toast/toastHelpers";
 import ActionButton from "@/components/ui/button/ActionButton";
 import participantsService from "@/services/participantsService";
 import { formatDateMedium } from "@/utils/formats";
+import { deriveParticipantAbbreviation } from "@/utils/participantAbbreviation";
 import {
   EMPTY_VALUE,
   EntityLogoBadge,
@@ -45,10 +46,18 @@ const normalizeEmails = (emails = []) => {
   }));
 };
 
+const firstNonBlank = (...values) =>
+  values.find((value) => String(value ?? "").trim()) ?? "";
+
 const normalizeParticipant = (data = {}) => ({
   id: data.id ?? "",
   displayName: data.displayName ?? data.display_name ?? "",
   normalizedName: data.normalizedName ?? data.normalized_name ?? "",
+  abbreviation: firstNonBlank(
+    data.abbreviation,
+    data.initials,
+    deriveParticipantAbbreviation(data.displayName ?? data.display_name ?? "")
+  ),
   logoUrl: data.logoUrl ?? data.logo_url ?? "",
   organization: data.organization ?? "",
   title: data.title ?? "",
@@ -64,6 +73,11 @@ const ParticipantsModal = ({ mode, data, onSubmit, onClose, onSaved }) => {
   const isEdit = mode === PARTICIPANTS_MODAL_MODES.EDIT;
 
   const initialState = useMemo(() => normalizeParticipant(data), [data]);
+  const lastSuggestedAbbreviationRef = useRef(
+    firstNonBlank(data?.abbreviation, data?.initials)
+      ? ""
+      : deriveParticipantAbbreviation(data?.displayName ?? data?.display_name ?? "")
+  );
   const [formData, setFormData] = useState(() => initialState);
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -81,6 +95,10 @@ const ParticipantsModal = ({ mode, data, onSubmit, onClose, onSaved }) => {
     setLocalLogoUrl("");
     setRemoveLogoRequested(false);
     setLogoFailed(false);
+    lastSuggestedAbbreviationRef.current =
+      firstNonBlank(data?.abbreviation, data?.initials)
+        ? ""
+        : deriveParticipantAbbreviation(data?.displayName ?? data?.display_name ?? "");
   }, [data]);
 
   useEffect(() => () => {
@@ -112,6 +130,27 @@ const ParticipantsModal = ({ mode, data, onSubmit, onClose, onSaved }) => {
   const setField = (name, value) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
     setErrors((prev) => ({ ...prev, [name]: null }));
+  };
+
+  const handleDisplayNameChange = (value) => {
+    setFormData((prev) => {
+      const currentAbbreviation = String(prev.abbreviation ?? "").trim();
+      const nextSuggestion = deriveParticipantAbbreviation(value);
+      const shouldApplySuggestion =
+        nextSuggestion &&
+        (!currentAbbreviation || currentAbbreviation === lastSuggestedAbbreviationRef.current);
+
+      if (shouldApplySuggestion) {
+        lastSuggestedAbbreviationRef.current = nextSuggestion;
+      }
+
+      return {
+        ...prev,
+        displayName: value,
+        abbreviation: shouldApplySuggestion ? nextSuggestion : prev.abbreviation,
+      };
+    });
+    setErrors((prev) => ({ ...prev, displayName: null, abbreviation: null }));
   };
 
   const setEmailField = (index, field, value) => {
@@ -163,6 +202,9 @@ const ParticipantsModal = ({ mode, data, onSubmit, onClose, onSaved }) => {
 
     if (step === 0 && !String(formData.displayName ?? "").trim()) {
       nextErrors.displayName = "El nombre es obligatorio.";
+    }
+    if (step === 0 && !String(formData.abbreviation ?? "").trim()) {
+      nextErrors.abbreviation = "La abreviatura es obligatoria.";
     }
 
     if (step === 1) {
@@ -438,7 +480,7 @@ const ParticipantsModal = ({ mode, data, onSubmit, onClose, onSaved }) => {
                         <input
                           type="text"
                           value={formData.displayName}
-                          onChange={(e) => setField("displayName", e.target.value)}
+                          onChange={(e) => handleDisplayNameChange(e.target.value)}
                           className={fieldClass(Boolean(errors.displayName))}
                         />
                       )}
@@ -454,6 +496,23 @@ const ParticipantsModal = ({ mode, data, onSubmit, onClose, onSaved }) => {
                         value={formData.organization}
                         onChange={(e) => setField("organization", e.target.value)}
                         className={fieldClass()}
+                      />
+                    )}
+                  </Field>
+
+                  <Field label="Abreviatura" hint="Obligatorio" error={errors.abbreviation}>
+                    {isView ? (
+                      <ReadValue value={formData.abbreviation} />
+                    ) : (
+                      <input
+                        type="text"
+                        value={formData.abbreviation}
+                        onChange={(e) => {
+                          lastSuggestedAbbreviationRef.current = "";
+                          setField("abbreviation", e.target.value.toUpperCase());
+                        }}
+                        maxLength={24}
+                        className={fieldClass(Boolean(errors.abbreviation))}
                       />
                     )}
                   </Field>
@@ -599,6 +658,7 @@ const ParticipantsModal = ({ mode, data, onSubmit, onClose, onSaved }) => {
                     altText="Avatar del participante"
                   />
                   <SummaryItem label="Organización" value={formData.organization} />
+                  <SummaryItem label="Abreviatura" value={formData.abbreviation} />
                   <SummaryItem label="Cargo" value={formData.title} />
                   <SummaryItem label="Estado" value={formData.isActive ? "Activo" : "Inactivo"} />
                   <SummaryItem label="Correo principal" value={primaryEmail?.email} />

@@ -8,6 +8,7 @@ import { ensureWriteOperationAllowed } from "@/utils/operationModeGuard";
 
 const toApiPayload = (formData) => ({
   displayName: formData.displayName ?? "",
+  abbreviation: formData.abbreviation || null,
   organization: formData.organization || null,
   title: formData.title || null,
   notes: formData.notes || null,

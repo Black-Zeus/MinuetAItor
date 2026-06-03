@@ -9,6 +9,7 @@ import { toastError, toastSuccess } from "@/components/common/toast/toastHelpers
 
 const toApiPayload = (formData) => ({
   displayName: formData.displayName ?? "",
+  abbreviation: formData.abbreviation || null,
   organization: formData.organization || null,
   title: formData.title || null,
   notes: formData.notes || null,
@@ -127,7 +128,14 @@ const ParticipantsCard = ({ id, summary, onUpdated, onDeleted }) => {
               onLogoError={() => setLogoFailed(true)}
             />
             <div className="min-w-0">
-              <h3 className="font-semibold text-gray-900 dark:text-white truncate">{summary?.displayName ?? "—"}</h3>
+              <div className="flex min-w-0 items-center gap-2">
+                <h3 className="truncate font-semibold text-gray-900 dark:text-white">{summary?.displayName ?? "—"}</h3>
+                {summary?.abbreviation ? (
+                  <span className="shrink-0 rounded-md border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[11px] font-semibold uppercase text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200">
+                    {summary.abbreviation}
+                  </span>
+                ) : null}
+              </div>
               <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{summary?.title || "Sin cargo"}</p>
             </div>
           </div>

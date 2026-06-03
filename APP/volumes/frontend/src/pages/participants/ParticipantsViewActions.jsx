@@ -10,6 +10,7 @@ import { toastError, toastSuccess } from "@/components/common/toast/toastHelpers
 
 const toApiPayload = (formData) => ({
   displayName: formData.displayName ?? "",
+  abbreviation: formData.abbreviation || null,
   organization: formData.organization || null,
   title: formData.title || null,
   notes: formData.notes || null,

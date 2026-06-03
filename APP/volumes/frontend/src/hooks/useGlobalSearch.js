@@ -81,6 +81,7 @@ const mapParticipant = (participant) => ({
   label: participant.displayName ?? '',
   sublabel: participant.organization ?? '',
   meta: participant.title ?? '',
+  abbreviation: participant.abbreviation ?? '',
   organization: participant.organization ?? '',
   title: participant.title ?? '',
   email:

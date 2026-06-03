@@ -43,7 +43,6 @@
 import { create } from "zustand";
 import { DEFAULT_PDF_TEMPLATE } from "@/constants/pdfTemplates";
 import { formatDate } from "@/utils/formats";
-import { computeInitials } from "@/utils/userDisplay";
 
 // ============================================================
 // HELPERS
@@ -105,7 +104,7 @@ const buildComparableState = (s) => ({
   actualEnd:      s.meetingTimes?.actualEnd      ?? "",
 
   // Participantes
-  participants:    (s.participants ?? []).map((p) => `${p.fullName}|${p.type}|${p.email ?? ""}|${p.participantId ?? ""}`),
+  participants:    (s.participants ?? []).map((p) => `${p.fullName}|${p.type}|${p.email ?? ""}|${p.participantId ?? ""}|${p.abbreviation ?? p.initials ?? ""}`),
   agreements:      s.agreements ?? [],
   requirements:    s.requirements ?? [],
   userTags:        (s.userTags ?? []).map((t) => t.name),
@@ -410,7 +409,8 @@ export const mapIAResponseToEditorState = (iaResponse) => {
     asArray(list).map((p) => ({
       id:       uid(),
       fullName: p.fullName,
-      initials: p.initials ?? computeInitials(p.fullName, ""),
+      abbreviation: p.abbreviation ?? p.initials ?? "",
+      initials: p.abbreviation ?? p.initials ?? "",
       type,
       role:     "",
       email:    "",
@@ -427,7 +427,8 @@ export const mapIAResponseToEditorState = (iaResponse) => {
       .map((p) => ({
         id:       uid(),
         fullName: p.fullName,
-        initials: p.initials ?? "",
+        abbreviation: p.abbreviation ?? p.initials ?? "",
+        initials: p.abbreviation ?? p.initials ?? "",
         type:     "attendee",
         role:     "",
         email:    "",
@@ -608,6 +609,8 @@ export const mapDraftToEditorState = (draft) => {
     participantId: item.participantId ?? null,
     participantEmailId: item.participantEmailId ?? null,
     participantEmails: Array.isArray(item.participantEmails) ? item.participantEmails : [],
+    abbreviation: item.abbreviation ?? item.initials ?? "",
+    initials: item.initials ?? item.abbreviation ?? "",
     organization: item.organization ?? "",
     title: item.title ?? "",
   }));
@@ -1275,7 +1278,8 @@ const useMinuteEditorStore = create((set, get) => ({
     const exportParticipants = (s.participants ?? []).map((participant) => ({
       id: participant.id,
       fullName: participant.fullName,
-      initials: participant.initials ?? "",
+      abbreviation: participant.abbreviation ?? participant.initials ?? "",
+      initials: participant.initials ?? participant.abbreviation ?? "",
       type: participant.type,
       role: participant.role ?? "",
       email: participant.email ?? "",

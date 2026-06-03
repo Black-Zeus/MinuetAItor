@@ -13,6 +13,7 @@ class Participant(Base, TimestampMixin):
     id              = Column(String(36), primary_key=True)
     display_name    = Column(String(220), nullable=False)
     normalized_name = Column(String(220), nullable=False)
+    abbreviation    = Column(String(24), nullable=True)
     organization    = Column(String(220), nullable=True)
     title           = Column(String(160), nullable=True)
     notes           = Column(Text, nullable=True)
