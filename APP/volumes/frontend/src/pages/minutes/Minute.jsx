@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 
 import MinutesHeader from "./MinutesHeader";
 import MinutesFilters from "./MinutesFilters";
+import MinutesStats, { calcMinutesStats } from "./MinutesStats";
 import MinutesResults from "./MinutesResults";
 import MinuteCard from "./MinuteCard";
 import MinuteListRow from "./MinuteListRow";
@@ -196,6 +197,10 @@ const Minutes = () => {
       };
     });
   }, [minutes, pendingMinuteEntries]);
+  const stats = useMemo(
+    () => calcMinutesStats(minutesWithPendingState, total),
+    [minutesWithPendingState, total]
+  );
 
   // ─── Paginación ───────────────────────────────────────────────────────────
   const totalPages = isGroupedByClientView ? 1 : Math.max(1, Math.ceil(total / currentPageSize));
@@ -232,6 +237,8 @@ const Minutes = () => {
         onClearFilters={handleClearFilters}
         data={{ clients, projects }}
       />
+
+      <MinutesStats stats={stats} />
 
       <MinutesResults
         count={minutesWithPendingState.length}
