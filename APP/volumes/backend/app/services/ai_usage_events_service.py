@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 _MILLION = Decimal("1000000")
 _COST_SCALE = Decimal("0.000001")
+_CONTEXT_EVENT_TYPES = ("context_query_embedding", "context_answering", "context_embedding")
 
 
 def _is_missing_schema_error(exc: Exception) -> bool:
@@ -724,17 +725,24 @@ def get_ai_usage_summary(db: Session, session: UserSession, filters) -> dict[str
         limit=breakdown_limit,
     )
     profile_query = q.outerjoin(AiProfile, AiProfile.id == AiUsageEvent.ai_profile_id)
+    context_usage = AiUsageEvent.event_type.in_(_CONTEXT_EVENT_TYPES)
     by_profile = _build_breakdown(
         profile_query,
-        key_expr=func.coalesce(AiUsageEvent.ai_profile_id, "sin-perfil"),
-        label_expr=func.coalesce(AiProfile.name, "Sin perfil"),
+        key_expr=case(
+            (context_usage & AiUsageEvent.ai_profile_id.is_(None), "contexto-ia"),
+            else_=func.coalesce(AiUsageEvent.ai_profile_id, "sin-perfil"),
+        ),
+        label_expr=case(
+            (context_usage & AiUsageEvent.ai_profile_id.is_(None), "Contexto IA"),
+            else_=func.coalesce(AiProfile.name, "Sin perfil"),
+        ),
         limit=breakdown_limit,
     )
 
     client_query = q.outerjoin(Client, Client.id == AiUsageEvent.client_id)
     context_without_client = (
         AiUsageEvent.client_id.is_(None)
-        & AiUsageEvent.event_type.in_(["context_query_embedding", "context_answering"])
+        & AiUsageEvent.event_type.in_(_CONTEXT_EVENT_TYPES)
     )
     by_client = _build_breakdown(
         client_query,
@@ -746,7 +754,7 @@ def get_ai_usage_summary(db: Session, session: UserSession, filters) -> dict[str
     project_query = q.outerjoin(Project, Project.id == AiUsageEvent.project_id)
     context_without_project = (
         AiUsageEvent.project_id.is_(None)
-        & AiUsageEvent.event_type.in_(["context_query_embedding", "context_answering"])
+        & AiUsageEvent.event_type.in_(_CONTEXT_EVENT_TYPES)
     )
     by_project = _build_breakdown(
         project_query,
