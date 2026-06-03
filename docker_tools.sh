@@ -1553,7 +1553,7 @@ eas_build_expo() {
   if [ $build_exit_code -eq 0 ]; then
     echo "✅ EAS Build completado exitosamente!"
     echo "📱 Revisa tu dashboard de Expo para descargar el APK/AAB:"
-    echo "   https://expo.dev/accounts/vsoto/projects/Ambrosia/builds"
+    echo "   https://expo.dev/accounts/blackzeus/projects/Ambrosia/builds"
   else
     echo "❌ EAS Build falló (código de salida: $build_exit_code)"
     echo "   Revisa los errores anteriores para más detalles."
