@@ -48,10 +48,15 @@ class ActiveSessionInfo(BaseModel):
     ip_v6: str | None = None
     is_online: bool = False
     is_current: bool = False
+    closed_at: str | None = None
+    closure_type: str | None = None
+    closure_label: str | None = None
+    closure_detail: str | None = None
 
 
 class ActiveSessionsResponse(BaseModel):
     sessions: list[ActiveSessionInfo]
+    closed_sessions: list[ActiveSessionInfo] = []
 
 
 class LogoutSessionRequest(BaseModel):

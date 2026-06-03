@@ -15,9 +15,10 @@ from core.rate_limit import enforce_rate_limit, rate_limit_key
 from core.security import verify_password, create_access_token, decode_access_token, hash_password
 from db.session import SessionLocal
 from db.redis import get_redis
+from models.audit_logs import AuditLog
 from models.user import User
 from repositories.auth_repository import get_user_by_credential, get_user_with_roles_permissions, get_user_full, get_user_by_id
-from repositories.session_repository import create_session, mark_logout, get_user_sessions, get_session_by_jti, get_active_sessions, revoke_all_sessions
+from repositories.session_repository import create_session, mark_logout, get_user_sessions, get_session_by_jti, get_active_sessions, get_closed_sessions, revoke_all_sessions
 from schemas.auth import (
     TokenResponse,
     UserSession,
@@ -111,6 +112,167 @@ def _enforce_commissioning_admin_access(
 
 async def _is_session_online(user_id: str, jti: str) -> bool:
     return await session_exists(user_id, jti)
+
+
+def _parse_audit_details(details_json: str | None) -> dict:
+    if not details_json:
+        return {}
+    try:
+        parsed = json.loads(details_json)
+    except Exception:
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def _build_session_closure_index(db: Session, user_id: str, jtis: set[str]) -> dict[str, dict[str, str]]:
+    if not jtis:
+        return {}
+
+    jti_list = list(jtis)
+    closure_index: dict[str, dict[str, str]] = {}
+
+    normal_rows = (
+        db.query(AuditLog)
+        .filter(
+            AuditLog.action == "LOGOUT",
+            AuditLog.entity_type == "user_session",
+            AuditLog.entity_id.in_(jti_list),
+        )
+        .order_by(AuditLog.event_at.desc())
+        .all()
+    )
+    for row in normal_rows:
+        if row.entity_id not in closure_index:
+            closure_index[row.entity_id] = {
+                "closure_type": "normal",
+                "closure_label": "Cierre normal",
+                "closure_detail": "Cerrada por el usuario desde esta sesión.",
+            }
+
+    refresh_rows = (
+        db.query(AuditLog)
+        .filter(
+            AuditLog.action == "SESSION_REFRESH",
+            AuditLog.entity_type == "user_session",
+            AuditLog.entity_id.in_(jti_list),
+        )
+        .order_by(AuditLog.event_at.desc())
+        .all()
+    )
+    for row in refresh_rows:
+        if row.entity_id in jtis:
+            closure_index[row.entity_id] = {
+                "closure_type": "extension",
+                "closure_label": "Extensión de sesión",
+                "closure_detail": "La sesión fue reemplazada por una renovación autenticada.",
+            }
+
+    remote_rows = (
+        db.query(AuditLog)
+        .filter(
+            AuditLog.action == "LOGOUT_SESSION",
+            AuditLog.actor_user_id == user_id,
+        )
+        .order_by(AuditLog.event_at.desc())
+        .all()
+    )
+    for row in remote_rows:
+        details = _parse_audit_details(row.details_json)
+        target_jti = str(details.get("target_session_jti") or "")
+        if target_jti in jtis:
+            closure_index[target_jti] = {
+                "closure_type": "forced",
+                "closure_label": "Cierre forzado",
+                "closure_detail": "Cerrada manualmente desde otra sesión.",
+            }
+
+    bulk_rows = (
+        db.query(AuditLog)
+        .filter(
+            AuditLog.action == "LOGOUT_ALL_OTHER_SESSIONS",
+            AuditLog.actor_user_id == user_id,
+        )
+        .order_by(AuditLog.event_at.desc())
+        .all()
+    )
+    for row in bulk_rows:
+        details = _parse_audit_details(row.details_json)
+        target_jtis = details.get("target_session_jtis")
+        if not isinstance(target_jtis, list):
+            continue
+        for target_jti in target_jtis:
+            target = str(target_jti or "")
+            if target in jtis and target not in closure_index:
+                closure_index[target] = {
+                    "closure_type": "forced",
+                    "closure_label": "Cierre forzado",
+                    "closure_detail": "Cerrada desde la acción de cierre masivo de sesiones.",
+                }
+
+    password_rows = (
+        db.query(AuditLog)
+        .filter(
+            AuditLog.action.in_(("CHANGE_PASSWORD", "CHANGE_PASSWORD_BY_ADMIN", "RESET_PASSWORD")),
+            AuditLog.entity_type == "user",
+            AuditLog.entity_id == user_id,
+        )
+        .order_by(AuditLog.event_at.desc())
+        .all()
+    )
+    for row in password_rows:
+        details = _parse_audit_details(row.details_json)
+        target_jtis = details.get("target_session_jtis")
+        if not isinstance(target_jtis, list):
+            continue
+        detail = (
+            "Cerrada por cambio de contraseña realizado por administración."
+            if row.action == "CHANGE_PASSWORD_BY_ADMIN"
+            else "Cerrada por recuperación de contraseña de la cuenta."
+            if row.action == "RESET_PASSWORD"
+            else "Cerrada por cambio de contraseña de la cuenta."
+        )
+        for target_jti in target_jtis:
+            target = str(target_jti or "")
+            if target in jtis and target not in closure_index:
+                closure_index[target] = {
+                    "closure_type": "forced",
+                    "closure_label": "Cierre forzado",
+                    "closure_detail": detail,
+                }
+
+    return closure_index
+
+
+def _build_session_info(
+    session_row,
+    *,
+    is_online: bool,
+    is_current: bool = False,
+    closure: dict[str, str] | None = None,
+) -> ActiveSessionInfo:
+    is_closed = session_row.logged_out_at is not None
+    closure_data = closure or {}
+    if is_closed and not closure_data:
+        closure_data = {
+            "closure_type": "unknown",
+            "closure_label": "Cierre no determinado",
+            "closure_detail": "No hay una auditoría individual que permita distinguir si fue normal, forzado o técnico.",
+        }
+
+    return ActiveSessionInfo(
+        jti=session_row.jti,
+        ts=session_row.created_at.isoformat(),
+        device=session_row.device,
+        location=session_row.location,
+        ip_v4=session_row.ip_v4,
+        ip_v6=session_row.ip_v6,
+        is_online=is_online,
+        is_current=is_current,
+        closed_at=session_row.logged_out_at.isoformat() if session_row.logged_out_at else None,
+        closure_type=closure_data.get("closure_type"),
+        closure_label=closure_data.get("closure_label"),
+        closure_detail=closure_data.get("closure_detail"),
+    )
 
 
 def _build_user_session(user: User) -> UserSession:
@@ -265,22 +427,34 @@ async def logout(session: UserSession, db: Session) -> None:
 
 async def list_active_sessions(session: UserSession, db: Session) -> ActiveSessionsResponse:
     sessions = get_active_sessions(db, session.user_id)
+    closed_sessions = get_closed_sessions(db, session.user_id)
+    closure_index = _build_session_closure_index(
+        db,
+        session.user_id,
+        {s.jti for s in closed_sessions},
+    )
     response_sessions: list[ActiveSessionInfo] = []
+    response_closed_sessions: list[ActiveSessionInfo] = []
     has_current_session = False
 
     for s in sessions:
         is_current = s.jti == session.jti
         has_current_session = has_current_session or is_current
         response_sessions.append(
-            ActiveSessionInfo(
-                jti=s.jti,
-                ts=s.created_at.isoformat(),
-                device=s.device,
-                location=s.location,
-                ip_v4=s.ip_v4,
-                ip_v6=s.ip_v6,
+            _build_session_info(
+                s,
                 is_online=await _is_session_online(session.user_id, s.jti),
                 is_current=is_current,
+            )
+        )
+
+    for s in closed_sessions:
+        response_closed_sessions.append(
+            _build_session_info(
+                s,
+                is_online=False,
+                is_current=False,
+                closure=closure_index.get(s.jti),
             )
         )
 
@@ -288,7 +462,8 @@ async def list_active_sessions(session: UserSession, db: Session) -> ActiveSessi
         response_sessions[0].is_current = True
 
     return ActiveSessionsResponse(
-        sessions=response_sessions
+        sessions=response_sessions,
+        closed_sessions=response_closed_sessions,
     )
 
 
@@ -346,6 +521,7 @@ async def logout_session_by_jti(
 
 async def logout_all_other_sessions(session: UserSession, db: Session) -> LogoutAllSessionsResponse:
     sessions = [s for s in get_active_sessions(db, session.user_id) if s.jti != session.jti]
+    target_jtis = [s.jti for s in sessions]
     for s in sessions:
         await publish_session_event(
             session.user_id,
@@ -370,7 +546,10 @@ async def logout_all_other_sessions(session: UserSession, db: Session) -> Logout
         action="LOGOUT_ALL_OTHER_SESSIONS",
         entity_type="user",
         entity_id=session.user_id,
-        details={"sessions_revoked": revoked},
+        details={
+            "sessions_revoked": revoked,
+            "target_session_jtis": target_jtis,
+        },
     )
 
     return LogoutAllSessionsResponse(
@@ -534,6 +713,19 @@ async def refresh_token(token: str, db: Session, request: Request) -> TokenRespo
         city         = geo.get("city"),
         location     = geo.get("location"),
     )
+    write_audit(
+        db,
+        actor_user_id=user_id,
+        action="SESSION_REFRESH",
+        entity_type="user_session",
+        entity_id=jti,
+        details={
+            "old_jti": jti,
+            "new_jti": session.jti,
+            "device": device,
+            "ip": ip,
+        },
+    )
 
     return TokenResponse(access_token=new_token, expires_in=ttl)
 
@@ -574,6 +766,11 @@ async def change_password(
     if not verify_password(payload.current_password, user.password_hash):
         raise BadRequestException("La contraseña actual es incorrecta")
 
+    revoked_session_jtis = [
+        s.jti for s in get_active_sessions(db, session.user_id)
+        if s.jti != session.jti
+    ] if payload.revoke_sessions else []
+
     user.password_hash = hash_password(payload.new_password)
     db.commit()
     write_audit(
@@ -582,7 +779,10 @@ async def change_password(
         action="CHANGE_PASSWORD",
         entity_type="user",
         entity_id=user.id,
-        details={"sessions_revoked": bool(payload.revoke_sessions)},
+        details={
+            "sessions_revoked": len(revoked_session_jtis),
+            "target_session_jtis": revoked_session_jtis,
+        },
     )
 
     await enqueue_password_changed_email(
@@ -612,8 +812,7 @@ async def change_password(
 
     if payload.revoke_sessions:
         # Revoca todas excepto la sesión actual
-        jtis = [s.jti for s in get_active_sessions(db, session.user_id)
-                if s.jti != session.jti]
+        jtis = revoked_session_jtis
         for jti in jtis:
             await publish_session_event(
                 session.user_id,
@@ -702,6 +901,7 @@ async def change_password_by_admin(
         details       = {
             "reason":          payload.reason,
             "sessions_revoked": len(jtis),
+            "target_session_jtis": jtis,
             "target_username": target.username,
         },
     )
@@ -759,6 +959,8 @@ async def reset_password(
     if not user or user.deleted_at is not None:
         raise BadRequestException("Usuario no encontrado para el token entregado")
 
+    jtis = [s.jti for s in get_active_sessions(db, user_id)]
+
     user.password_hash = hash_password(new_password)
     db.commit()
     write_audit(
@@ -771,6 +973,8 @@ async def reset_password(
             "used_token": bool(token and token.strip()),
             "used_otp": bool(otp_code and otp_code.strip()),
             "purpose": token_payload.get("purpose"),
+            "sessions_revoked": len(jtis),
+            "target_session_jtis": jtis,
         },
     )
 
@@ -800,7 +1004,6 @@ async def reset_password(
         },
     )
 
-    jtis = [s.jti for s in get_active_sessions(db, user_id)]
     for jti in jtis:
         await publish_session_event(
             user_id,

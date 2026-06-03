@@ -1,5 +1,6 @@
 # repositories/session_repository.py
 import uuid
+from datetime import timedelta
 
 from sqlalchemy.orm import Session
 
@@ -63,6 +64,22 @@ def get_active_sessions(db: Session, user_id: str) -> list[UserSession]:
         .order_by(UserSession.created_at.desc())
         .all()
     )
+
+
+def get_closed_sessions(db: Session, user_id: str) -> list[UserSession]:
+    """Sesiones con logout explícito o técnico."""
+    closed_since = utc_now_db() - timedelta(days=7)
+    return (
+        db.query(UserSession)
+        .filter(
+            UserSession.user_id == user_id,
+            UserSession.logged_out_at.is_not(None),
+            UserSession.logged_out_at >= closed_since,
+        )
+        .order_by(UserSession.logged_out_at.desc(), UserSession.created_at.desc())
+        .all()
+    )
+
 
 def revoke_all_sessions(db: Session, user_id: str, exclude_jti: str | None = None) -> int:
     """Marca como logged_out todas las sesiones activas. Retorna cantidad revocada."""
