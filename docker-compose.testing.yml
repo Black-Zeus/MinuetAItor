@@ -1,0 +1,29 @@
+services:
+  qa-tools:
+    build:
+      context: .
+      dockerfile: ./Testing/qa-tools/Dockerfile
+    image: ${PROJECT_NAME}/qa-tools:dev
+    container_name: ${PROJECT_NAME}-qa-tools
+    profiles:
+      - qa
+    working_dir: /workspace
+    environment:
+      QA_BASE_URL: ${QA_BASE_URL:-http://nginx/api}
+      QA_ADMIN_CREDENTIAL: ${QA_ADMIN_CREDENTIAL:-}
+      QA_ADMIN_PASSWORD: ${QA_ADMIN_PASSWORD:-}
+      QA_EDITOR_CREDENTIAL: ${QA_EDITOR_CREDENTIAL:-}
+      QA_EDITOR_PASSWORD: ${QA_EDITOR_PASSWORD:-}
+      QA_VIEWER_CREDENTIAL: ${QA_VIEWER_CREDENTIAL:-}
+      QA_VIEWER_PASSWORD: ${QA_VIEWER_PASSWORD:-}
+      QA_TIMEOUT_SECONDS: ${QA_TIMEOUT_SECONDS:-15}
+    volumes:
+      - ./Testing:/workspace/Testing:ro
+      - ./Testing/reports:/workspace/Testing/reports
+    networks:
+      - internal
+    command:
+      - pytest
+      - -c
+      - Testing/pytest.ini
+      - Testing/backend-api

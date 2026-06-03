@@ -53,5 +53,10 @@ Thumbs.db
 APP/volumes/backend/app/assets/temp/*
 APP/data/settings/worker/temp/*
 
+# QA generated reports
+Testing/reports/*
+!Testing/reports/README.md
+!Testing/reports/.gitkeep
+
 # Feature design notes
 Features/
