@@ -44,6 +44,8 @@ const writeSavedSearchState = (payload) => {
   }
 };
 
+const getResultQueryId = (value) => value?.queryId ?? value?.query_id ?? "";
+
 const getCitationValue = (citation, camelKey, snakeKey) => citation?.[camelKey] ?? citation?.[snakeKey] ?? "";
 
 const extractCitationPrefixValue = (text, label) => {
@@ -134,6 +136,8 @@ const KnowledgeSearchPage = () => {
   const navigate = useNavigate();
   const savedSearchRef = useRef(readSavedSearchState());
   const savedSearch = savedSearchRef.current;
+  const activeQueryIdRef = useRef(getResultQueryId(savedSearch?.result));
+  const submitSeqRef = useRef(0);
   const [availability, setAvailability] = useState(null);
   const [availabilityError, setAvailabilityError] = useState("");
   const [question, setQuestion] = useState(savedSearch?.question ?? "");
@@ -238,6 +242,11 @@ const KnowledgeSearchPage = () => {
     () => groupCitationsByMinute(getVisibleCitations(result?.citations ?? [])),
     [result?.citations]
   );
+  const shouldShowCitations = Boolean(
+    result &&
+    result.status !== "insufficient_context" &&
+    citationGroups.length > 0
+  );
 
   const handleClientChange = useCallback((nextClientId) => {
     setClientId(nextClientId);
@@ -276,43 +285,71 @@ const KnowledgeSearchPage = () => {
   const handleSubmit = async (event) => {
     event.preventDefault();
     if (!canSubmit) return;
+    const submitSeq = submitSeqRef.current + 1;
+    submitSeqRef.current = submitSeq;
+    activeQueryIdRef.current = "";
+
+    const nextQuestion = question.trim();
+    const nextScopeType = scopeType;
+    const nextClientId = scopeType === "client" ? clientId : null;
+    const nextProjectId = needsProject ? projectId : null;
+    const nextMinuteId = needsMinute ? minuteId : null;
+
     setIsLoading(true);
+    setIsPolling(false);
     setError("");
     setResult(null);
+    writeSavedSearchState({
+      question: nextQuestion,
+      scopeType: nextScopeType,
+      clientId,
+      projectId,
+      minuteId,
+      result: null,
+      savedAt: Date.now(),
+    });
+
     try {
       const payload = {
-        question: question.trim(),
-        scopeType,
-        clientId: scopeType === "client" ? clientId : null,
-        projectId: needsProject ? projectId : null,
-        minuteId: needsMinute ? minuteId : null,
+        question: nextQuestion,
+        scopeType: nextScopeType,
+        clientId: nextClientId,
+        projectId: nextProjectId,
+        minuteId: nextMinuteId,
       };
       const response = await contextService.query(payload);
+      if (submitSeqRef.current !== submitSeq) return;
+      activeQueryIdRef.current = getResultQueryId(response);
       setResult(response);
       if (["queued", "running"].includes(response?.status)) {
         setIsPolling(true);
       }
     } catch (err) {
-      setError(getErrorMessage(err));
+      if (submitSeqRef.current === submitSeq) {
+        setError(getErrorMessage(err));
+      }
     } finally {
-      setIsLoading(false);
+      if (submitSeqRef.current === submitSeq) {
+        setIsLoading(false);
+      }
     }
   };
 
   useEffect(() => {
-    const queryId = result?.queryId ?? result?.query_id;
+    const queryId = getResultQueryId(result);
     if (!queryId || !["queued", "running"].includes(result?.status)) {
       setIsPolling(false);
       return undefined;
     }
+    activeQueryIdRef.current = queryId;
 
     let cancelled = false;
     const timer = window.setTimeout(async () => {
       try {
         const nextResult = await contextService.getQuery(queryId);
-        if (!cancelled) setResult(nextResult);
+        if (!cancelled && activeQueryIdRef.current === queryId) setResult(nextResult);
       } catch (err) {
-        if (!cancelled) {
+        if (!cancelled && activeQueryIdRef.current === queryId) {
           setError(getErrorMessage(err));
           setIsPolling(false);
         }
@@ -492,8 +529,6 @@ const KnowledgeSearchPage = () => {
               <div className="space-y-4">
                 {result.status === "failed" ? (
                   <StateBlock icon="warning" title="La consulta falló" text={result.message || "La consulta no pudo completarse. Revisa la configuración de Contexto IA y el estado del worker."} tone="error" />
-                ) : result.status === "insufficient_context" ? (
-                  <StateBlock icon="circleInfo" title="Sin evidencia suficiente" text={result.message || "No hay información suficiente para responder con seguridad."} />
                 ) : (
                   <>
                     <section className="rounded-lg border border-gray-200/60 bg-gray-50 p-4 transition-theme dark:border-gray-700/50 dark:bg-gray-900/40">
@@ -502,10 +537,11 @@ const KnowledgeSearchPage = () => {
                         <h2 className="text-sm font-bold uppercase tracking-wide text-gray-600 dark:text-gray-300">Respuesta</h2>
                       </div>
                       <div className="whitespace-pre-wrap text-sm leading-7 text-gray-900 dark:text-gray-100">
-                        {result.answer || "Sin respuesta generada."}
+                        {result.answer || result.message || "Sin respuesta generada."}
                       </div>
                     </section>
 
+                    {shouldShowCitations && (
                     <section>
                       <div className="mb-3 flex items-center gap-2">
                         <div className="flex items-center gap-2">
@@ -523,6 +559,7 @@ const KnowledgeSearchPage = () => {
                         ))}
                       </div>
                     </section>
+                    )}
                   </>
                 )}
               </div>
