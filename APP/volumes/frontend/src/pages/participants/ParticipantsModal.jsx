@@ -5,6 +5,18 @@ import { toastError, toastSuccess } from "@/components/common/toast/toastHelpers
 import ActionButton from "@/components/ui/button/ActionButton";
 import participantsService from "@/services/participantsService";
 import { formatDateMedium } from "@/utils/formats";
+import {
+  EMPTY_VALUE,
+  EntityLogoBadge,
+  Field,
+  ReadValue,
+  Section,
+  StepItem,
+  SummaryItem,
+  SummaryLogoItem,
+  cn,
+  fieldClass,
+} from "@/pages/common/EntityModalPrimitives";
 
 export const PARTICIPANTS_MODAL_MODES = {
   CREATE: "createParticipant",
@@ -18,12 +30,6 @@ const STEPS = [
   { title: "Notas" },
   { title: "Confirmación" },
 ];
-
-const cn = (...classes) => classes.filter(Boolean).join(" ");
-
-const EMPTY_VALUE = (
-  <span className="italic text-gray-400 dark:text-gray-500">Sin información</span>
-);
 
 const normalizeEmails = (emails = []) => {
   const items = Array.isArray(emails) ? emails : [];
@@ -51,158 +57,6 @@ const normalizeParticipant = (data = {}) => ({
   emails: normalizeEmails(data.emails),
   createdAt: data.createdAt ?? data.created_at ?? "",
 });
-
-const fieldClass = (hasError = false) =>
-  cn(
-    "w-full rounded-xl border px-3.5 py-2.5 text-sm transition-colors",
-    "bg-white dark:bg-slate-800",
-    "text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500",
-    "focus:outline-none focus:ring-2 focus:ring-sky-200 dark:focus:ring-sky-800",
-    hasError
-      ? "border-red-400 dark:border-red-500"
-      : "border-gray-300 dark:border-slate-700/80"
-  );
-
-const Section = ({ title, description, children }) => (
-  <section className="space-y-4">
-    <div>
-      <h4 className="text-sm font-semibold text-gray-900 dark:text-white">{title}</h4>
-      {description ? (
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{description}</p>
-      ) : null}
-    </div>
-    <div>{children}</div>
-  </section>
-);
-
-const Field = ({ label, hint, error, children }) => (
-  <div className="space-y-2">
-    <div className="flex items-center justify-between gap-3">
-      <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</label>
-      {hint ? <span className="text-xs text-gray-400 dark:text-gray-500">{hint}</span> : null}
-    </div>
-    {children}
-    {error ? <p className="text-sm text-red-500">{error}</p> : null}
-  </div>
-);
-
-const ReadValue = ({ value, multiline = false }) => {
-  const normalized = typeof value === "string" ? value.trim() : value;
-  return (
-    <div
-      className={cn(
-        "rounded-xl border border-slate-200/80 bg-white px-3.5 py-2.5 text-sm text-gray-700 dark:border-slate-700/80 dark:bg-slate-800 dark:text-gray-200",
-        multiline ? "whitespace-pre-line" : "break-words"
-      )}
-    >
-      {normalized || EMPTY_VALUE}
-    </div>
-  );
-};
-
-const SummaryItem = ({ label, value, multiline = false, className = "" }) => {
-  const normalized = typeof value === "string" ? value.trim() : value;
-  return (
-    <div
-      className={cn(
-        "border-b border-slate-200/70 pb-4 dark:border-slate-800/90",
-        multiline ? "min-h-[96px]" : "min-h-[72px]",
-        className
-      )}
-    >
-      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
-        {label}
-      </div>
-      <div
-        className={cn(
-          "mt-2 text-[15px] text-gray-800 dark:text-gray-200",
-          multiline ? "whitespace-pre-line break-words" : "break-words"
-        )}
-      >
-        {normalized || EMPTY_VALUE}
-      </div>
-    </div>
-  );
-};
-
-const ParticipantLogoBadge = ({
-  logoUrl,
-  displayName,
-  logoFailed,
-  onLogoError,
-  className = "h-14 w-14 rounded-2xl",
-  iconClassName = "h-6 w-6",
-}) => (
-  <div
-    className={cn(
-      "flex items-center justify-center overflow-hidden bg-primary-100 text-primary-600 dark:bg-primary-900/30 dark:text-primary-300",
-      className
-    )}
-  >
-    {logoUrl && !logoFailed ? (
-      <img
-        src={logoUrl}
-        alt={displayName || "Avatar del participante"}
-        className="h-full w-full object-cover"
-        onError={onLogoError}
-      />
-    ) : (
-      <Icon name="FaUser" className={iconClassName} />
-    )}
-  </div>
-);
-
-const SummaryLogoItem = ({ logoUrl, displayName, logoFailed, onLogoError }) => (
-  <div className="min-h-[72px] border-b border-slate-200/70 pb-4 dark:border-slate-800/90">
-    <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
-      Logo / Avatar
-    </div>
-    <div className="mt-3">
-      <ParticipantLogoBadge
-        logoUrl={logoUrl}
-        displayName={displayName}
-        logoFailed={logoFailed}
-        onLogoError={onLogoError}
-        className="h-12 w-12 rounded-xl"
-        iconClassName="h-5 w-5"
-      />
-    </div>
-  </div>
-);
-
-const StepItem = ({ index, currentStep, title, onClick }) => {
-  const isActive = index === currentStep;
-  const isDone = index < currentStep;
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex items-center gap-3 rounded-xl px-2 py-1 text-left transition-colors hover:bg-slate-100/70 dark:hover:bg-slate-800/70"
-    >
-      <div
-        className={cn(
-          "flex h-8 w-8 items-center justify-center rounded-full border text-xs font-semibold",
-          isDone
-            ? "border-sky-700 bg-sky-700 text-white dark:border-sky-300 dark:bg-sky-300 dark:text-slate-900"
-            : isActive
-              ? "border-slate-500 bg-slate-500 text-white dark:border-slate-300 dark:bg-slate-300 dark:text-slate-900"
-              : "border-gray-300 bg-white/80 text-gray-500 dark:border-slate-700 dark:bg-slate-800/70 dark:text-gray-400"
-        )}
-      >
-        {isDone ? <Icon name="FaCheckCircle" className="h-3.5 w-3.5" /> : index + 1}
-      </div>
-      <span
-        className={cn(
-          "text-sm",
-          isActive ? "font-semibold text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400"
-        )}
-      >
-        {title}
-      </span>
-    </button>
-  );
-};
 
 const ParticipantsModal = ({ mode, data, onSubmit, onClose, onSaved }) => {
   const isCreate = mode === PARTICIPANTS_MODAL_MODES.CREATE;
@@ -477,11 +331,13 @@ const ParticipantsModal = ({ mode, data, onSubmit, onClose, onSaved }) => {
         <div className="border-b border-slate-200/80 px-8 py-6 dark:border-slate-700/80">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div className="flex items-center gap-4">
-              <ParticipantLogoBadge
+              <EntityLogoBadge
                 logoUrl={currentLogoUrl}
-                displayName={formData.displayName}
+                name={formData.displayName}
+                fallbackIcon="FaUser"
                 logoFailed={logoFailed}
                 onLogoError={() => setLogoFailed(true)}
+                altText="Avatar del participante"
               />
               <div>
                 <div className="text-xs font-medium uppercase tracking-[0.14em] text-gray-400 dark:text-gray-500">
@@ -527,11 +383,13 @@ const ParticipantsModal = ({ mode, data, onSubmit, onClose, onSaved }) => {
                 <Section title="Logo / Avatar" description="Imagen representativa usada en listados y fichas.">
                   <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
                     <div className="flex items-center gap-4">
-                      <ParticipantLogoBadge
+                      <EntityLogoBadge
                         logoUrl={currentLogoUrl}
-                        displayName={formData.displayName}
+                        name={formData.displayName}
+                        fallbackIcon="FaUser"
                         logoFailed={logoFailed}
                         onLogoError={() => setLogoFailed(true)}
+                        altText="Avatar del participante"
                       />
                       <div>
                         <div className="text-sm font-medium text-gray-900 dark:text-white">
@@ -733,9 +591,12 @@ const ParticipantsModal = ({ mode, data, onSubmit, onClose, onSaved }) => {
                   <SummaryItem label="Nombre completo" value={formData.displayName} />
                   <SummaryLogoItem
                     logoUrl={currentLogoUrl}
-                    displayName={formData.displayName}
+                    name={formData.displayName}
+                    fallbackIcon="FaUser"
                     logoFailed={logoFailed}
                     onLogoError={() => setLogoFailed(true)}
+                    label="Logo / Avatar"
+                    altText="Avatar del participante"
                   />
                   <SummaryItem label="Organización" value={formData.organization} />
                   <SummaryItem label="Cargo" value={formData.title} />

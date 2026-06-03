@@ -25,6 +25,15 @@ import { toastError, toastSuccess } from "@/components/common/toast/toastHelpers
 import clientService  from "@/services/clientService";
 import projectService from "@/services/projectService";
 import { computeInitials } from "@/utils/userDisplay";
+import {
+  EMPTY_VALUE,
+  Field,
+  ReadValue,
+  Section,
+  StepItem,
+  SummaryItem,
+  cn,
+} from "@/pages/common/EntityModalPrimitives";
 
 // ─── Modos ────────────────────────────────────────────────────────────────────
 
@@ -78,10 +87,8 @@ const normalizeColor = (c) => {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const cn = (...classes) => classes.filter(Boolean).join(" ");
 const normalizeText = (v) => String(v ?? "").trim();
 const EMAIL_RE      = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const EMPTY_VALUE   = <span className="italic text-gray-400 dark:text-gray-500">Sin información</span>;
 
 /**
  * normalizeUser — convierte el shape del backend al shape interno del modal.
@@ -164,68 +171,6 @@ const AvatarPreview = ({ avatarUrl, color, initials, name, sizeClass, textClass 
   );
 };
 
-const Section = ({ title, description, children }) => (
-  <section className="space-y-4">
-    <div>
-      <h4 className="text-sm font-semibold text-gray-900 dark:text-white">{title}</h4>
-      {description ? (
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{description}</p>
-      ) : null}
-    </div>
-    <div>{children}</div>
-  </section>
-);
-
-const Field = ({ label, hint, error, children }) => (
-  <div className="space-y-2">
-    <div className="flex items-center justify-between gap-3">
-      <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</label>
-      {hint ? <span className="text-xs text-gray-400 dark:text-gray-500">{hint}</span> : null}
-    </div>
-    {children}
-    {error ? <p className="text-sm text-red-500">{error}</p> : null}
-  </div>
-);
-
-const ReadValue = ({ value, multiline = false }) => {
-  const normalized = typeof value === "string" ? value.trim() : value;
-  return (
-    <div
-      className={cn(
-        "rounded-xl border border-slate-200/80 bg-white px-3.5 py-2.5 text-sm text-gray-700 dark:border-slate-700/80 dark:bg-slate-800 dark:text-gray-200",
-        multiline ? "whitespace-pre-line" : "break-words"
-      )}
-    >
-      {normalized || EMPTY_VALUE}
-    </div>
-  );
-};
-
-const SummaryItem = ({ label, value, multiline = false, className = "" }) => {
-  const normalized = typeof value === "string" ? value.trim() : value;
-  return (
-    <div
-      className={cn(
-        "border-b border-slate-200/70 pb-4 dark:border-slate-800/90",
-        multiline ? "min-h-[96px]" : "min-h-[72px]",
-        className
-      )}
-    >
-      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
-        {label}
-      </div>
-      <div
-        className={cn(
-          "mt-2 text-[15px] text-gray-800 dark:text-gray-200",
-          multiline ? "whitespace-pre-line break-words" : "break-words"
-        )}
-      >
-        {normalized || EMPTY_VALUE}
-      </div>
-    </div>
-  );
-};
-
 const SummaryAvatarItem = ({ avatarUrl, color, initials, name }) => (
   <div className="border-b border-slate-200/70 pb-4 dark:border-slate-800/90 min-h-[72px]">
     <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
@@ -243,40 +188,6 @@ const SummaryAvatarItem = ({ avatarUrl, color, initials, name }) => (
     </div>
   </div>
 );
-
-const StepItem = ({ index, currentStep, title, onClick }) => {
-  const isActive = index === currentStep;
-  const isDone = index < currentStep;
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex items-center gap-3 rounded-xl px-2 py-1 text-left transition-colors hover:bg-slate-100/70 dark:hover:bg-slate-800/70"
-    >
-      <div
-        className={cn(
-          "flex h-8 w-8 items-center justify-center rounded-full border text-xs font-semibold",
-          isDone
-            ? "border-sky-700 bg-sky-700 text-white dark:border-sky-300 dark:bg-sky-300 dark:text-slate-900"
-            : isActive
-              ? "border-slate-500 bg-slate-500 text-white dark:border-slate-300 dark:bg-slate-300 dark:text-slate-900"
-              : "border-gray-300 bg-white/80 text-gray-500 dark:border-slate-700 dark:bg-slate-800/70 dark:text-gray-400"
-        )}
-      >
-        {isDone ? <Icon name="FaCheckCircle" className="h-3.5 w-3.5" /> : index + 1}
-      </div>
-      <span
-        className={cn(
-          "text-sm",
-          isActive ? "font-semibold text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400"
-        )}
-      >
-        {title}
-      </span>
-    </button>
-  );
-};
 
 // ─── Micro-componentes ────────────────────────────────────────────────────────
 
