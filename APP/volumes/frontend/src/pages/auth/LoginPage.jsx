@@ -79,18 +79,18 @@ const AccessRequestModal = ({ onClose, onDisabled }) => {
 
     return (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 px-4 py-6 backdrop-blur-sm">
-            <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-white/10 bg-slate-900 shadow-2xl">
-                <div className="flex items-start justify-between gap-4 border-b border-white/10 px-6 py-5">
+            <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900">
+                <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-5 dark:border-white/10">
                     <div>
-                        <h2 className="text-xl font-semibold text-white">Solicitar alta</h2>
-                        <p className="mt-1 text-sm text-slate-400">
+                        <h2 className="text-xl font-semibold text-slate-950 dark:text-white">Solicitar alta</h2>
+                        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
                             Completa tus datos para que un administrador revise la solicitud.
                         </p>
                     </div>
                     <button
                         type="button"
                         onClick={onClose}
-                        className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-300 hover:bg-white/10"
+                        className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
                     >
                         Cerrar
                     </button>
@@ -98,9 +98,9 @@ const AccessRequestModal = ({ onClose, onDisabled }) => {
 
                 {success ? (
                     <div className="space-y-5 px-6 py-6">
-                        <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-4 text-sm text-emerald-100">
+                        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm text-emerald-800 dark:border-emerald-400/30 dark:bg-emerald-500/10 dark:text-emerald-100">
                             <p className="font-semibold">Solicitud recibida</p>
-                            <p className="mt-1 text-emerald-100/80">
+                            <p className="mt-1 text-emerald-700 dark:text-emerald-100/80">
                                 Notificamos a los administradores y enviamos una confirmación al correo indicado.
                             </p>
                         </div>
@@ -114,7 +114,7 @@ const AccessRequestModal = ({ onClose, onDisabled }) => {
                     </div>
                 ) : isCheckingStatus ? (
                     <div className="px-6 py-6">
-                        <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-4 text-sm text-slate-300">
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
                             Validando disponibilidad de solicitudes de alta...
                         </div>
                     </div>
@@ -127,38 +127,38 @@ const AccessRequestModal = ({ onClose, onDisabled }) => {
                         ) : null}
 
                         <label className="block">
-                            <span className="text-sm font-medium text-slate-300">Nombre completo</span>
+                            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Nombre completo</span>
                             <input
                                 type="text"
                                 value={form.fullName}
                                 onChange={handleChange('fullName')}
                                 autoFocus
                                 maxLength={200}
-                                className="mt-2 w-full rounded-xl border border-white/10 bg-slate-800 px-4 py-3 text-white outline-none transition focus:border-blue-400"
+                                className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-950 outline-none transition focus:border-blue-500 dark:border-white/10 dark:bg-slate-800 dark:text-white dark:focus:border-blue-400"
                                 placeholder="Ej: María González"
                             />
                         </label>
 
                         <label className="block">
-                            <span className="text-sm font-medium text-slate-300">Correo electrónico</span>
+                            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Correo electrónico</span>
                             <input
                                 type="email"
                                 value={form.email}
                                 onChange={handleChange('email')}
                                 maxLength={200}
-                                className="mt-2 w-full rounded-xl border border-white/10 bg-slate-800 px-4 py-3 text-white outline-none transition focus:border-blue-400"
+                                className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-950 outline-none transition focus:border-blue-500 dark:border-white/10 dark:bg-slate-800 dark:text-white dark:focus:border-blue-400"
                                 placeholder="usuario@empresa.com"
                             />
                         </label>
 
                         <label className="block">
-                            <span className="text-sm font-medium text-slate-300">Observación</span>
+                            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Observación</span>
                             <textarea
                                 value={form.observation}
                                 onChange={handleChange('observation')}
                                 rows={4}
                                 maxLength={1000}
-                                className="mt-2 w-full resize-none rounded-xl border border-white/10 bg-slate-800 px-4 py-3 text-white outline-none transition focus:border-blue-400"
+                                className="mt-2 w-full resize-none rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-950 outline-none transition focus:border-blue-500 dark:border-white/10 dark:bg-slate-800 dark:text-white dark:focus:border-blue-400"
                                 placeholder="Área, motivo o contexto para el alta..."
                             />
                         </label>
@@ -339,18 +339,18 @@ const LoginPage = () => {
             px-4 py-10 sm:px-6 lg:px-12
             transition-colors duration-300
             bg-gradient-to-b
-            from-slate-800 to-slate-900
+            from-slate-100 via-white to-sky-50
             dark:from-slate-900 dark:to-black
         ">
             <div className="
                 pointer-events-none absolute -top-40 -left-40
                 w-[700px] h-[400px] rounded-full
-                bg-blue-500/20 dark:bg-blue-500/15 blur-[120px]
+                bg-blue-300/30 dark:bg-blue-500/15 blur-[120px]
             " />
             <div className="
                 pointer-events-none absolute bottom-0 right-0
                 w-[500px] h-[400px] rounded-full
-                bg-sky-400/15 dark:bg-sky-400/10 blur-[120px]
+                bg-sky-300/25 dark:bg-sky-400/10 blur-[120px]
             " />
 
             <div className="relative w-full flex justify-center">
@@ -359,9 +359,9 @@ const LoginPage = () => {
                     w-full max-w-5xl relative
                     grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr]
                     rounded-[22px] overflow-hidden
-                    border border-white/10
-                    shadow-[0_22px_60px_rgba(0,0,0,0.45)]
-                    bg-slate-700/60 dark:bg-slate-900/70
+                    border border-slate-200/80 dark:border-white/10
+                    shadow-[0_22px_60px_rgba(15,23,42,0.18)] dark:shadow-[0_22px_60px_rgba(0,0,0,0.45)]
+                    bg-white/90 dark:bg-slate-900/70
                     backdrop-blur-[16px]
                     transition-colors duration-300
                 ">
@@ -374,21 +374,20 @@ const LoginPage = () => {
                             absolute top-3.5 right-3.5 z-10
                             w-9 h-9 flex items-center justify-center
                             rounded-xl
-                            border border-white/15
-                            bg-white/10 hover:bg-white/20
+                            border border-slate-200/80 dark:border-white/15
+                            bg-white/80 hover:bg-slate-100 dark:bg-white/10 dark:hover:bg-white/20
                             transition-all duration-200
                         "
                     >
                         {isDark
                             ? <FaSun className="w-[15px] h-[15px] text-amber-300" />
-                            : <FaMoon className="w-[15px] h-[15px] text-slate-300" />
+                            : <FaMoon className="w-[15px] h-[15px] text-slate-600" />
                         }
                     </button>
 
                     <aside className="
                         p-7 sm:p-10
-                        bg-[radial-gradient(800px_400px_at_20%_10%,rgba(59,130,246,0.18),transparent_60%),
-                             radial-gradient(700px_420px_at_80%_70%,rgba(14,165,233,0.12),transparent_60%)]
+                        bg-white/70 dark:bg-[radial-gradient(800px_400px_at_20%_10%,rgba(59,130,246,0.18),transparent_60%),radial-gradient(700px_420px_at_80%_70%,rgba(14,165,233,0.12),transparent_60%)]
                     ">
                         <div className="h-full flex flex-col gap-6">
 
@@ -407,10 +406,10 @@ const LoginPage = () => {
                                 </div>
 
                                 <div className="text-center">
-                                    <h1 className="text-3xl sm:text-[2.2rem] font-bold leading-tight text-white">
+                                    <h1 className="text-3xl sm:text-[2.2rem] font-bold leading-tight text-slate-950">
                                         MinuetAItor
                                     </h1>
-                                    <p className="mt-2 text-[0.95rem] sm:text-[1.05rem] text-slate-300 max-w-[40ch] mx-auto">
+                                    <p className="mt-2 text-[0.95rem] sm:text-[1.05rem] text-slate-700 max-w-[40ch] mx-auto">
                                         Estandariza acuerdos y transforma reuniones en ejecución operativa
                                     </p>
                                 </div>
@@ -418,7 +417,7 @@ const LoginPage = () => {
 
                             <p className="
                                 text-[0.97rem] leading-[1.6] text-center
-                                text-slate-300 max-w-[60ch] mx-auto
+                                text-slate-700 max-w-[60ch] mx-auto
                             ">
                                 MinuetAItor convierte reuniones en resultados operativos.
                                 Centraliza decisiones, estructura acuerdos y automatiza la generación
@@ -430,11 +429,12 @@ const LoginPage = () => {
                                 <span className="
                                     inline-flex items-center px-4 py-2.5
                                     rounded-full text-[0.82rem]
-                                    border border-white/12
-                                    bg-white/[0.06]
-                                    text-slate-400
+                                    border border-slate-200/90 dark:border-white/12
+                                    bg-slate-50/80 dark:bg-white/[0.06]
+                                    text-slate-600
                                 ">
                                     Entorno Corporativo · Acceso Autenticado y Auditado
+                                    {APP_VERSION ? <span className="ml-2 text-slate-500">· v{APP_VERSION}</span> : null}
                                 </span>
                             </div>
 
@@ -443,17 +443,17 @@ const LoginPage = () => {
 
                     <section className="
                         p-7 sm:p-10
-                        bg-slate-800/70 dark:bg-slate-900/80
-                        border-t lg:border-t-0 lg:border-l border-white/10
+                        bg-slate-50/90 dark:bg-slate-900/80
+                        border-t lg:border-t-0 lg:border-l border-slate-200/80 dark:border-white/10
                         transition-colors duration-300
                     ">
                         <div className="flex flex-col h-full gap-4">
 
                             <header>
-                                <h2 className="text-[1.4rem] font-semibold text-white m-0">
+                                <h2 className="text-[1.4rem] font-semibold text-slate-950 dark:text-white m-0">
                                     Acceso
                                 </h2>
-                                <p className="mt-1.5 text-slate-400">
+                                <p className="mt-1.5 text-slate-600 dark:text-slate-400">
                                     Ingresa tus credenciales corporativas para continuar.
                                 </p>
                             </header>
@@ -487,7 +487,7 @@ const LoginPage = () => {
                                 className="grid gap-3.5"
                             >
                                 <div className="grid gap-2">
-                                    <label htmlFor="credential" className="text-sm font-medium text-slate-300">
+                                    <label htmlFor="credential" className="text-sm font-medium text-slate-700 dark:text-slate-300">
                                         Usuario o correo electrónico
                                     </label>
                                     <input
@@ -501,9 +501,9 @@ const LoginPage = () => {
                                         onChange={(e) => setCredential(e.target.value)}
                                         className="
                                             px-3 py-3 rounded-[14px]
-                                            border border-slate-600/50
-                                            bg-slate-700/60 dark:bg-slate-800/70
-                                            text-white placeholder-slate-500
+                                            border border-slate-300/80 dark:border-slate-600/50
+                                            bg-white dark:bg-slate-800/70
+                                            text-slate-950 dark:text-white placeholder-slate-400 dark:placeholder-slate-500
                                             focus:outline-none focus:ring-2 focus:ring-blue-500/40
                                             transition-all
                                         "
@@ -511,7 +511,7 @@ const LoginPage = () => {
                                 </div>
 
                                 <div className="grid gap-2">
-                                    <label htmlFor="password" className="text-sm font-medium text-slate-300">
+                                    <label htmlFor="password" className="text-sm font-medium text-slate-700 dark:text-slate-300">
                                         Contraseña
                                     </label>
                                     <div className="relative">
@@ -525,9 +525,9 @@ const LoginPage = () => {
                                             onChange={(e) => setPassword(e.target.value)}
                                             className="
                                                 w-full px-3 py-3 pr-12 rounded-[14px]
-                                                border border-slate-600/50
-                                                bg-slate-700/60 dark:bg-slate-800/70
-                                                text-white
+                                                border border-slate-300/80 dark:border-slate-600/50
+                                                bg-white dark:bg-slate-800/70
+                                                text-slate-950 dark:text-white
                                                 focus:outline-none focus:ring-2 focus:ring-blue-500/40
                                                 transition-all
                                             "
@@ -540,9 +540,9 @@ const LoginPage = () => {
                                                 absolute right-2.5 top-1/2 -translate-y-1/2
                                                 w-[34px] h-[34px]
                                                 flex items-center justify-center
-                                                rounded-xl border border-slate-600/40
-                                                bg-slate-600/50 hover:bg-slate-500/60
-                                                text-slate-300
+                                                rounded-xl border border-slate-200 dark:border-slate-600/40
+                                                bg-slate-100 hover:bg-slate-200 dark:bg-slate-600/50 dark:hover:bg-slate-500/60
+                                                text-slate-600 dark:text-slate-300
                                                 transition-colors
                                             "
                                         >
@@ -578,22 +578,22 @@ const LoginPage = () => {
                             </form>
 
                             <footer className="mt-auto pt-2">
-                                <div className="flex items-center justify-center gap-2 text-sm text-slate-400 flex-wrap">
-                                    <span className="text-slate-600 select-none">·</span>
-                                    <a href="/forgot-password" className="font-medium text-blue-400 hover:text-blue-300 transition-colors">
+                                <div className="flex items-center justify-center gap-2 text-sm text-slate-500 dark:text-slate-400 flex-wrap">
+                                    <span className="text-slate-300 dark:text-slate-600 select-none">·</span>
+                                    <a href="/forgot-password" className="font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition-colors">
                                         ¿Olvidaste tu contraseña?
                                     </a>
                                     {accessRequestEnabled ? (
                                         <>
-                                            <span className="text-slate-600 select-none">·</span>
+                                            <span className="text-slate-300 dark:text-slate-600 select-none">·</span>
                                             <button
                                                 type="button"
                                                 onClick={handleOpenAccessRequestModal}
-                                                className="font-medium text-blue-400 transition-colors hover:text-blue-300"
+                                                className="font-medium text-blue-600 transition-colors hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
                                             >
                                                 Solicitar alta
                                             </button>
-                                            <span className="text-slate-600 select-none">·</span>
+                                            <span className="text-slate-300 dark:text-slate-600 select-none">·</span>
                                         </>
                                     ) : null}
                                 </div>
@@ -603,16 +603,6 @@ const LoginPage = () => {
                     </section>
 
                 </div>
-
-                {APP_VERSION && (
-                    <span className="
-                        absolute right-2 -bottom-7
-                        text-[0.8rem] text-slate-500
-                        pointer-events-none select-none
-                    ">
-                        v{APP_VERSION}
-                    </span>
-                )}
 
                 {showAccessRequestModal ? (
                     <AccessRequestModal

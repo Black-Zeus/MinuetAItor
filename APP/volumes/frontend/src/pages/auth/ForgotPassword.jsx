@@ -60,26 +60,26 @@ const ForgotPasswordPage = () => {
   const isDark = resolveThemeMode(theme) === 'dark';
 
   return (
-    <div className="min-h-screen grid place-items-center bg-gradient-to-b from-slate-800 to-slate-900 px-4 py-10 transition-colors duration-300 dark:from-slate-900 dark:to-black sm:px-6 lg:px-12">
-      <div className="pointer-events-none absolute -left-40 -top-40 h-[400px] w-[700px] rounded-full bg-blue-500/20 blur-[120px] dark:bg-blue-500/15" />
-      <div className="pointer-events-none absolute bottom-0 right-0 h-[400px] w-[500px] rounded-full bg-sky-400/15 blur-[120px] dark:bg-sky-400/10" />
+    <div className="min-h-screen grid place-items-center bg-gradient-to-b from-slate-100 via-white to-sky-50 px-4 py-10 transition-colors duration-300 dark:from-slate-900 dark:to-black sm:px-6 lg:px-12">
+      <div className="pointer-events-none absolute -left-40 -top-40 h-[400px] w-[700px] rounded-full bg-blue-300/30 blur-[120px] dark:bg-blue-500/15" />
+      <div className="pointer-events-none absolute bottom-0 right-0 h-[400px] w-[500px] rounded-full bg-sky-300/25 blur-[120px] dark:bg-sky-400/10" />
 
       <div className="relative flex w-full justify-center">
-        <div className="relative grid w-full max-w-5xl grid-cols-1 overflow-hidden rounded-[22px] border border-white/10 bg-slate-700/60 shadow-[0_22px_60px_rgba(0,0,0,0.45)] backdrop-blur-[16px] transition-colors duration-300 dark:bg-slate-900/70 lg:grid-cols-[1.1fr_0.9fr]">
+        <div className="relative grid w-full max-w-5xl grid-cols-1 overflow-hidden rounded-[22px] border border-slate-200/80 bg-white/90 shadow-[0_22px_60px_rgba(15,23,42,0.18)] backdrop-blur-[16px] transition-colors duration-300 dark:border-white/10 dark:bg-slate-900/70 dark:shadow-[0_22px_60px_rgba(0,0,0,0.45)] lg:grid-cols-[1.1fr_0.9fr]">
           <button
             onClick={toggleTheme}
             aria-label={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
             title={isDark ? 'Modo claro' : 'Modo oscuro'}
-            className="absolute right-3.5 top-3.5 z-10 flex h-9 w-9 items-center justify-center rounded-xl border border-white/15 bg-white/10 transition-all duration-200 hover:bg-white/20"
+            className="absolute right-3.5 top-3.5 z-10 flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200/80 bg-white/80 transition-all duration-200 hover:bg-slate-100 dark:border-white/15 dark:bg-white/10 dark:hover:bg-white/20"
           >
             {isDark ? (
               <FaSun className="h-[15px] w-[15px] text-amber-300" />
             ) : (
-              <FaMoon className="h-[15px] w-[15px] text-slate-300" />
+              <FaMoon className="h-[15px] w-[15px] text-slate-600" />
             )}
           </button>
 
-          <aside className="bg-[radial-gradient(800px_400px_at_20%_10%,rgba(59,130,246,0.18),transparent_60%),radial-gradient(700px_420px_at_80%_70%,rgba(14,165,233,0.12),transparent_60%)] p-7 sm:p-10">
+          <aside className="bg-white/70 p-7 dark:bg-[radial-gradient(800px_400px_at_20%_10%,rgba(59,130,246,0.18),transparent_60%),radial-gradient(700px_420px_at_80%_70%,rgba(14,165,233,0.12),transparent_60%)] sm:p-10">
             <div className="flex h-full flex-col gap-6">
               <div className="grid grid-cols-[160px_1fr] items-center gap-5 sm:grid-cols-[220px_1fr] sm:gap-7">
                 <div className="h-40 w-40 flex-shrink-0 overflow-hidden rounded-[24px] border border-white/15 shadow-[0_12px_35px_rgba(0,0,0,0.35)] sm:h-[220px] sm:w-[220px]">
@@ -87,27 +87,27 @@ const ForgotPasswordPage = () => {
                 </div>
 
                 <div className="text-center">
-                  <h1 className="text-3xl font-bold leading-tight text-white sm:text-[2.2rem]">
+                  <h1 className="text-3xl font-bold leading-tight text-slate-950 sm:text-[2.2rem]">
                     MinuetAItor
                   </h1>
-                  <p className="mx-auto mt-2 max-w-[40ch] text-[0.95rem] text-slate-300 sm:text-[1.05rem]">
+                  <p className="mx-auto mt-2 max-w-[40ch] text-[0.95rem] text-slate-700 sm:text-[1.05rem]">
                     Estandariza acuerdos y transforma reuniones en ejecución operativa
                   </p>
                 </div>
               </div>
 
-              <p className="mx-auto max-w-[60ch] text-center text-[0.97rem] leading-[1.6] text-slate-300">
+              <p className="mx-auto max-w-[60ch] text-center text-[0.97rem] leading-[1.6] text-slate-700">
                 Recupera el acceso a tu cuenta corporativa con un flujo controlado, auditable y alineado con la seguridad operacional de la plataforma.
               </p>
 
               <div className="flex flex-1 flex-col justify-center gap-7">
-                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15">
-                  <Icon name="lock" className="text-2xl text-white" />
+                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-100">
+                  <Icon name="lock" className="text-2xl text-blue-700" />
                 </div>
 
                 <div>
-                  <h2 className="mb-3 text-xl font-semibold text-white">Recuperación de contraseña</h2>
-                  <p className="max-w-[48ch] text-base leading-relaxed text-blue-100">
+                  <h2 className="mb-3 text-xl font-semibold text-slate-950">Recuperación de contraseña</h2>
+                  <p className="max-w-[48ch] text-base leading-relaxed text-slate-700">
                     Ingresa tu correo corporativo y te enviaremos un enlace seguro para restablecer tu acceso.
                   </p>
                 </div>
@@ -118,9 +118,9 @@ const ForgotPasswordPage = () => {
                     { icon: 'shieldAlt', label: 'El proceso usa un enlace de uso único y controlado.' },
                     { icon: 'clock', label: 'La recuperación tiene una vigencia acotada para mayor seguridad.' },
                   ].map(({ icon, label }) => (
-                    <li key={label} className="flex items-center gap-3 text-blue-100">
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/15">
-                        <Icon name={icon} className="text-xs text-white" />
+                    <li key={label} className="flex items-center gap-3 text-slate-700">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-blue-100">
+                        <Icon name={icon} className="text-xs text-blue-700" />
                       </span>
                       <span className="text-sm">{label}</span>
                     </li>
@@ -129,28 +129,29 @@ const ForgotPasswordPage = () => {
               </div>
 
               <div className="mt-auto">
-                <span className="inline-flex items-center rounded-full border border-white/12 bg-white/[0.06] px-4 py-2.5 text-[0.82rem] text-slate-400">
+                <span className="inline-flex items-center rounded-full border border-slate-200/90 bg-slate-50/80 px-4 py-2.5 text-[0.82rem] text-slate-600">
                   Entorno Corporativo · Acceso Autenticado y Auditado
+                  {APP_VERSION ? <span className="ml-2 text-slate-500">· v{APP_VERSION}</span> : null}
                 </span>
               </div>
             </div>
           </aside>
 
-          <section className="border-t border-white/10 bg-slate-800/70 p-7 transition-colors duration-300 dark:bg-slate-900/80 sm:p-10 lg:border-l lg:border-t-0">
+          <section className="border-t border-slate-200/80 bg-slate-50/90 p-7 transition-colors duration-300 dark:border-white/10 dark:bg-slate-900/80 sm:p-10 lg:border-l lg:border-t-0">
             <div className="flex h-full flex-col gap-4">
               <header>
                 <Link
                   to="/login"
-                  className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-blue-400 transition-colors hover:text-blue-300"
+                  className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-blue-600 transition-colors hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
                 >
                   <Icon name="arrowLeft" className="text-xs" />
                   Volver al inicio de sesión
                 </Link>
 
-                <h2 className="m-0 text-[1.4rem] font-semibold text-white">
+                <h2 className="m-0 text-[1.4rem] font-semibold text-slate-950 dark:text-white">
                   {submitted ? 'Solicitud enviada' : '¿Olvidaste tu contraseña?'}
                 </h2>
-                <p className="mt-1.5 text-slate-400">
+                <p className="mt-1.5 text-slate-600 dark:text-slate-400">
                   {submitted
                     ? 'Si el correo existe, el sistema enviará las instrucciones en breve.'
                     : 'Completa tu correo corporativo para iniciar la recuperación.'}
@@ -170,7 +171,7 @@ const ForgotPasswordPage = () => {
               {!submitted ? (
                 <form onSubmit={handleSubmit} noValidate className="grid gap-3.5">
                   <div className="grid gap-2">
-                    <label htmlFor="email" className="text-sm font-medium text-slate-300">
+                    <label htmlFor="email" className="text-sm font-medium text-slate-700 dark:text-slate-300">
                       Correo electrónico
                     </label>
                     <input
@@ -181,10 +182,10 @@ const ForgotPasswordPage = () => {
                       value={email}
                       onChange={(e) => handleChange(e.target.value)}
                       disabled={isLoading}
-                      className={`w-full rounded-[14px] border px-3 py-3 text-white placeholder-slate-500 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/40 ${
+                      className={`w-full rounded-[14px] border px-3 py-3 text-slate-950 placeholder-slate-400 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:text-white dark:placeholder-slate-500 ${
                         error
-                          ? 'border-red-500/60 bg-red-950/20'
-                          : 'border-slate-600/50 bg-slate-700/60 dark:bg-slate-800/70'
+                          ? 'border-red-300 bg-red-50 dark:border-red-500/60 dark:bg-red-950/20'
+                          : 'border-slate-300/80 bg-white dark:border-slate-600/50 dark:bg-slate-800/70'
                       }`}
                     />
                   </div>
@@ -208,15 +209,15 @@ const ForgotPasswordPage = () => {
                   </button>
                 </form>
               ) : (
-                <div className="flex flex-1 flex-col justify-center rounded-2xl border border-green-500/25 bg-green-500/10 px-6 py-8 text-center">
-                  <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-green-500/15">
-                    <Icon name="checkCircle" className="text-2xl text-green-300" />
+                <div className="flex flex-1 flex-col justify-center rounded-2xl border border-green-200 bg-green-50 px-6 py-8 text-center dark:border-green-500/25 dark:bg-green-500/10">
+                  <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-500/15">
+                    <Icon name="checkCircle" className="text-2xl text-green-600 dark:text-green-300" />
                   </div>
-                  <h3 className="text-2xl font-bold text-white">Correo enviado</h3>
-                  <p className="mt-3 text-sm leading-relaxed text-slate-300">
-                    Si <span className="font-semibold text-white">{email}</span> está registrado en el sistema, recibirás las instrucciones en los próximos minutos.
+                  <h3 className="text-2xl font-bold text-slate-950 dark:text-white">Correo enviado</h3>
+                  <p className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                    Si <span className="font-semibold text-slate-950 dark:text-white">{email}</span> está registrado en el sistema, recibirás las instrucciones en los próximos minutos.
                   </p>
-                  <p className="mt-2 text-xs text-slate-400">
+                  <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
                     Revisa también spam o correo no deseado.
                   </p>
                   <button
@@ -226,7 +227,7 @@ const ForgotPasswordPage = () => {
                       setEmail('');
                       setError('');
                     }}
-                    className="mx-auto mt-6 inline-flex items-center gap-2 text-sm font-medium text-blue-400 transition-colors hover:text-blue-300"
+                    className="mx-auto mt-6 inline-flex items-center gap-2 text-sm font-medium text-blue-600 transition-colors hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
                   >
                     <Icon name="rotateLeft" className="text-xs" />
                     Intentar con otro correo
@@ -235,23 +236,17 @@ const ForgotPasswordPage = () => {
               )}
 
               <footer className="mt-auto pt-2">
-                <div className="flex flex-wrap items-center justify-center gap-2 text-sm text-slate-400">
-                  <span className="select-none text-slate-600">·</span>
-                  <a href="mailto:soporte@dominio.cl" className="font-medium text-blue-400 transition-colors hover:text-blue-300">
+                <div className="flex flex-wrap items-center justify-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+                  <span className="select-none text-slate-300 dark:text-slate-600">·</span>
+                  <a href="mailto:soporte@dominio.cl" className="font-medium text-blue-600 transition-colors hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">
                     Contactar soporte
                   </a>
-                  <span className="select-none text-slate-600">·</span>
+                  <span className="select-none text-slate-300 dark:text-slate-600">·</span>
                 </div>
               </footer>
             </div>
           </section>
         </div>
-
-        {APP_VERSION && (
-          <span className="pointer-events-none absolute -bottom-7 right-2 select-none text-[0.8rem] text-slate-500">
-            v{APP_VERSION}
-          </span>
-        )}
       </div>
     </div>
   );
