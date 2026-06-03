@@ -153,16 +153,16 @@ const StepItem = ({ index, currentStep, title, onClick }) => {
     <button
       type="button"
       onClick={onClick}
-      className="flex shrink-0 items-center gap-2.5 rounded-xl px-2 py-1 text-left transition-colors hover:bg-slate-100/10"
+      className="flex shrink-0 items-center gap-2.5 rounded-xl px-2 py-1 text-left transition-colors hover:bg-slate-100/70 dark:hover:bg-slate-100/10"
     >
       <div
         className={cn(
           "flex h-8 w-8 items-center justify-center rounded-full border text-xs font-semibold",
           isDone
-            ? "border-sky-300 bg-sky-300 text-slate-900"
+            ? "border-sky-700 bg-sky-700 text-white dark:border-sky-300 dark:bg-sky-300 dark:text-slate-900"
             : isActive
-              ? "border-slate-300 bg-slate-300 text-slate-900"
-              : "border-slate-700 bg-slate-800/70 text-slate-300"
+              ? "border-slate-500 bg-slate-500 text-white dark:border-slate-300 dark:bg-slate-300 dark:text-slate-900"
+              : "border-gray-300 bg-white/80 text-gray-500 dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-300"
         )}
       >
         {isDone ? <Icon name="FaCheckCircle" className="h-3.5 w-3.5" /> : index + 1}
@@ -170,7 +170,7 @@ const StepItem = ({ index, currentStep, title, onClick }) => {
       <span
         className={cn(
           "text-sm whitespace-nowrap",
-          isActive ? "font-semibold text-white" : "text-slate-400"
+          isActive ? "font-semibold text-gray-900 dark:text-white" : "text-gray-500 dark:text-slate-400"
         )}
       >
         {title}
@@ -460,20 +460,20 @@ const NewMinuteFormInner = ({ onSubmit, onCancel, isSubmitting, onCatalogLoaded 
 
   return (
     <>
-    <div className="w-full rounded-[26px] bg-white/8 p-[2px] shadow-[0_0_24px_rgba(255,255,255,0.08),0_24px_70px_rgba(15,23,42,0.24)] backdrop-blur-[3px] dark:bg-white/[0.06] dark:shadow-[0_0_28px_rgba(255,255,255,0.06),0_24px_70px_rgba(2,6,23,0.52)]">
-    <div className="flex h-[78vh] min-h-[620px] w-full flex-col overflow-hidden rounded-[24px] border border-white/10 bg-[#050b1f]">
+    <div className="w-full">
+      <div className="flex h-[78vh] min-h-[620px] w-full flex-col overflow-hidden rounded-[24px] border border-slate-200/80 bg-slate-100 shadow-[0_24px_70px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-slate-950 dark:shadow-[0_24px_70px_rgba(2,6,23,0.52)]">
 
       <div className="flex-shrink-0 px-8 py-7">
         <div className="flex items-start justify-between gap-5">
           <div className="flex min-w-0 items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-800 text-sky-300">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-100 text-primary-600 dark:bg-slate-800 dark:text-sky-300">
               <Icon name="FaFileLines" className="h-6 w-6" />
             </div>
             <div className="min-w-0">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-gray-400 dark:text-slate-500">
                 NUEVA MINUTA
               </div>
-              <h2 className="truncate text-[2rem] font-semibold leading-tight text-white">
+              <h2 className="truncate text-[2rem] font-semibold leading-tight text-gray-900 dark:text-white">
                 Preparación de Minuta
               </h2>
             </div>
@@ -497,7 +497,7 @@ const NewMinuteFormInner = ({ onSubmit, onCancel, isSubmitting, onCatalogLoaded 
       </div>
 
       {/* Contenido con scroll */}
-      <div className="min-h-0 flex-1 overflow-y-auto border-t border-slate-800/90 px-8 py-6">
+      <div className="min-h-0 flex-1 overflow-y-auto border-t border-slate-200/80 px-8 py-6 dark:border-slate-800/90">
 
         {loadingCatalog && <InlineSpinner text="Cargando catálogos..." />}
         {!loadingCatalog && catalogError && (
@@ -942,12 +942,12 @@ const NewMinuteFormInner = ({ onSubmit, onCancel, isSubmitting, onCatalogLoaded 
       </div>
 
       {/* Footer */}
-      <div className="flex-shrink-0 border-t border-slate-800/90 px-8 py-5">
+      <div className="flex-shrink-0 border-t border-slate-200/80 px-8 py-5 dark:border-slate-800/90">
         <div className="flex justify-between">
           <button
             onClick={currentStep === 0 ? onCancel : handlePrevious}
             disabled={isSubmitting}
-            className="rounded-full border border-slate-600 bg-slate-800/70 px-5 py-3 text-sm font-semibold text-slate-200 transition hover:border-slate-500 hover:bg-slate-700/70
+            className="rounded-full border border-slate-300 bg-white/70 px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800/70 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:bg-slate-700/70
               disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {currentStep === 0 ? "Cancelar" : "Anterior"}
@@ -955,8 +955,8 @@ const NewMinuteFormInner = ({ onSubmit, onCancel, isSubmitting, onCatalogLoaded 
           <button
             onClick={handleNext}
             disabled={submitDisabled}
-            className="inline-flex items-center gap-2 rounded-full bg-sky-300 px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-sky-200
-              disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            className="inline-flex items-center gap-2 rounded-full bg-primary-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-primary-700 dark:bg-sky-300 dark:text-slate-950 dark:hover:bg-sky-200
+              disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLastStep && isSubmitting ? (
               <>

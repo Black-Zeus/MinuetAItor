@@ -878,8 +878,8 @@ const TeamsModal = ({ mode, data, onSubmit, onClose, onSaved }) => {
   };
 
   return (
-    <div className="w-full rounded-[26px] bg-white/8 p-[2px] shadow-[0_0_24px_rgba(255,255,255,0.08),0_24px_70px_rgba(15,23,42,0.24)] backdrop-blur-[3px] dark:bg-white/[0.06] dark:shadow-[0_0_28px_rgba(255,255,255,0.06),0_24px_70px_rgba(2,6,23,0.52)]">
-      <div className="flex h-[78vh] min-h-[620px] w-full flex-col rounded-[24px] border border-white/45 bg-slate-100 dark:border-white/10 dark:bg-slate-950">
+    <div className="w-full">
+      <div className="flex h-[78vh] min-h-[620px] w-full flex-col rounded-[24px] border border-slate-200/80 bg-slate-100 shadow-[0_24px_70px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-slate-950 dark:shadow-[0_24px_70px_rgba(2,6,23,0.52)]">
         <div className="border-b border-slate-200/80 px-8 py-6 dark:border-slate-700/80">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div className="flex items-center gap-4">

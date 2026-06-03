@@ -370,8 +370,8 @@ const SmtpConfigModal = ({
   };
 
   return (
-    <div className="relative w-full rounded-[26px] bg-white/8 p-[2px] shadow-[0_24px_70px_rgba(15,23,42,0.24)] dark:bg-white/[0.06] dark:shadow-[0_24px_70px_rgba(2,6,23,0.52)]">
-      <div className="flex max-h-[78vh] w-full min-w-0 flex-col overflow-hidden rounded-[24px] border border-white/45 bg-slate-100 dark:border-white/10 dark:bg-slate-950">
+    <div className="relative w-full">
+      <div className="flex max-h-[78vh] w-full min-w-0 flex-col overflow-hidden rounded-[24px] border border-slate-200/80 bg-slate-100 shadow-[0_24px_70px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-slate-950 dark:shadow-[0_24px_70px_rgba(2,6,23,0.52)]">
         <div className="border-b border-slate-200/80 px-8 py-5 dark:border-slate-700/80">
           <div>
             <h3 className="flex items-center gap-3 text-2xl font-semibold text-gray-900 dark:text-white">

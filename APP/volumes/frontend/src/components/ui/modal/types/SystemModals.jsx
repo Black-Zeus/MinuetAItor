@@ -196,6 +196,8 @@ export const renderCustomModal = ({
   onAction,
   ...customProps
 }) => {
+  const isWideShell = ['clientWide', 'entityWide', 'minuteWide'].includes(size);
+
   // Contenido del cuerpo
   const bodyContent = content || children || (
     <CustomContent
@@ -243,7 +245,7 @@ export const renderCustomModal = ({
       )}
 
       {/* Body */}
-      <div className={MODAL_CLASSES.bodyContent}>
+      <div className={isWideShell ? 'p-0' : MODAL_CLASSES.bodyContent}>
         {bodyContent}
       </div>
 

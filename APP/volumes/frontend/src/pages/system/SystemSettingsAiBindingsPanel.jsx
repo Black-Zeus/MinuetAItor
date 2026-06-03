@@ -513,8 +513,8 @@ const ModelDetailModal = ({ detail, onClose }) => {
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-gray-950/60 px-4 py-6 backdrop-blur-sm">
-      <div className="relative w-full max-w-5xl rounded-[26px] bg-white/8 p-[2px] shadow-[0_24px_70px_rgba(15,23,42,0.24)] dark:bg-white/[0.06] dark:shadow-[0_24px_70px_rgba(2,6,23,0.52)]">
-        <div className="flex max-h-[82vh] min-h-[560px] flex-col overflow-hidden rounded-[24px] border border-white/45 bg-slate-100 transition-theme dark:border-white/10 dark:bg-slate-950">
+      <div className="relative w-full max-w-5xl">
+        <div className="flex max-h-[82vh] min-h-[560px] flex-col overflow-hidden rounded-[24px] border border-slate-200/80 bg-slate-100 shadow-[0_24px_70px_rgba(15,23,42,0.24)] transition-theme dark:border-white/10 dark:bg-slate-950 dark:shadow-[0_24px_70px_rgba(2,6,23,0.52)]">
           <div className="border-b border-slate-200/80 px-8 py-5 dark:border-slate-700/80">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div className="min-w-0">

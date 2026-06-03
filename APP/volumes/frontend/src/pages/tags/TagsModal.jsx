@@ -18,10 +18,10 @@ const STEP_ITEMS = [
 const cn = (...classes) => classes.filter(Boolean).join(" ");
 
 const INPUT_BASE =
-  "w-full rounded-2xl border border-slate-600/80 bg-slate-600/55 px-4 py-3 text-sm text-white placeholder:text-slate-300/70 transition focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400/25";
+  "w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 transition focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200 dark:border-slate-600/80 dark:bg-slate-800 dark:text-white dark:placeholder:text-slate-300/70 dark:focus:border-sky-400 dark:focus:ring-sky-400/25";
 const INPUT_ERROR = "border-rose-400 focus:border-rose-400 focus:ring-rose-400/25";
-const LABEL = "mb-2 block text-sm font-semibold text-slate-100";
-const HELP = "mt-1 text-xs text-slate-400";
+const LABEL = "mb-2 block text-sm font-semibold text-gray-700 dark:text-slate-100";
+const HELP = "mt-1 text-xs text-gray-500 dark:text-slate-400";
 
 const normalizeStatus = (status, isActive = true) => {
   if (status === "inactivo" || status === "inactive") return "inactivo";
@@ -56,9 +56,9 @@ const StaticValue = ({ value, muted = false, multiline = false }) => {
   const hasValue = String(value ?? "").trim().length > 0;
   return (
     <div
-      className={`rounded-2xl border border-slate-700/80 px-4 py-3 text-sm ${
+      className={`rounded-2xl border border-slate-200/80 bg-white px-4 py-3 text-sm dark:border-slate-700/80 dark:bg-transparent ${
         multiline ? "min-h-[124px] whitespace-pre-wrap" : ""
-      } ${muted ? "text-slate-400 italic" : "text-slate-100"}`}
+      } ${muted ? "text-gray-400 italic dark:text-slate-400" : "text-gray-800 dark:text-slate-100"}`}
     >
       {hasValue ? value : "Sin información"}
     </div>
@@ -66,9 +66,9 @@ const StaticValue = ({ value, muted = false, multiline = false }) => {
 };
 
 const SummaryItem = ({ label, children }) => (
-  <div className="border-b border-slate-800/70 py-3 last:border-b-0">
-    <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</div>
-    <div className="text-sm text-slate-100">{children}</div>
+  <div className="border-b border-slate-200/70 py-3 last:border-b-0 dark:border-slate-800/70">
+    <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400 dark:text-slate-500">{label}</div>
+    <div className="text-sm text-gray-800 dark:text-slate-100">{children}</div>
   </div>
 );
 
@@ -80,16 +80,16 @@ const StepItem = ({ index, currentStep, title, onClick }) => {
     <button
       type="button"
       onClick={onClick}
-      className="flex items-center gap-3 rounded-xl px-2 py-1 text-left transition-colors hover:bg-slate-100/10"
+      className="flex items-center gap-3 rounded-xl px-2 py-1 text-left transition-colors hover:bg-slate-100/70 dark:hover:bg-slate-100/10"
     >
       <div
         className={cn(
           "flex h-8 w-8 items-center justify-center rounded-full border text-xs font-semibold",
           isDone
-            ? "border-sky-300 bg-sky-300 text-slate-900"
+            ? "border-sky-700 bg-sky-700 text-white dark:border-sky-300 dark:bg-sky-300 dark:text-slate-900"
             : isActive
-              ? "border-slate-300 bg-slate-300 text-slate-900"
-              : "border-slate-700 bg-slate-800/70 text-slate-300"
+              ? "border-slate-500 bg-slate-500 text-white dark:border-slate-300 dark:bg-slate-300 dark:text-slate-900"
+              : "border-gray-300 bg-white/80 text-gray-500 dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-300"
         )}
       >
         {isDone ? <Icon name="FaCheckCircle" className="h-3.5 w-3.5" /> : index + 1}
@@ -97,7 +97,7 @@ const StepItem = ({ index, currentStep, title, onClick }) => {
       <span
         className={cn(
           "text-sm",
-          isActive ? "font-semibold text-white" : "text-slate-400"
+          isActive ? "font-semibold text-gray-900 dark:text-white" : "text-gray-500 dark:text-slate-400"
         )}
       >
         {title}
@@ -235,24 +235,24 @@ const TagsModal = ({ mode, data, categories = [], onSubmit, onClose }) => {
   };
 
   return (
-    <div className="w-full rounded-[26px] bg-white/8 p-[2px] shadow-[0_0_24px_rgba(255,255,255,0.08),0_24px_70px_rgba(15,23,42,0.24)] backdrop-blur-[3px] dark:bg-white/[0.06] dark:shadow-[0_0_28px_rgba(255,255,255,0.06),0_24px_70px_rgba(2,6,23,0.52)]">
-      <div className="flex h-[78vh] min-h-[620px] w-full min-w-0 flex-col overflow-hidden rounded-[24px] border border-white/10 bg-[#050b1f]">
+    <div className="w-full">
+      <div className="flex h-[78vh] min-h-[620px] w-full min-w-0 flex-col overflow-hidden rounded-[24px] border border-slate-200/80 bg-slate-100 shadow-[0_24px_70px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-[#050b1f] dark:shadow-[0_24px_70px_rgba(2,6,23,0.52)]">
         <div className="flex-shrink-0 px-8 py-7">
           <div className="flex items-start justify-between gap-5">
             <div className="flex min-w-0 items-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-800 text-sky-300">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-100 text-primary-600 dark:bg-slate-800 dark:text-sky-300">
                 <Icon name="FaTags" className="h-6 w-6" />
               </div>
               <div className="min-w-0">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">{subtitleText}</div>
-                <h2 className="truncate text-[2rem] font-semibold leading-tight text-white">{titleText}</h2>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-gray-400 dark:text-slate-500">{subtitleText}</div>
+                <h2 className="truncate text-[2rem] font-semibold leading-tight text-gray-900 dark:text-white">{titleText}</h2>
               </div>
             </div>
             <span
               className={`inline-flex shrink-0 items-center rounded-full px-3 py-1 text-xs font-semibold ${
                 formData.tagStatus === "inactivo"
-                  ? "bg-slate-700 text-slate-200"
-                  : "bg-emerald-950/90 text-emerald-300"
+                  ? "bg-gray-100 text-gray-600 dark:bg-slate-700 dark:text-slate-200"
+                  : "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/90 dark:text-emerald-300"
               }`}
             >
               {statusLabel}
@@ -272,12 +272,12 @@ const TagsModal = ({ mode, data, categories = [], onSubmit, onClose }) => {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto border-t border-slate-800/90 px-8 py-6">
+        <div className="flex-1 overflow-y-auto border-t border-slate-200/80 px-8 py-6 dark:border-slate-800/90">
           {currentStep === 0 ? (
             <div className="space-y-8">
               <div>
-                <h3 className="text-xl font-semibold text-white">Información general</h3>
-                <p className="mt-2 text-sm text-slate-400">Define el nombre, la categoría y el estado de la etiqueta.</p>
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Información general</h3>
+                <p className="mt-2 text-sm text-gray-500 dark:text-slate-400">Define el nombre, la categoría y el estado de la etiqueta.</p>
               </div>
 
               <div className="grid gap-6 md:grid-cols-2">
@@ -339,8 +339,8 @@ const TagsModal = ({ mode, data, categories = [], onSubmit, onClose }) => {
           {currentStep === 1 ? (
             <div className="space-y-8">
               <div>
-                <h3 className="text-xl font-semibold text-white">Descripción</h3>
-                <p className="mt-2 text-sm text-slate-400">Resume el propósito de esta etiqueta y cómo debe usarse dentro del sistema.</p>
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Descripción</h3>
+                <p className="mt-2 text-sm text-gray-500 dark:text-slate-400">Resume el propósito de esta etiqueta y cómo debe usarse dentro del sistema.</p>
               </div>
 
               <FieldShell label="Descripción" required error={errors.tagDescription}>
@@ -362,20 +362,20 @@ const TagsModal = ({ mode, data, categories = [], onSubmit, onClose }) => {
           {currentStep === 2 ? (
             <div className="space-y-8">
               <div>
-                <h3 className="text-xl font-semibold text-white">Resumen</h3>
-                <p className="mt-2 text-sm text-slate-400">
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Resumen</h3>
+                <p className="mt-2 text-sm text-gray-500 dark:text-slate-400">
                   {isView ? "Información consolidada de la etiqueta." : "Verifica los datos antes de confirmar los cambios."}
                 </p>
               </div>
 
               <div className="grid gap-x-10 gap-y-2 md:grid-cols-2">
-                <SummaryItem label="Nombre">{formData.tagName || <span className="italic text-slate-500">Sin información</span>}</SummaryItem>
-                <SummaryItem label="Categoría">{categoryName || <span className="italic text-slate-500">Sin información</span>}</SummaryItem>
+                <SummaryItem label="Nombre">{formData.tagName || <span className="italic text-gray-400 dark:text-slate-500">Sin información</span>}</SummaryItem>
+                <SummaryItem label="Categoría">{categoryName || <span className="italic text-gray-400 dark:text-slate-500">Sin información</span>}</SummaryItem>
                 <SummaryItem label="Estado">{statusLabel}</SummaryItem>
                 <SummaryItem label="Origen">{formData.source === "system" ? "Sistema" : "Usuario"}</SummaryItem>
                 <div className="md:col-span-2">
                   <SummaryItem label="Descripción">
-                    {formData.tagDescription || <span className="italic text-slate-500">Sin información</span>}
+                    {formData.tagDescription || <span className="italic text-gray-400 dark:text-slate-500">Sin información</span>}
                   </SummaryItem>
                 </div>
               </div>
@@ -383,11 +383,11 @@ const TagsModal = ({ mode, data, categories = [], onSubmit, onClose }) => {
           ) : null}
         </div>
 
-        <div className="flex flex-shrink-0 items-center justify-between gap-3 border-t border-slate-800/90 px-8 py-5">
+        <div className="flex flex-shrink-0 items-center justify-between gap-3 border-t border-slate-200/80 px-8 py-5 dark:border-slate-800/90">
           <button
             type="button"
             onClick={currentStep === 0 ? closeModal : handlePrevious}
-            className="rounded-full border border-slate-600 bg-slate-800/70 px-5 py-3 text-sm font-semibold text-slate-200 transition hover:border-slate-500 hover:bg-slate-700/70"
+            className="rounded-full border border-slate-300 bg-white/70 px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800/70 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:bg-slate-700/70"
           >
             {currentStep === 0 ? (isView ? "Cerrar" : "Cancelar") : "Anterior"}
           </button>
@@ -396,7 +396,7 @@ const TagsModal = ({ mode, data, categories = [], onSubmit, onClose }) => {
             type="button"
             onClick={handleNext}
             disabled={isSubmitting}
-            className="inline-flex items-center gap-2 rounded-full bg-sky-300 px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-sky-200 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-full bg-primary-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-sky-300 dark:text-slate-950 dark:hover:bg-sky-200"
           >
             {isSubmitting ? <Icon name="FaSpinner" className="h-3.5 w-3.5 animate-spin" /> : null}
             {isView
