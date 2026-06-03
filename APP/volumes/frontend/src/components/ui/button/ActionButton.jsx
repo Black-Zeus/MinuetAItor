@@ -7,7 +7,7 @@ const VARIANTS = {
   success:
     "bg-success-700/80 hover:bg-success-700 text-white focus-visible:ring-success-700/35",
   danger:
-    "bg-error-700/80 hover:bg-error-700 text-white focus-visible:ring-error-700/35",
+    "bg-red-600 hover:bg-red-700 text-white focus-visible:ring-red-500/35",
   warning:
     "bg-warm-700/80 hover:bg-warm-700 text-white focus-visible:ring-warm-700/35",
   info:

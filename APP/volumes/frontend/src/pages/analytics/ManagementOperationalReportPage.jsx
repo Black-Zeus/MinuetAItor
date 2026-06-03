@@ -7312,6 +7312,7 @@ const ManagementOperationalReportPage = () => {
       resultsTitle="Resultados del reporte"
       onExportPdf={handleExportPdf}
       onExportSpreadsheet={handleExportCsv}
+      showExportActions={hasExecutedSearch}
       isExportDisabled={sortedItems.length === 0 || isGeneratingPdf || isLoading}
       summaryCards={summaryCards}
       afterSummaryContent={reportCharts}

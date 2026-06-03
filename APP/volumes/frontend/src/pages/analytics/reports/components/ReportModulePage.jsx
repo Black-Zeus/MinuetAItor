@@ -293,6 +293,7 @@ const ReportModulePage = ({
   onExportPdf,
   onExportSpreadsheet,
   exportSpreadsheetLabel = "Exportar CSV / Excel",
+  showExportActions = true,
   isExportDisabled = false,
   summaryCards = [],
   afterSummaryContent = null,
@@ -468,22 +469,24 @@ const ReportModulePage = ({
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <ActionButton
-              label="Exportar PDF"
-              variant="danger"
-              icon={<Icon name="fileLines" />}
-              onClick={onExportPdf}
-              disabled={isExportDisabled}
-            />
-            <ActionButton
-              label={exportSpreadsheetLabel}
-              variant="success"
-              icon={<Icon name="download" />}
-              onClick={onExportSpreadsheet}
-              disabled={isExportDisabled}
-            />
-          </div>
+          {showExportActions ? (
+            <div className="flex flex-wrap items-center gap-3">
+              <ActionButton
+                label="Exportar PDF"
+                variant="danger"
+                icon={<Icon name="fileLines" />}
+                onClick={onExportPdf}
+                disabled={isExportDisabled}
+              />
+              <ActionButton
+                label={exportSpreadsheetLabel}
+                variant="success"
+                icon={<Icon name="download" />}
+                onClick={onExportSpreadsheet}
+                disabled={isExportDisabled}
+              />
+            </div>
+          ) : null}
         </div>
 
         {children}

@@ -1,7 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 
 import AsyncEChart from "@/components/charts/AsyncEChart";
+import ModalManager from "@/components/ui/modal";
 import { openPdfViewer } from "@/components/ui/pdf/PdfViewerModal";
 import { AUDIT_REPORT_ITEMS } from "@config/sidebarConfig";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
@@ -14,6 +15,7 @@ import logger from "@/utils/logger";
 
 const reportLog = logger.scope("audit-reports");
 const ITEMS_PER_PAGE = 10;
+const CHART_EXPORT_BG = "#3b4252";
 
 const REPORT_TYPE_BY_ID = {
   "audit-user-sessions": "user-sessions",
@@ -202,6 +204,17 @@ const DEFAULT_VISIBLE_FILTERS = {
   client: false,
   project: false,
 };
+const FILTER_EXPORT_LABELS = {
+  dateFrom: "Desde",
+  dateTo: "Hasta",
+  actor: "Actor",
+  entityType: "Entidad",
+  eventType: "Evento",
+  status: "Estado",
+  client: "Cliente",
+  project: "Proyecto",
+};
+const FILTER_EXPORT_ORDER = ["dateFrom", "dateTo", "actor", "entityType", "eventType", "status", "client", "project"];
 
 const EXTERNAL_REPORTS = new Set([
   "audit-minute-otp-requests",
@@ -378,6 +391,14 @@ const buildCsv = (columns, rows) => {
   ].join("\n");
 };
 
+const buildAppliedFiltersForExport = (filters = {}) =>
+  FILTER_EXPORT_ORDER
+    .map((key) => ({
+      label: FILTER_EXPORT_LABELS[key] ?? key,
+      value: String(filters[key] ?? "").trim(),
+    }))
+    .filter((item) => item.value);
+
 const downloadTextFile = (filename, content, mimeType) => {
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
@@ -448,8 +469,43 @@ const buildBarOption = (title, data) => ({
   series: [{ type: "bar", data: data.map((item) => item.count), barMaxWidth: 34 }],
 });
 
+const resolveChartInstance = (chartSource) => {
+  const candidate = chartSource?.current ?? chartSource;
+  if (!candidate) return null;
+
+  if (typeof candidate.getDataURL === "function") {
+    return candidate;
+  }
+
+  if (typeof candidate.getEchartsInstance === "function") {
+    try {
+      return candidate.getEchartsInstance();
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
+};
+
+const exportChartInstanceToPng = (chartSource, backgroundColor = CHART_EXPORT_BG) => {
+  const chartInstance = resolveChartInstance(chartSource);
+  if (!chartInstance || typeof chartInstance.getDataURL !== "function") return null;
+
+  try {
+    return chartInstance.getDataURL({
+      type: "png",
+      pixelRatio: 2,
+      backgroundColor,
+    });
+  } catch {
+    return null;
+  }
+};
+
 const AuditReportPage = () => {
   const location = useLocation();
+  const chartRefs = useRef({});
   const reportItem = useMemo(
     () => AUDIT_REPORT_ITEMS.find((item) => item.path === location.pathname),
     [location.pathname]
@@ -463,6 +519,7 @@ const AuditReportPage = () => {
   const [rows, setRows] = useState([]);
   const [actorCatalog, setActorCatalog] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [hasExecuted, setHasExecuted] = useState(false);
   const [page, setPage] = useState(1);
 
@@ -641,6 +698,7 @@ const AuditReportPage = () => {
       });
       setRows((response?.items ?? []).map(normalizeRow));
       setHasExecuted(true);
+      chartRefs.current = {};
       setPage(1);
     } catch (error) {
       reportLog.error(`No se pudo cargar el reporte de auditoría ${reportId}.`, error);
@@ -659,6 +717,7 @@ const AuditReportPage = () => {
     setActorCatalog([]);
     setHasExecuted(false);
     setPage(1);
+    chartRefs.current = {};
   }, [reportId]);
 
   useEffect(() => {
@@ -735,45 +794,108 @@ const AuditReportPage = () => {
   };
 
   const handleExportPdf = async () => {
-    const payload = {
-      template_key: "executive_summary_general",
-      report_key: reportId || "reporte-auditoria",
-      report_type: "Reporte de Auditoría",
-      report_title: reportItem?.name ?? "Reporte de Auditoría",
-      report_description: reportItem?.description ?? copy.tableDescription,
-      report_objective: `Entregar evidencia trazable para ${safeText(reportItem?.name, "auditoría").toLowerCase()} según los filtros aplicados.`,
-      source_module: "Módulo de Reportes",
-      orientation: "landscape",
-      paper_size: "A4",
-      applied_filters: Object.entries(appliedFilters)
-        .filter(([, value]) => String(value ?? "").trim())
-        .map(([key, value]) => ({ label: key, value })),
-      summary_metrics: summaryCards.map((card) => ({
-        label: card.label,
-        value: String(card.value),
-        helper: card.helper,
-      })),
-      chart_data: {
-        status_distribution: statusDistribution.map((item) => ({ label: item.label, count: item.count })),
-        client_activity: actionDistribution.map((item) => ({ label: item.label, count: item.count })),
-      },
-      table_title: "Detalle de evidencia exportada",
-      table_description: copy.tableDescription ?? "Detalle tabular del reporte de auditoría.",
-      table_range_label: `${formatNumber(sortedItems.length)} fila(s) exportada(s)`,
-      table_columns: columns.map((column) => ({ key: column.key, label: column.label })),
-      table_rows: sortedItems.map((row) =>
-        columns.reduce((accumulator, column) => {
-          accumulator[column.key] = column.exportValue ? column.exportValue(row) : row[column.key] ?? "-";
-          return accumulator;
-        }, {})
-      ),
-    };
-    const pdfBlob = await previewReportPdfBlob(payload);
-    openPdfViewer({
-      title: `PDF - ${reportItem?.name ?? "Reporte de Auditoría"}`,
-      filename: `${reportId || "reporte-auditoria"}.pdf`,
-      blob: pdfBlob,
-    });
+    if (!reportId || !sortedItems.length || isGeneratingPdf) return;
+
+    let loadingModalId = null;
+
+    try {
+      setIsGeneratingPdf(true);
+      loadingModalId = ModalManager.loading({
+        title: "Generando reporte PDF",
+        message: "Estamos preparando la carátula, los gráficos y la vista previa del documento.",
+        showProgress: true,
+        indeterminate: true,
+        showCancel: false,
+      });
+
+      const chartSources = [
+        {
+          key: "status_distribution",
+          title: "Distribución por estado",
+          subtitle: "Proporción de evidencias auditadas según estado operacional.",
+        },
+        {
+          key: "action_distribution",
+          title: "Actividad por acción",
+          subtitle: "Acciones con mayor volumen dentro del universo filtrado.",
+        },
+      ];
+      const chartImages = chartSources
+        .map((chart) => {
+          const imageDataUrl = exportChartInstanceToPng(chartRefs.current[chart.key]);
+          return imageDataUrl
+            ? {
+                title: chart.title,
+                subtitle: chart.subtitle,
+                image_data_url: imageDataUrl,
+              }
+            : null;
+        })
+        .filter(Boolean);
+
+      if (chartImages.length !== chartSources.length) {
+        reportLog.warn("No fue posible capturar uno o más gráficos ECharts para el PDF de auditoría.", {
+          reportId,
+          requestedCharts: chartSources.length,
+          exportedCharts: chartImages.length,
+        });
+      }
+
+      const payload = {
+        template_key: "executive_summary_general",
+        report_key: reportId || "reporte-auditoria",
+        report_type: "Reporte de Auditoría",
+        report_title: reportItem?.name ?? "Reporte de Auditoría",
+        report_description: reportItem?.description ?? copy.tableDescription,
+        report_objective: `Entregar evidencia trazable para ${safeText(reportItem?.name, "auditoría").toLowerCase()} según los filtros aplicados.`,
+        source_module: "Módulo de Reportes",
+        orientation: "landscape",
+        paper_size: "A4",
+        applied_filters: buildAppliedFiltersForExport(appliedFilters),
+        summary_metrics: summaryCards.map((card) => ({
+          label: card.label,
+          value: String(card.value),
+          helper: card.helper,
+        })),
+        chart_data: {
+          status_distribution: statusDistribution.map((item) => ({ label: item.label, count: item.count })),
+          client_activity: actionDistribution.map((item) => ({ label: item.label, count: item.count })),
+        },
+        chart_images: chartImages,
+        table_title: "Detalle de evidencia exportada",
+        table_description: copy.tableDescription ?? "Detalle tabular del reporte de auditoría.",
+        table_range_label: `${formatNumber(sortedItems.length)} fila(s) exportada(s)`,
+        table_columns: columns.map((column) => ({ key: column.key, label: column.label })),
+        table_rows: sortedItems.map((row) =>
+          columns.reduce((accumulator, column) => {
+            accumulator[column.key] = column.exportValue ? column.exportValue(row) : row[column.key] ?? "-";
+            return accumulator;
+          }, {})
+        ),
+      };
+
+      const pdfBlob = await previewReportPdfBlob(payload);
+
+      ModalManager.close?.(loadingModalId);
+      loadingModalId = null;
+
+      openPdfViewer({
+        title: `PDF - ${reportItem?.name ?? "Reporte de Auditoría"}`,
+        filename: `${reportId || "reporte-auditoria"}.pdf`,
+        blob: pdfBlob,
+      });
+    } catch (error) {
+      reportLog.error(`No se pudo generar el PDF del reporte de auditoría ${reportId}.`, error);
+      if (loadingModalId) {
+        ModalManager.close?.(loadingModalId);
+      }
+      ModalManager.error?.({
+        title: "Error al generar PDF",
+        message: "No fue posible generar la vista previa del reporte. Intenta nuevamente en unos segundos.",
+      });
+    } finally {
+      setIsGeneratingPdf(false);
+    }
   };
 
   if (!reportType) {
@@ -804,15 +926,28 @@ const AuditReportPage = () => {
       resultsTitle="Resultados del reporte"
       onExportPdf={handleExportPdf}
       onExportSpreadsheet={handleExportSpreadsheet}
-      isExportDisabled={isLoading || sortedItems.length === 0}
+      showExportActions={hasExecuted}
+      isExportDisabled={isLoading || isGeneratingPdf || sortedItems.length === 0}
       summaryCards={summaryCards}
       afterSummaryContent={hasExecuted ? (
         <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800/70">
-            <AsyncEChart option={buildDonutOption("Distribución por estado", statusDistribution)} style={{ height: 320, width: "100%" }} />
+            <AsyncEChart
+              ref={(instance) => {
+                chartRefs.current.status_distribution = instance;
+              }}
+              option={buildDonutOption("Distribución por estado", statusDistribution)}
+              style={{ height: 320, width: "100%" }}
+            />
           </div>
           <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800/70">
-            <AsyncEChart option={buildBarOption("Actividad por acción", actionDistribution)} style={{ height: 320, width: "100%" }} />
+            <AsyncEChart
+              ref={(instance) => {
+                chartRefs.current.action_distribution = instance;
+              }}
+              option={buildBarOption("Actividad por acción", actionDistribution)}
+              style={{ height: 320, width: "100%" }}
+            />
           </div>
         </section>
       ) : null}
