@@ -26,6 +26,7 @@ const NAV_HISTORY_MAX = 10;
 
 // ─── Rutas standalone ─────────────────────────────────────────────────────────
 const STANDALONE_ROUTES = [
+  { path: '/history',              name: 'Historial',       icon: 'history'          },
   { path: '/globalSearch',         name: 'Búsqueda Global', icon: 'FaMagnifyingGlass' },
   { path: '/notifications',        name: 'Notificaciones',  icon: 'FaBell'            },
   { path: '/settings/userProfile', name: 'Mi Perfil',       icon: 'FaPerson'          },
@@ -90,8 +91,9 @@ const INICIO = { name: 'Inicio', path: '/dashboard' };
 
 // ─── Hook principal ───────────────────────────────────────────────────────────
 const useBreadcrumb = () => {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const addToNavigationHistory = useBaseSiteStore((s) => s.addToNavigationHistory);
+  const fullPath = `${pathname}${search || ''}`;
 
   let resolved = null;
 
@@ -117,7 +119,7 @@ const useBreadcrumb = () => {
         const parentModule = findModuleFlat(SIDEBAR_MODULES, dynamic.parentPath);
         if (parentModule) segments.push(parentModule);
       }
-      segments.push({ name: dynamic.name, path: pathname });
+      segments.push({ name: dynamic.name, path: fullPath });
       resolved = {
         name: dynamic.name,
         icon: dynamic.icon ?? null,
@@ -169,16 +171,16 @@ const useBreadcrumb = () => {
     resolved = { name: 'Inicio', icon: null, items: buildItems([INICIO]), meta: null };
   }
 
-  // Registrar en historial al cambiar pathname
+  // Registrar en historial al cambiar ruta completa.
   useEffect(() => {
     addToNavigationHistory({
       name: resolved.name,
-      path: pathname,
+      path: fullPath,
       icon: resolved.icon,
       meta: resolved.meta,  // { id } para rutas dinámicas — label se actualiza con useNavEntryUpdate
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname]);
+  }, [fullPath]);
 
   return {
     title: resolved.name,
@@ -202,14 +204,15 @@ const useBreadcrumb = () => {
  * El pathname actual se usa como key para encontrar la entry en el historial.
  */
 export const useNavEntryUpdate = ({ label, meta = {} }) => {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const updateNavigationEntry = useBaseSiteStore((s) => s.updateNavigationEntry);
+  const fullPath = `${pathname}${search || ''}`;
 
   useEffect(() => {
     if (!label) return; // esperar a que el dato esté disponible
-    updateNavigationEntry(pathname, { name: label, meta });
+    updateNavigationEntry(fullPath, { name: label, meta });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [label, pathname]);
+  }, [label, fullPath]);
 };
 
 export default useBreadcrumb;
