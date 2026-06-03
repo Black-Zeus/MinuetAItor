@@ -671,13 +671,13 @@ export const OrganizationPanel = () => {
 
             <MaintenanceField
               label="URL pública de la plataforma"
-              hint="Se usa en enlaces de correos, minutas y accesos externos. Usa la URL final publicada, por ejemplo https://minutas.tudominio.cl."
+              hint="Se usa en enlaces de correos, minutas y accesos externos. Usa la URL final publicada, por ejemplo https://minutas.vsoto.cl."
             >
               <MaintenanceInput
                 value={draft.publicBaseUrl}
                 onChange={(event) => updateDraft("publicBaseUrl", event.target.value)}
                 invalid={Boolean(publicBaseUrlError)}
-                placeholder="https://minutas.tudominio.cl"
+                placeholder="https://minutas.vsoto.cl"
               />
               {publicBaseUrlError ? (
                 <p className="mt-2 text-xs text-red-600 dark:text-red-400">{publicBaseUrlError}</p>

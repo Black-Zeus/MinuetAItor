@@ -26,8 +26,8 @@ const SidebarBrand = ({
         tagline={tagline}
         version="1.0.0"
         imageSrc={logoSrc}
-        developerName="Zeus"
-        developerEmail="zeus@tudominio.cl"
+        developerName="Victor Soto"
+        developerEmail="victor@vsoto.cl"
         size="modalLarge"
       />
 

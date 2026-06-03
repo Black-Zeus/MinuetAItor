@@ -25,8 +25,8 @@ const AboutModal = ({
   version = "0.0.0",
   imageSrc,
   imageAlt = "Logo",
-  developerName = "Zeus",
-  developerEmail = "zeus@tudominio.cl",
+  developerName = "Victor Soto",
+  developerEmail = "victor@vsoto.cl",
 
   // ModalManager props
   size = "modalLarge", // si creaste "modalLarge"; si no, usa "large"

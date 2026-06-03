@@ -39,7 +39,7 @@ Rol actual: ${authz?.roles?.join(", ") || "Sin roles"}
 Fecha: ${formatDateTime(new Date())}
 Justificación: [Escriba aquí por qué necesita acceso]
     `);
-    window.open(`mailto:admin@tudominio.com?subject=${subject}&body=${body}`);
+    window.open(`mailto:victor@vsoto.cl?subject=${subject}&body=${body}`);
   };
 
   return (

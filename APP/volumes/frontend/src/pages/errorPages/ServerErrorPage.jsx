@@ -37,7 +37,7 @@ Fecha: ${formatDateTime(new Date())}
 Navegador: ${navigator.userAgent}
 Intentos de reintento: ${retryCount}
     `);
-        window.open(`mailto:soporte@tudominio.com?subject=${subject}&body=${body}`);
+        window.open(`mailto:victor@vsoto.cl?subject=${subject}&body=${body}`);
     };
 
     return (

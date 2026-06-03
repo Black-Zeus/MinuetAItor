@@ -781,8 +781,8 @@ const MinuteViewPage = () => {
               version="1.0.0"
               logoSrc="/images/chinchinAItor.jpg"
               imageSrc="/images/chinchinAItor.jpg"
-              developerName="Zeus"
-              developerEmail="zeus@tudominio.cl"
+              developerName="Victor Soto"
+              developerEmail="victor@vsoto.cl"
               size="modalLarge"
             >
               <button

@@ -47,7 +47,7 @@ Fecha: ${formatDateTime(new Date())}
 Navegador: ${navigator.userAgent}
 Descripción del problema: [Escriba aquí cómo llegó a este enlace]
     `);
-    window.open(`mailto:soporte@tudominio.com?subject=${subject}&body=${body}`);
+    window.open(`mailto:victor@vsoto.cl?subject=${subject}&body=${body}`);
   };
 
   return (
