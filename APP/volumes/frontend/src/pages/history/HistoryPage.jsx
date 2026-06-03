@@ -5,16 +5,16 @@ import Icon from "@/components/ui/icon/iconManager";
 import clientService from "@/services/clientService";
 import projectService from "@/services/projectService";
 import participantsService from "@/services/participantsService";
-import EntityMinutesHistoryPanel from "@/pages/common/EntityMinutesHistoryModal";
+import EntityMinutesHistoryPanel from "@/pages/common/EntityMinutesHistoryPanel";
 
 const HISTORY_TYPES = new Set(["client", "project", "participant"]);
 
 const HistoryPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const requestedType = searchParams.get("type") || "client";
-  const type = HISTORY_TYPES.has(requestedType) ? requestedType : "client";
   const id = searchParams.get("id") || "";
+  const requestedType = searchParams.get("type") || (id ? "client" : "all");
+  const type = id && HISTORY_TYPES.has(requestedType) ? requestedType : id ? "client" : "all";
   const [entity, setEntity] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -23,6 +23,7 @@ const HistoryPage = () => {
     client: "/clients",
     project: "/projects",
     participant: "/participants",
+    all: "/dashboard",
   }[type] ?? "/clients"), [type]);
 
   useEffect(() => {
@@ -30,8 +31,14 @@ const HistoryPage = () => {
 
     const load = async () => {
       if (!id) {
-        setError("No se indico la entidad para consultar el historial.");
-        setEntity(null);
+        setError("");
+        setEntity({
+          id: "all",
+          name: "Historial",
+          subtitle: "Todas las minutas registradas",
+          description: "Consulta transversal por cliente, proyecto, estado y fecha",
+          badge: "General",
+        });
         setLoading(false);
         return;
       }
