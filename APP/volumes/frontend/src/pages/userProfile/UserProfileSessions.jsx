@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import CatalogBasePagination from "@/components/common/CatalogBasePagination";
 import Icon from "@/components/ui/icon/iconManager";
 import ActionButton from "@/components/ui/button/ActionButton";
 import { ModalManager } from "@/components/ui/modal";
@@ -11,6 +12,7 @@ import { formatDateTimeTechnical } from "@/utils/formats";
 const TXT_TITLE = "text-gray-900 dark:text-white";
 const TXT_BODY  = "text-gray-600 dark:text-gray-300";
 const TXT_META  = "text-gray-500 dark:text-gray-400";
+const GLOBAL_SESSIONS_PER_PAGE = 20;
 
 const CLOSURE_FILTER_OPTIONS = [
   { id: "normal", label: "Normal" },
@@ -201,6 +203,7 @@ const UserProfileSessions = () => {
   const [closureFilters, setClosureFilters] = useState(() =>
     CLOSURE_FILTER_OPTIONS.reduce((acc, option) => ({ ...acc, [option.id]: true }), {})
   );
+  const [globalSessionsPage, setGlobalSessionsPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [isRevoking, setIsRevoking] = useState(false);
   const [revokingSessionId, setRevokingSessionId] = useState(null);
@@ -225,6 +228,7 @@ const UserProfileSessions = () => {
 
       setSessions(mergeCurrentSession(mappedSessions, fallbackCurrentSession));
       setClosedSessions(mappedClosedSessions);
+      setGlobalSessionsPage(1);
     } catch (error) {
       const fallbackCurrentSession = getFallbackCurrentSession();
       setSessions(mergeCurrentSession([], fallbackCurrentSession));
@@ -248,12 +252,33 @@ const UserProfileSessions = () => {
     () => closedSessions.filter((session) => closureFilters[session.closureType ?? "unknown"]),
     [closedSessions, closureFilters]
   );
+  const globalSessionsTotalPages = Math.max(1, Math.ceil(filteredClosedSessions.length / GLOBAL_SESSIONS_PER_PAGE));
+  const paginatedClosedSessions = useMemo(
+    () => filteredClosedSessions.slice(
+      (globalSessionsPage - 1) * GLOBAL_SESSIONS_PER_PAGE,
+      globalSessionsPage * GLOBAL_SESSIONS_PER_PAGE
+    ),
+    [filteredClosedSessions, globalSessionsPage]
+  );
+
+  useEffect(() => {
+    if (globalSessionsPage > globalSessionsTotalPages) {
+      setGlobalSessionsPage(globalSessionsTotalPages);
+    }
+  }, [globalSessionsPage, globalSessionsTotalPages]);
 
   const handleClosureFilterChange = (filterId) => {
+    setGlobalSessionsPage(1);
     setClosureFilters((current) => ({
       ...current,
       [filterId]: !current[filterId],
     }));
+  };
+
+  const handleGlobalSessionsPageChange = (nextPage) => {
+    if (nextPage >= 1 && nextPage <= globalSessionsTotalPages) {
+      setGlobalSessionsPage(nextPage);
+    }
   };
 
   const handleRevokeOne = async (session) => {
@@ -402,8 +427,8 @@ const UserProfileSessions = () => {
           </div>
         ) : (
           <div className="space-y-3">
-            {filteredClosedSessions.length ? (
-              filteredClosedSessions.map((session) => (
+            {paginatedClosedSessions.length ? (
+              paginatedClosedSessions.map((session) => (
                 <SessionCard
                   key={session.id}
                   session={session}
@@ -417,6 +442,15 @@ const UserProfileSessions = () => {
                 </p>
               </div>
             )}
+            <CatalogBasePagination
+              page={globalSessionsPage}
+              totalPages={globalSessionsTotalPages}
+              onPageChange={handleGlobalSessionsPageChange}
+              total={filteredClosedSessions.length}
+              itemsPerPage={GLOBAL_SESSIONS_PER_PAGE}
+              singularLabel="sesión"
+              pluralLabel="sesiones"
+            />
           </div>
         )}
       </section>
